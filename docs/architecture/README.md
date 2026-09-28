@@ -2,11 +2,12 @@
 
 ## Resumen técnico
 
-| Aplicación | Tecnología | Arquitectura |
-| :--- | :--- | :--- |
-| **API** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture |
-| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture |
-| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture |
+| Aplicación | Tecnología | Arquitectura | Hosting / Despliegue |
+| :--- | :--- | :--- | :--- |
+| **API** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture | Render (Web Service) |
+| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture | Vercel (SPA) |
+| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture | APK / App Bundle |
+| **Base de Datos** | PostgreSQL (Supabase) | Relacional / RLS | Supabase Cloud |
 
 ---
 
@@ -112,3 +113,10 @@ mobile/
     ├── routes/
     └── main.dart
 ```
+
+---
+
+## 4. Infraestructura y Despliegue
+
+La especificación completa de plataformas, configuración por entorno y variables requeridas para producción se encuentra documentada en:
+👉 **[Estrategia de Infraestructura y Despliegue](despliegue.md)**.

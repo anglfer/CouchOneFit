@@ -150,13 +150,16 @@ El sistema **no realiza eliminación física** de cuentas ni de información his
 
 El proyecto se gestiona como un **monorepo**:
 
-| Aplicación | Tecnología confirmada | Arquitectura |
-| :--- | :--- | :--- |
-| **API / Backend** | Node.js + Express + TypeScript/JavaScript | Feature-Based + Layered Architecture |
-| **Web / PWA** | React + Vite + TypeScript/JavaScript | Feature-Based + Component-Based Architecture |
-| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture |
+| Aplicación | Tecnología confirmada | Arquitectura | Hosting / Infraestructura |
+| :--- | :--- | :--- | :--- |
+| **API / Backend** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture | Render (Web Service) |
+| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture | Vercel (SPA) |
+| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture | APK / App Bundle |
+| **Base de Datos** | PostgreSQL (Supabase) | Relacional / RLS | Supabase Cloud |
 
-Documentación completa de la estructura de capas y carpetas en: [docs/architecture/README.md](docs/architecture/README.md).
+Documentación completa de arquitectura y despliegue en:
+- [Arquitectura de capas y módulos](docs/architecture/README.md)
+- [Estrategia de infraestructura y despliegue](docs/architecture/despliegue.md)
 
 ### Estructura base de carpetas por aplicación
 
