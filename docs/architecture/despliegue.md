@@ -48,9 +48,10 @@ Para prevenir errores 404 al refrescar rutas del cliente (`/login`, `/clientes`,
 
 La API corre como un proceso persistente de Node.js que expone endpoints REST a la aplicación web y a la app móvil.
 
-### Parámetros de configuración (Panel de Render)
-- **Environment:** `Node`
+- **URL activa del servicio:** `https://couchonefit-api.onrender.com`
+- **Health check:** `https://couchonefit-api.onrender.com/api/health`
 - **Root Directory:** `apps/api`
+- **Environment:** `Node`
 - **Build Command:** `npm install && npm run build`
 - **Start Command:** `npm start`
 - **Instance Type:** `Free`
