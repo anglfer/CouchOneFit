@@ -1,9 +1,9 @@
 # CouchOne Fit
 
-> **Nombre oficial:** CouchOne Fit  
-> **Periodo:** Septiembre – Diciembre 2026  
-> **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)  
-> **Estado:** Fase de definición y planeación  
+> **Nombre oficial:** CouchOne Fit
+> **Periodo:** Septiembre – Diciembre 2026
+> **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)
+> **Estado:** Fase de definición y planeación
 
 ---
 
@@ -152,8 +152,8 @@ El proyecto se gestiona como un **monorepo**:
 
 | Aplicación | Tecnología confirmada | Arquitectura |
 | :--- | :--- | :--- |
-| **API / Backend** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture |
-| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture |
+| **API / Backend** | Node.js + Express + TypeScript/JavaScript | Feature-Based + Layered Architecture |
+| **Web / PWA** | React + Vite + TypeScript/JavaScript | Feature-Based + Component-Based Architecture |
 | **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture |
 
 Documentación completa de la estructura de capas y carpetas en: [docs/architecture/README.md](docs/architecture/README.md).
@@ -273,8 +273,8 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 
 # Idea central
 
-> **El profesional administra y configura desde la Web/PWA.**  
-> **El cliente ejecuta, consulta y registra desde la aplicación móvil.**  
-> **La API central mantiene sincronizadas ambas aplicaciones, controla permisos, relaciones, autenticación y reglas de negocio.**  
-> 
+> **El profesional administra y configura desde la Web/PWA.**
+> **El cliente ejecuta, consulta y registra desde la aplicación móvil.**
+> **La API central mantiene sincronizadas ambas aplicaciones, controla permisos, relaciones, autenticación y reglas de negocio.**
+>
 > El profesional es propietario de su cartera de clientes y cada cliente debe estar vinculado obligatoriamente a un profesional. El objetivo principal de **CouchOne Fit** es centralizar en un solo sistema la administración de clientes, entrenamiento, nutrición y seguimiento del progreso físico.
