@@ -5,6 +5,10 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: 5000,
+    host: '127.0.0.1',
+  },
   plugins: [
     react(),
     VitePWA({
