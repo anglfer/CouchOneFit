@@ -13,6 +13,8 @@
 - **Ángel Fernando Oñate Reyes**
 - **Itzel Yutzil Sánchez López**
 
+> 📌 **Flujo de trabajo y ramas en Git:** Consulta la [Guía de Trabajo con Git](CONTRIBUTING.md) antes de comenzar a programar para conocer las reglas de ramas, commits y manejo de archivos compartidos.
+
 ---
 
 # Contexto general
