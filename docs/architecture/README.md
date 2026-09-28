@@ -1,0 +1,114 @@
+# Arquitectura de las Aplicaciones
+
+## Resumen técnico
+
+| Aplicación | Tecnología | Arquitectura |
+| :--- | :--- | :--- |
+| **API** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture |
+| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture |
+| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture |
+
+---
+
+## 1. API (Backend)
+
+**Tecnología:** Node.js + Express + TypeScript  
+**Patrón:** Feature-Based + Layered Architecture
+
+Organización modular por funcionalidad (*Feature-Based*), donde cada funcionalidad implementa internamente una separación por capas (*Layered*):
+
+```text
+Feature-Based
+      ↓
+  [feature]
+      ↓
+  Controller
+      ↓
+   Service
+      ↓
+  Repository
+```
+
+### Estructura base
+
+```text
+api/
+└── src/
+    ├── features/
+    │   └── [feature]/
+    │       ├── controllers/
+    │       ├── services/
+    │       ├── repositories/
+    │       ├── routes/
+    │       ├── validators/
+    │       └── types/
+    │
+    ├── shared/
+    │   ├── middleware/
+    │   ├── utils/
+    │   └── errors/
+    │
+    ├── config/
+    └── app.ts
+```
+
+---
+
+## 2. Web / PWA (Frontend)
+
+**Tecnología:** React + Vite + TypeScript  
+**Patrón:** Feature-Based + Component-Based Architecture
+
+Organización principal por funcionalidad (*Feature-Based*), donde cada funcionalidad encapsula sus componentes, vistas, hooks y servicios locales (*Component-Based*), apoyada por recursos transversales globales.
+
+### Estructura base
+
+```text
+web/
+└── src/
+    ├── features/
+    │   └── [feature]/
+    │       ├── components/
+    │       ├── pages/
+    │       ├── hooks/
+    │       ├── services/
+    │       └── types/
+    │
+    ├── components/
+    ├── layouts/
+    ├── services/
+    ├── hooks/
+    ├── utils/
+    ├── routes/
+    └── app/
+```
+
+---
+
+## 3. Móvil
+
+**Tecnología:** Flutter + Dart  
+**Patrón:** Feature-Based + Component-Based Architecture
+
+Organización por funcionalidad (*Feature-Based*) compuesta por pantallas y widgets modulares (*Component-Based*), separando la interfaz de usuario de sus servicios y modelos de datos.
+
+### Estructura base
+
+```text
+mobile/
+└── lib/
+    ├── features/
+    │   └── [feature]/
+    │       ├── screens/
+    │       ├── widgets/
+    │       ├── services/
+    │       └── models/
+    │
+    ├── shared/
+    │   ├── widgets/
+    │   ├── services/
+    │   └── utils/
+    │
+    ├── routes/
+    └── main.dart
+```

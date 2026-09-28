@@ -1,540 +1,280 @@
 # CouchOne Fit
 
-> **Nombre del proyecto:** CouchOne Fit
-> **Periodo:** Septiembre – Diciembre 2026
-> **Estado:** Planeación y definición inicial
-
-## Descripción
-
-Este repositorio contiene el desarrollo del **Proyecto Integrador** correspondiente al cuatrimestre Septiembre–Diciembre 2026.
-
-El proyecto estará enfocado principalmente en integrar las materias:
-
-* **Web Integral**
-* **Móvil Integral**
-
-Existe la posibilidad de integrar una tercera materia dependiendo de los requerimientos académicos del cuatrimestre.
-
-La idea general del proyecto consiste en desarrollar una plataforma relacionada con la gestión y seguimiento de entrenamiento físico, utilizando una aplicación web y una aplicación móvil Android conectadas a un mismo sistema.
-
-El alcance funcional definitivo todavía se encuentra en proceso de definición por parte del equipo.
+> **Nombre oficial:** CouchOne Fit  
+> **Periodo:** Septiembre – Diciembre 2026  
+> **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)  
+> **Estado:** Fase de definición y planeación  
 
 ---
 
-# Equipo
+## Equipo
 
-El equipo está conformado por:
-
-* **Maythe Francella Balleza Solis**
-* **Ángel Fernando Oñate Reyes**
-* **Itzel Yutzil Sánchez López**
+- **Maythe Francella Balleza Solis**
+- **Ángel Fernando Oñate Reyes**
+- **Itzel Yutzil Sánchez López**
 
 ---
 
-# Objetivo general
+# Contexto general
 
-Desarrollar una plataforma que permita integrar una aplicación web y una aplicación móvil Android dentro de un mismo sistema.
+**CouchOne Fit** es una plataforma SaaS orientada a entrenadores, coaches y nutriólogos deportivos para administrar a sus clientes y dar seguimiento a su entrenamiento, nutrición y progreso físico.
 
-Actualmente se contempla que ambas aplicaciones trabajen con información relacionada con entrenamiento, seguimiento y gestión de usuarios, aunque las funciones específicas deberán ser definidas y aprobadas posteriormente por el equipo.
+El sistema está compuesto por tres partes principales:
+
+- **Aplicación Web / PWA:** dirigida a los profesionales y al portal comercial del SaaS.
+- **Aplicación móvil:** enfocada en los clientes (atletas) para su uso diario.
+- **Backend / API central:** conecta ambas aplicaciones, administra la lógica de negocio, autenticación, seguridad y persistencia de datos.
+
+## Modelo general del sistema
+
+1. El profesional adquiere acceso a CouchOne Fit mediante un plan de suscripción que le permite administrar una cantidad determinada de clientes activos.
+2. Desde la aplicación web, el profesional registra a sus clientes, prepara sus expedientes individuales, asigna planes de entrenamiento y nutrición, y da seguimiento a su evolución.
+3. El cliente utiliza principalmente la aplicación móvil para consultar las prescripciones de su profesional y registrar sus entrenamientos, peso, adherencia y check-ins diarios.
+
+> **Idea clave:** La aplicación no pretende sustituir al entrenador o nutriólogo, sino servir como la herramienta central que profesionaliza y agiliza la relación y el seguimiento entre el profesional y sus clientes.
+
+---
+
+# Aplicaciones del sistema
+
+```text
+CouchOne Fit
+│
+├── Web / PWA ──────────── [Profesionales y Portal Comercial]
+│        │
+│        ▼
+├── Backend / API ──────── [Lógica central, seguridad y base de datos]
+│        ▲
+│        │
+└── Móvil ──────────────── [Clientes / Atletas]
+```
+
+## 1. Aplicación Web / PWA
+
+Desarrollada principalmente para el **profesional**, dividida en dos secciones:
+
+### Parte pública (Portal comercial)
+- Qué es CouchOne Fit y sus beneficios principales.
+- Planes disponibles y límites de clientes por plan.
+- Registro e inicio de sesión del profesional.
+
+### Panel del profesional
+- **Gestión de clientes:** registrar clientes, consultar activos/inactivos, editar datos y desactivación (baja lógica).
+- **Expediente del cliente:** registrar datos iniciales, medidas corporales, pliegues antropométricos y objetivos.
+- **Planificación:** crear y activar planes de entrenamiento (ejercicios, series, repeticiones, descansos) y planes de alimentación (comidas, porciones, calorías, macronutrientes).
+- **Seguimiento histórico:** consultar check-ins periódicos, evolución del peso, fotos de progreso y adherencia.
+- **Vinculación:** generación de códigos temporales de acceso para nuevos clientes.
+
+## 2. Aplicación móvil
+
+Diseñada para el **cliente del entrenador o nutriólogo** como herramienta diaria:
+
+- **Consulta:** perfil personal, plan de entrenamiento activo (ejercicios, series, pesos objetivo, instrucciones) y plan de alimentación vigente.
+- **Registro diario:** entrenamientos realizados, peso utilizado, repeticiones logradas, cumplimiento nutricional, peso corporal y fotografías de progreso.
+- **Check-ins:** registro periódico de indicadores de sueño, estrés, energía y comentarios para su profesional.
+- **Historial:** consulta de progreso longitudinal autorizado por el profesional.
+
+El cliente no tiene que volver a capturar su nombre, peso inicial ni parámetros base; al registrarse accede directamente al expediente que su profesional ya preparó.
+
+---
+
+# Vinculación entre profesional y cliente
+
+Para garantizar que toda cuenta de cliente pertenezca a la cartera de un profesional, el acceso se realiza mediante un **código o token de vinculación individual de un solo uso**:
+
+```text
+[ Profesional ] ──( Registra expediente inicial )──> Genera Código Único
+                                                            │
+                                                            ▼ Entrega código
+[ Cliente ]     ──( Formulario de registro móvil )──<───────┘
+  • Usuario
+  • Contraseña y confirmación
+  • Correo y confirmación
+  • Código obligatorio
+        │
+        ▼ Valida en Backend
+  1. Valida validez y unicidad del código.
+  2. Crea la cuenta del cliente con sus credenciales.
+  3. Establece la relación permanente Cliente ↔ Profesional.
+  4. Vincula la cuenta directamente con el expediente preexistente.
+  5. Invalida y elimina el código temporal (un solo uso).
+```
+
+- Sin un código válido no se permite crear la cuenta de cliente.
+- El código temporal se destruye tras el canje exitoso; los accesos posteriores utilizan exclusivamente las credenciales del cliente.
+
+---
+
+# Flujo general del sistema
+
+### Flujo del Profesional (Web / PWA)
+1. El profesional crea su cuenta o inicia sesión.
+2. Selecciona o administra su plan de suscripción.
+3. Entra al panel de administración y registra un nuevo cliente.
+4. Crea su expediente con datos físicos y parámetros iniciales.
+5. Diseña y asigna el plan de entrenamiento y/o nutrición.
+6. Genera un código individual de vinculación y se lo entrega al cliente.
+
+### Flujo del Cliente (Aplicación móvil)
+1. Descarga la aplicación e inicia el registro.
+2. Ingresa usuario, contraseña, correo (con sus confirmaciones) y el código entregado.
+3. El backend valida el código y crea la cuenta autenticada.
+4. Se enlaza automáticamente al expediente preparado por su profesional.
+5. El código se consume e invalida.
+6. El cliente accede directamente a su información, rutinas y comidas asignadas.
+7. Comienza a registrar su progreso y check-ins diarios, visibles para su profesional en tiempo real.
+
+---
+
+# Roles del sistema
+
+| Rol | Plataforma principal | Responsabilidades |
+| :--- | :--- | :--- |
+| **Profesional** | Web / PWA | Gestiona su cartera de clientes, crea expedientes, prescribe entrenamientos y dietas, revisa check-ins y analiza la evolución histórica. |
+| **Cliente** | Móvil | Consulta sus planes asignados, ejecuta sus rutinas y registra métricas diarias de seguimiento y progreso. Acceso restringido exclusivamente a su propia información. |
+| **Administrador** | Web | Gestiona la plataforma global, cuentas de profesionales, catálogo de planes y estados de suscripciones SaaS (separado de la operación técnica de los clientes). |
+
+---
+
+# Política de eliminación de cuentas (Baja lógica)
+
+El sistema **no realiza eliminación física** de cuentas ni de información histórica en la base de datos:
+
+- La baja cambia el estado de la cuenta a inactiva.
+- Se inhabilita el inicio de sesión del usuario dado de baja.
+- Se conservan íntegras las relaciones, expedientes, evaluaciones y registros históricos para garantizar consistencia y trazabilidad longitudinal.
+
+---
+
+# Tecnologías y arquitectura
+
+El proyecto se gestiona como un **monorepo**:
+
+| Aplicación | Tecnología confirmada | Arquitectura |
+| :--- | :--- | :--- |
+| **API / Backend** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture |
+| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture |
+| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture |
+
+Documentación completa de la estructura de capas y carpetas en: [docs/architecture/README.md](docs/architecture/README.md).
+
+### Estructura base de carpetas por aplicación
+
+#### Backend (`api/src/`)
+```text
+api/
+└── src/
+    ├── features/
+    │   └── [feature]/          # controllers, services, repositories, routes, validators, types
+    ├── shared/                 # middleware, utils, errors
+    ├── config/
+    └── app.ts
+```
+
+#### Frontend (`web/src/`)
+```text
+web/
+└── src/
+    ├── features/
+    │   └── [feature]/          # components, pages, hooks, services, types
+    ├── components/             # UI compartida global
+    ├── layouts/
+    ├── routes/
+    └── app/
+```
+
+#### Móvil (`mobile/lib/`)
+```text
+mobile/
+└── lib/
+    ├── features/
+    │   └── [feature]/          # screens, widgets, services, models
+    ├── shared/                 # widgets y utils compartidos
+    ├── routes/
+    └── main.dart
+```
 
 ---
 
 # Estructura del repositorio
 
-La decisión técnica confirmada es utilizar un **monorepo**, permitiendo mantener dentro del mismo repositorio los diferentes componentes del proyecto.
-
-La estructura inicial será:
-
 ```text
 /
 ├── apps/
-│   ├── web/
-│   ├── android/
-│   └── api/
+│   ├── web/                    # Frontend React + Vite + TS (PWA)
+│   ├── mobile/                 # App móvil Flutter + Dart
+│   └── api/                    # Backend Node.js + Express + TS
 │
 ├── docs/
-│   ├── requirements/
-│   ├── architecture/
-│   ├── database/
-│   └── api/
-│
-├── .github/
+│   ├── requirements/           # Requerimientos y acuerdos
+│   ├── architecture/           # Documentación arquitectónica
+│   ├── database/               # Modelo y esquemas de base de datos
+│   └── api/                    # Contratos y documentación de endpoints
 │
 ├── .gitignore
 └── README.md
 ```
 
-Cada apartado tendrá una responsabilidad independiente dentro del sistema.
-
 ---
 
-## `apps/web`
-
-Contendrá la aplicación correspondiente a **Web Integral**.
-
-Actualmente se contempla desarrollar una aplicación web que pueda funcionar como PWA.
-
-La arquitectura definida para esta aplicación será:
-
-**Feature-Based + Component-Based Architecture**
-
-Esto permitirá organizar la aplicación principalmente por funcionalidades, manteniendo dentro de cada una los componentes necesarios para su funcionamiento.
-
-La tecnología específica todavía deberá ser definida por el equipo.
-
-Opciones que podrán evaluarse posteriormente incluyen:
-
-* React
-* TypeScript
-* Otras tecnologías compatibles con los requerimientos de la materia
-
-El manejo de estado, librerías y organización técnica específica todavía se encuentran pendientes de definición.
-
----
-
-## `apps/android`
-
-Contendrá la aplicación correspondiente a **Móvil Integral**.
-
-La aplicación deberá ejecutarse en Android.
-
-La arquitectura definida para esta aplicación será:
-
-**Feature-Based + Component-Based Architecture**
-
-Esto permitirá organizar la aplicación por funcionalidades y dividir cada una de ellas en componentes reutilizables y responsables de tareas específicas.
-
-Todavía deberá definirse por el equipo:
-
-* Lenguaje principal
-* Librerías
-* Manejo de datos
-* Comunicación con el backend
-* Navegación
-* Persistencia local
-* Requerimientos específicos de la materia
-
-Actualmente se contempla evaluar Kotlin como tecnología principal, pero todavía no se considera una decisión definitiva.
-
----
-
-## `apps/api`
-
-Este directorio estará destinado al backend o API encargado de centralizar la lógica del sistema y permitir la comunicación con las diferentes aplicaciones.
-
-La arquitectura definida para el backend será:
-
-**Feature-Based + Layered Architecture**
-
-El backend se organizará principalmente por funcionalidades o módulos del sistema, manteniendo dentro de cada funcionalidad una separación por capas de responsabilidades.
-
-Todavía deberá determinarse:
-
-* Tecnología del backend
-* Framework
-* Tipo de API
-* Autenticación
-* Autorización
-* Validaciones
-* Manejo de errores
-* Comunicación con la base de datos
-* Forma de despliegue
-
----
-
-# Arquitectura
-
-La arquitectura general del proyecto estará basada en la separación de las tres aplicaciones principales:
-
-```text
-CouchOne Fit
-│
-├── Web / PWA
-├── Android
-└── Backend / API
-```
-
-Cada aplicación tendrá una arquitectura interna adaptada a sus necesidades.
-
-## Backend
-
-Se utilizará:
-
-**Feature-Based + Layered Architecture**
-
-La organización principal se realizará por funcionalidades del sistema, mientras que internamente cada funcionalidad mantendrá una separación por capas.
-
-De forma conceptual:
-
-```text
-feature/
-├── presentation/
-├── application/
-├── domain/
-└── infrastructure/
-```
-
-La estructura definitiva podrá ajustarse dependiendo de la tecnología seleccionada para el backend.
-
----
-
-## Frontend Web / PWA
-
-Se utilizará:
-
-**Feature-Based + Component-Based Architecture**
-
-La aplicación estará organizada principalmente por funcionalidades.
-
-Cada funcionalidad podrá contener sus propios componentes, vistas, servicios, modelos y demás elementos necesarios.
-
-De forma conceptual:
-
-```text
-feature/
-├── components/
-├── pages/
-├── services/
-└── models/
-```
-
-La estructura definitiva podrá ajustarse dependiendo de la tecnología seleccionada.
-
----
-
-## Aplicación móvil
-
-Se utilizará:
-
-**Feature-Based + Component-Based Architecture**
-
-La aplicación móvil estará organizada principalmente por funcionalidades, manteniendo dentro de cada una los componentes y elementos necesarios para su funcionamiento.
-
-De forma conceptual:
-
-```text
-feature/
-├── components/
-├── screens/
-├── services/
-└── models/
-```
-
-La estructura definitiva podrá ajustarse dependiendo de la tecnología móvil seleccionada.
-
----
-
-# Base de datos
-
-La tecnología y estructura de la base de datos todavía están pendientes de definición.
-
-El equipo deberá determinar:
-
-* Motor de base de datos
-* Modelo de datos
-* Relaciones
-* Estrategia de acceso
-* Hosting
-* Respaldos
-* Seguridad
-* Manejo de migraciones
-
-La documentación relacionada se almacenará posteriormente en:
-
-```text
-docs/database/
-```
-
----
-
-# Comunicación entre aplicaciones
-
-Todavía se debe definir formalmente el tipo de API y los mecanismos específicos de comunicación entre Web, Android y Backend.
-
-La estructura general contempla un backend central al que se conectarán ambas aplicaciones:
-
-```text
-Web / PWA ─────┐
-               │
-               ▼
-          Backend / API
-               ▲
-               │
-Android ───────┘
-```
-
-Esta estructura permitirá que Web y Android trabajen con la misma información sin depender de encontrarse conectados a una misma red local.
-
-Todavía deberán definirse aspectos como:
-
-* Tipo de API
-* Protocolos de comunicación
-* Autenticación
-* Autorización
-* Formato de respuestas
-* Manejo de errores
-
----
-
-# Despliegue
-
-El despliegue todavía no ha sido definido.
-
-Se deberá decidir posteriormente dónde se alojará cada componente:
-
-```text
-Web
-API
-Base de datos
-Aplicación Android
-```
-
-Una de las opciones a evaluar para Web y Backend es Vercel, pero todavía no se considera una decisión definitiva del proyecto.
-
-También deberá definirse:
-
-* Dominio
-* Variables de entorno
-* Base de datos remota
-* Ambientes de desarrollo
-* Ambiente de producción
-* Configuración de seguridad
-* Proceso de actualización
-
----
-
-# Documentación
-
-La documentación se mantendrá dentro del mismo repositorio.
-
-```text
-docs/
-│
-├── requirements/
-│
-├── architecture/
-│
-├── database/
-│
-└── api/
-```
-
-## `requirements`
-
-Contendrá los requerimientos funcionales y no funcionales del sistema.
-
-## `architecture`
-
-Contendrá diagramas y decisiones relacionadas con la arquitectura.
-
-## `database`
-
-Contendrá la documentación del modelo de datos.
-
-## `api`
-
-Contendrá la documentación relacionada con la comunicación entre aplicaciones y sus endpoints y contratos una vez que estos sean definidos.
+# Documentación del proyecto
+
+La documentación oficial del proyecto se organiza de manera modular dentro de la carpeta `docs/`:
+
+- **Requerimientos del sistema:** [docs/requirements/README.md](docs/requirements/README.md)
+  - [Requerimientos del Sistema Interno (RF / RDF)](docs/requirements/sistema-interno.md)
+  - [Requerimientos del Cliente (RC / RDC)](docs/requirements/cliente.md)
+  - [Requerimientos No Funcionales (RNF)](docs/requirements/no-funcionales.md)
+  - [Requerimientos de Seguridad (RS)](docs/requirements/seguridad.md)
+  - [Catálogo oficial vigente — Google Sheets (Hoja V2)](https://docs.google.com/spreadsheets/d/16OH3_0umowtMeH30iO8FQ0PrUxi-f1PjxIDSh2fqzrQ/edit?pli=1&gid=1483946289#gid=1483946289)
+- **Arquitectura de aplicaciones:** [docs/architecture/README.md](docs/architecture/README.md)
+- **Base de datos:** [docs/database/](docs/database/)
+- **API y Contratos:** [docs/api/](docs/api/)
 
 ---
 
 # Metodología de trabajo
 
-La metodología de desarrollo definida para **CouchOne Fit** será **Scrum**.
+Se utilizará **Scrum** como marco ágil de desarrollo.
 
-El proyecto comenzará con una fase inicial enfocada en conocer y comprender el producto, identificar la problemática y recopilar los requerimientos necesarios antes de iniciar el desarrollo funcional.
-
-Después de esta etapa se trabajará mediante Sprints.
-
-## Fase inicial — Conocimiento del producto y requerimientos
-
-Antes del desarrollo se realizará una fase inicial enfocada en:
-
-* Comprender el producto.
-* Identificar la problemática.
-* Analizar las necesidades de los usuarios.
-* Recopilar requerimientos.
-* Identificar restricciones académicas y técnicas.
-* Establecer una visión general del proyecto.
-
-Esta fase permitirá generar la información necesaria para comenzar formalmente la organización del proyecto mediante Scrum.
-
-## Sprint 1 — Definición del proyecto
-
-El primer Sprint estará enfocado principalmente en la definición del proyecto.
-
-Entre las actividades contempladas se encuentran:
-
-* Definir el alcance inicial.
-* Definir la problemática.
-* Definir los objetivos del proyecto.
-* Identificar tipos de usuario.
-* Identificar funcionalidades principales.
-* Organizar y priorizar requerimientos.
-* Documentar decisiones técnicas iniciales.
-* Definir las bases necesarias para comenzar el desarrollo.
-
-Los siguientes Sprints estarán orientados al desarrollo incremental de las funcionalidades definidas y priorizadas en el Product Backlog.
-
-La duración, cantidad de Sprints, ceremonias específicas y organización interna de Scrum podrán ajustarse posteriormente según la duración del cuatrimestre y los requerimientos académicos.
-
----
-
-# Gestión del proyecto
-
-Se contempla utilizar GitHub para centralizar el desarrollo.
-
-Posteriormente deberá definirse si se utilizarán herramientas como:
-
-* GitHub Issues
-* GitHub Projects
-* Pull Requests
-* Milestones
-* Releases
-
-También deberá establecerse el flujo de trabajo de Git que utilizará el equipo.
-
----
-
-# Git
-
-El repositorio utilizará Git para control de versiones.
-
-Todavía deberán definirse las reglas internas del equipo relacionadas con:
-
-* Creación de ramas
-* Pull Requests
-* Revisiones
-* Convención de commits
-* Integración hacia `main`
-* Resolución de conflictos
-
----
-
-# Variables de entorno y seguridad
-
-Las credenciales y datos sensibles no deberán almacenarse directamente dentro del repositorio.
-
-Dependiendo de las tecnologías seleccionadas posteriormente se podrán utilizar archivos como:
-
-```text
-.env
-.env.local
-```
-
-Estos deberán permanecer fuera del control de versiones.
-
-También podrá crearse un archivo:
-
-```text
-.env.example
-```
-
-que contenga únicamente los nombres de las variables necesarias, sin incluir información sensible.
+- **Fase inicial:** definición del producto, recopilación de requerimientos, diseño arquitectónico y configuración base del monorepo.
+- **Sprint 1:** definición del proyecto, refinamiento de alcance, diseño del modelo de datos y preparación de entornos.
+- **Sprints sucesivos:** desarrollo incremental e iterativo por features priorizadas en el Product Backlog.
 
 ---
 
 # Estado actual del proyecto
 
-## Confirmado
+### Decisiones confirmadas
+- Nombre oficial: **CouchOne Fit**.
+- Proyecto Integrador Sep–Dic 2026 (Web Integral + Móvil Integral).
+- Repositorio monorepo con aplicaciones desacopladas.
+- Tecnologías base: Node.js/Express (API), React/Vite (Web), Flutter (Móvil).
+- Arquitecturas: Feature-Based + Layered (Backend) y Feature-Based + Component-Based (Web y Móvil).
+- Registro de clientes subordinado a código de vinculación único.
+- Acceso directo al expediente preexistente sin recaptura de datos personales.
+- Baja lógica de cuentas sin eliminación física de registros.
+- Catálogo de requerimientos formalizado en Google Sheets (V2).
 
-Actualmente se encuentra confirmado:
-
-* Nombre oficial: **CouchOne Fit**.
-* Proyecto Integrador Sep–Dic 2026.
-* Participación principal de Web Integral.
-* Participación principal de Móvil Integral.
-* Existirá una aplicación Web/PWA.
-* Existirá una aplicación Android.
-* Existirá un Backend/API central.
-* Se utilizará un **monorepo**.
-* El equipo estará conformado por:
-
-  * **Maythe Francella Balleza Solis**
-  * **Ángel Fernando Oñate Reyes**
-  * **Itzel Yutzil Sánchez López**
-* Arquitectura Backend:
-
-  * **Feature-Based + Layered Architecture**
-* Arquitectura Web/PWA:
-
-  * **Feature-Based + Component-Based Architecture**
-* Arquitectura móvil:
-
-  * **Feature-Based + Component-Based Architecture**
-* Metodología de desarrollo:
-
-  * **Scrum**
-* Se realizará una fase inicial para conocer el producto y recopilar requerimientos.
-* El **Sprint 1** estará enfocado en la definición del proyecto.
-* El repositorio estará dividido inicialmente en:
-
-```text
-apps/web
-apps/android
-apps/api
-docs
-```
+### Decisiones pendientes por definir
+- Ajustes al alcance funcional vigente e identificación de requisitos que no se implementarán.
+- Problemática definitiva y objetivo específico formal.
+- Motor de base de datos (PostgreSQL, MySQL, etc.) y modelo entidad-relación.
+- Tipo y protocolo de API (REST, GraphQL).
+- Estrategia de autenticación y autorización (JWT, sesiones, OAuth).
+- Formato técnico, expiración y mecanismo de reposición del código de vinculación.
+- Política de retención de datos tras la baja lógica y condiciones de suspensión de suscripciones.
+- Identificador definitivo para login (usuario, correo o ambos) y manejo de sesión móvil.
+- Plataformas de hosting y estrategia de despliegue continuo (CI/CD).
+- Diseño visual, sistema de diseño y paleta de componentes.
+- Estrategia de pruebas (unitarias, integración, E2E).
 
 ---
 
-## Por definir por el equipo
+# Idea central
 
-Antes de comenzar el desarrollo completo, el equipo todavía deberá definir:
-
-* Alcance funcional.
-* Problemática definitiva.
-* Objetivo específico.
-* Tipos de usuario.
-* Roles.
-* Funciones de cada usuario.
-* Funciones de la aplicación Web.
-* Funciones de la aplicación Android.
-* Funciones del Backend.
-* Tecnología Web.
-* Tecnología Android.
-* Tecnología Backend.
-* Tipo de API.
-* Base de datos.
-* Modelo de datos.
-* Autenticación.
-* Autorización.
-* Hosting.
-* Despliegue.
-* Servicios externos.
-* Diseño visual.
-* Gestión del estado.
-* Manejo de archivos.
-* Flujo de trabajo con Git.
-* Convención de commits.
-* Estrategia de pruebas.
-* Integración de una posible tercera materia.
-* Requerimientos adicionales solicitados por los profesores.
-
----
-
-# Principios iniciales
-
-Aunque varias decisiones todavía están pendientes, el equipo buscará mantener los siguientes principios durante el desarrollo:
-
-1. Mantener todo el proyecto organizado dentro del mismo repositorio.
-2. Separar claramente Web, Android y Backend.
-3. Organizar cada aplicación principalmente por funcionalidades.
-4. Mantener una separación clara de responsabilidades dentro de cada aplicación.
-5. Documentar las decisiones importantes antes de implementarlas.
-6. Evitar asumir funcionalidades que todavía no hayan sido aprobadas.
-7. Mantener sincronizados los requerimientos con el desarrollo.
-8. Evitar duplicar innecesariamente lógica entre aplicaciones.
-9. Mantener una estructura que permita trabajar a varios integrantes sin mezclar responsabilidades.
-10. Ajustar la arquitectura al alcance real del proyecto.
-11. Evitar agregar complejidad técnica que no sea necesaria.
-12. Mantener el proyecto alineado con los requerimientos de las materias involucradas.
-
----
-
-# Nombre del proyecto
-
-El nombre oficial del proyecto es:
-
-# **CouchOne Fit**
-
-Este nombre será utilizado para identificar el proyecto durante su desarrollo y documentación correspondiente al Proyecto Integrador Septiembre–Diciembre 2026.
+> **El profesional administra y configura desde la Web/PWA.**  
+> **El cliente ejecuta, consulta y registra desde la aplicación móvil.**  
+> **La API central mantiene sincronizadas ambas aplicaciones, controla permisos, relaciones, autenticación y reglas de negocio.**  
+> 
+> El profesional es propietario de su cartera de clientes y cada cliente debe estar vinculado obligatoriamente a un profesional. El objetivo principal de **CouchOne Fit** es centralizar en un solo sistema la administración de clientes, entrenamiento, nutrición y seguimiento del progreso físico.
