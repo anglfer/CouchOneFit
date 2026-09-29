@@ -233,7 +233,7 @@ La documentación oficial del proyecto se organiza de manera modular dentro de l
   - [Requerimientos de Seguridad (RS)](docs/requirements/seguridad.md)
   - [Catálogo oficial vigente — Google Sheets (Hoja V2)](https://docs.google.com/spreadsheets/d/16OH3_0umowtMeH30iO8FQ0PrUxi-f1PjxIDSh2fqzrQ/edit?pli=1&gid=1483946289#gid=1483946289)
 - **Arquitectura de aplicaciones:** [docs/architecture/README.md](docs/architecture/README.md)
-- **Base de datos:** [docs/database/](docs/database/)
+- **Base de datos:** [docs/database/README.md](docs/database/README.md)
 - **API y Contratos:** [docs/api/](docs/api/)
 
 ---
@@ -256,15 +256,16 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 - Repositorio monorepo con aplicaciones desacopladas.
 - Tecnologías base: Node.js/Express (API), React/Vite (Web), Flutter (Móvil).
 - Arquitecturas: Feature-Based + Layered (Backend) y Feature-Based + Component-Based (Web y Móvil).
+- Motor de persistencia y base de datos: **PostgreSQL en Supabase Cloud** (conexión establecida).
 - Registro de clientes subordinado a código de vinculación único.
 - Acceso directo al expediente preexistente sin recaptura de datos personales.
 - Baja lógica de cuentas sin eliminación física de registros.
 - Catálogo de requerimientos formalizado en Google Sheets (V2).
 
 ### Decisiones pendientes por definir
+- Diseño del esquema de base de datos (tablas, relaciones, enums, migraciones y políticas RLS en Supabase).
 - Ajustes al alcance funcional vigente e identificación de requisitos que no se implementarán.
 - Problemática definitiva y objetivo específico formal.
-- Motor de base de datos (PostgreSQL, MySQL, etc.) y modelo entidad-relación.
 - Tipo y protocolo de API (REST, GraphQL).
 - Estrategia de autenticación y autorización (JWT, sesiones, OAuth).
 - Formato técnico, expiración y mecanismo de reposición del código de vinculación.

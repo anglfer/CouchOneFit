@@ -64,16 +64,17 @@ La API corre como un proceso persistente de Node.js que expone endpoints REST a 
 | `PORT` | Sí | Puerto asignado por Render (o 3000 por defecto) | `10000` |
 | `NODE_ENV` | Sí | Entorno de ejecución | `production` |
 | `CORS_ORIGIN` | Sí | Dominio permitido para solicitudes web | `https://couchonefit-web.vercel.app` |
-| `DATABASE_URL` | Sí | Conexión directa a PostgreSQL en Supabase | `postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres` |
-| `SUPABASE_URL` | Sí | Endpoint de la API del proyecto Supabase | `https://[PROJECT_ID].supabase.co` |
-| `SUPABASE_ANON_KEY` | Sí | Llave anónima pública de Supabase | `eyJhbGci...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Opcional | Llave con permisos administrativos del backend | `eyJhbGci...` |
+| `SUPABASE_URL` | Sí | Endpoint base del proyecto Supabase | `https://pcoyrxdeiigynmmpxtng.supabase.co` |
+| `SUPABASE_PUBLISHABLE_KEY` | Sí | Llave pública de cliente (sujeta a RLS) | `sb_publishable_8a45...` |
+| `SUPABASE_SECRET_KEY` | Sí | Llave secreta / service role del backend | `sb_secret_j45Z...` |
+| `SUPABASE_JWKS_URL` | Sí | URL JWKS para validación de tokens JWT | `https://pcoyrxdeiigynmmpxtng.supabase.co/auth/v1/.well-known/jwks.json` |
 
 ---
 
 ## 4. Base de Datos y Almacenamiento (Supabase)
 
 La capa de datos se centraliza en **Supabase**:
-- **PostgreSQL:** Tablas relacionales para profesionales, expedientes, planes nutricionales, rutinas y check-ins diarios.
+- **PostgreSQL:** Tablas relacionales para profesionales, expedientes, planes nutricionales, rutinas y check-ins diarios *(esquema en proceso de diseño)*.
 - **Storage:** Buckets protegidos con políticas RLS para almacenar fotografías de evolución antropométrica.
 - **Acceso:** Las operaciones de lectura y escritura pasan exclusivamente por la API (`apps/api`), garantizando el aislamiento de datos por profesional (`RNF06`, `RS01`).
+- **Detalle de conexión y estado:** Consulta la documentación centralizada en [docs/database/README.md](../database/README.md).
