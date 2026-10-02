@@ -19,11 +19,22 @@ class CouchOneFitApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const Scaffold(
+      home: Scaffold(
         body: Center(
-          child: Text(
-            'CouchOne Fit - Móvil',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                width: 300,
+                semanticLabel: 'CouchOne Fit',
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'CouchOne Fit - Móvil',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
         ),
       ),

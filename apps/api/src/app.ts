@@ -5,7 +5,6 @@ import { config } from './config/index.js'
 export const app: Express = express()
 
 // Global Middlewares
-app.use(cors({ origin: config.corsOrigin }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 

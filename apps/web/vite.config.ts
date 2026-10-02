@@ -13,7 +13,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg', 'icons.svg', 'logo.png'],
       manifest: {
         name: 'CouchOne Fit',
         short_name: 'CouchOneFit',
@@ -26,10 +26,10 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'favicon.svg',
-            sizes: '48x48 72x72 96x96 128x128 256x256 512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            src: 'logo.png',
+            sizes: '1254x1254',
+            type: 'image/png',
+            purpose: 'any'
           }
         ]
       },

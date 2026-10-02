@@ -40,7 +40,7 @@ Para prevenir errores 404 al refrescar rutas del cliente (`/login`, `/clientes`,
 ### Variables de entorno (`apps/web`)
 | Variable | Requerida | Descripción | Ejemplo |
 | :--- | :--- | :--- | :--- |
-| `VITE_API_URL` | Sí | URL pública de la API en Render | `https://couchonefit-api.onrender.com` |
+| `VITE_API_URL` | Sí | URL pública de la API | `https://api.ferkxo.tech/` |
 
 ---
 
@@ -48,8 +48,8 @@ Para prevenir errores 404 al refrescar rutas del cliente (`/login`, `/clientes`,
 
 La API corre como un proceso persistente de Node.js que expone endpoints REST a la aplicación web y a la app móvil.
 
-- **URL activa del servicio:** `https://couchonefit-api.onrender.com`
-- **Health check:** `https://couchonefit-api.onrender.com/api/health`
+- **URL activa del servicio:** `https://api.ferkxo.tech/`
+- **Health check:** `https://api.ferkxo.tech/api/health`
 - **Root Directory:** `apps/api`
 - **Environment:** `Node`
 - **Build Command:** `npm install && npm run build`

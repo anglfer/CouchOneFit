@@ -1,5 +1,7 @@
 # CouchOne Fit
 
+<p align="center"><img src="apps/web/public/logo.png" alt="Logo de CouchOne Fit" width="360"></p>
+
 > **Nombre oficial:** CouchOne Fit
 > **Periodo:** Septiembre – Diciembre 2026
 > **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)
