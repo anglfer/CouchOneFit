@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
-import path from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -17,7 +17,8 @@ export default defineConfig({
       manifest: {
         name: 'CouchOne Fit',
         short_name: 'CouchOneFit',
-        description: 'Aplicación Web y PWA de gestión fitness para profesionales y clientes',
+        description:
+          'Aplicación Web y PWA de gestión fitness para profesionales y clientes',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
@@ -29,18 +30,18 @@ export default defineConfig({
             src: 'logo.png',
             sizes: '1254x1254',
             type: 'image/png',
-            purpose: 'any'
-          }
-        ]
+            purpose: 'any',
+          },
+        ],
       },
       devOptions: {
-        enabled: true
-      }
-    })
+        enabled: true,
+      },
+    }),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, './src')
-    }
-  }
-})
+      '@': path.resolve(import.meta.dirname, './src'),
+    },
+  },
+});

@@ -2,21 +2,21 @@
 
 ## Resumen técnico
 
-| Aplicación | Tecnología | Arquitectura | Hosting / Despliegue |
-| :--- | :--- | :--- | :--- |
-| **API** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture | Render (Web Service) |
-| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture | Vercel (SPA) |
-| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture | APK / App Bundle |
-| **Base de Datos** | PostgreSQL (Supabase) | Relacional / RLS | Supabase Cloud |
+| Aplicación        | Tecnología                     | Arquitectura                                 | Hosting / Despliegue |
+| :---------------- | :----------------------------- | :------------------------------------------- | :------------------- |
+| **API**           | Node.js + Express + TypeScript | Feature-Based + Layered Architecture         | Render (Web Service) |
+| **Web / PWA**     | React + Vite + TypeScript      | Feature-Based + Component-Based Architecture | Vercel (SPA)         |
+| **Móvil**         | Flutter + Dart                 | Feature-Based + Component-Based Architecture | APK / App Bundle     |
+| **Base de Datos** | PostgreSQL (Supabase)          | Relacional / RLS                             | Supabase Cloud       |
 
 ---
 
 ## 1. API (Backend)
 
-**Tecnología:** Node.js + Express + TypeScript  
+**Tecnología:** Node.js + Express + TypeScript
 **Patrón:** Feature-Based + Layered Architecture
 
-Organización modular por funcionalidad (*Feature-Based*), donde cada funcionalidad implementa internamente una separación por capas (*Layered*):
+Organización modular por funcionalidad (_Feature-Based_), donde cada funcionalidad implementa internamente una separación por capas (_Layered_):
 
 ```text
 Feature-Based
@@ -57,10 +57,11 @@ api/
 
 ## 2. Web / PWA (Frontend)
 
-**Tecnología:** React + Vite + TypeScript  
+**Tecnología:** React + Vite + TypeScript
 **Patrón:** Feature-Based + Component-Based Architecture
+**Estándar de formato:** Prettier + Oxlint (ver [Guía de formato](formato-codigo-web.md))
 
-Organización principal por funcionalidad (*Feature-Based*), donde cada funcionalidad encapsula sus componentes, vistas, hooks y servicios locales (*Component-Based*), apoyada por recursos transversales globales.
+Organización principal por funcionalidad (_Feature-Based_), donde cada funcionalidad encapsula sus componentes, vistas, hooks y servicios locales (_Component-Based_), apoyada por recursos transversales globales.
 
 ### Estructura base
 
@@ -88,10 +89,10 @@ web/
 
 ## 3. Móvil
 
-**Tecnología:** Flutter + Dart  
+**Tecnología:** Flutter + Dart
 **Patrón:** Feature-Based + Component-Based Architecture
 
-Organización por funcionalidad (*Feature-Based*) compuesta por pantallas y widgets modulares (*Component-Based*), separando la interfaz de usuario de sus servicios y modelos de datos.
+Organización por funcionalidad (_Feature-Based_) compuesta por pantallas y widgets modulares (_Component-Based_), separando la interfaz de usuario de sus servicios y modelos de datos.
 
 ### Estructura base
 
