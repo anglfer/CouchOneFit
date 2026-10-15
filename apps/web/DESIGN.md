@@ -75,12 +75,12 @@ Botones de 12px, paneles de 24px e indicadores circulares. Los radios del marco 
 
 ## Components
 
-Navegación nativa mediante anclas; menú móvil con Escape y foco de retorno. Diálogo nativo para disponibilidad. Vistas de ejemplo con controles reales y estado local; no persisten datos ni llaman a APIs.
+Navegación nativa mediante anclas; menú móvil con Escape y foco de retorno. Diálogo nativo para contratación simulada desde cada plan. Vistas de ejemplo y checkout con estado local; no persisten suscripciones ni llaman a APIs o pasarelas de pago.
 
 ## Do's and Don'ts
 
 - Basar el contenido en docs/requirements. Diferenciar alcance previsto de disponibilidad actual.
-- No inventar precios, cuotas, pruebas gratis, fechas, usuarios, testimonios, chat ni integraciones.
+- No inventar precios, pruebas gratis, fechas, usuarios, testimonios, chat ni integraciones. El catálogo demo usa solo los límites de DEC-005: Básico 10, Pro 30 y Élite ilimitado. El checkout es ficticio: no solicita datos bancarios, no procesa pagos ni activa suscripciones reales.
 - Identificar los datos ficticios y la vista conceptual; no presentar prototipos como capturas del producto disponible.
 - Mantener expedientes y prescripciones bajo control profesional. El código vincula una cuenta con un expediente existente una sola vez.
 - Foco visible, objetivos táctiles de al menos 44px, contraste AA y respeto a movimiento reducido.

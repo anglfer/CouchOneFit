@@ -21,9 +21,13 @@
   --m-pill-bg: #eceffd;
   --m-pill-text: #273bcf;
   --m-shadow-sm: 0 1px 2px rgb(16 24 40 / 5%);
-  --m-shadow-card: 0 4px 20px -2px rgb(14 17 38 / 6%), 0 1px 3px rgb(14 17 38 / 4%);
-  --m-shadow-hero: 0 24px 60px -12px rgb(20 30 90 / 14%), 0 6px 18px -4px rgb(20 30 90 / 6%), 0 1px 3px rgb(20 30 90 / 4%);
-  --m-shadow-phone: 0 24px 50px -10px rgb(15 20 60 / 22%), 0 6px 16px -2px rgb(15 20 60 / 8%);
+  --m-shadow-card:
+    0 4px 20px -2px rgb(14 17 38 / 6%), 0 1px 3px rgb(14 17 38 / 4%);
+  --m-shadow-hero:
+    0 24px 60px -12px rgb(20 30 90 / 14%), 0 6px 18px -4px rgb(20 30 90 / 6%),
+    0 1px 3px rgb(20 30 90 / 4%);
+  --m-shadow-phone:
+    0 24px 50px -10px rgb(15 20 60 / 22%), 0 6px 16px -2px rgb(15 20 60 / 8%);
   color: var(--m-ink);
   background: var(--m-canvas);
   font-size: 16px;
@@ -133,12 +137,18 @@
   line-height: 1.5;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgb(14 17 38 / 10%), 0 4px 12px rgb(48 70 235 / 24%), inset 0 1px 0 rgb(255 255 255 / 20%);
+  box-shadow:
+    0 1px 2px rgb(14 17 38 / 10%),
+    0 4px 12px rgb(48 70 235 / 24%),
+    inset 0 1px 0 rgb(255 255 255 / 20%);
 }
 
 .marketing-button:hover {
   background: linear-gradient(180deg, #2a44f0 0%, var(--m-primary-hover) 100%);
-  box-shadow: 0 1px 2px rgb(14 17 38 / 10%), 0 6px 16px rgb(48 70 235 / 32%), inset 0 1px 0 rgb(255 255 255 / 25%);
+  box-shadow:
+    0 1px 2px rgb(14 17 38 / 10%),
+    0 6px 16px rgb(48 70 235 / 32%),
+    inset 0 1px 0 rgb(255 255 255 / 25%);
 }
 
 .marketing-button:active {
@@ -275,8 +285,16 @@
   position: relative;
   padding: 72px 0 48px;
   background:
-    radial-gradient(ellipse at 15% 45%, rgb(220 227 255 / 55%), transparent 48%),
-    radial-gradient(ellipse at 85% 40%, rgb(232 222 254 / 45%), transparent 45%),
+    radial-gradient(
+      ellipse at 15% 45%,
+      rgb(220 227 255 / 55%),
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse at 85% 40%,
+      rgb(232 222 254 / 45%),
+      transparent 45%
+    ),
     var(--m-canvas);
   border-bottom: 1px solid var(--m-border-subtle);
 }
@@ -389,9 +407,15 @@
   background: #d8dbe6;
 }
 
-.window-dots i:first-child { background: #ff5f56; }
-.window-dots i:nth-child(2) { background: #ffbd2e; }
-.window-dots i:nth-child(3) { background: #27c93f; }
+.window-dots i:first-child {
+  background: #ff5f56;
+}
+.window-dots i:nth-child(2) {
+  background: #ffbd2e;
+}
+.window-dots i:nth-child(3) {
+  background: #27c93f;
+}
 
 .preview-example {
   border: 1px solid var(--m-border);
@@ -563,7 +587,9 @@
   background: var(--m-surface);
   border: 1px solid var(--m-border);
   border-radius: 12px;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .preview-metrics > div:hover {
@@ -1051,12 +1077,16 @@
   border: 1px solid var(--m-border);
   box-shadow: var(--m-shadow-card);
   overflow: hidden;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .feature-grid article:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px -4px rgb(14 17 38 / 10%), 0 2px 6px rgb(14 17 38 / 5%);
+  box-shadow:
+    0 12px 32px -4px rgb(14 17 38 / 10%),
+    0 2px 6px rgb(14 17 38 / 5%);
 }
 
 .feature-record {
@@ -1410,7 +1440,9 @@
   border-radius: 18px;
   padding: 30px 26px;
   box-shadow: var(--m-shadow-sm);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .workflow-steps li:hover {
@@ -1460,8 +1492,7 @@
 
 .plans-panel {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 56px;
+  gap: 32px;
   padding: 56px 64px;
   background: linear-gradient(135deg, #eef2ff 0%, #f4f0fe 100%);
   border: 1px solid var(--m-blue-tint-border);
@@ -1474,7 +1505,7 @@
 }
 
 .plans-copy > p {
-  margin-block: 20px 28px;
+  margin-top: 20px;
   font-size: 16px;
   line-height: 1.6;
 }
@@ -1483,64 +1514,43 @@
   font-size: clamp(32px, 3.5vw, 44px);
 }
 
-.plans-details {
+.plans-catalog {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.plan-card {
+  min-width: 0;
+  padding: 24px;
   border-radius: 18px;
-  padding: 34px;
   background: var(--m-panel);
   border: 1px solid var(--m-border);
   box-shadow: var(--m-shadow-card);
 }
 
-.plans-status {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--m-accent);
-  background: var(--m-violet-tint);
-  border: 1px solid var(--m-violet-tint-border);
-  padding: 3px 9px;
-  border-radius: 6px;
-}
-
-.plans-details h3 {
-  font-size: 24px;
-  margin-top: 14px;
-}
-
-.plans-details dl {
-  margin: 24px 0;
-}
-
-.plans-details dl > div {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--m-border-subtle);
-}
-
-.plans-details dl > div:first-child {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-.plans-details dt {
-  font-size: 13px;
-  font-weight: 650;
+.plan-card h3 {
+  font-size: 22px;
   color: var(--m-ink-heading);
 }
 
-.plans-details dd {
-  font-size: 13px;
-  margin: 3px 0 0;
+.plan-card p {
+  margin-top: 16px;
+  min-height: 42px;
+  font-size: 14px;
   color: var(--m-muted);
 }
 
-.plans-details > p {
-  padding-top: 16px;
+.plan-card .marketing-button {
+  margin-top: 20px;
+}
+
+.plans-notice {
+  margin: 0;
+  padding-top: 20px;
   border-top: 1px solid var(--m-border);
-  font-size: 12px;
-  color: var(--m-muted-light);
+  font-size: 13px;
+  color: var(--m-ink-heading);
 }
 
 .faq-section {
@@ -1756,8 +1766,6 @@
   color: var(--m-ink-heading);
 }
 
-
-
 @media (prefers-reduced-motion: no-preference) {
   .marketing-button,
   .marketing a,
@@ -1765,7 +1773,12 @@
   .feature-grid article,
   .workflow-steps li,
   .preview-metrics > div {
-    transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease,
+      transform 160ms ease,
+      box-shadow 160ms ease;
   }
 }
 
@@ -2098,7 +2111,10 @@
     padding: 30px 22px;
     border-radius: 20px;
   }
-  .plans-details {
+  .plans-catalog {
+    grid-template-columns: 1fr;
+  }
+  .plan-card {
     padding: 22px 18px;
   }
   .faq-list summary {

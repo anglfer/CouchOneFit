@@ -1,16 +1,16 @@
 import { useRef, type ReactElement } from 'react';
 import {
-	AccessDialog,
-	Brand,
-	MarketingNavigation,
+  AccessDialog,
+  Brand,
+  MarketingNavigation,
 } from '../components/MarketingNavigation';
 import { ProductPreview } from '../components/ProductPreview';
 import {
-	ConnectedExperience,
-	FrequentlyAskedQuestions,
-	HowItWorks,
-	Plans,
-	ProductFeatures,
+  ConnectedExperience,
+  FrequentlyAskedQuestions,
+  HowItWorks,
+  Plans,
+  ProductFeatures,
 } from '../components/ProductStory';
 import '../marketing.css';
 
@@ -64,7 +64,7 @@ export default function MarketingPage(): ReactElement {
         <ProductFeatures />
         <ConnectedExperience />
         <HowItWorks />
-        <Plans onOpenAccess={openAccessDialog} />
+        <Plans />
         <FrequentlyAskedQuestions />
         <section
           className="marketing-container closing-section"

@@ -4,7 +4,7 @@ Aplicación web desarrollada en **React 19 + TypeScript + Vite**.
 
 En producción cumple dos propósitos con límites arquitectónicos definidos:
 
-1. **Capa pública comercial / Marketing (`/`)**: Landing informativa, propuesta de valor y demostración visual interactiva (sitio web estándar, sin PWA invasiva).
+1. **Capa pública informativa y demostrativa (`/`)**: Landing de la V2 académica no comercial, con propuesta de valor y demostración visual interactiva (sitio web estándar, sin PWA invasiva).
 2. **Capa privada profesional / PWA (`/app/` o `/dashboard/`)**: Espacio de trabajo del entrenador o nutriólogo (expedientes, planes, seguimiento y check-ins) con capacidades de instalación PWA (`RNF03`, `RNF04`).
 
 ---
@@ -76,8 +76,8 @@ La versión actual de Marketing cubre completamente la narrativa de producto, la
   - Enlazar el botón _"Acceso profesional ↗"_ y _"Consultar disponibilidad"_ hacia la ruta `/login` (o hacia un formulario de contacto / lista de espera en preventa) una vez esté programado el módulo de autenticación.
 - [ ] **Páginas de términos legales y privacidad (`RNF12`, `RNF19`, `RS23`)**:
   - Enlaces de pie de página para Política de Privacidad y Términos de Servicio cuando se formalice la entidad legal del SaaS.
-- [ ] **Publicación de precios y planes comerciales finales**:
-  - Cuando el equipo de producto defina las tarifas oficiales (mensual/anual) y los límites de clientes activos por nivel, actualizar la sección `#planes` para mostrar las tarjetas con precios reales y botón de suscripción/checkout.
+- [ ] **Catálogo y checkout de demostración (DEC-005/DEC-014)**:
+  - La sección `#planes` muestra Básico (10 clientes activos), Pro (30) y Élite (ilimitado), sin precios. Permite completar una contratación y un pago simulados en la interfaz; no solicita datos bancarios, procesa cargos ni activa una suscripción real.
 
 ---
 

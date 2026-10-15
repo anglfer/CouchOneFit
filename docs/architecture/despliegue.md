@@ -1,46 +1,55 @@
 # Estrategia de Infraestructura y Despliegue
 
-Este documento define los servicios y la arquitectura de despliegue para los componentes de **CouchOne Fit**, los criterios técnicos de selección y las variables de entorno necesarias para producción.
+Especificación documental vigente14-oct-2026 por **delegación explícita usuario**, DEC-001–016 [plan §3.3/3.4](../../PLAN_TRABAJO_V2.md). **Demo académica no comercial exclusivamente sintética**, presupuesto incremental0, sin precios ni cobros reales; el checkout Web puede completar una simulación local sin pasarela, captura de datos bancarios ni activación de suscripción real. No acredita configuración, disponibilidad, accesos/colaboradores, backup ni implementación. Corte técnico8-oct:health público503 dos muestras/causa desconocida. Uso real/comercial exige decisión futura/política y aprobaciones externas, no certificación aquí.
 
 ---
 
 ## 1. Resumen técnico de plataformas
 
-| Componente | Servicio | Plan | Justificación técnica |
-| :--- | :--- | :--- | :--- |
-| **Web / PWA** (`apps/web`) | **Vercel** | Hobby (Gratuito) | Despliegue optimizado para SPAs en Vite/React, CDN global de baja latencia, soporte nativo de monorepos y preview deployments por PR. |
-| **API / Backend** (`apps/api`) | **Render** | Free Web Service | Soporta procesos continuos de Node.js/Express (`app.listen`), integración directa con GitHub y plan gratuito sin requerir tarjeta. |
-| **Base de Datos / Auth** | **Supabase** | Free Tier | Instancia administrada de PostgreSQL, autenticación integrada, buckets de storage para fotos de progreso y backups automáticos. |
-| **Móvil** (`apps/mobile`) | **GitHub Releases / Local** | N/A | Compilación de APK / App Bundle para instalación directa en dispositivos de prueba y emuladores. |
+| Componente                     | Servicio                        | Plan                                             | Justificación técnica                                                                                                                      |
+| :----------------------------- | :------------------------------ | :----------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web / PWA** (`apps/web`)     | **Vercel**                      | Cuenta existente, límites/accesos por verificar  | SPA React/Vite y proxy externo `/api` mismo origen; elegibilidad/capacidad real de colaboradores gate humano autorizado, sin contratación. |
+| **API / Backend** (`apps/api`) | **Render**                      | Free existente, sujeto verificación              | Express/REST y auth propios; reposo/cold start sin SLA, no garantía de servicio continuo.                                                  |
+| **PostgreSQL**                 | **Supabase**                    | Cuenta existente, límites/permisos por verificar | Solo persistencia negocio por API/RLS/contexto confiable; sin Supabase Auth seleccionado ni fotos/Storage V2 ni backups Free supuestos.    |
+| **Móvil** (`apps/mobile`)      | **Releases / local autorizado** | Sin tienda                                       | **APK Android release firmado**, no AAB/iOS/Windows nativo; Omarfirma bajoPukzil, keyfueraGit.                                             |
 
 ---
 
 ## 2. Frontend Web / PWA (Vercel)
 
-Se seleccionó **Vercel** sobre Netlify para el frontend por su integración nativa con proyectos Vite y mejor rendimiento de compilación en monorepos.
+Se conserva Vercel/React/Vite, sin migración ni compra de dominio. Propietario operativo cuenta:Ferxxo; delegar mínimo permiso solo si capacidad real del plan lo permite, nunca compartir keys. No se afirma que colaboradores estén provisionados. TT-017 debe verificar límites/elegibilidad y proxy/cookies con cuenta autorizada.
 
 ### Parámetros de configuración (Panel de Vercel)
+
 - **Framework Preset:** `Vite`
 - **Root Directory:** `apps/web`
 - **Build Command:** `npm run build`
 - **Output Directory:** `dist`
-- **Install Command:** `npm install`
+- **Install Command propuesto:** `npm ci` con lock existente; confirmar en TT-008/017, no cambio de configuración ejecutado aquí.
 
 ### Enrutamiento SPA
-Para prevenir errores 404 al refrescar rutas del cliente (`/login`, `/clientes`, etc.), el proyecto incluye la regla de reescritura en [apps/web/vercel.json](../../apps/web/vercel.json):
+
+El archivo [apps/web/vercel.json](../../apps/web/vercel.json) del corte contiene fallbackSPA; el ejemplo histórico siguiente **no es la topología completa vigente ni proxy implementado**:
 
 ```json
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
 
 ### Variables de entorno (`apps/web`)
-| Variable | Requerida | Descripción | Ejemplo |
-| :--- | :--- | :--- | :--- |
-| `VITE_API_URL` | Sí | URL pública de la API | `https://api.ferkxo.tech/` |
+
+| Variable       | Requerida | Descripción                                                                          | Ejemplo                           |
+| :------------- | :-------- | :----------------------------------------------------------------------------------- | :-------------------------------- |
+| `VITE_API_URL` | Sí        | Base Web **mismo origen `/api`**, según contrato del helper TT-002; no doble prefijo | `/api` (sugerido, no configurado) |
+
+### Topología de sesión decidida — pendiente de implementación/pruebas
+
+- Navegador→Vercel `/api/:path`→Render HTTPS **`/api/:path`** preservando prefijo/query/método/body/cookies; aplicar proxy antes fallbackSPA, assets/SW/manifest fuerafallback incorrecto. Vite proxy local misma topología. No cross-site cookie `None` ni compra dominio.
+- Cookies host-only **sin Domain** (`strip Domain` si upstream lo incorpora), HttpOnly/Secure/SameSiteStrict; preservar correctamente múltiples `Set-Cookie`/flags sin cachearlo ni registrar tokens. HTTPSprod; HTTPdev excepción local sin datos reales permite noSecure. Web privados `Cache-Control: no-store`, no cacheCDN/proxy/SW ni tokens en frontend; verificar respuesta real, no asumirlo por rewrite.
+- CSRF mutaciones: Originallowlist **y** token; CORS/orígenes por entorno con mínimos permisos. Confiar forwardedheaders solo bajo topología verificada, nunca en rol/identidad enviada por cliente. Móvil conecta RenderTLS/Bearersecurestore, no requiere proxyWeb.
+- AuthAPI/PostgreSQL: Argon2id19MiB/t2/p1 mínimo conbenchmark, JWT15min HS256allowlist/iss/aud/exp/sub/sid, sesión/cuentaBD porrequest failclosed/rolvigente, refreshhashrotativo30d **absolutos desde login**/replayrevocafamilia y logoutinmediato. No SupabaseJWKS/proveedor integrado como opción pendiente.
+- Emisión/consumo invitación/reset y registro aviso requieren contratos TT-009; rutas/DDL/variables aquí son **sugeridos**, no implementados. Validar proxy/no-cache/CSRF/refresh/logout/roles enbrowserreal antespromover.
 
 ---
 
@@ -48,33 +57,54 @@ Para prevenir errores 404 al refrescar rutas del cliente (`/login`, `/clientes`,
 
 La API corre como un proceso persistente de Node.js que expone endpoints REST a la aplicación web y a la app móvil.
 
-- **URL activa del servicio:** `https://api.ferkxo.tech/`
-- **Health check:** `https://api.ferkxo.tech/api/health`
+- **Destino histórico documentado:** dominio existente del servicio, resolver desde configuración autorizada sin afirmar que esté operativo.
+- **Liveness:** `/api/health`; readiness de PostgreSQL/permisos/migraciones separado, aún TT-016. Un200health no certifica negocio.
 - **Root Directory:** `apps/api`
 - **Environment:** `Node`
-- **Build Command:** `npm install && npm run build`
+- **Build Command propuesto:** `npm ci && npm run build` (TT-008/016, no ejecutado aquí)
 - **Start Command:** `npm start`
 - **Instance Type:** `Free`
 
-> **Comportamiento en reposo:** En el plan gratuito, el servicio se suspende tras 15 minutos sin tráfico. La primera solicitud entrante tarda entre 30 y 45 segundos en responder mientras se levanta el contenedor.
+> **Fuente S-02 contrastada14-oct:** RenderFree reposa tras15min sintráfico, arranque aproximado1min y discoefímero; no30–45s garantizados. DEC-013 adopta cold≤60s como objetivo **empírico noSLA**,5muestrastras20minreposo, separado dewarm; si incumple, advertir limitaciónsin inventargarantía. Sinmonitorcontinuocada5min/keepalive; solo deployment/ventanasdemoautorizadas conhealth/readiness, coldtests aparte.
 
 ### Variables de entorno (`apps/api`)
-| Variable | Requerida | Descripción | Ejemplo |
-| :--- | :--- | :--- | :--- |
-| `PORT` | Sí | Puerto asignado por Render (o 3000 por defecto) | `10000` |
-| `NODE_ENV` | Sí | Entorno de ejecución | `production` |
-| `CORS_ORIGIN` | Sí | Dominio permitido para solicitudes web | `https://couchonefit-web.vercel.app` |
-| `SUPABASE_URL` | Sí | Endpoint base del proyecto Supabase | `https://pcoyrxdeiigynmmpxtng.supabase.co` |
-| `SUPABASE_PUBLISHABLE_KEY` | Sí | Llave pública de cliente (sujeta a RLS) | `sb_publishable_8a45...` |
-| `SUPABASE_SECRET_KEY` | Sí | Llave secreta / service role del backend | `sb_secret_j45Z...` |
-| `SUPABASE_JWKS_URL` | Sí | URL JWKS para validación de tokens JWT | `https://pcoyrxdeiigynmmpxtng.supabase.co/auth/v1/.well-known/jwks.json` |
+
+| Variable                             | Requerida        | Descripción                                                                            | Ejemplo                              |
+| :----------------------------------- | :--------------- | :------------------------------------------------------------------------------------- | :----------------------------------- |
+| `PORT`                               | Sí               | Puerto asignado por Render (o 3000 por defecto)                                        | `10000`                              |
+| `NODE_ENV`                           | Sí               | Entorno de ejecución                                                                   | `production`                         |
+| `CORS_ORIGIN`                        | Sí               | Dominio permitido para solicitudes web                                                 | `https://couchonefit-web.vercel.app` |
+| `DATABASE_URL` (nombre sugerido)     | Sí               | ConexiónTLS/pool rolordinario `pg`, secreto solo servidor; nombre definitivoTT-008/009 | Configurar fueraGit, sin valor aquí  |
+| Credencial de migración separada     | ProcedimientoDDL | Solo migraciones controladas, nunca handler ordinario                                  | Custodiaexterna, sin valor aquí      |
+| SecretoJWT propio (nombre porTT-009) | Sí               | HS256 robusto/rotacióncontrolada, no frontend/keypublicada                             | Custodiaexterna, sin valor aquí      |
+
+VariablesSupabase/Auth/JWKS del borrador son antecedentes, **no requisitos del auth propio elegido**. No leer/copiar secretos del READMEBD, no service_role bypassRLS para negocio. TT-001 requiere rotaciónhumana autorizada de exposiciones históricas; esta edición no acredita rotación.
 
 ---
 
-## 4. Base de Datos y Almacenamiento (Supabase)
+## 4. PostgreSQL (Supabase), sin medios V2
 
 La capa de datos se centraliza en **Supabase**:
-- **PostgreSQL:** Tablas relacionales para profesionales, expedientes, planes nutricionales, rutinas y check-ins diarios *(esquema en proceso de diseño)*.
-- **Storage:** Buckets protegidos con políticas RLS para almacenar fotografías de evolución antropométrica.
-- **Acceso:** Las operaciones de lectura y escritura pasan exclusivamente por la API (`apps/api`), garantizando el aislamiento de datos por profesional (`RNF06`, `RS01`).
-- **Detalle de conexión y estado:** Consulta la documentación centralizada en [docs/database/README.md](../database/README.md).
+
+- **PostgreSQL:** Tablas relacionales para profesionales, expedientes, planes nutricionales, rutinas y check-ins diarios _(esquema en proceso de diseño)_.
+- **SinStorage/fotos:** HU-038fueraV2/8SPexcluidos; HU-025pospuesta/5SPexcluidos, no mediosa respaldar.
+- **Acceso:** exclusivamenteAPI, `pg`/SQLparametrizado/migracionesversionadas, conexiónúnicaportxn y `SET LOCAL`contextoRLSderivadodesesiónconfiable; grantsmínimos/rolordinario vsDDL separados. Rolespúblicos sinaccesonegocio. AislamientoRNF06/RS01 **debe probarse**, no garantizado por centralizarAPI.
+- **Estado real:** corte8-oct sin tablas propias/policies/migraciones negocio; conexión real pendienteTT-003/016, no“Supabaseconectado”por variables. Modelos/rutas/DDL documentales sugeridos hastaTT-003/009.
+
+## 5. Objetivos, respaldo y retención — DEC-011/013
+
+- Warm p95lecturas800ms/escrituras1500ms,15concurrentes/5rps5min,≥500muestrasportipo (extenderhastaalcanzar). Fixture8prof/56clientes/100000filas tamañoobjetivo≤500MBmedido,no capimpuesto;200eventosdiariosno200filas (serieshijassemidenaparte).
+- Read-after-COMMITinmediato/noeventualstale; dashboardforeground60s+latencia/no fondo/keepawake,móvilrefreshmanualwarm5sobjetivo. Timeoutwarmservidor15s/cliente20s/bootstrap65ssoloarranque, sin retryciegoescritura.
+- Disponibilidadmensualobservada/reportada, **sin mínimo99%SLA académico**;99%historico/futuropagado. Demoprogramadaexigehealth/readiness/flujoreal, no semanasuptime.
+- Backupdiario03:00America/Mexico_City/cifradooffsite7d, Omar ejecuta bajoFranela; últimocorrecto/alertafallo-gap/reconocimiento/fallbackmanualantesdespuésdemo. RPOobjetivo≤24hdesdeéxito/RTO≤4hrestoremedido roles/datos/constraints/versiones/relaciones; sincopiaválidagatepromoción/demo. No backupsadministradosFreeasumidos ni copia en discoefímeroRender.
+- Retencióndemosintética/auditoría30dtrasaceptaciónfinal,fixturestrasruns; purga datasetaisladocontrolada/manifiesto, backupsfinalesexpiran≤7dtraspurga/restore reaplicapurga sinreintroducción. BajalógicanohardDELETErutasordinarias/sinexportacióntransferenciaautomática.
+
+## 6. Entrega y gates externos — DEC-012/014/015/016
+
+APKAndroidreleasefirmadoOmarbajoPukzil,keyfueraGit; mínimaAPI24política sujeta dependency/buildgate, emuladores24/36pruebasrequeridas,nofísicoprometido. NoiOS/Windowsnativo/AAB/tiendasV2. WebChrome/Edge/FirefoxestablesaltestWindows320/390/768/1280/teclado; PWAcapacidadessegúnmatrizreal, locksconfirmarsinupgrading.
+
+AvisopúblicoacadémicomismoWeb/móvil,dato ficticio/nodiagnóstico/nocertificaciónlegal, aliases/domíniosemailreservadossinPIIreal, confirmaciónversionada/timestampantesprimerusoprofesional/cliente (HU-041base3SP; altaatómicaHU-001/008). Omarredacta/Ferproductodelegado,noentidadlegal/waiver.
+
+Cuatroquincenas19-oct–1-nov/2–15-nov/16–29-nov/30-nov–13-dic2026TARGET, S0–S7incrementos, WIP1/reserva30%horasbrutas×0,7sinSP→horas/reporteasíncronosemanal/review1-nov.271SPactivos no prueba capacidad.
+
+**Externos aún no acreditados:** humanosautorizadosconfirmanhoras/fechaoficial/accesos/límitescolaboracióncloud/custodiafirma; HU-023gateoriginalescompletos/fixturesantesReady; datosreales/comercialrequiereninstitución/responsable/jurisdicción/política/aprobacióncompetenteseparada. NingunapreguntaproductoV2pendiente; no compras/config/cloud/testsimplementadosporestedocumento.

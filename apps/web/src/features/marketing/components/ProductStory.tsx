@@ -1,4 +1,9 @@
-import type { ReactElement } from 'react';
+import { useRef, useState, type ReactElement } from 'react';
+
+interface DemoPlan {
+  name: string;
+  capacity: string;
+}
 
 const questions = [
   {
@@ -24,7 +29,7 @@ const questions = [
   {
     question: '¿Ya puedo registrarme o contratar un plan?',
     answer:
-      'Todavía no. Esta primera versión presenta el alcance previsto y una demostración conceptual. El acceso, las funciones privadas y la contratación están en desarrollo. Los precios, los límites de cada plan y las condiciones comerciales todavía no están definidos.',
+      'Puedes recorrer una contratación y un pago simulados para Básico, Pro o Élite. No se solicitan datos de pago, no se realiza un cargo ni se activa una suscripción real. El acceso al producto sigue en desarrollo.',
   },
 ];
 
@@ -251,11 +256,28 @@ export function HowItWorks(): ReactElement {
   );
 }
 
-export function Plans({
-  onOpenAccess,
-}: {
-  onOpenAccess: () => void;
-}): ReactElement {
+export function Plans(): ReactElement {
+  const checkoutDialogRef = useRef<HTMLDialogElement>(null);
+  const [selectedPlan, setSelectedPlan] = useState<DemoPlan | null>(null);
+  const [isCheckoutComplete, setIsCheckoutComplete] = useState(false);
+  const plans: DemoPlan[] = [
+    { name: 'Básico', capacity: 'Hasta 10 clientes activos' },
+    { name: 'Pro', capacity: 'Hasta 30 clientes activos' },
+    { name: 'Élite', capacity: 'Clientes ilimitados' },
+  ];
+
+  function openCheckout(plan: DemoPlan): void {
+    setSelectedPlan(plan);
+    setIsCheckoutComplete(false);
+    checkoutDialogRef.current?.showModal();
+  }
+
+  function closeCheckout(): void {
+    checkoutDialogRef.current?.close();
+    setSelectedPlan(null);
+    setIsCheckoutComplete(false);
+  }
+
   return (
     <section
       className="marketing-container plans-section"
@@ -264,47 +286,82 @@ export function Plans({
     >
       <div className="plans-panel">
         <div className="plans-copy">
-          <span className="marketing-label">UN ESPACIO PARA TU PRÁCTICA</span>
-          <h2 id="plans-title">
-            Tu acompañamiento.
-            <br />A tu escala.
-          </h2>
-          <p>
-            El modelo de suscripción se basará en la capacidad de clientes
-            activos de cada profesional. Tú te enfocas en las personas; tu plan
-            define el espacio para atenderlas.
-          </p>
-          <button
-            type="button"
-            className="marketing-button"
-            onClick={onOpenAccess}
-          >
-            Consultar disponibilidad <span aria-hidden="true">↗</span>
-          </button>
+          <span className="marketing-label">CATÁLOGO DE DEMOSTRACIÓN</span>
+          <h2 id="plans-title">Planes con capacidad definida.</h2>
+          <p>Límites de clientes activos definidos para la V2 académica.</p>
         </div>
-        <div className="plans-details">
-          <span className="plans-status">Modelo SaaS en desarrollo</span>
-          <h3>Crecer, con claridad.</h3>
-          <dl>
-            <div>
-              <dt>Capacidad</dt>
-              <dd>Según los clientes activos de tu plan</dd>
-            </div>
-            <div>
-              <dt>Experiencias conectadas</dt>
-              <dd>Web profesional y app del cliente</dd>
-            </div>
-            <div>
-              <dt>Disponibilidad comercial</dt>
-              <dd>Precios y límites por definir</dd>
-            </div>
-          </dl>
-          <p>
-            Aún no hay planes disponibles para contratar. No se realizan cobros
-            desde esta página.
-          </p>
+        <div className="plans-catalog" aria-label="Planes de demostración">
+          {plans.map((plan) => (
+            <article className="plan-card" key={plan.name}>
+              <h3>{plan.name}</h3>
+              <p>{plan.capacity}</p>
+              <button
+                type="button"
+                className="marketing-button button-small"
+                onClick={() => openCheckout(plan)}
+              >
+                Contratar en demo
+              </button>
+            </article>
+          ))}
         </div>
+        <p className="plans-notice">
+          Pago exclusivamente simulado. No ingreses datos bancarios: no hay
+          cargos ni suscripciones reales.
+        </p>
       </div>
+      <dialog
+        ref={checkoutDialogRef}
+        className="marketing-access-dialog"
+        aria-labelledby="checkout-title"
+        aria-describedby="checkout-description"
+      >
+        <form method="dialog">
+          <button
+            className="dialog-close"
+            type="button"
+            aria-label="Cerrar contratación simulada"
+            onClick={closeCheckout}
+          >
+            ×
+          </button>
+          {isCheckoutComplete ? (
+            <>
+              <span className="marketing-label">PAGO SIMULADO</span>
+              <h2 id="checkout-title">
+                Contratación de demostración completada
+              </h2>
+              <p id="checkout-description" role="status">
+                Se simuló la contratación del plan {selectedPlan?.name}. No se
+                realizó ningún cargo y no se activó una suscripción real.
+              </p>
+              <button
+                className="marketing-button"
+                type="button"
+                onClick={closeCheckout}
+              >
+                Cerrar
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="marketing-label">CHECKOUT DE DEMOSTRACIÓN</span>
+              <h2 id="checkout-title">Plan {selectedPlan?.name}</h2>
+              <p id="checkout-description">
+                {selectedPlan?.capacity}. Pulsa para simular el pago. No se
+                solicitarán datos bancarios ni se realizará un cargo.
+              </p>
+              <button
+                className="marketing-button"
+                type="button"
+                onClick={() => setIsCheckoutComplete(true)}
+              >
+                Simular pago y contratar
+              </button>
+            </>
+          )}
+        </form>
+      </dialog>
     </section>
   );
 }
