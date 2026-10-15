@@ -12,7 +12,6 @@ out/
 .env
 .env.*
 !.env.example
-PLAN_TRABAJO_V2.md
 
 # IDE and OS files
 .vscode/*
