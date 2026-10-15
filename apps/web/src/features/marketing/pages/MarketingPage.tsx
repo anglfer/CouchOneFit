@@ -1,9 +1,5 @@
-import { useRef, type ReactElement } from 'react';
-import {
-  AccessDialog,
-  Brand,
-  MarketingNavigation,
-} from '../components/MarketingNavigation';
+import type { ReactElement } from 'react';
+import { Brand, MarketingNavigation } from '../components/MarketingNavigation';
 import { ProductPreview } from '../components/ProductPreview';
 import {
   ConnectedExperience,
@@ -13,22 +9,17 @@ import {
   ProductFeatures,
 } from '../components/ProductStory';
 import '../marketing.css';
+import '../../auth/registration.css';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function MarketingPage(): ReactElement {
-  const accessDialogRef = useRef<HTMLDialogElement>(null);
-
-  function openAccessDialog(): void {
-    accessDialogRef.current?.showModal();
-  }
-
   return (
     <div className="marketing">
       <a className="marketing-skip-link" href="#contenido">
         Saltar al contenido
       </a>
-      <MarketingNavigation onOpenAccess={openAccessDialog} />
+      <MarketingNavigation />
       <main id="contenido" tabIndex={-1}>
         <section className="marketing-hero" aria-labelledby="hero-title">
           <div className="marketing-container">
@@ -76,8 +67,8 @@ export default function MarketingPage(): ReactElement {
             <span>La conexión, CouchOne Fit.</span>
           </h2>
           <p>Un lugar para planificar. Una forma de estar más cerca.</p>
-          <a href="#vista-previa" className="marketing-button">
-            Explorar el producto <span aria-hidden="true">→</span>
+          <a href="/registro" className="marketing-button">
+            Contáctanos <span aria-hidden="true">→</span>
           </a>
         </section>
       </main>
@@ -116,7 +107,6 @@ export default function MarketingPage(): ReactElement {
           </div>
         </div>
       </footer>
-      <AccessDialog dialogRef={accessDialogRef} />
     </div>
   );
 }

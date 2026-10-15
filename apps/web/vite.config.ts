@@ -8,10 +8,12 @@ export default defineConfig({
   server: {
     port: 5000,
     host: '127.0.0.1',
+    proxy: { '/api': { target: 'http://localhost:3000', changeOrigin: false } },
   },
   plugins: [
     react(),
     VitePWA({
+      workbox: { navigateFallbackDenylist: [/^\/api\//] },
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg', 'logo.png'],
       manifest: {

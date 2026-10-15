@@ -1,30 +1,90 @@
-import express, { type Express, type Request, type Response, type NextFunction } from 'express'
-import cors from 'cors'
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from 'express'
+import type { Pool } from 'pg'
 import { config } from './config/index.js'
+import { pool } from './config/database.js'
+import { registrationRoutes } from './features/auth/routes/registration.js'
+import { AuthError } from './features/auth/types/errors.js'
+import { sessionRoutes } from './features/auth/routes/session.js'
+import { requireProfessional } from './features/auth/middleware/professional-session.js'
+import { professionalProfile } from './features/auth/repositories/session.js'
 
-export const app: Express = express()
-
-// Global Middlewares
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-
-// Health Check
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'ok',
-    environment: config.nodeEnv,
-    timestamp: new Date().toISOString(),
+export function createApp(database: Pool): Express {
+  const app = express()
+  app.disable('x-powered-by')
+  app.use(express.json({ limit: '16kb' }))
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      environment: config.nodeEnv,
+      timestamp: new Date().toISOString(),
+    })
   })
-})
-
-// Global Error Handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err)
-  res.status(500).json({
-    error: {
-      message: config.nodeEnv === 'production' ? 'Internal server error' : err.message,
+  app.use('/api/auth', registrationRoutes(database))
+  app.use('/api/auth', sessionRoutes(database))
+  app.use(
+    '/api/professional',
+    (_req, res, next) => {
+      res.set('Cache-Control', 'no-store')
+      next()
     },
+    requireProfessional(database),
+  )
+  app.get('/api/professional/profile', async (req, res, next) => {
+    try {
+      const profile = await professionalProfile(database, req.professional!)
+      if (!profile)
+        throw new AuthError(
+          401,
+          'SESSION_REQUIRED',
+          'Tu sesión venció. Inicia sesión de nuevo.',
+        )
+      res.json({ profile })
+    } catch (error) {
+      next(error)
+    }
   })
-})
-
+  app.use((_req, res) => {
+    res
+      .status(404)
+      .json({ error: { code: 'NOT_FOUND', message: 'Recurso no disponible.' } })
+  })
+  app.use(
+    (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      res.set('Cache-Control', 'no-store')
+      if (error instanceof AuthError) {
+        res
+          .status(error.status)
+          .json({ error: { code: error.code, message: error.message } })
+        return
+      }
+      const status =
+        typeof error === 'object' && error !== null && 'status' in error
+          ? error.status
+          : 500
+      res.status(status === 400 || status === 413 ? status : 503).json({
+        error: {
+          code:
+            status === 400
+              ? 'INVALID_JSON'
+              : status === 413
+                ? 'PAYLOAD_TOO_LARGE'
+                : 'SERVICE_UNAVAILABLE',
+          message:
+            status === 400
+              ? 'El formulario no tiene un formato válido.'
+              : status === 413
+                ? 'El formulario excede el tamaño permitido.'
+                : 'No pudimos completar la solicitud.',
+        },
+      })
+    },
+  )
+  return app
+}
+export const app = createApp(pool)
 export default app

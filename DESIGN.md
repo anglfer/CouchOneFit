@@ -80,7 +80,7 @@ Tipografía sans-serif del sistema, sin descargar fuentes. En Web usar la pila d
 
 En escritorio distribuir tarjetas en varias columnas; en tablet reducir columnas y en ancho estrecho usar una columna y menú accesible. Validar 320/390/768/1280 px; tablas extensas con adaptación o desplazamiento localizado, nunca desbordamiento de toda la página.
 
-**Móvil cliente:** navegación inferior con cuatro destinos, Inicio, Planes, Progreso y Cuenta. Inicio muestra fecha y tarjetas de entrenamiento, alimentación y check-in; acceso a la captura única del peso dentro del check-in, sin formulario paralelo. Planes distingue entrenamiento y alimentación. Entrenamiento muestra ejercicios y detalle por serie; nutrición comidas/cantidades/instrucciones. Progreso muestra únicamente historial y gráficos autorizados; Cuenta reúne perfil de solo lectura, credenciales, aviso académico y cierre de sesión. Los formularios/detalles usan navegación de regreso y una acción principal clara.
+**Móvil cliente:** navegación inferior con cuatro destinos, Inicio, Planes, Progreso y Cuenta. Inicio muestra fecha y tarjetas de entrenamiento, alimentación y check-in; acceso a la captura única del peso dentro del check-in, sin formulario paralelo. Planes distingue entrenamiento y alimentación. Entrenamiento muestra ejercicios y detalle por serie; nutrición comidas/cantidades/instrucciones. Progreso muestra únicamente historial y gráficos autorizados; Cuenta reúne perfil de solo lectura, credenciales, información de registro y cierre de sesión. Los formularios/detalles usan navegación de regreso y una acción principal clara.
 
 Respetar áreas seguras, teclado, scroll, escalado de texto y controles táctiles cómodos. No fabricar métricas cuando no existan datos; mostrar estados independientes sin plan, sin registros, sin permiso y acceso suspendido según DEC-004/009.
 
@@ -103,7 +103,7 @@ Toda pantalla debe especificar carga, vacío, error, éxito y denegación cuando
 - Conservar marketing terminado y su paleta propia; compartir marca, no forzar un único tema global.
 - Seguir HU y DEC vigentes: la referencia **no aprueba citas/agenda, chat, notificaciones, reportes nuevos, fotos de progreso, fotografías de alimentos/ejercicios ni bibliotecas multimedia**.
 - No agregar rachas/streaks, recordatorios o calificación global por estar sugeridos en la imagen/paleta.
-- No copiar sus métricas ficticias a pantallas funcionales, ni representar ausencia de datos como incumplimiento.
+- No copiar sus métricas de ejemplo a pantallas funcionales, ni representar ausencia de datos como incumplimiento.
 - Permisos, suscripción y estados se validan en API; el diseño no cambia reglas de negocio.
 - Objetivo de aceptación: contraste AA verificado por combinación, foco visible, teclado, objetivos táctiles mínimos de 44 px Web/48 unidades lógicas móvil y gráficos no dependientes solo de color. Son validaciones pendientes, no accesibilidad certificada.
 - Decisión visual aprobada; implementación de pantallas, temas, iconos y pruebas sigue pendiente dentro de cada HU y TT-013, sin nuevas estimaciones o funcionalidades.

@@ -3,9 +3,8 @@
 <p align="center"><img src="apps/web/public/logo.png" alt="Logo de CouchOne Fit" width="360"></p>
 
 > **Nombre oficial:** CouchOne Fit
-> **Periodo:** Septiembre – Diciembre 2026
-> **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)
-> **Estado:** Base técnica y demo; negocio pendiente (auditoría 8-oct-2026). DEC-001–016 cerradas documentalmente14-oct por delegación explícita usuario, no implementación ni certificación médica/legal.
+> **Tipo de producto:** Plataforma SaaS de entrenamiento, nutrición y seguimiento
+> **Estado:** producto SaaS en desarrollo incremental. Registro y acceso profesional Web/API/PostgreSQL disponibles localmente; cartera y demás módulos se integran por funcionalidad. Ver documentación y evidencia HU-001.
 
 ---
 
@@ -16,7 +15,7 @@
 - **Itzel Yutzil Sánchez López**
 - **Michel Omar Nava Oliva**
 
-Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. **V2 académica no comercial, exclusivamente sintética:**271SP activos,13excluidos,284históricos; nombres/roles no atribuyen responsabilidad legal.
+Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
 
 > 📌 **Flujo de trabajo y ramas en Git:** Consulta la [Guía de Trabajo con Git](CONTRIBUTING.md) antes de comenzar a programar para conocer las reglas de ramas, commits y manejo de archivos compartidos.
 
@@ -28,13 +27,13 @@ Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. **V2 académi
 
 El sistema está compuesto por tres partes principales:
 
-- **Aplicación Web / PWA:** profesionales, administración y portal académico demostrativo; catálogo con checkout de pago simulado, sin precios ni cobros reales.
+- **Aplicación Web / PWA:** profesionales, administración y portal público; catálogo con precios y registro desde los planes, sin cobros reales (acuerdo 15-oct).
 - **Aplicación móvil:** enfocada en los clientes (atletas) para su uso diario.
 - **Backend / API central:** conecta ambas aplicaciones, administra la lógica de negocio, autenticación, seguridad y persistencia de datos.
 
 ## Modelo general del sistema
 
-1. Admin asigna plan demo Básico10/Pro30/Élite ilimitado explícito; el portal permite simular la contratación, sin procesar pagos ni activar suscripciones reales. Sin plan profesional solo perfil/suscripción y panel vacío, sin operaciones de negocio.
+1. Admin asigna Básico (10), Pro (30) o Élite (ilimitado). El portal permite elegir un plan e iniciar el registro; el flujo actual no procesa pagos ni activa suscripciones. Sin plan, el profesional solo consulta perfil/suscripción y panel vacío.
 2. Desde la aplicación web, el profesional registra a sus clientes, prepara sus expedientes individuales, asigna planes de entrenamiento y nutrición, y da seguimiento a su evolución.
 3. El cliente utiliza principalmente la aplicación móvil para consultar las prescripciones de su profesional y registrar sus entrenamientos, peso, adherencia y check-ins diarios.
 
@@ -60,7 +59,7 @@ CouchOne Fit
 
 Desarrollada principalmente para el **profesional**, dividida en dos secciones:
 
-### Parte pública (Portal académico demostrativo)
+### Parte pública (Portal público)
 
 - Qué es CouchOne Fit y sus beneficios principales.
 - Planes disponibles y límites de clientes por plan.
@@ -119,8 +118,8 @@ Para garantizar que toda cuenta de cliente pertenezca a la cartera de un profesi
 
 ### Flujo del Profesional (Web / PWA)
 
-1. El profesional crea su cuenta o inicia sesión.
-2. Consulta plan demo asignado por admin; solicita cambios asistidamente, sin pantalla nueva/cobro.
+1. Desde «Contáctanos» o «Contratar plan», crea su cuenta en `/registro`; inicia sesión en `/acceso` y entra a `/app/`.
+2. Consulta plan asignado por admin; solicita cambios asistidamente, sin pantalla nueva/cobro.
 3. Entra al panel profesional y registra cliente dentro del cupo, sin asumir administración SaaS.
 4. Crea su expediente con datos físicos y parámetros iniciales.
 5. Diseña y asigna el plan de entrenamiento y/o nutrición.
@@ -154,7 +153,7 @@ Las rutas ordinarias realizan **baja lógica**, no DELETE físico de cuentas/his
 
 - La baja cambia el estado de la cuenta a inactiva.
 - Se inhabilita el inicio de sesión del usuario dado de baja.
-- Relaciones/historial dentro de ventana académica: purga controlada del dataset sintético aislado30d tras aceptación final; backups expiran≤7d tras purga, fixtures tras runs. No forever/exportación automática (DEC-011).
+- La baja lógica conserva relaciones e historial. Retención y eliminación por categoría requieren una política definida; no se eliminan cuentas por hitos de entrega. Los datos de pruebas se mantienen aislados.
 - Expediente inactivo ≠ cuenta de baja. Cliente cuenta activa conserva lectura propia de perfil/planes publicados/historial autorizado ante expediente inactivo, profesional inactivo o sub suspendida, sin check-in/peso/series. Profesional inactivo revoca/no login sin cascada cliente. Reactivar cuenta no activa expediente; expediente requiere profesional/sub activos y cupo. Último admin protegido.
 
 ---
@@ -268,14 +267,14 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 ### Decisiones confirmadas
 
 - Nombre oficial: **CouchOne Fit**.
-- Proyecto Integrador Sep–Dic 2026 (Web Integral + Móvil Integral).
+- Plataforma SaaS con Web/PWA profesional y aplicación móvil para clientes.
 - Repositorio monorepo con aplicaciones desacopladas.
 - Tecnologías base: Node.js/Express (API), React/Vite (Web), Flutter (Móvil).
 - Arquitecturas: Feature-Based + Layered (Backend) y Feature-Based + Component-Based (Web y Móvil).
 - Persistencia elegida **PostgreSQL en Supabase Cloud**, SQL `pg` parametrizado/migraciones versionadas/RLS contexto confiable; conexión negocio no demostrada por auditoría8-oct.
 - Registro de clientes subordinado a código de vinculación único.
 - Acceso directo al expediente preexistente sin recaptura de datos personales.
-- Baja lógica y conservación/purga sintética DEC-011, sin datos reales V2.
+- Baja lógica y conservación de historial DEC-011; retención y eliminación autorizada por categoría de dato.
 - Catálogo de requerimientos formalizado en Google Sheets (V2).
 
 ### Decisiones resueltas; implementación y gates pendientes
@@ -283,9 +282,9 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 - Ninguna pregunta de producto DEC-001–016 abierta: reglas vigentes en §3.4 del plan;41HU/21TT preservadas, sin puntos inventados para refinamientos.
 - REST `/api`, auth API/PostgreSQL; usuarioASCII3–30 lower/trim sin@ o correo obligatorio lower/trim; contraseña15–128Unicode sin trim/composición, Argon2id mínimo19MiB/t2/p1. JWT15min+sid/estadoBD cada request, refresh rotativo absoluto30d; logout/replay revoca servidor.
 - Web proxy mismo origen Vercel→RenderHTTPS, cookie host-only HttpOnly/Secure/SameSiteStrict/no-cache y Origin+tokenCSRF; Vite proxy local, móvil Bearer secure store/directoRenderTLS. HU-009 recuperación asistida incluida identidad fuera banda/reset separado32bytes/hash/TTL30min/revoca todas, no SMTP.
-- HU-023 incluida Jackson–Pollock3/Siri con **gate técnico originales completos/fixtures**, no certificación por abstracts. HU-025 pospuesta excepciónRDF0605/0606; HU-038 fuera V2. HU-041 aviso académico versionado y confirmación antes primer uso incluidos, no waiver/certificación legal.
+- HU-023 incluida Jackson–Pollock3/Siri con **gate técnico originales completos/fixtures**, no certificación por abstracts. HU-025 pospuesta excepciónRDF0605/0606; HU-038 fuera V2. HU-041 información de registro versionada y confirmación antes primer uso incluidos, no waiver/certificación legal.
 - Implementar contratos/DDL/DTO TT-003/009, migraciones/RLS/features/tests/CI/deploy/restore/APK; rutas y DDL sugeridos, no implementados. Android mínimaAPI24 política sujeta gate dependency/build/emuladores24/36; matriz browser/PWA aún por ejecutar. Mantener locks sin upgrades en esta edición.
-- Gates externos: horas/fecha oficial, límites/permisos cloud/custodia firma. Datos reales/comercial requieren institución/responsable/jurisdicción/política y aprobación competente separada; no autorizados ni certificados aquí.
+- Gates externos: horas/fecha oficial, límites/permisos cloud/custodia firma. Política de privacidad y conservación del producto: responsable, contacto, finalidades y plazos por definir; la documentación técnica no acredita revisión legal.
 
 ---
 
@@ -296,3 +295,26 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 > **La API central mantiene sincronizadas ambas aplicaciones, controla permisos, relaciones, autenticación y reglas de negocio.**
 >
 > El profesional es propietario de su cartera de clientes y cada cliente debe estar vinculado obligatoriamente a un profesional. El objetivo principal de **CouchOne Fit** es centralizar en un solo sistema la administración de clientes, entrenamiento, nutrición y seguimiento del progreso físico.
+
+
+## Incremento HU-001 — registro Web (15-oct-2026)
+
+Formulario `/registro`, API `POST /api/auth/professionals` y migración incremental para cuenta/perfil/aceptación. Cuenta profesional activa, sin sesión, cupo ni suscripción automática. «Contáctanos» abre registro; planes Básico $299 MXN/10, Pro $599 MXN/30 y Élite $999 MXN/ilimitado conducen al formulario con interés preseleccionado. Este acuerdo reemplaza las condiciones anteriores del catálogo; no introduce cobros reales.
+
+Contrato, reglas, límites y recorrido: [Registro profesional](docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md). Aplicación y evolución de tablas para login: [Base de datos](docs/database/README.md). Auth propia API/PostgreSQL; no Supabase Auth. Ampliar el perfil después requiere nuevas migraciones, conservando cuentas existentes.
+
+Para ejecutar: en `apps/api`, configurar `DATABASE_URL`/`CORS_ORIGIN` y aplicar `npm run db:migrate` con usuario de migraciones; iniciar con usuario de servidor dedicado mediante `npm run dev`. En `apps/web`, dejar `VITE_API_URL` vacío y ejecutar `npm run dev` (proxy `/api`). `/acceso` permite iniciar sesión y `/app/*` verifica la sesión antes de mostrar contenido privado. Configurar `AUTH_JWT_SECRET` solo en API y conceder `couchone_autenticacion` al usuario runtime para HU-002. Ver instrucciones de permisos, pruebas y TLS en BD.
+
+La configuración de ejemplo ya no incluye claves Supabase. Las claves anteriormente publicadas requieren rotación por el responsable: retirarlas del archivo actual no las revoca ni elimina el historial.
+
+
+## HU-002 — acceso profesional
+
+Login por usuario o correo en `/acceso`, sesión revocable PostgreSQL y guard de `/app/*`. Cada consulta privada comprueba cuenta/rol/estado/sesión; `/api/professional/profile` usa esa identidad para leer solo el perfil propio. Cuenta sin plan muestra perfil y estado vacío, sin cartera ni métricas de ejemplo. Cookies HttpOnly/Strict, Secure en producción; JWT de 15 minutos, refresh rotativo con límite absoluto de 30 días y cierre con revocación inmediata. No se guardan tokens en localStorage.
+
+Aplicar la migración `202610150001_inicial_identidad_acceso.sql` con el usuario de migraciones; usar `couchone_autenticacion` como membresía del runtime y configurar `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes fuera de Git. [Contrato y operación de acceso](docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md), [proceso de BD](docs/database/README.md). HU-005 conserva integración completa con móvil y futuros módulos; HU-002 no asigna plan ni implementa cobros.
+
+
+## Documentación por épica e historia
+
+Contratos, flujos y evidencia de cada HU están en [docs/epicas](docs/epicas/README.md), dentro de su épica y carpeta de historia. HU-001/002 pertenecen a [EP-01 — Identidad y acceso](docs/epicas/ep-01-identidad-y-acceso/README.md). No se atan las rutas documentales a sprints. [Convenciones de BD/código](docs/database/convenciones.md) y [modelo detallado con tablas y funciones](docs/database/modelo-identidad-acceso.md). La migración inicial consolidada crea las tablas en español y [schemas](docs/database/schemas/README.md) conserva la definición integrada; API/Web se actualizan a los campos camelCase descritos en sus contratos.

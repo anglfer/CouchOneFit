@@ -1,9 +1,5 @@
-import { useRef, useState, type ReactElement } from 'react';
-
-interface DemoPlan {
-  name: string;
-  capacity: string;
-}
+import type { ReactElement } from 'react';
+import { registrationPlans } from '../../auth/content';
 
 const questions = [
   {
@@ -29,7 +25,7 @@ const questions = [
   {
     question: '¿Ya puedo registrarme o contratar un plan?',
     answer:
-      'Puedes recorrer una contratación y un pago simulados para Básico, Pro o Élite. No se solicitan datos de pago, no se realiza un cargo ni se activa una suscripción real. El acceso al producto sigue en desarrollo.',
+      'Ya puedes crear tu cuenta desde Contáctanos o elegir un plan para iniciar el registro. Registrarte no realiza un cobro ni activa una suscripción. Después de registrarte puedes iniciar sesión y consultar tu perfil.',
   },
 ];
 
@@ -257,27 +253,6 @@ export function HowItWorks(): ReactElement {
 }
 
 export function Plans(): ReactElement {
-  const checkoutDialogRef = useRef<HTMLDialogElement>(null);
-  const [selectedPlan, setSelectedPlan] = useState<DemoPlan | null>(null);
-  const [isCheckoutComplete, setIsCheckoutComplete] = useState(false);
-  const plans: DemoPlan[] = [
-    { name: 'Básico', capacity: 'Hasta 10 clientes activos' },
-    { name: 'Pro', capacity: 'Hasta 30 clientes activos' },
-    { name: 'Élite', capacity: 'Clientes ilimitados' },
-  ];
-
-  function openCheckout(plan: DemoPlan): void {
-    setSelectedPlan(plan);
-    setIsCheckoutComplete(false);
-    checkoutDialogRef.current?.showModal();
-  }
-
-  function closeCheckout(): void {
-    checkoutDialogRef.current?.close();
-    setSelectedPlan(null);
-    setIsCheckoutComplete(false);
-  }
-
   return (
     <section
       className="marketing-container plans-section"
@@ -286,82 +261,31 @@ export function Plans(): ReactElement {
     >
       <div className="plans-panel">
         <div className="plans-copy">
-          <span className="marketing-label">CATÁLOGO DE DEMOSTRACIÓN</span>
-          <h2 id="plans-title">Planes con capacidad definida.</h2>
-          <p>Límites de clientes activos definidos para la V2 académica.</p>
+          <span className="marketing-label">ENCUENTRA TU ESPACIO</span>
+          <h2 id="plans-title">Un plan para tu forma de trabajar.</h2>
+          <p>Elige según tu cartera. Empieza creando tu cuenta.</p>
         </div>
-        <div className="plans-catalog" aria-label="Planes de demostración">
-          {plans.map((plan) => (
-            <article className="plan-card" key={plan.name}>
+        <div className="plans-catalog" aria-label="Planes disponibles">
+          {registrationPlans.map((plan) => (
+            <article className="plan-card" key={plan.id}>
               <h3>{plan.name}</h3>
+              <p className="plan-price">
+                ${plan.price} <small>MXN</small>
+              </p>
               <p>{plan.capacity}</p>
-              <button
-                type="button"
+              <a
                 className="marketing-button button-small"
-                onClick={() => openCheckout(plan)}
+                href={`/registro?plan=${plan.id}`}
               >
-                Contratar en demo
-              </button>
+                Contratar plan <span aria-hidden="true">→</span>
+              </a>
             </article>
           ))}
         </div>
         <p className="plans-notice">
-          Pago exclusivamente simulado. No ingreses datos bancarios: no hay
-          cargos ni suscripciones reales.
+          Crear tu cuenta no realiza un cobro ni activa una suscripción.
         </p>
       </div>
-      <dialog
-        ref={checkoutDialogRef}
-        className="marketing-access-dialog"
-        aria-labelledby="checkout-title"
-        aria-describedby="checkout-description"
-      >
-        <form method="dialog">
-          <button
-            className="dialog-close"
-            type="button"
-            aria-label="Cerrar contratación simulada"
-            onClick={closeCheckout}
-          >
-            ×
-          </button>
-          {isCheckoutComplete ? (
-            <>
-              <span className="marketing-label">PAGO SIMULADO</span>
-              <h2 id="checkout-title">
-                Contratación de demostración completada
-              </h2>
-              <p id="checkout-description" role="status">
-                Se simuló la contratación del plan {selectedPlan?.name}. No se
-                realizó ningún cargo y no se activó una suscripción real.
-              </p>
-              <button
-                className="marketing-button"
-                type="button"
-                onClick={closeCheckout}
-              >
-                Cerrar
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="marketing-label">CHECKOUT DE DEMOSTRACIÓN</span>
-              <h2 id="checkout-title">Plan {selectedPlan?.name}</h2>
-              <p id="checkout-description">
-                {selectedPlan?.capacity}. Pulsa para simular el pago. No se
-                solicitarán datos bancarios ni se realizará un cargo.
-              </p>
-              <button
-                className="marketing-button"
-                type="button"
-                onClick={() => setIsCheckoutComplete(true)}
-              >
-                Simular pago y contratar
-              </button>
-            </>
-          )}
-        </form>
-      </dialog>
     </section>
   );
 }

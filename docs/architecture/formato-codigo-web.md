@@ -53,8 +53,8 @@ Para asegurar que el formateo ocurra sin intervención manual, el repositorio in
 2. **`.vscode/settings.json`**:
    - `editor.formatOnSave: true`: autoformatea el archivo al guardar (`Ctrl + S` / `Cmd + S`).
    - `editor.defaultFormatter: "esbenp.prettier-vscode"`: asigna Prettier como formateador por defecto para TypeScript, TSX, JS, JSX, JSON, CSS y HTML.
-   - `prettier.configPath`: vincula la ruta de [apps/web/.prettierrc](apps/web/.prettierrc).
-   - `prettier.ignorePath`: vincula [apps/web/.prettierignore](apps/web/.prettierignore) (omite `node_modules`, `dist`, `dev-dist`, `.vercel`).
+   - `prettier.configPath`: vincula la ruta de [apps/web/.prettierrc](../../apps/web/.prettierrc).
+   - `prettier.ignorePath`: vincula [apps/web/.prettierignore](../../apps/web/.prettierignore) (omite `node_modules`, `dist`, `dev-dist`, `.vercel`).
 
 ---
 

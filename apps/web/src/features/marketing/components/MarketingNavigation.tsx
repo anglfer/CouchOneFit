@@ -1,8 +1,4 @@
-import { useRef, useState, type ReactElement, type RefObject } from 'react';
-
-interface MarketingNavigationProps {
-  onOpenAccess: () => void;
-}
+import { useRef, useState, type ReactElement } from 'react';
 
 const navigation = [
   { href: '#producto', label: 'El producto' },
@@ -23,9 +19,7 @@ export function Brand(): ReactElement {
   );
 }
 
-export function MarketingNavigation({
-  onOpenAccess,
-}: MarketingNavigationProps): ReactElement {
+export function MarketingNavigation(): ReactElement {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -71,59 +65,18 @@ export function MarketingNavigation({
               {item.label}
             </a>
           ))}
-          <button
+          <a
             className="marketing-button button-small button-secondary"
-            type="button"
-            onClick={() => {
-              setIsMenuOpen(false);
-              onOpenAccess();
-            }}
+            href="/acceso"
+            onClick={() => setIsMenuOpen(false)}
           >
             Acceso profesional <span aria-hidden="true">↗</span>
-          </button>
+          </a>
+          <a className="marketing-button button-small" href="/registro">
+            Contáctanos <span aria-hidden="true">→</span>
+          </a>
         </nav>
       </div>
     </header>
-  );
-}
-
-export function AccessDialog({
-  dialogRef,
-}: {
-  dialogRef: RefObject<HTMLDialogElement | null>;
-}): ReactElement {
-  return (
-    <dialog
-      ref={dialogRef}
-      className="marketing-access-dialog"
-      aria-labelledby="access-title"
-      aria-describedby="access-description"
-    >
-      <form method="dialog">
-        <button
-          className="dialog-close"
-          aria-label="Cerrar aviso"
-          type="submit"
-        >
-          ×
-        </button>
-        <span className="marketing-label">
-          ESTAMOS CONSTRUYENDO COUCHONE FIT
-        </span>
-        <h2 id="access-title">Tu próximo espacio de trabajo.</h2>
-        <p id="access-description">
-          El acceso profesional, el registro y la contratación todavía no están
-          disponibles. Por ahora puedes explorar una vista conceptual del
-          producto.
-        </p>
-        <p>
-          No necesitas crear una cuenta. Esta demostración no solicita ni guarda
-          datos personales.
-        </p>
-        <button className="marketing-button" type="submit">
-          Entendido <span aria-hidden="true">→</span>
-        </button>
-      </form>
-    </dialog>
   );
 }

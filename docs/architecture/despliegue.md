@@ -1,6 +1,6 @@
 # Estrategia de Infraestructura y Despliegue
 
-Especificación documental vigente14-oct-2026 por **delegación explícita usuario**, DEC-001–016 [plan §3.3/3.4](../../PLAN_TRABAJO_V2.md). **Demo académica no comercial exclusivamente sintética**, presupuesto incremental0, sin precios ni cobros reales; el checkout Web puede completar una simulación local sin pasarela, captura de datos bancarios ni activación de suscripción real. No acredita configuración, disponibilidad, accesos/colaboradores, backup ni implementación. Corte técnico8-oct:health público503 dos muestras/causa desconocida. Uso real/comercial exige decisión futura/política y aprobaciones externas, no certificación aquí.
+Arquitectura operativa de CouchOne Fit: Web/PWA, API y PostgreSQL centralizado. Registro, acceso profesional y sesiones están implementados localmente; pagos y demás módulos conservan sus propios incrementos. Las instrucciones y objetivos de este documento requieren verificación en el entorno de despliegue; no acreditan disponibilidad ni configuración remota. Plan y dependencias: [PLAN_TRABAJO_V2.md](../../PLAN_TRABAJO_V2.md).
 
 ---
 
@@ -65,7 +65,7 @@ La API corre como un proceso persistente de Node.js que expone endpoints REST a 
 - **Start Command:** `npm start`
 - **Instance Type:** `Free`
 
-> **Fuente S-02 contrastada14-oct:** RenderFree reposa tras15min sintráfico, arranque aproximado1min y discoefímero; no30–45s garantizados. DEC-013 adopta cold≤60s como objetivo **empírico noSLA**,5muestrastras20minreposo, separado dewarm; si incumple, advertir limitaciónsin inventargarantía. Sinmonitorcontinuocada5min/keepalive; solo deployment/ventanasdemoautorizadas conhealth/readiness, coldtests aparte.
+> **Fuente S-02 contrastada14-oct:** RenderFree reposa tras15min sintráfico, arranque aproximado1min y discoefímero; no30–45s garantizados. DEC-013 adopta cold≤60s como objetivo **empírico noSLA**,5muestrastras20minreposo, separado dewarm; si incumple, advertir limitaciónsin inventargarantía. Sinmonitorcontinuocada5min/keepalive; solo despliegues o ventanas de revisión autorizadas conhealth/readiness, coldtests aparte.
 
 ### Variables de entorno (`apps/api`)
 
@@ -74,9 +74,9 @@ La API corre como un proceso persistente de Node.js que expone endpoints REST a 
 | `PORT`                               | Sí               | Puerto asignado por Render (o 3000 por defecto)                                        | `10000`                              |
 | `NODE_ENV`                           | Sí               | Entorno de ejecución                                                                   | `production`                         |
 | `CORS_ORIGIN`                        | Sí               | Dominio permitido para solicitudes web                                                 | `https://couchonefit-web.vercel.app` |
-| `DATABASE_URL` (nombre sugerido)     | Sí               | ConexiónTLS/pool rolordinario `pg`, secreto solo servidor; nombre definitivoTT-008/009 | Configurar fueraGit, sin valor aquí  |
+| `DATABASE_URL`     | Sí               | ConexiónTLS/pool rolordinario `pg`, secreto solo servidor; nombre definitivoTT-008/009 | Configurar fueraGit, sin valor aquí  |
 | Credencial de migración separada     | ProcedimientoDDL | Solo migraciones controladas, nunca handler ordinario                                  | Custodiaexterna, sin valor aquí      |
-| SecretoJWT propio (nombre porTT-009) | Sí               | HS256 robusto/rotacióncontrolada, no frontend/keypublicada                             | Custodiaexterna, sin valor aquí      |
+| `AUTH_JWT_SECRET` | Sí               | HS256 robusto/rotacióncontrolada, no frontend/keypublicada                             | Custodiaexterna, sin valor aquí      |
 
 VariablesSupabase/Auth/JWKS del borrador son antecedentes, **no requisitos del auth propio elegido**. No leer/copiar secretos del READMEBD, no service_role bypassRLS para negocio. TT-001 requiere rotaciónhumana autorizada de exposiciones históricas; esta edición no acredita rotación.
 
@@ -95,16 +95,19 @@ La capa de datos se centraliza en **Supabase**:
 
 - Warm p95lecturas800ms/escrituras1500ms,15concurrentes/5rps5min,≥500muestrasportipo (extenderhastaalcanzar). Fixture8prof/56clientes/100000filas tamañoobjetivo≤500MBmedido,no capimpuesto;200eventosdiariosno200filas (serieshijassemidenaparte).
 - Read-after-COMMITinmediato/noeventualstale; dashboardforeground60s+latencia/no fondo/keepawake,móvilrefreshmanualwarm5sobjetivo. Timeoutwarmservidor15s/cliente20s/bootstrap65ssoloarranque, sin retryciegoescritura.
-- Disponibilidadmensualobservada/reportada, **sin mínimo99%SLA académico**;99%historico/futuropagado. Demoprogramadaexigehealth/readiness/flujoreal, no semanasuptime.
-- Backupdiario03:00America/Mexico_City/cifradooffsite7d, Omar ejecuta bajoFranela; últimocorrecto/alertafallo-gap/reconocimiento/fallbackmanualantesdespuésdemo. RPOobjetivo≤24hdesdeéxito/RTO≤4hrestoremedido roles/datos/constraints/versiones/relaciones; sincopiaválidagatepromoción/demo. No backupsadministradosFreeasumidos ni copia en discoefímeroRender.
-- Retencióndemosintética/auditoría30dtrasaceptaciónfinal,fixturestrasruns; purga datasetaisladocontrolada/manifiesto, backupsfinalesexpiran≤7dtraspurga/restore reaplicapurga sinreintroducción. BajalógicanohardDELETErutasordinarias/sinexportacióntransferenciaautomática.
+- Disponibilidadmensualobservada/reportada, **sin mínimo99%SLA contractual**;99%historico/futuropagado. Cada despliegue requiere health, readiness y recorrido funcional verificados.
+- Backupdiario03:00America/Mexico_City/cifradooffsite7d, Omar ejecuta bajoFranela; últimocorrecto/alertafallo-gap/reconocimiento/fallback manual antes y después de cada revisión. RPOobjetivo≤24hdesdeéxito/RTO≤4hrestoremedido roles/datos/constraints/versiones/relaciones; sincopiaválidaverificación de promoción. No backupsadministradosFreeasumidos ni copia en discoefímeroRender.
+- Retención: baja lógica y conservación de historial; política por categoría pendiente de definición. Sin purga de cuentas por hitos de entrega. Limpiar datos de pruebas aislados al terminar sus ejecuciones; respaldos y restauración deben respetar las eliminaciones autorizadas.
 
 ## 6. Entrega y gates externos — DEC-012/014/015/016
 
 APKAndroidreleasefirmadoOmarbajoPukzil,keyfueraGit; mínimaAPI24política sujeta dependency/buildgate, emuladores24/36pruebasrequeridas,nofísicoprometido. NoiOS/Windowsnativo/AAB/tiendasV2. WebChrome/Edge/FirefoxestablesaltestWindows320/390/768/1280/teclado; PWAcapacidadessegúnmatrizreal, locksconfirmarsinupgrading.
 
-AvisopúblicoacadémicomismoWeb/móvil,dato ficticio/nodiagnóstico/nocertificaciónlegal, aliases/domíniosemailreservadossinPIIreal, confirmaciónversionada/timestampantesprimerusoprofesional/cliente (HU-041base3SP; altaatómicaHU-001/008). Omarredacta/Ferproductodelegado,noentidadlegal/waiver.
+Información de registro común Web/móvil, con versión y fecha confirmadas antes del primer uso (HU-041; alta atómica HU-001/008). La política de privacidad completa requiere responsable, contacto, finalidades, conservación y mecanismos de atención; no se atribuyen aprobaciones legales inexistentes.
 
 Cuatroquincenas19-oct–1-nov/2–15-nov/16–29-nov/30-nov–13-dic2026TARGET, S0–S7incrementos, WIP1/reserva30%horasbrutas×0,7sinSP→horas/reporteasíncronosemanal/review1-nov.271SPactivos no prueba capacidad.
 
-**Externos aún no acreditados:** humanosautorizadosconfirmanhoras/fechaoficial/accesos/límitescolaboracióncloud/custodiafirma; HU-023gateoriginalescompletos/fixturesantesReady; datosreales/comercialrequiereninstitución/responsable/jurisdicción/política/aprobacióncompetenteseparada. NingunapreguntaproductoV2pendiente; no compras/config/cloud/testsimplementadosporestedocumento.
+**Externos aún no acreditados:** humanosautorizadosconfirmanhoras/fechaoficial/accesos/límitescolaboracióncloud/custodiafirma; HU-023gateoriginalescompletos/fixturesantesReady; políticadeprivacidadyretenciónrequierenresponsable/contactoyrevisión.  NingunapreguntaproductoV2pendiente; no compras/config/cloud/testsimplementadosporestedocumento.
+
+
+HU-002 incorpora sesión profesional: configurar `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes solo en API y conceder `couchone_autenticacion` al usuario runtime tras aplicar la migración de sesiones. Ver [contrato de acceso](../epicas/ep-01-identidad-y-acceso/hu-002/README.md). El login/refresh/logout requieren Origin Web permitido y CSRF por proxy mismo origen; verificar cookies Secure y no-store en staging antes de promover.
