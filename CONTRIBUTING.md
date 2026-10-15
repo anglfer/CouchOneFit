@@ -185,3 +185,10 @@ Un conflicto ocurre cuando dos personas editaron exactamente la misma línea de 
 - **NUNCA subas archivos `.env`** con contraseñas, URLs reales con credenciales o llaves privadas.
 - Si agregas una nueva variable de entorno, agrégala en el archivo `.env.example` correspondiente como plantilla sin datos sensibles.
 - Las carpetas pesadas (`node_modules/`, `build/`, `dist/`, `.dart_tool/`) están ignoradas por el `.gitignore`; nunca intentes forzar su inclusión con `git add -f`.
+
+
+## Documentación y convenciones de datos
+
+Cada HU mantiene contrato, flujo, persistencia, pruebas y evidencia en `docs/epicas/<epica>/hu-XXX/README.md`; planes y anexos propios viven en esa carpeta. La asignación a sprints se conserva en el plan de trabajo sin mover esos documentos. Ver [índice de épicas](docs/epicas/README.md).
+
+Seguir [las convenciones](docs/database/convenciones.md): español snake_case en BD, camelCase en código/JSON y PascalCase en tipos/componentes. Los cambios de columnas deben alcanzar repositorios, DTO, Web y pruebas. Crear migraciones por funcionalidad; nunca editar SQL aplicado. Documentar diccionario/relaciones/permisos y validar instalación limpia y actualización con registros, preservando checksums.

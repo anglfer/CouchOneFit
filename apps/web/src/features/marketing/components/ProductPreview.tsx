@@ -340,8 +340,7 @@ export function ProductPreview(): ReactElement {
         <span>
           Una plataforma. Dos experiencias conectadas.
           <small>
-            Vista conceptual interactiva con datos ficticios. Las funciones del
-            producto están en desarrollo.
+            Entrenamiento, nutrición y seguimiento en un mismo lugar.
           </small>
         </span>
       </figcaption>

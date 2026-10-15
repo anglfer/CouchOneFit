@@ -75,12 +75,12 @@ Botones de 12px, paneles de 24px e indicadores circulares. Los radios del marco 
 
 ## Components
 
-Navegación nativa mediante anclas; menú móvil con Escape y foco de retorno. Diálogo nativo para disponibilidad. Vistas de ejemplo con controles reales y estado local; no persisten datos ni llaman a APIs.
+Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Contratar plan» abre `/registro` con plan de interés; «Contáctanos» abre registro sin plan. Registro conectado a API/PostgreSQL; pagos y login se integran en sus módulos correspondientes.
 
 ## Do's and Don'ts
 
 - Basar el contenido en docs/requirements. Diferenciar alcance previsto de disponibilidad actual.
-- No inventar precios, cuotas, pruebas gratis, fechas, usuarios, testimonios, chat ni integraciones.
-- Identificar los datos ficticios y la vista conceptual; no presentar prototipos como capturas del producto disponible.
+- Usar los precios y límites acordados: Básico $299 MXN/10 activos, Pro $599 MXN/30 y Élite $999 MXN/ilimitados. Crear cuenta no cobra ni activa la suscripción. No añadir pruebas gratis, testimonios o integraciones sin requerimiento.
+- La vista interactiva explica el producto; las pantallas funcionales usan datos del backend y sus estados de carga, vacío y error.
 - Mantener expedientes y prescripciones bajo control profesional. El código vincula una cuenta con un expediente existente una sola vez.
 - Foco visible, objetivos táctiles de al menos 44px, contraste AA y respeto a movimiento reducido.

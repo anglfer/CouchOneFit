@@ -121,3 +121,8 @@ mobile/
 
 La especificación completa de plataformas, configuración por entorno y variables requeridas para producción se encuentra documentada en:
 👉 **[Estrategia de Infraestructura y Despliegue](despliegue.md)**.
+
+
+## Contratos por funcionalidad y persistencia
+
+La documentación de historias se concentra en [épicas e historias](../epicas/README.md), sin carpetas por sprint. Las convenciones compartidas se definen en [BD/código](../database/convenciones.md); [modelo de identidad y acceso](../database/modelo-identidad-acceso.md) documenta tablas, relaciones, índices, políticas y funciones reales de HU-001/002. PostgreSQL usa español snake_case; TypeScript/JSON usan camelCase y clases/tipos/componentes PascalCase. Los repositorios mapean columnas explícitamente.

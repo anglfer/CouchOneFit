@@ -3,9 +3,8 @@
 <p align="center"><img src="apps/web/public/logo.png" alt="Logo de CouchOne Fit" width="360"></p>
 
 > **Nombre oficial:** CouchOne Fit
-> **Periodo:** Septiembre – Diciembre 2026
-> **Tipo de proyecto:** Proyecto Integrador (Web Integral & Móvil Integral)
-> **Estado:** Fase de definición y planeación
+> **Tipo de producto:** Plataforma SaaS de entrenamiento, nutrición y seguimiento
+> **Estado:** producto SaaS en desarrollo incremental. Registro y acceso profesional Web/API/PostgreSQL disponibles localmente; cartera y demás módulos se integran por funcionalidad. Ver documentación y evidencia HU-001.
 
 ---
 
@@ -14,6 +13,9 @@
 - **Maythe Francella Balleza Solis**
 - **Ángel Fernando Oñate Reyes**
 - **Itzel Yutzil Sánchez López**
+- **Michel Omar Nava Oliva**
+
+Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
 
 > 📌 **Flujo de trabajo y ramas en Git:** Consulta la [Guía de Trabajo con Git](CONTRIBUTING.md) antes de comenzar a programar para conocer las reglas de ramas, commits y manejo de archivos compartidos.
 
@@ -25,13 +27,13 @@
 
 El sistema está compuesto por tres partes principales:
 
-- **Aplicación Web / PWA:** dirigida a los profesionales y al portal comercial del SaaS.
+- **Aplicación Web / PWA:** profesionales, administración y portal público; catálogo con precios y registro desde los planes, sin cobros reales (acuerdo 15-oct).
 - **Aplicación móvil:** enfocada en los clientes (atletas) para su uso diario.
 - **Backend / API central:** conecta ambas aplicaciones, administra la lógica de negocio, autenticación, seguridad y persistencia de datos.
 
 ## Modelo general del sistema
 
-1. El profesional adquiere acceso a CouchOne Fit mediante un plan de suscripción que le permite administrar una cantidad determinada de clientes activos.
+1. Admin asigna Básico (10), Pro (30) o Élite (ilimitado). El portal permite elegir un plan e iniciar el registro; el flujo actual no procesa pagos ni activa suscripciones. Sin plan, el profesional solo consulta perfil/suscripción y panel vacío.
 2. Desde la aplicación web, el profesional registra a sus clientes, prepara sus expedientes individuales, asigna planes de entrenamiento y nutrición, y da seguimiento a su evolución.
 3. El cliente utiliza principalmente la aplicación móvil para consultar las prescripciones de su profesional y registrar sus entrenamientos, peso, adherencia y check-ins diarios.
 
@@ -57,16 +59,18 @@ CouchOne Fit
 
 Desarrollada principalmente para el **profesional**, dividida en dos secciones:
 
-### Parte pública (Portal comercial)
+### Parte pública (Portal público)
+
 - Qué es CouchOne Fit y sus beneficios principales.
 - Planes disponibles y límites de clientes por plan.
 - Registro e inicio de sesión del profesional.
 
 ### Panel del profesional
+
 - **Gestión de clientes:** registrar clientes, consultar activos/inactivos, editar datos y desactivación (baja lógica).
 - **Expediente del cliente:** registrar datos iniciales, medidas corporales, pliegues antropométricos y objetivos.
-- **Planificación:** crear y activar planes de entrenamiento (ejercicios, series, repeticiones, descansos) y planes de alimentación (comidas, porciones, calorías, macronutrientes).
-- **Seguimiento histórico:** consultar check-ins periódicos, evolución del peso, fotos de progreso y adherencia.
+- **Planificación:** entrenamiento versionado (series/reps, intensidad RPE prescripción, carga objetivo opcional) y alimentación manual (cantidades/instrucciones, calorías/macros opcionales).
+- **Seguimiento histórico:** check-ins diarios/peso corporal distinto de carga por serie, evolución autorizada y adherencia observada/cobertura separadas; **sin fotos V2**.
 - **Vinculación:** generación de códigos temporales de acceso para nuevos clientes.
 
 ## 2. Aplicación móvil
@@ -74,8 +78,8 @@ Desarrollada principalmente para el **profesional**, dividida en dos secciones:
 Diseñada para el **cliente del entrenador o nutriólogo** como herramienta diaria:
 
 - **Consulta:** perfil personal, plan de entrenamiento activo (ejercicios, series, pesos objetivo, instrucciones) y plan de alimentación vigente.
-- **Registro diario:** entrenamientos realizados, peso utilizado, repeticiones logradas, cumplimiento nutricional, peso corporal y fotografías de progreso.
-- **Check-ins:** registro periódico de indicadores de sueño, estrés, energía y comentarios para su profesional.
+- **Registro diario:** carga kg/reps reales/estado por serie, cumplimiento nutricional y peso corporal opcional; sin fotografías ni RPE ejecución.
+- **Check-ins:** diarios, sueño en horas/estrés y energía1–5/comentario/peso opcionales, al menos un campo real; única captura/fuente HU-032/037 sin alterar base/evaluación.
 - **Historial:** consulta de progreso longitudinal autorizado por el profesional.
 
 El cliente no tiene que volver a capturar su nombre, peso inicial ni parámetros base; al registrarse accede directamente al expediente que su profesional ya preparó.
@@ -106,47 +110,51 @@ Para garantizar que toda cuenta de cliente pertenezca a la cartera de un profesi
 
 - Sin un código válido no se permite crear la cuenta de cliente.
 - El código temporal se destruye tras el canje exitoso; los accesos posteriores utilizan exclusivamente las credenciales del cliente.
+- DEC-003:32bytes CSPRNG/base64url43/hash SHA-256/TTL7d servidor, una pendiente por expediente activo no vinculado, entrega manual. Cuenta+vínculo+confirmación aviso versionado+DELETE temporal en única conexión/transacción. Activo reserva cupo una vez, canje no cuenta segunda plaza.
 
 ---
 
 # Flujo general del sistema
 
 ### Flujo del Profesional (Web / PWA)
-1. El profesional crea su cuenta o inicia sesión.
-2. Selecciona o administra su plan de suscripción.
-3. Entra al panel de administración y registra un nuevo cliente.
+
+1. Desde «Contáctanos» o «Contratar plan», crea su cuenta en `/registro`; inicia sesión en `/acceso` y entra a `/app/`.
+2. Consulta plan asignado por admin; solicita cambios asistidamente, sin pantalla nueva/cobro.
+3. Entra al panel profesional y registra cliente dentro del cupo, sin asumir administración SaaS.
 4. Crea su expediente con datos físicos y parámetros iniciales.
 5. Diseña y asigna el plan de entrenamiento y/o nutrición.
 6. Genera un código individual de vinculación y se lo entrega al cliente.
 
 ### Flujo del Cliente (Aplicación móvil)
+
 1. Descarga la aplicación e inicia el registro.
 2. Ingresa usuario, contraseña, correo (con sus confirmaciones) y el código entregado.
 3. El backend valida el código y crea la cuenta autenticada.
 4. Se enlaza automáticamente al expediente preparado por su profesional.
 5. El código se consume e invalida.
 6. El cliente accede directamente a su información, rutinas y comidas asignadas.
-7. Comienza a registrar su progreso y check-ins diarios, visibles para su profesional en tiempo real.
+7. Registra según reloj servidor/zonaIANA, hoy y dos fechas locales anteriores, corrección auditada/idempotente. Lectura inmediata tras COMMIT; dashboard foreground60s+latencia, móvil refresh manual warm objetivo5s, no WebSocket/keep-alive.
 
 ---
 
 # Roles del sistema
 
-| Rol | Plataforma principal | Responsabilidades |
-| :--- | :--- | :--- |
-| **Profesional** | Web / PWA | Gestiona su cartera de clientes, crea expedientes, prescribe entrenamientos y dietas, revisa check-ins y analiza la evolución histórica. |
-| **Cliente** | Móvil | Consulta sus planes asignados, ejecuta sus rutinas y registra métricas diarias de seguimiento y progreso. Acceso restringido exclusivamente a su propia información. |
-| **Administrador** | Web | Gestiona la plataforma global, cuentas de profesionales, catálogo de planes y estados de suscripciones SaaS (separado de la operación técnica de los clientes). |
+| Rol               | Plataforma principal | Responsabilidades                                                                                                                                                    |
+| :---------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Profesional**   | Web / PWA            | Gestiona su cartera de clientes, crea expedientes, prescribe entrenamientos y dietas, revisa check-ins y analiza la evolución histórica.                             |
+| **Cliente**       | Móvil                | Consulta sus planes asignados, ejecuta sus rutinas y registra métricas diarias de seguimiento y progreso. Acceso restringido exclusivamente a su propia información. |
+| **Administrador** | Web                  | Gestiona la plataforma global, cuentas de profesionales, catálogo de planes y estados de suscripciones SaaS (separado de la operación técnica de los clientes).      |
 
 ---
 
 # Política de eliminación de cuentas (Baja lógica)
 
-El sistema **no realiza eliminación física** de cuentas ni de información histórica en la base de datos:
+Las rutas ordinarias realizan **baja lógica**, no DELETE físico de cuentas/historial:
 
 - La baja cambia el estado de la cuenta a inactiva.
 - Se inhabilita el inicio de sesión del usuario dado de baja.
-- Se conservan íntegras las relaciones, expedientes, evaluaciones y registros históricos para garantizar consistencia y trazabilidad longitudinal.
+- La baja lógica conserva relaciones e historial. Retención y eliminación por categoría requieren una política definida; no se eliminan cuentas por hitos de entrega. Los datos de pruebas se mantienen aislados.
+- Expediente inactivo ≠ cuenta de baja. Cliente cuenta activa conserva lectura propia de perfil/planes publicados/historial autorizado ante expediente inactivo, profesional inactivo o sub suspendida, sin check-in/peso/series. Profesional inactivo revoca/no login sin cascada cliente. Reactivar cuenta no activa expediente; expediente requiere profesional/sub activos y cupo. Último admin protegido.
 
 ---
 
@@ -154,20 +162,22 @@ El sistema **no realiza eliminación física** de cuentas ni de información his
 
 El proyecto se gestiona como un **monorepo**:
 
-| Aplicación | Tecnología confirmada | Arquitectura | Hosting / Infraestructura |
-| :--- | :--- | :--- | :--- |
-| **API / Backend** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture | Render (Web Service) |
-| **Web / PWA** | React + Vite + TypeScript | Feature-Based + Component-Based Architecture | Vercel (SPA) |
-| **Móvil** | Flutter + Dart | Feature-Based + Component-Based Architecture | APK / App Bundle |
-| **Base de Datos** | PostgreSQL (Supabase) | Relacional / RLS | Supabase Cloud |
+| Aplicación        | Tecnología confirmada          | Arquitectura                                 | Hosting / Infraestructura                                  |
+| :---------------- | :----------------------------- | :------------------------------------------- | :--------------------------------------------------------- |
+| **API / Backend** | Node.js + Express + TypeScript | Feature-Based + Layered Architecture         | Render (Web Service)                                       |
+| **Web / PWA**     | React + Vite + TypeScript      | Feature-Based + Component-Based Architecture | Vercel (SPA)                                               |
+| **Móvil**         | Flutter + Dart                 | Feature-Based + Component-Based Architecture | APK Android firmado; sin AAB/tiendas/iOS/Windows nativo V2 |
+| **Base de Datos** | PostgreSQL (Supabase)          | Relacional / RLS                             | Supabase Cloud                                             |
 
 Documentación completa de arquitectura y despliegue en:
+
 - [Arquitectura de capas y módulos](docs/architecture/README.md)
 - [Estrategia de infraestructura y despliegue](docs/architecture/despliegue.md)
 
 ### Estructura base de carpetas por aplicación
 
 #### Backend (`api/src/`)
+
 ```text
 api/
 └── src/
@@ -179,6 +189,7 @@ api/
 ```
 
 #### Frontend (`web/src/`)
+
 ```text
 web/
 └── src/
@@ -191,6 +202,7 @@ web/
 ```
 
 #### Móvil (`mobile/lib/`)
+
 ```text
 mobile/
 └── lib/
@@ -245,37 +257,34 @@ La documentación oficial del proyecto se organiza de manera modular dentro de l
 Se utilizará **Scrum** como marco ágil de desarrollo.
 
 - **Fase inicial:** definición del producto, recopilación de requerimientos, diseño arquitectónico y configuración base del monorepo.
-- **Sprint 1:** definición del proyecto, refinamiento de alcance, diseño del modelo de datos y preparación de entornos.
-- **Sprints sucesivos:** desarrollo incremental e iterativo por features priorizadas en el Product Backlog.
+- **Sprints operativos quincenales2026:**19-oct–1-nov,2–15-nov,16–29-nov,30-nov–13-dic; S0–S7 del plan son incrementos/dependencias, no ocho quincenas ni numeración oficial.
+- **Capacidad:** WIP1/dueño/reserva30%, horas brutas confirmadas×0,7 sin convertir SP a horas; reporte semanal/primer review1-nov. TARGET13-dic no fecha oficial/compromiso; confirmaciones externas de horas/accesos/firma.
 
 ---
 
 # Estado actual del proyecto
 
 ### Decisiones confirmadas
+
 - Nombre oficial: **CouchOne Fit**.
-- Proyecto Integrador Sep–Dic 2026 (Web Integral + Móvil Integral).
+- Plataforma SaaS con Web/PWA profesional y aplicación móvil para clientes.
 - Repositorio monorepo con aplicaciones desacopladas.
 - Tecnologías base: Node.js/Express (API), React/Vite (Web), Flutter (Móvil).
 - Arquitecturas: Feature-Based + Layered (Backend) y Feature-Based + Component-Based (Web y Móvil).
-- Motor de persistencia y base de datos: **PostgreSQL en Supabase Cloud** (conexión establecida).
+- Persistencia elegida **PostgreSQL en Supabase Cloud**, SQL `pg` parametrizado/migraciones versionadas/RLS contexto confiable; conexión negocio no demostrada por auditoría8-oct.
 - Registro de clientes subordinado a código de vinculación único.
 - Acceso directo al expediente preexistente sin recaptura de datos personales.
-- Baja lógica de cuentas sin eliminación física de registros.
+- Baja lógica y conservación de historial DEC-011; retención y eliminación autorizada por categoría de dato.
 - Catálogo de requerimientos formalizado en Google Sheets (V2).
 
-### Decisiones pendientes por definir
-- Diseño del esquema de base de datos (tablas, relaciones, enums, migraciones y políticas RLS en Supabase).
-- Ajustes al alcance funcional vigente e identificación de requisitos que no se implementarán.
-- Problemática definitiva y objetivo específico formal.
-- Tipo y protocolo de API (REST, GraphQL).
-- Estrategia de autenticación y autorización (JWT, sesiones, OAuth).
-- Formato técnico, expiración y mecanismo de reposición del código de vinculación.
-- Política de retención de datos tras la baja lógica y condiciones de suspensión de suscripciones.
-- Identificador definitivo para login (usuario, correo o ambos) y manejo de sesión móvil.
-- Plataformas de hosting y estrategia de despliegue continuo (CI/CD).
-- Diseño visual, sistema de diseño y paleta de componentes.
-- Estrategia de pruebas (unitarias, integración, E2E).
+### Decisiones resueltas; implementación y gates pendientes
+
+- Ninguna pregunta de producto DEC-001–016 abierta: reglas vigentes en §3.4 del plan;41HU/21TT preservadas, sin puntos inventados para refinamientos.
+- REST `/api`, auth API/PostgreSQL; usuarioASCII3–30 lower/trim sin@ o correo obligatorio lower/trim; contraseña15–128Unicode sin trim/composición, Argon2id mínimo19MiB/t2/p1. JWT15min+sid/estadoBD cada request, refresh rotativo absoluto30d; logout/replay revoca servidor.
+- Web proxy mismo origen Vercel→RenderHTTPS, cookie host-only HttpOnly/Secure/SameSiteStrict/no-cache y Origin+tokenCSRF; Vite proxy local, móvil Bearer secure store/directoRenderTLS. HU-009 recuperación asistida incluida identidad fuera banda/reset separado32bytes/hash/TTL30min/revoca todas, no SMTP.
+- HU-023 incluida Jackson–Pollock3/Siri con **gate técnico originales completos/fixtures**, no certificación por abstracts. HU-025 pospuesta excepciónRDF0605/0606; HU-038 fuera V2. HU-041 información de registro versionada y confirmación antes primer uso incluidos, no waiver/certificación legal.
+- Implementar contratos/DDL/DTO TT-003/009, migraciones/RLS/features/tests/CI/deploy/restore/APK; rutas y DDL sugeridos, no implementados. Android mínimaAPI24 política sujeta gate dependency/build/emuladores24/36; matriz browser/PWA aún por ejecutar. Mantener locks sin upgrades en esta edición.
+- Gates externos: horas/fecha oficial, límites/permisos cloud/custodia firma. Política de privacidad y conservación del producto: responsable, contacto, finalidades y plazos por definir; la documentación técnica no acredita revisión legal.
 
 ---
 
@@ -286,3 +295,26 @@ Se utilizará **Scrum** como marco ágil de desarrollo.
 > **La API central mantiene sincronizadas ambas aplicaciones, controla permisos, relaciones, autenticación y reglas de negocio.**
 >
 > El profesional es propietario de su cartera de clientes y cada cliente debe estar vinculado obligatoriamente a un profesional. El objetivo principal de **CouchOne Fit** es centralizar en un solo sistema la administración de clientes, entrenamiento, nutrición y seguimiento del progreso físico.
+
+
+## Incremento HU-001 — registro Web (15-oct-2026)
+
+Formulario `/registro`, API `POST /api/auth/professionals` y migración incremental para cuenta/perfil/aceptación. Cuenta profesional activa, sin sesión, cupo ni suscripción automática. «Contáctanos» abre registro; planes Básico $299 MXN/10, Pro $599 MXN/30 y Élite $999 MXN/ilimitado conducen al formulario con interés preseleccionado. Este acuerdo reemplaza las condiciones anteriores del catálogo; no introduce cobros reales.
+
+Contrato, reglas, límites y recorrido: [Registro profesional](docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md). Aplicación y evolución de tablas para login: [Base de datos](docs/database/README.md). Auth propia API/PostgreSQL; no Supabase Auth. Ampliar el perfil después requiere nuevas migraciones, conservando cuentas existentes.
+
+Para ejecutar: en `apps/api`, configurar `DATABASE_URL`/`CORS_ORIGIN` y aplicar `npm run db:migrate` con usuario de migraciones; iniciar con usuario de servidor dedicado mediante `npm run dev`. En `apps/web`, dejar `VITE_API_URL` vacío y ejecutar `npm run dev` (proxy `/api`). `/acceso` permite iniciar sesión y `/app/*` verifica la sesión antes de mostrar contenido privado. Configurar `AUTH_JWT_SECRET` solo en API y conceder `couchone_autenticacion` al usuario runtime para HU-002. Ver instrucciones de permisos, pruebas y TLS en BD.
+
+La configuración de ejemplo ya no incluye claves Supabase. Las claves anteriormente publicadas requieren rotación por el responsable: retirarlas del archivo actual no las revoca ni elimina el historial.
+
+
+## HU-002 — acceso profesional
+
+Login por usuario o correo en `/acceso`, sesión revocable PostgreSQL y guard de `/app/*`. Cada consulta privada comprueba cuenta/rol/estado/sesión; `/api/professional/profile` usa esa identidad para leer solo el perfil propio. Cuenta sin plan muestra perfil y estado vacío, sin cartera ni métricas de ejemplo. Cookies HttpOnly/Strict, Secure en producción; JWT de 15 minutos, refresh rotativo con límite absoluto de 30 días y cierre con revocación inmediata. No se guardan tokens en localStorage.
+
+Aplicar la migración `202610150001_inicial_identidad_acceso.sql` con el usuario de migraciones; usar `couchone_autenticacion` como membresía del runtime y configurar `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes fuera de Git. [Contrato y operación de acceso](docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md), [proceso de BD](docs/database/README.md). HU-005 conserva integración completa con móvil y futuros módulos; HU-002 no asigna plan ni implementa cobros.
+
+
+## Documentación por épica e historia
+
+Contratos, flujos y evidencia de cada HU están en [docs/epicas](docs/epicas/README.md), dentro de su épica y carpeta de historia. HU-001/002 pertenecen a [EP-01 — Identidad y acceso](docs/epicas/ep-01-identidad-y-acceso/README.md). No se atan las rutas documentales a sprints. [Convenciones de BD/código](docs/database/convenciones.md) y [modelo detallado con tablas y funciones](docs/database/modelo-identidad-acceso.md). La migración inicial consolidada crea las tablas en español y [schemas](docs/database/schemas/README.md) conserva la definición integrada; API/Web se actualizan a los campos camelCase descritos en sus contratos.

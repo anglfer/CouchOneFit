@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { registrationPlans } from '../../auth/content';
 
 const questions = [
   {
@@ -24,7 +25,7 @@ const questions = [
   {
     question: '¿Ya puedo registrarme o contratar un plan?',
     answer:
-      'Todavía no. Esta primera versión presenta el alcance previsto y una demostración conceptual. El acceso, las funciones privadas y la contratación están en desarrollo. Los precios, los límites de cada plan y las condiciones comerciales todavía no están definidos.',
+      'Ya puedes crear tu cuenta desde Contáctanos o elegir un plan para iniciar el registro. Registrarte no realiza un cobro ni activa una suscripción. Después de registrarte puedes iniciar sesión y consultar tu perfil.',
   },
 ];
 
@@ -251,11 +252,7 @@ export function HowItWorks(): ReactElement {
   );
 }
 
-export function Plans({
-  onOpenAccess,
-}: {
-  onOpenAccess: () => void;
-}): ReactElement {
+export function Plans(): ReactElement {
   return (
     <section
       className="marketing-container plans-section"
@@ -264,46 +261,30 @@ export function Plans({
     >
       <div className="plans-panel">
         <div className="plans-copy">
-          <span className="marketing-label">UN ESPACIO PARA TU PRÁCTICA</span>
-          <h2 id="plans-title">
-            Tu acompañamiento.
-            <br />A tu escala.
-          </h2>
-          <p>
-            El modelo de suscripción se basará en la capacidad de clientes
-            activos de cada profesional. Tú te enfocas en las personas; tu plan
-            define el espacio para atenderlas.
-          </p>
-          <button
-            type="button"
-            className="marketing-button"
-            onClick={onOpenAccess}
-          >
-            Consultar disponibilidad <span aria-hidden="true">↗</span>
-          </button>
+          <span className="marketing-label">ENCUENTRA TU ESPACIO</span>
+          <h2 id="plans-title">Un plan para tu forma de trabajar.</h2>
+          <p>Elige según tu cartera. Empieza creando tu cuenta.</p>
         </div>
-        <div className="plans-details">
-          <span className="plans-status">Modelo SaaS en desarrollo</span>
-          <h3>Crecer, con claridad.</h3>
-          <dl>
-            <div>
-              <dt>Capacidad</dt>
-              <dd>Según los clientes activos de tu plan</dd>
-            </div>
-            <div>
-              <dt>Experiencias conectadas</dt>
-              <dd>Web profesional y app del cliente</dd>
-            </div>
-            <div>
-              <dt>Disponibilidad comercial</dt>
-              <dd>Precios y límites por definir</dd>
-            </div>
-          </dl>
-          <p>
-            Aún no hay planes disponibles para contratar. No se realizan cobros
-            desde esta página.
-          </p>
+        <div className="plans-catalog" aria-label="Planes disponibles">
+          {registrationPlans.map((plan) => (
+            <article className="plan-card" key={plan.id}>
+              <h3>{plan.name}</h3>
+              <p className="plan-price">
+                ${plan.price} <small>MXN</small>
+              </p>
+              <p>{plan.capacity}</p>
+              <a
+                className="marketing-button button-small"
+                href={`/registro?plan=${plan.id}`}
+              >
+                Contratar plan <span aria-hidden="true">→</span>
+              </a>
+            </article>
+          ))}
         </div>
+        <p className="plans-notice">
+          Crear tu cuenta no realiza un cobro ni activa una suscripción.
+        </p>
       </div>
     </section>
   );

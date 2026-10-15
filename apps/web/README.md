@@ -4,7 +4,7 @@ Aplicación web desarrollada en **React 19 + TypeScript + Vite**.
 
 En producción cumple dos propósitos con límites arquitectónicos definidos:
 
-1. **Capa pública comercial / Marketing (`/`)**: Landing informativa, propuesta de valor y demostración visual interactiva (sitio web estándar, sin PWA invasiva).
+1. **Capa pública (`/`)**: Presentación de CouchOne Fit, catálogo de planes, registro y vista interactiva (sitio web estándar, sin PWA invasiva).
 2. **Capa privada profesional / PWA (`/app/` o `/dashboard/`)**: Espacio de trabajo del entrenador o nutriólogo (expedientes, planes, seguimiento y check-ins) con capacidades de instalación PWA (`RNF03`, `RNF04`).
 
 ---
@@ -14,8 +14,8 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 | Módulo / Capa                        | Estado              | Descripción técnica                                                                                                                                                                           |
 | :----------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Marketing público (`/`)**          | **Completado (v1)** | Landing responsive, temática fija clara/blanca, narrativa guiada por `/docs`, showcase interactivo del producto (panel profesional + app cliente sincronizada) y diálogo de estado de acceso. |
-| **Enrutamiento base**                | **Funcional**       | `AppRoutes.tsx` aísla la capa pública en `/` y responde con 404 personalizado para rutas no existentes.                                                                                       |
-| **Autenticación profesional**        | **Pendiente**       | No existe login, sesión ni conexión con Supabase Auth / API.                                                                                                                                  |
+| **Enrutamiento base**                | **Funcional**       | `AppRoutes.tsx` incluye `/`, `/registro` y `/acceso` y guard de `/app/*`; rutas privadas desconocidas se resuelven después de comprobar sesión.                                                                                       |
+| **Autenticación profesional**        | **Implementada localmente**       | Registro y login por API/PostgreSQL; cookies protegidas, renovación serializada, revocación y perfil propio. Ver contrato HU-002.                                                                                                                                  |
 | **Sistema interno / Dashboard**      | **Pendiente**       | No existen pantallas para gestión de clientes, expedientes ni evaluaciones.                                                                                                                   |
 | **Planes de alimentación y rutinas** | **Pendiente**       | No existe el configurador ni la activación de planes.                                                                                                                                         |
 | **PWA acotada a la app privada**     | **Pendiente**       | El manifiesto y service worker deben delimitarse a `/app/` para no registrar PWA en la landing comercial.                                                                                     |
@@ -26,10 +26,10 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 ### 1. Sistema Interno y Autenticación del Profesional (`RF01`, `RF02`, `RS01`, `RS05`, `RS07`)
 
-- [ ] **Módulo `features/auth/`**:
-  - Pantalla y formulario de inicio de sesión (`/login` o `/auth/login`) para entrenadores y nutriólogos con validación de credenciales.
+- [x] **Módulo `features/auth/` — registro/acceso profesional**:
+  - Pantalla y formulario de inicio de sesión (`/acceso`) para entrenadores y nutriólogos con validación de credenciales.
   - Cierre de sesión e invalidación de token (`RDF0103`).
-  - Almacenamiento seguro del token de sesión (JWT) y manejo de caducidad.
+  - Cookies HttpOnly de sesión y manejo de caducidad/refresh; sin tokens en almacenamiento Web.
   - Guardia de rutas (`PrivateRoute` / `AuthGuard`) para proteger todo el subárbol `/app/*`.
 - [ ] **Dashboard del Profesional (`RF02`)**:
   - Resumen inicial: contador de clientes activos, capacidad disponible según el plan contratado (`RDF0201`, `RDF0202`).
@@ -70,14 +70,16 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 ### 4. Qué falta dentro del Módulo de Marketing (`features/marketing`)
 
-La versión actual de Marketing cubre completamente la narrativa de producto, la demostración interactiva, la propuesta de valor y las preguntas frecuentes. Los elementos pendientes para futuras etapas son:
+La versión actual de Marketing cubre completamente la narrativa de producto, la vista interactiva, la propuesta de valor y las preguntas frecuentes. Los elementos pendientes para futuras etapas son:
 
-- [ ] **Conexión de los CTAs a rutas reales**:
-  - Enlazar el botón _"Acceso profesional ↗"_ y _"Consultar disponibilidad"_ hacia la ruta `/login` (o hacia un formulario de contacto / lista de espera en preventa) una vez esté programado el módulo de autenticación.
+- [x] **CTA de registro:** «Contáctanos» → `/registro`; «Contratar plan» → `/registro?plan=basico|pro|elite`. «Acceso profesional» enlaza a `/acceso`; `/app/*` verifica sesión en API.
 - [ ] **Páginas de términos legales y privacidad (`RNF12`, `RNF19`, `RS23`)**:
   - Enlaces de pie de página para Política de Privacidad y Términos de Servicio cuando se formalice la entidad legal del SaaS.
-- [ ] **Publicación de precios y planes comerciales finales**:
-  - Cuando el equipo de producto defina las tarifas oficiales (mensual/anual) y los límites de clientes activos por nivel, actualizar la sección `#planes` para mostrar las tarjetas con precios reales y botón de suscripción/checkout.
+- [x] **Catálogo y registro (acuerdo 15-oct)**: Básico $299 MXN/10 activos, Pro $599 MXN/30, Élite $999 MXN/ilimitados; precios. Reemplaza recorrido anterior de contratación por registro sin cobro ni activación de suscripción.
+
+**Configuración local:** dejar `VITE_API_URL` vacío en `.env` para usar proxy Vite `/api` → puerto 3000. El backend debe permitir el Origin real con su puerto en `CORS_ORIGIN`. Vercel mantiene `/api` mediante rewrite al dominio API existente; verificar en staging. Nunca poner credenciales de PostgreSQL en variables VITE.
+
+**HU-001:** formulario accesible con confirmaciones, información de registro, plan opcional, carga/error/duplicado/éxito. No persiste credenciales en el navegador. [Contrato](../../docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md), [tablas y migraciones](../../docs/database/README.md). Perfil ampliable mediante nuevas migraciones.
 
 ---
 
@@ -91,3 +93,26 @@ npm run build     # Ejecuta typecheck (tsc -b) y compilación de producción con
 npm run lint      # Ejecuta oxlint sobre el código fuente
 npm run preview   # Previsualiza la compilación de producción
 ```
+
+
+**HU-002:** `/acceso` usa usuario o correo y contraseña; `/app/` y `/app/perfil` consultan sesión/perfil propio. Retorno limitado a rutas locales de la app, validación ante navegación directa y mensajes de sesión/caducidad en español. [Contrato y pruebas](../../docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md). El dashboard/cartera conservan sus HU; el estado sin plan no muestra datos de ejemplo.
+
+## Arranque local de registro y acceso
+
+Se necesitan **dos procesos encendidos**: Vite sirve la web y Express atiende `/api`. Desde la raíz del repositorio, abrir dos terminales:
+
+```powershell
+# Terminal 1
+cd apps/api
+npm run dev
+```
+
+```powershell
+# Terminal 2
+cd apps/web
+npm run dev
+```
+
+Usar `http://localhost:5000` o `http://127.0.0.1:5000`. En `apps/web/.env`, dejar `VITE_API_URL=` vacío para usar el proxy del mismo origen. En `apps/api/.env`, configurar `CORS_ORIGIN=http://localhost:5000,http://127.0.0.1:5000`, `PORT=3000`, la conexión PostgreSQL con TLS verificado y `AUTH_JWT_SECRET`. Si se modifica el entorno, reiniciar el proceso correspondiente. No usar el puerto 5173 como Origin si la web se ejecuta en 5000.
+
+Verificado el 15 de octubre de 2026 en Edge con Supabase real: registro 201 y confirmación, duplicado 409 visible, login y perfil propio, persistencia al recargar, logout, redirección de rutas privadas sin sesión y acceso por ambos hosts locales. La cuenta de prueba y sus datos relacionados fueron eliminados. El fallo reproducido antes de corregir el entorno era `ERR_CONNECTION_REFUSED` al llamar al puerto 3000 sin API activa; la URL directa antigua de Vite y el Origin 5173 también estaban desalineados. No fue necesario cambiar el formulario ni las migraciones.
