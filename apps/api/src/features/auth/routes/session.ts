@@ -8,11 +8,11 @@ import {
   setSessionCookies,
   clearSessionCookies,
 } from '../middleware/session-http.js'
-import { requireProfessional } from '../middleware/professional-session.js'
+import { requireSession } from '../middleware/professional-session.js'
 import {
-  loginProfessional,
-  refreshProfessional,
-  logoutProfessional,
+  loginAccount,
+  refreshAccount,
+  logoutAccount,
   invalidSession,
 } from '../services/session.js'
 import { publicAccount } from '../repositories/session.js'
@@ -40,15 +40,15 @@ export function sessionRoutes(pool: Pool): Router {
   router.get('/csrf', limiter(100), csrfToken)
   router.post('/login', limiter(20), requireCsrf, (async (req, res, next) => {
     try {
-      const session = await loginProfessional(pool, req.body)
+      const session = await loginAccount(pool, req.body)
       setSessionCookies(res, session)
       res.json({ account: session.account })
     } catch (error) {
       next(error)
     }
   }) as RequestHandler)
-  router.get('/session', requireProfessional(pool), (req, res) => {
-    res.json({ account: publicAccount(req.professional!) })
+  router.get('/session', requireSession(pool), (req, res) => {
+    res.json({ account: publicAccount(req.identity!) })
   })
   router.post('/refresh', limiter(100), requireCsrf, (async (
     req,
@@ -56,7 +56,7 @@ export function sessionRoutes(pool: Pool): Router {
     next,
   ) => {
     try {
-      const session = await refreshProfessional(pool, cookies(req).cof_refresh)
+      const session = await refreshAccount(pool, cookies(req).cof_refresh)
       if (!session) {
         clearSessionCookies(res)
         throw invalidSession()
@@ -70,7 +70,7 @@ export function sessionRoutes(pool: Pool): Router {
   router.post('/logout', requireCsrf, (async (req, res, next) => {
     try {
       const jar = cookies(req)
-      await logoutProfessional(pool, jar.cof_refresh, jar.cof_access)
+      await logoutAccount(pool, jar.cof_refresh, jar.cof_access)
       clearSessionCookies(res)
       res.status(204).end()
     } catch (error) {

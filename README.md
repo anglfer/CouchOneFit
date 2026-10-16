@@ -17,7 +17,7 @@
 
 Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
 
-> 📌 **Flujo de trabajo y ramas en Git:** Consulta la [Guía de Trabajo con Git](CONTRIBUTING.md) antes de comenzar a programar para conocer las reglas de ramas, commits y manejo de archivos compartidos.
+> 📌 **Antes de programar:** empieza por la [Guía de programación](DEVELOPMENT.md) y las [convenciones de base de datos y contratos](docs/database/convenciones.md). Para ramas, commits y manejo de archivos compartidos, consulta la [Guía de Trabajo con Git](CONTRIBUTING.md).
 
 ---
 

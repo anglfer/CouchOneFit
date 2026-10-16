@@ -3,11 +3,17 @@ import MarketingPage from '../features/marketing/pages/MarketingPage';
 import RegistrationPage from '../features/auth/pages/RegistrationPage';
 import AccessPage from '../features/auth/pages/AccessPage';
 import ProfessionalApp from '../features/auth/pages/ProfessionalApp';
+import AdminApp from '../features/admin/pages/AdminApp';
 
 export default function AppRoutes(): ReactElement {
   if (window.location.pathname === '/') return <MarketingPage />;
   if (window.location.pathname === '/registro') return <RegistrationPage />;
   if (window.location.pathname === '/acceso') return <AccessPage />;
+  if (
+    window.location.pathname === '/admin' ||
+    window.location.pathname.startsWith('/admin/')
+  )
+    return <AdminApp />;
   if (
     window.location.pathname === '/app' ||
     window.location.pathname.startsWith('/app/')

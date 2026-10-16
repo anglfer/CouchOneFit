@@ -59,7 +59,7 @@
   padding: clamp(24px, 3.5vw, 44px);
   border: 1px solid var(--m-border);
   border-radius: 24px;
-  background: white;
+  background: var(--m-panel);
   box-shadow: var(--m-shadow-card);
   min-width: 0;
 }
@@ -96,8 +96,8 @@
   min-width: 0;
   padding: 12px;
   color: var(--m-ink);
-  border: 1px solid #9298b1;
-  background: #fff;
+  border: 1px solid var(--m-border-strong);
+  background: var(--m-panel);
   border-radius: 9px;
   font-size: 16px;
 }
@@ -137,10 +137,10 @@
 .registration-form .registration-error {
   padding: 12px;
   margin: 0;
-  border: 1px solid #dbaaaa;
+  border: 1px solid var(--error);
   border-radius: 9px;
-  background: #fff5f5;
-  color: #9b2525;
+  background: var(--error-soft);
+  color: var(--m-ink);
 }
 .registration-login {
   text-align: center;
@@ -164,67 +164,6 @@
   line-height: 1.15;
 }
 
-.professional-layout {
-  padding-top: 32px;
-}
-.professional-page {
-  --m-primary: #2563eb;
-  --m-primary-hover: #1d4ed8;
-  --m-ink: #1e293b;
-  --m-ink-heading: #1e293b;
-  --m-muted: #64748b;
-  --m-canvas: #f8fafc;
-  --m-border: #e2e8f0;
-}
-.professional-page .registration-card {
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: none;
-}
-.professional-page .registration-card h2 {
-  font-size: 24px;
-}
-.professional-nav {
-  display: flex;
-  gap: 24px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--m-border);
-}
-.professional-nav a {
-  color: var(--m-primary);
-  font-weight: 600;
-}
-.professional-heading {
-  padding-block: 32px;
-}
-.professional-heading h1 {
-  font-size: 28px;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-.professional-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-.professional-profile {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px 24px;
-  font-size: 15px;
-}
-.professional-profile dt {
-  color: var(--m-muted);
-}
-.professional-profile dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-@media (max-width: 800px) {
-  .professional-grid {
-    grid-template-columns: 1fr;
-  }
-}
 .registration-sr-only {
   position: absolute;
   width: 1px;

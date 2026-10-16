@@ -21,9 +21,9 @@ Las tablas de negocio están en **privado**; el historial técnico en **migracio
 
 ## Migración inicial y esquema completo
 
-Única migración: [202610150001_inicial_identidad_acceso.sql](migrations/202610150001_inicial_identidad_acceso.sql). Crea directamente el modelo español de HU-001/002: usuarios, profesionales, aceptaciones, sesiones y tokens de renovación, con sus claves, índices, roles y políticas. Se consolidó antes de la primera aplicación del proyecto; no requiere renombrar tablas ni convertir datos anteriores.
+Inicial: [202610150001_inicial_identidad_acceso.sql](migrations/202610150001_inicial_identidad_acceso.sql). Crea directamente el modelo español de HU-001/002: usuarios, profesionales, aceptaciones, sesiones y tokens de renovación, con sus claves, índices, roles y políticas. Se consolidó antes de la primera aplicación del proyecto; no requiere renombrar tablas ni convertir datos anteriores. HU-003 añade [202610160001_provision_administrador.sql](migrations/202610160001_provision_administrador.sql) con permisos/RLS de provisión administrativa controlada, sin nuevas tablas.
 
-La carpeta [schemas](schemas/README.md) conserva [el SQL completo integrado](schemas/identidad_acceso.sql). Hoy coincide con la inicial. Al incorporar módulos se añadirá una migración y se actualizará el esquema integrado para reflejar el resultado acumulado. Una migración aplicada queda inmutable.
+La carpeta [schemas](schemas/README.md) conserva [el SQL completo integrado](schemas/identidad_acceso.sql), equivalente a las dos migraciones acumuladas. Al incorporar módulos se añadirá una migración y se actualizará el esquema integrado para reflejar el resultado acumulado. Una migración aplicada queda inmutable.
 
 Aplicar **solo las migraciones** al preparar un entorno; no ejecutar además el SQL de `schemas` sobre la misma base. El esquema integrado es referencia y se prueba por separado en una base vacía. El historial técnico `migraciones.historial` lo crea y mantiene el ejecutor, no el snapshot de negocio.
 
@@ -95,3 +95,7 @@ Límites: esta prueba usa la conexión administrativa `postgres` para diagnósti
 Después del smoke HTTP se reprodujo el fallo de la web: Vite estaba activo en 5000, Express no estaba encendido, `VITE_API_URL` apuntaba directamente a 3000 y `CORS_ORIGIN` seguía en 5173. Se corrigieron únicamente los archivos locales ignorados y se inició la API. La web usa ahora el proxy `/api` y la API admite los hosts locales del puerto 5000.
 
 Edge comprobó contra Supabase real: registro y confirmación, duplicado visible, login/perfil, persistencia al recargar, logout, guardia de rutas privadas y acceso tanto en localhost como en 127.0.0.1. No hubo peticiones de red fallidas en ese recorrido. Se eliminó la cuenta temporal con sus perfiles, aceptaciones, sesiones y tokens. Esta evidencia amplía la prueba HTTP anterior; no acredita un despliegue publicado ni una conexión runtime con usuario restringido. [Arranque de los dos procesos locales](../../apps/web/README.md#arranque-local-de-registro-y-acceso).
+
+## HU-003 — provisión administrativa, 16 de octubre de 2026
+
+Se aplicó `202610160001_provision_administrador.sql` mediante `npm run db:migrate` y se verificó su checksum remoto. La seed versionada `apps/api/scripts/seed-admin.ts` creó un administrador activo sin perfil profesional; una segunda ejecución preservó sus credenciales. El permiso SET temporal del operador se restauró. La provisión inicial dejó sus credenciales en `.env.admin` local ignorado. La seed actual es manual de un solo uso por cuenta, pide usuario/correo y muestra la contraseña aleatoria una vez sin guardar archivos ni usar variables `ADMIN_*`; no se reejecutó en remoto. No se alteró la cuenta profesional existente. [Procedimiento, permisos, matriz y evidencia HTTP/navegador](../epicas/ep-01-identidad-y-acceso/hu-003/README.md). La conexión runtime dedicada y el despliegue API/Web siguen pendientes.

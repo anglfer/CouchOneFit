@@ -158,13 +158,12 @@ test('login por usuario/correo normalizados crea sesión y consulta solo su perf
   }
 })
 
-test('contraseña incorrecta, cuenta inexistente/inactiva, cliente y admin responden igual', async () => {
+test('contraseña incorrecta, cuenta inexistente/inactiva y cliente responden igual', async () => {
   const responses = [
     await login(`prof.${run}`, 'incorrecta de prueba'),
     await login(`ausente.${run}`),
     await login(`baja.${run}`),
     await login(`cliente.${run}`),
-    await login(`admin.${run}`),
   ]
   for (const response of responses) {
     assert.equal(response.status, 401)

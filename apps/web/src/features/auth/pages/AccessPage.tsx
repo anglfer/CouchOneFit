@@ -1,3 +1,4 @@
+import ThemeToggle from '../../../shared/ThemeToggle';
 import {
   useEffect,
   useRef,
@@ -13,21 +14,22 @@ import { ApiError } from '../../../services/api';
 
 export default function AccessPage(): ReactElement {
   const params = new URLSearchParams(window.location.search);
-  const destination = authorizedReturn(params.get('retorno'));
+  const returnTo = params.get('retorno');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   useEffect(() => {
     let active = true;
     void readSession()
-      .then(() => {
-        if (active) window.location.replace(destination);
+      .then(({ account }) => {
+        if (active)
+          window.location.replace(authorizedReturn(returnTo, account.role));
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [destination]);
+  }, [returnTo]);
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (lock.current) return;
@@ -36,11 +38,11 @@ export default function AccessPage(): ReactElement {
     setBusy(true);
     setError('');
     try {
-      await login(
+      const { account } = await login(
         String(data.get('identificador') ?? ''),
         String(data.get('contrasena') ?? '')
       );
-      window.location.replace(destination);
+      window.location.replace(authorizedReturn(returnTo, account.role));
     } catch (failure) {
       setError(
         failure instanceof ApiError
@@ -55,7 +57,10 @@ export default function AccessPage(): ReactElement {
     <div className="marketing registration-page">
       <header className="registration-header marketing-container">
         <Brand />
-        <a href="/">Volver al inicio ↗</a>
+        <div className="registration-actions">
+          <ThemeToggle />
+          <a href="/">Volver al inicio ↗</a>
+        </div>
       </header>
       <main className="registration-card access-page">
         <span className="marketing-label">TU ESPACIO EN COUCHONE FIT</span>

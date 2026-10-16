@@ -1,6 +1,6 @@
 # Modelo de datos y funciones — identidad y acceso
 
-Modelo final de HU-001/002 creado por `202610150001_inicial_identidad_acceso.sql`. PostgreSQL en Supabase, autenticación propia en API. Las tablas de cartera, invitaciones, rutinas y suscripciones se incorporarán en sus módulos; no existen por aparecer como ejemplos en las convenciones.
+Modelo de HU-001/002 creado por `202610150001_inicial_identidad_acceso.sql`, ampliado por HU-003 con `202610160001_provision_administrador.sql` (provisión, sin tablas nuevas). PostgreSQL en Supabase, autenticación propia en API. Las tablas de cartera, invitaciones, rutinas y suscripciones se incorporarán en sus módulos; no existen por aparecer como ejemplos en las convenciones.
 
 ## Creación y evolución
 
@@ -144,16 +144,16 @@ No hay funciones SQL/RPC de negocio almacenadas en el esquema. Las funciones sig
 | `registerProfessional` — `services/registration.ts` | Pool + payload → `{account}` | Valida, genera Argon2id, llama al repositorio. 23505 se traduce a 409 sin identificar la cuenta; infraestructura a 503 seguro. |
 | `insertProfessional` — `repositories/registration.ts` | Pool + registro + hash → usuario UUID | Una conexión: BEGIN → usuario → perfil → aceptación → COMMIT; cualquier fallo hace ROLLBACK y libera conexión. La API fija rol profesional. |
 | `findLoginAccount` — `repositories/session.ts` | Pool + identificador normalizado → cuenta interna o undefined | Selecciona columna correo/usuario desde una lista fija; parámetros para el valor. Devuelve hash solo al servicio, no al navegador. |
-| `loginProfessional` — `services/session.ts` | Pool + `{identificador,contrasena}` → datos de sesión y cuenta pública | Verifica hash/rol/estado, vuelve a consultar cuenta/perfil; BEGIN → sesión → hash refresh → firma access → COMMIT. Fallo revierte y no emite cookies. |
-| `currentSession` — `repositories/session.ts` | Pool + usuario UUID + sid → identidad vigente o undefined | JOIN usuarios/profesionales/sesiones con rol/estado/vigencia/revocación. No confía en un claim de rol. |
+| `loginAccount` — `services/session.ts` | Pool + `{identificador,contrasena}` → datos de sesión y cuenta pública | Verifica hash/rol/estado, vuelve a consultar cuenta/perfil; BEGIN → sesión → hash refresh → firma access → COMMIT. Fallo revierte y no emite cookies. |
+| `currentSession` — `repositories/session.ts` | Pool + usuario UUID + sid → identidad vigente o undefined | JOIN usuarios/sesiones y LEFT JOIN profesionales con rol/estado/vigencia/revocación; solo el profesional requiere perfil. No confía en un claim de rol. |
 | `authenticate` — `services/session.ts` | Pool + access → identidad de sesión | Verifica JWT y consulta BD. Si la identidad dejó de ser válida, marca la sesión como revocada; devuelve 401 sin datos privados. |
 | `professionalProfile` — `repositories/session.ts` | Pool + identidad comprobada → perfil propio | Filtra de nuevo por usuario y sesión vigentes. La FK usada se toma de la sesión, no de query/body. Devuelve `id` de perfil y `accountId` de usuario. |
-| `refreshProfessional` — `services/session.ts` | Pool + refresh → siguiente sesión o null | BEGIN, SELECT FOR UPDATE de sesión/token, validación; marca uso, inserta nuevo hash y firma. Replay/cuenta inválida revoca y confirma esa revocación antes de devolver 401. No mueve `expira_en`. |
-| `logoutProfessional` — `services/session.ts` | Pool + cookies → void | Revoca sesión localizada por hash de refresh; si solo hay access, verifica firma y usa usuario/sid. Borrado de cookies solo tras éxito del servidor. |
+| `refreshAccount` — `services/session.ts` | Pool + refresh → siguiente sesión o null | BEGIN, SELECT FOR UPDATE de sesión/token, validación; marca uso, inserta nuevo hash y firma. Replay/cuenta inválida revoca y confirma esa revocación antes de devolver 401. No mueve `expira_en`. |
+| `logoutAccount` — `services/session.ts` | Pool + cookies → void | Revoca sesión localizada por hash de refresh; si solo hay access, verifica firma y usa usuario/sid. Borrado de cookies solo tras éxito del servidor. |
 | `signAccess` / `verifyAccess` — `services/tokens.ts` | IDs → JWT; JWT → IDs verificados | Sin SQL; HS256 allowlist, `iss/aud/sub/sid/iat/exp`, duración 15 min, clave solo servidor ≥32 bytes. |
 | `randomToken` / `tokenHash` — `services/tokens.ts` | aleatoriedad → base64url; token → SHA-256 | CSPRNG 32 bytes. BD recibe solo hash refresh. |
 | `csrfToken` / `requireCsrf` — `middleware/session-http.ts` | request/response → token informativo o autorización | Cookie CSRF HttpOnly; compara Origin permitido y token de cabecera en tiempo constante. Sin tablas de CSRF. |
-| `requireProfessional` — `middleware/professional-session.ts` | request → identidad comprobada | Ejecuta `authenticate` antes de cualquier ruta privada; no autoriza solo porque exista cookie. |
+| `requireSession` / `requireProfessional` / `requireAdmin` — `middleware/professional-session.ts` | request → identidad comprobada y autorización | Autentica y restringe por rol persistido; 401 sin sesión válida y 403 ante rol incorrecto. |
 
 Web usa `login`, `readSession`, `sessionRequest`, `logout` y `authorizedReturn` en `apps/web/src/features/auth/services/session.ts`. Las lecturas privadas pueden renovar una vez, con promesa compartida y Web Locks entre pestañas cuando existen. Los contratos propios usan camelCase (`csrfToken`, `fullName`, `accountId`, `nombreCompleto`); las cookies y claims estándar conservan su nombre por compatibilidad.
 
@@ -167,7 +167,7 @@ SELECT p.id, p.usuario_id AS "accountId", p.nombre_completo AS "fullName"
 FROM privado.profesionales p WHERE p.usuario_id = $1;
 ```
 
-El servicio compara valores persistidos `profesional`/`activo`; `publicAccount` serializa el contrato HTTP `professional`/`active`. No acepta esos privilegios desde el payload del visitante. Las filas SQL inspeccionadas directamente por tests pueden usar nombres BD, mientras los objetos de la aplicación usan camelCase.
+El servicio compara valores persistidos `profesional`/`administrador` y `activo`; `publicAccount` serializa roles HTTP `professional`/`admin` y estado `active`. No acepta esos privilegios desde el payload del visitante. Las filas SQL inspeccionadas directamente por tests pueden usar nombres BD, mientras los objetos de la aplicación usan camelCase.
 
 ## Permisos y aislamiento
 
@@ -177,8 +177,9 @@ El servicio compara valores persistidos `profesional`/`activo`; `publicAccount` 
 | --- | --- |
 | `couchone_registro` | SELECT/INSERT de usuarios profesionales, perfiles y aceptaciones; INSERT de usuario limitado a rol profesional y estado activo. Sin UPDATE/DELETE de cuentas. |
 | `couchone_autenticacion` | Hereda registro; SELECT de cuentas para autenticar; SELECT/INSERT/UPDATE de sesiones y hashes refresh. No cambia roles, estado o credenciales. |
+| `couchone_provision` | Solo operadores: SELECT de identificadores/rol/estado e INSERT de cuentas administrativas activas; sin lectura de hash, UPDATE/DELETE ni acceso a perfiles/sesiones. Nunca conceder al runtime. |
 
-Las políticas se llaman `insertar_usuarios_profesionales`, `consultar_usuarios_profesionales`, `consultar_usuarios_acceso`, `insertar_profesionales`, `consultar_profesionales`, `insertar_aceptaciones_avisos`, `consultar_aceptaciones_avisos`, `gestionar_sesiones`, `gestionar_tokens_renovacion`. Se aplican a roles internos de servidor, no al usuario final de una sesión JWT; la autorización de ese usuario la hace la API y su consulta filtrada. No se presenta este permiso de servidor como aislamiento multiusuario de una futura cartera.
+Las políticas se llaman `insertar_usuarios_profesionales`, `consultar_usuarios_profesionales`, `consultar_usuarios_acceso`, `insertar_profesionales`, `consultar_profesionales`, `insertar_aceptaciones_avisos`, `consultar_aceptaciones_avisos`, `gestionar_sesiones`, `gestionar_tokens_renovacion`; HU-003 añade `insertar_administradores_controlados` y `consultar_administradores_controlados`. Se aplican a roles internos de servidor, no al usuario final de una sesión JWT; la autorización de ese usuario la hace la API y su consulta filtrada. No se presenta este permiso de servidor como aislamiento multiusuario de una futura cartera.
 
 El runtime dedicado recibe `GRANT couchone_autenticacion TO couchone_api;`. La inicial crea los roles españoles o reutiliza los existentes en el clúster. Comprueba que no haya atributos elevados ni membresías inesperadas al aprovisionar roles.
 

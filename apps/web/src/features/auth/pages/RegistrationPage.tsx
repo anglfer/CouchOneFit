@@ -1,3 +1,4 @@
+import ThemeToggle from '../../../shared/ThemeToggle';
 import { useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Brand } from '../../marketing/components/MarketingNavigation';
 import { apiClient, ApiError } from '../../../services/api';
@@ -80,7 +81,10 @@ export default function RegistrationPage(): ReactElement {
     <div className="marketing registration-page">
       <header className="registration-header marketing-container">
         <Brand />
-        <a href="/">Volver al inicio ↗</a>
+        <div className="registration-actions">
+          <ThemeToggle />
+          <a href="/">Volver al inicio ↗</a>
+        </div>
       </header>
       <main className="registration-layout marketing-container">
         <aside className="registration-intro">

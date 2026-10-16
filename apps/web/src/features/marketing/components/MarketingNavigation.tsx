@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactElement } from 'react';
+import ThemeToggle from '../../../shared/ThemeToggle';
 
 const navigation = [
   { href: '#producto', label: 'El producto' },
@@ -32,6 +33,7 @@ export function MarketingNavigation(): ReactElement {
     <header className="marketing-header">
       <div className="marketing-container marketing-nav-row">
         <Brand />
+        <ThemeToggle />
         <button
           ref={menuButtonRef}
           className="marketing-menu-toggle"

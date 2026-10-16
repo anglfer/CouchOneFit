@@ -1,109 +1,200 @@
----
-name: CouchOne Fit — Aplicaciones privadas
-colors:
-  primary: '#2563EB'
-  primary-hover: '#1D4ED8'
-  primary-light: '#DBEAFE'
-  secondary: '#10B981'
-  secondary-light: '#D1FAE5'
-  accent: '#F59E0B'
-  accent-light: '#FEF3C7'
-  background: '#F8FAFC'
-  surface: '#FFFFFF'
-  text-primary: '#1E293B'
-  text-secondary: '#64748B'
-  text-muted: '#94A3B8'
-  border: '#E2E8F0'
-  border-strong: '#CBD5E1'
-typography:
-  heading:
-    {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: 24px,
-      fontWeight: 600,
-      lineHeight: 1.25,
-    }
-  body:
-    {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: 16px,
-      fontWeight: 400,
-      lineHeight: 1.5,
-    }
-  label:
-    {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: 14px,
-      fontWeight: 500,
-      lineHeight: 1.5,
-    }
-rounded: { sm: 8px, md: 12px, lg: 16px, full: 999px }
-spacing: { xs: 4px, sm: 8px, md: 16px, lg: 24px, xl: 32px }
-components:
-  button-primary:
-    {
-      backgroundColor: '{colors.primary}',
-      textColor: '{colors.surface}',
-      rounded: '{rounded.md}',
-      height: 48px,
-    }
-  card:
-    {
-      backgroundColor: '{colors.surface}',
-      textColor: '{colors.text-primary}',
-      rounded: '{rounded.lg}',
-      padding: 16px,
-    }
----
+# CouchOne Fit — Sistema visual
 
-## Overview
+**UI-001 actualizada por instrucción del usuario el 16 de octubre de 2026.** Esta versión sustituye la paleta azul/esmeralda y el criterio de tema exclusivamente claro aprobados el 14 de octubre. Es la fuente maestra para marketing Web, panel profesional/administración y móvil. La composición pública se detalla en [apps/web/DESIGN.md](apps/web/DESIGN.md).
 
-**UI-001 — APROBADA por el usuario el 14 de octubre de 2026.** Estilo **Moderna y Profesional** para el panel interno Web/PWA y la aplicación móvil del cliente. Este documento es su fuente visual compartida; **no sustituye ni modifica el diseño de marketing** definido en `apps/web/DESIGN.md`.
+## Identidad de marca
 
-La imagen aportada en el chat del 14-oct-2026 es referencia de composición: panel central con navegación lateral, tarjetas de indicadores, listas y gráficas; móvil con cabecera, tarjetas de entrenamiento/alimentación/check-in y navegación inferior. Se adopta una apariencia similar, no reproducción exacta, ni copia de imágenes, personas, textos o recursos ajenos. La imagen no está guardada en el repositorio: esta descripción conserva la decisión, no pretende ser una captura o mockup implementado.
+| Token | Color | Uso |
+|---|---|---|
+| Brand Primary | `#4037F7` | Acción principal |
+| Brand Blue | `#3046EB` | Azul corporativo |
+| Brand Violet | `#6344DC` | Secundario / énfasis |
+| Primary Hover | `#3128D9` | Hover de botones claros |
+| Primary Soft | `#EAE8FF` | Selección clara |
+| Primary Subtle | `#F1F0FF` | Cards / tags suaves |
+| Ink | `#090918` | Texto muy oscuro de marketing |
+| White | `#FFFFFF` | Superficies claras |
 
-## Colors
+```css
+background: linear-gradient(135deg, #3046EB 0%, #4037F7 48%, #6344DC 100%);
+```
 
-Los HEX del front matter son exactos y prevalecen sobre el azul/violeta de la referencia. Azul para acciones principales, enlaces y selección; esmeralda para estados completados/progreso registrado; ámbar para pendientes y avisos suaves. Fondo blanco azulado, tarjetas blancas y texto azul grisáceo oscuro.
+El degradado identifica marca y énfasis comercial. La acción principal conserva su color sólido. Rosa y naranja son semánticos, nunca colores principales de CouchOne Fit.
 
-Los nombres se trasladarán a variables CSS y tokens de tema Dart equivalentes, sin imponer igual sintaxis entre tecnologías. Tokens privados separados del marketing: no reemplazar variables globales que cambien la landing. No interpretar verde como diagnóstico, ni todas las variaciones de peso como mejoras. Toda semántica debe acompañarse de texto/icono.
+## Temas por superficie
 
-Mantener los colores elegidos sin asumir que todas sus combinaciones son legibles. Sobre fondos esmeralda/ámbar usar texto oscuro y verificar contraste; `text-muted` se reserva para información prescindible o decoración, no etiquetas/instrucciones críticas. Los errores y acciones destructivas deben identificarse explícitamente, no confundirse con avisos ámbar; cualquier token adicional se verificará y documentará al implementar.
+Los seis conjuntos son exactos. Web incluye un botón de sol/luna en las cabeceras de marketing, acceso, registro, panel y administración. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente y ofrece un botón de sol/luna en la cabecera para alternar el tema durante la sesión; al volver a abrir la app usa de nuevo la preferencia del dispositivo. Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
 
-## Typography
+### marketing-light
 
-Tipografía sans-serif del sistema, sin descargar fuentes. En Web usar la pila del sistema; en Flutter su equivalente nativo, no el literal CSS `system-ui`. Texto habitual 16 px o equivalente lógico, detalles 14 y títulos de sección 24; aceptar escalado del usuario sin recortes. Los titulares gigantes del marketing no se reutilizan en formularios o dashboard.
+```yaml
+marketing-light:
+  primary: "#4037F7"
+  primary-hover: "#3128D9"
+  secondary: "#6344DC"
+  canvas: "#F8F9FD"
+  surface: "#FFFFFF"
+  surface-secondary: "#F3F4FA"
+  surface-accent: "#F1F0FF"
+  text-primary: "#090918"
+  text-secondary: "#434771"
+  text-muted: "#6C74A1"
+  border: "#E3E5FC"
+  border-strong: "#D0D2FA"
+  primary-soft: "#EAE8FF"
+```
 
-## Layout
+### marketing-dark
 
-**Panel profesional:** sidebar con logo y accesos a Inicio, Clientes, Planes (Entrenamiento/Alimentación), Seguimiento y Configuración (cuenta/suscripción). Cabecera contextual con título, perfil y acciones del módulo; búsqueda solo donde exista contrato funcional. Dashboard con tarjetas de clientes activos/cupo, check-ins recientes/pendientes e indicadores separados de adherencia/cobertura. Listas y gráficas llevan al expediente o periodo correspondiente. Expediente por secciones/pestañas de perfil, evaluaciones, planes y seguimiento. Administración separada por rol, con la misma identidad visual y solo sus módulos aprobados.
+```yaml
+marketing-dark:
+  primary: "#6259FF"
+  primary-hover: "#756EFF"
+  secondary: "#8067F5"
+  canvas: "#050A1A"
+  surface: "#0C152C"
+  surface-secondary: "#121F43"
+  surface-accent: "#162467"
+  text-primary: "#EFF0F4"
+  text-secondary: "#BBBFD3"
+  text-muted: "#8F97AF"
+  border: "#21305B"
+  border-strong: "#293A70"
+  primary-soft: "#1A1D5A"
+```
 
-En escritorio distribuir tarjetas en varias columnas; en tablet reducir columnas y en ancho estrecho usar una columna y menú accesible. Validar 320/390/768/1280 px; tablas extensas con adaptación o desplazamiento localizado, nunca desbordamiento de toda la página.
+### professional-light
 
-**Móvil cliente:** navegación inferior con cuatro destinos, Inicio, Planes, Progreso y Cuenta. Inicio muestra fecha y tarjetas de entrenamiento, alimentación y check-in; acceso a la captura única del peso dentro del check-in, sin formulario paralelo. Planes distingue entrenamiento y alimentación. Entrenamiento muestra ejercicios y detalle por serie; nutrición comidas/cantidades/instrucciones. Progreso muestra únicamente historial y gráficos autorizados; Cuenta reúne perfil de solo lectura, credenciales, información de registro y cierre de sesión. Los formularios/detalles usan navegación de regreso y una acción principal clara.
+```yaml
+professional-light:
+  primary: "#4037F7"
+  primary-hover: "#3128D9"
+  secondary: "#6344DC"
+  app-background: "#EAEFFD"
+  sidebar: "#F6F8FF"
+  topbar: "#FFFFFF"
+  surface: "#FFFFFF"
+  surface-secondary: "#F5F7FD"
+  surface-selected: "#EAE8FF"
+  text-primary: "#070C21"
+  text-secondary: "#222F64"
+  text-muted: "#626A90"
+  border: "#D9DFF6"
+  border-subtle: "#E8EBF7"
+  icon: "#626A90"
+  icon-active: "#4037F7"
+```
 
-Respetar áreas seguras, teclado, scroll, escalado de texto y controles táctiles cómodos. No fabricar métricas cuando no existan datos; mostrar estados independientes sin plan, sin registros, sin permiso y acceso suspendido según DEC-004/009.
+### professional-dark
 
-## Elevation & Depth
+```yaml
+professional-dark:
+  primary: "#4037F7"
+  primary-hover: "#6259FF"
+  secondary: "#6344DC"
+  app-background: "#050A1A"
+  sidebar: "#081126"
+  topbar: "#0C152C"
+  surface: "#0C152C"
+  surface-secondary: "#121F43"
+  surface-tertiary: "#162467"
+  surface-selected: "#1B2162"
+  text-primary: "#EFF0F4"
+  text-secondary: "#BBBFD3"
+  text-muted: "#8F97AF"
+  border: "#1E2C50"
+  border-strong: "#293A70"
+  icon: "#8F97AF"
+  icon-active: "#756EFF"
+```
 
-Tarjetas blancas con borde tenue y sombra discreta solo cuando aporte separación. Interfaz clara de trabajo, sin glassmorphism, fondos fotográficos, degradados protagonistas ni animaciones continuas. Tema claro para V2; no se agrega modo oscuro por aparecer tokens oscuros en el diseño de marketing.
+### mobile-light
 
-## Shapes
+```yaml
+mobile-light:
+  primary: "#4037F7"
+  primary-hover: "#3128D9"
+  secondary: "#6344DC"
+  background: "#FBFBFD"
+  surface: "#FFFFFF"
+  surface-secondary: "#EAEFFD"
+  surface-selected: "#EAE8FF"
+  text-primary: "#070C21"
+  text-secondary: "#222F64"
+  text-muted: "#626A90"
+  border: "#D9DFF6"
+  navigation-background: "#FFFFFF"
+  navigation-active: "#4037F7"
+  navigation-inactive: "#8D99C0"
+```
 
-Controles de 12 px de radio y tarjetas de 16 px; chips pequeños de 8 px y círculos solo para indicadores/iconos apropiados. Espaciado base 4/8/16/24/32. Mantener estas proporciones entre Web y móvil, adaptándolas al espacio disponible.
+### mobile-dark
 
-## Components
+```yaml
+mobile-dark:
+  primary: "#4B40FF"
+  primary-hover: "#6259FF"
+  secondary: "#756EFF"
+  background: "#050A1A"
+  surface: "#0C152C"
+  surface-secondary: "#121F43"
+  surface-selected: "#162467"
+  text-primary: "#EFF0F4"
+  text-secondary: "#BBBFD3"
+  text-muted: "#8F97AF"
+  border: "#21305B"
+  navigation-background: "#081126"
+  navigation-active: "#756EFF"
+  navigation-inactive: "#8F97AF"
+```
 
-Botón azul para acción principal; secundarias neutras o tonales, con jerarquía clara. Formularios con etiqueta visible, ayuda, unidad y error junto al campo. Listas con estados textuales; badges de completado/pendiente sin depender del color. Gráficas con fechas, unidad, origen y alternativa tabular; adherencia observada y cobertura separadas, nunca un score global inventado.
+## Estados compartidos
 
-Toda pantalla debe especificar carga, vacío, error, éxito y denegación cuando corresponda. Guardar no muestra éxito antes de confirmar servidor; confirmar acciones de baja/cambio de plan y preservar formularios ante errores. Feedback y transiciones discretas, respetando movimiento reducido. Iconos coherentes con etiqueta accesible, no emojis como único control.
+| Estado | Principal | Fondo Light | Fondo Dark |
+|---|---|---|---|
+| Success | `#1FCC92` | `#E5FAF3` | `#0C382F` |
+| Warning | `#F59E0B` | `#FFF5DB` | `#3B2B0B` |
+| Error | `#DC5861` | `#FDEBEC` | `#411A21` |
+| Info | `#3046EB` | `#E8EDFF` | `#14225B` |
+| Highlight | `#FD4080` | `#FFE8F1` | `#48152B` |
 
-## Do's and Don'ts
+Entrenamiento completado usa Success; check-in pendiente, Warning; error o incumplimiento importante, Error; información, Info; indicador secundario, Highlight. Ausencia de datos no equivale a incumplimiento. Acompañar siempre con texto o icono y usar texto del tema sobre fondos suaves: los colores principales de estado no garantizan contraste como texto pequeño. No interpretar verde como diagnóstico ni toda variación de peso como mejora.
 
-- Conservar marketing terminado y su paleta propia; compartir marca, no forzar un único tema global.
-- Seguir HU y DEC vigentes: la referencia **no aprueba citas/agenda, chat, notificaciones, reportes nuevos, fotos de progreso, fotografías de alimentos/ejercicios ni bibliotecas multimedia**.
-- No agregar rachas/streaks, recordatorios o calificación global por estar sugeridos en la imagen/paleta.
-- No copiar sus métricas de ejemplo a pantallas funcionales, ni representar ausencia de datos como incumplimiento.
-- Permisos, suscripción y estados se validan en API; el diseño no cambia reglas de negocio.
-- Objetivo de aceptación: contraste AA verificado por combinación, foco visible, teclado, objetivos táctiles mínimos de 44 px Web/48 unidades lógicas móvil y gráficos no dependientes solo de color. Son validaciones pendientes, no accesibilidad certificada.
-- Decisión visual aprobada; implementación de pantallas, temas, iconos y pruebas sigue pendiente dentro de cada HU y TT-013, sin nuevas estimaciones o funcionalidades.
+## Tipografía, forma y densidad
+
+Tipografía del sistema (Segoe UI en Web y fuente nativa en Flutter), sin descargas. Marketing: lectura 16 px, títulos amplios y escala fluida. Panel: texto habitual 14–16 px, títulos de sección 20–24 px, densidad compacta y jerarquía técnica. Móvil: texto escalable y objetivos táctiles de al menos 48 unidades lógicas.
+
+| Elemento | Marketing | Panel profesional | Móvil |
+|---|---|---|---|
+| Input | 10 px | 6 px | 10 px |
+| Botón | 12 px | 6 px | 10 px |
+| Card | 20–24 px | 8 px | 12 px |
+| Dropdown | 10 px | 6 px | 10 px |
+| Modal / card grande | 24 px | 10 px | 16 px |
+| Pill | 999 px | Solo estados que lo necesiten | 999 px |
+
+Marcos de dispositivos son excepciones ilustrativas. Espaciado base 4/8/16/24/32; marketing añade separación amplia entre secciones. Sombras discretas, sin animaciones continuas; respetar movimiento reducido.
+
+## Layout y experiencia
+
+**Marketing:** claro, amplio, comercial y más redondeado. Navegación superior, hero asimétrico, contenido orientado al producto y vistas conceptuales identificadas como ejemplo. Su modo oscuro usa azul nocturno, nunca negro absoluto.
+
+**Panel profesional:** herramienta de trabajo visualmente distinta del sitio público. Navegación izquierda con marca, cabecera contextual y contenido compacto; fondos, sidebar y topbar separados. Inspiración Fluent mediante jerarquía, espaciado y radios; la implementación usa React/CSS existente, no la biblioteca oficial Fluent UI. En anchos estrechos la navegación se reordena arriba y permanece accesible sin desbordar.
+
+Destinos previstos por las HU: Inicio, Clientes, Planes (Entrenamiento/Alimentación), Seguimiento y Configuración (cuenta/suscripción). Mostrar solo destinos con implementación funcional. El panel actual ofrece Inicio y Mi perfil, datos de cuenta y estado sin plan asignado. Administración comparte estructura y tokens, con navegación y permisos propios. No fabricar métricas, gráficas ni accesos a módulos pendientes.
+
+**Móvil cliente:** misma identidad con controles más táctiles y amigables. Destinos previstos: Inicio, Planes, Progreso y Cuenta; tarjetas de entrenamiento/alimentación/check-in, detalle por serie/comida, historial autorizado y perfil de solo lectura. La captura única de peso pertenece al check-in. Esta actualización aplica los temas a la pantalla inicial y configura controles Material; no implementa esos módulos pendientes.
+
+## Componentes y accesibilidad
+
+Formularios con etiqueta, unidad, ayuda y error junto al campo; mantener validación y datos ante fallos. Guardar confirma éxito solo tras respuesta del servidor. Estados independientes de carga, vacío, error, éxito y denegación según corresponda. No comunicar estado solo por color. Foco visible, teclado, áreas seguras, scroll y escalado sin recortes. Objetivos Web de al menos 44 px y móvil de 48 unidades lógicas.
+
+Validar contraste por combinación y tamaño; los HEX por sí solos no certifican AA. Textos secundarios claros sobre fondos oscuros, texto oscuro sobre estados claros. Las gráficas futuras deben incluir fechas, unidad, origen y alternativa tabular, separando adherencia de cobertura. Verificar a 320/390/768/1280 px; tablas extensas con desplazamiento localizado.
+
+## Alcance implementado y fuentes
+
+- Web: marca y estados en `apps/web/src/index.css`; marketing claro/oscuro en `apps/web/src/features/marketing/marketing.css`; acceso/registro en `apps/web/src/features/auth/registration.css`.
+- Panel y administración: estructura compartida `apps/web/src/features/workspace/WorkspaceLayout.tsx` y tokens/estilos en `workspace.css`, sin dependencia visual del marketing.
+- Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas.
+- Las vistas conceptuales de marketing conservan su contenido de ejemplo. Las pantallas reales usan la API y conservan comprobación de sesión, redirección por rol, reintento y cierre de sesión.
+- Esta decisión no añade agenda, chat, notificaciones, rachas, fotografías, reportes, bibliotecas multimedia ni reglas comerciales. Permisos y suscripciones siguen las HU/DEC y la API.

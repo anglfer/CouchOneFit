@@ -4,9 +4,9 @@ Aplicación móvil orientada a los clientes y atletas de CouchOne Fit, desarroll
 
 ## Diseño visual aprobado
 
-**UI-001, 14 de octubre de 2026:** estilo Moderna y Profesional y composición inspirada en la imagen aprobada por el usuario: cabecera, tarjetas del día, detalles de entrenamiento/alimentación, progreso autorizado y navegación inferior Inicio/Planes/Progreso/Cuenta.
+**UI-001 actualizada el 16 de octubre de 2026:** misma marca azul/violeta que Web, con interacción táctil y radios 10/12/16 px. Los temas mobile-light y mobile-dark siguen inicialmente al dispositivo y permiten alternar con un botón de sol/luna en la cabecera durante la sesión. Al volver a abrir la app se usa nuevamente el tema del dispositivo. Ya están conectados a la pantalla inicial mediante `lib/shared/theme/app_theme.dart`.
 
-La fuente visual compartida con el panel profesional es [DESIGN.md de la raíz](../../DESIGN.md): contiene la paleta exacta, neutros, componentes, distribución y criterios de validación. No se usa la paleta del marketing ni se modifica la landing. La referencia no agrega agenda, chat, notificaciones, rachas o fotografías; se implementan únicamente las HU vigentes. Esta decisión documenta el diseño, no acredita pantallas ni tema Flutter implementados.
+La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. Inicio/Planes/Progreso/Cuenta y las tarjetas de entrenamiento/alimentación/check-in siguen siendo composición prevista por sus HU; esta actualización no implementa esas pantallas. No agrega agenda, chat, notificaciones, rachas o fotografías.
 
 ## Arquitectura
 

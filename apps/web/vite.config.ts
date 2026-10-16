@@ -21,8 +21,8 @@ export default defineConfig({
         short_name: 'CouchOneFit',
         description:
           'Aplicación Web y PWA de gestión fitness para profesionales y clientes',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#4037f7',
+        background_color: '#eaeffd',
         display: 'standalone',
         orientation: 'portrait-primary',
         scope: '/',

@@ -31,7 +31,7 @@ test('migración inicial repetible y esquema integrado producen la misma base co
     })
     assert.match(migrate(), /Aplicada: 202610150001_inicial_identidad_acceso.sql/)
     assert.doesNotMatch(migrate(), /Aplicada:/)
-    assert.equal((await databases[0].query('SELECT count(*) FROM migraciones.historial')).rows[0].count, '1')
+    assert.equal((await databases[0].query('SELECT count(*) FROM migraciones.historial')).rows[0].count, '2')
     await databases[1].query(readFileSync(new URL('../../../docs/database/schemas/identidad_acceso.sql', import.meta.url), 'utf8'))
     const catalog = async (db: Pool) => {
       const queries = [
@@ -41,6 +41,7 @@ test('migración inicial repetible y esquema integrado producen la misma base co
         "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='privado' ORDER BY tablename,indexname",
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='privado' ORDER BY tablename,policyname",
         "SELECT nspacl::text FROM pg_namespace WHERE nspname='privado'",
+        "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='privado' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
       ]
       return Promise.all(queries.map(async (sql) => (await db.query(sql)).rows))
     }
@@ -49,7 +50,7 @@ test('migración inicial repetible y esquema integrado producen la misma base co
     assert.deepEqual(await catalog(databases[1]), actual)
     await databases[0].query("UPDATE migraciones.historial SET suma_verificacion=repeat('0',64)")
     assert.throws(migrate, /Migración aplicada modificada/)
-    await databases[0].query("UPDATE migraciones.historial SET nombre='200001010001_ausente.sql'")
+    await databases[0].query("UPDATE migraciones.historial SET nombre='200001010001_ausente.sql' WHERE nombre='202610150001_inicial_identidad_acceso.sql'")
     assert.throws(migrate, /historial contiene migraciones ausentes/)
     assert.deepEqual(await catalog(databases[0]), actual)
   } finally {

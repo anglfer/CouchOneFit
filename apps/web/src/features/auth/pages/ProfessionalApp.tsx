@@ -4,11 +4,9 @@ import {
   logout,
   readSession,
   sessionRequest,
-  type ProfessionalAccount,
+  type Account,
 } from '../services/session';
-import { Brand } from '../../marketing/components/MarketingNavigation';
-import '../../marketing/marketing.css';
-import '../registration.css';
+import WorkspaceLayout from '../../workspace/WorkspaceLayout';
 
 interface Profile {
   accountId: string;
@@ -19,7 +17,7 @@ interface Profile {
 }
 
 export default function ProfessionalApp(): ReactElement {
-  const [account, setAccount] = useState<ProfessionalAccount | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -35,6 +33,13 @@ export default function ProfessionalApp(): ReactElement {
       setIsChecking(true);
       try {
         const session = await readSession();
+        if (!active) return;
+        if (session.account.role === 'admin') {
+          setAccount(null);
+          setProfile(null);
+          window.location.replace('/admin/');
+          return;
+        }
         const result = await sessionRequest<{ profile: Profile }>(
           '/api/professional/profile'
         );
@@ -94,81 +99,84 @@ export default function ProfessionalApp(): ReactElement {
   }
 
   return (
-    <div className="marketing registration-page professional-page">
-      <header className="registration-header marketing-container">
-        <Brand />
-        {account && (
+    <WorkspaceLayout
+      title="Panel profesional"
+      navigation={
+        account
+          ? [
+              { href: '/app/', label: 'Inicio' },
+              { href: '/app/perfil', label: 'Mi perfil' },
+            ]
+          : []
+      }
+      sessionAction={
+        account && (
           <button
             type="button"
-            className="marketing-button button-small button-secondary"
+            className="workspace-button workspace-button-secondary"
             onClick={leave}
             disabled={isLeaving}
           >
             {isLeaving ? 'Cerrando sesión…' : 'Cerrar sesión'}
           </button>
-        )}
-      </header>
-      <main className="marketing-container professional-layout">
-        {error && (
-          <p role="alert" className="registration-error">
-            {error}{' '}
-            {!account && (
-              <button type="button" onClick={() => setAttempt((n) => n + 1)}>
-                Reintentar
-              </button>
-            )}
-          </p>
-        )}
-        {isChecking ? (
-          <p role="status">Comprobando tu sesión…</p>
-        ) : account && profile ? (
-          <>
-            <nav aria-label="Tu espacio" className="professional-nav">
-              <a href="/app/">Inicio</a>
-              <a href="/app/perfil">Mi perfil</a>
-            </nav>
-            {!knownRoute ? (
-              <section className="registration-card">
-                <h1>Esta sección no está disponible.</h1>
-                <a href="/app/">Volver a mi espacio</a>
+        )
+      }
+    >
+      {error && (
+        <p role="alert" className="workspace-error">
+          {error}{' '}
+          {!account && (
+            <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+              Reintentar
+            </button>
+          )}
+        </p>
+      )}
+      {isChecking ? (
+        <p role="status">Comprobando tu sesión…</p>
+      ) : account && profile ? (
+        <>
+          {!knownRoute ? (
+            <section className="workspace-card">
+              <h1>Esta sección no está disponible.</h1>
+              <a href="/app/">Volver a mi espacio</a>
+            </section>
+          ) : (
+            <>
+              <section className="workspace-heading">
+                <span className="workspace-label">TU ESPACIO</span>
+                <h1>Hola, {profile.fullName}.</h1>
+                <p>Tu cuenta y tu información, en un mismo lugar.</p>
               </section>
-            ) : (
-              <>
-                <section className="professional-heading">
-                  <span className="marketing-label">TU ESPACIO</span>
-                  <h1>Hola, {profile.fullName}.</h1>
-                  <p>Tu cuenta y tu información, en un mismo lugar.</p>
+              <div className="workspace-grid">
+                <section className="workspace-card">
+                  <h2>Mi perfil</h2>
+                  <dl className="workspace-profile">
+                    <dt>Nombre</dt>
+                    <dd>{profile.fullName}</dd>
+                    <dt>Usuario</dt>
+                    <dd>{profile.username}</dd>
+                    <dt>Correo</dt>
+                    <dd>{profile.email}</dd>
+                    <dt>Teléfono</dt>
+                    <dd>{profile.phone ?? 'Sin registrar'}</dd>
+                  </dl>
                 </section>
-                <div className="professional-grid">
-                  <section className="registration-card">
-                    <h2>Mi perfil</h2>
-                    <dl className="professional-profile">
-                      <dt>Nombre</dt>
-                      <dd>{profile.fullName}</dd>
-                      <dt>Usuario</dt>
-                      <dd>{profile.username}</dd>
-                      <dt>Correo</dt>
-                      <dd>{profile.email}</dd>
-                      <dt>Teléfono</dt>
-                      <dd>{profile.phone ?? 'Sin registrar'}</dd>
-                    </dl>
-                  </section>
-                  <section className="registration-card">
-                    <h2>Aún no tienes un plan asignado.</h2>
-                    <p>
-                      Tu cuenta está activa. Para comenzar a administrar una
-                      cartera necesitas un plan asignado.
-                    </p>
-                    <a href="/#planes" className="marketing-button">
-                      Conocer los planes →
-                    </a>
-                  </section>
-                </div>
-              </>
-            )}
-          </>
-        ) : null}
-      </main>
-    </div>
+                <section className="workspace-card">
+                  <h2>Aún no tienes un plan asignado.</h2>
+                  <p>
+                    Tu cuenta está activa. Para comenzar a administrar una
+                    cartera necesitas un plan asignado.
+                  </p>
+                  <a href="/#planes" className="workspace-button">
+                    Conocer los planes →
+                  </a>
+                </section>
+              </div>
+            </>
+          )}
+        </>
+      ) : null}
+    </WorkspaceLayout>
   );
 }

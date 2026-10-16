@@ -16,7 +16,7 @@
 .route-not-found a {
   padding: 12px 20px;
   border-radius: 12px;
-  background: #3046eb;
+  background: var(--brand-primary);
   color: #fff;
   text-decoration: none;
 }

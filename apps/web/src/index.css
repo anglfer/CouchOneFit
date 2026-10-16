@@ -1,8 +1,8 @@
 :root {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   color-scheme: light;
-  color: #141630;
-  background: #fdfdff;
+  color: #090918;
+  background: #f8f9fd;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -56,7 +56,7 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid #5265f4;
+  outline: 3px solid var(--primary-light);
   outline-offset: 5px;
 }
 
@@ -64,4 +64,59 @@ a {
   html {
     scroll-behavior: smooth;
   }
+}
+
+:root {
+  --brand-blue: #3046eb;
+  --brand-primary: #4037f7;
+  --brand-violet: #6344dc;
+  --brand-gradient: linear-gradient(
+    135deg,
+    #3046eb 0%,
+    #4037f7 48%,
+    #6344dc 100%
+  );
+  --primary: #4037f7;
+  --primary-hover: #3128d9;
+  --primary-light: #6259ff;
+  --light-canvas: #fbfbfd;
+  --light-app-background: #eaeffd;
+  --light-surface: #ffffff;
+  --light-surface-secondary: #f5f7fd;
+  --light-surface-selected: #eae8ff;
+  --light-text: #070c21;
+  --light-text-secondary: #222f64;
+  --light-muted: #626a90;
+  --light-border: #d9dff6;
+  --light-border-subtle: #e8ebf7;
+  --dark-canvas: #050a1a;
+  --dark-sidebar: #081126;
+  --dark-surface: #0c152c;
+  --dark-surface-secondary: #121f43;
+  --dark-surface-tertiary: #162467;
+  --dark-text: #eff0f4;
+  --dark-text-secondary: #bbbfd3;
+  --dark-muted: #8f97af;
+  --dark-border: #1e2c50;
+  --dark-border-strong: #293a70;
+  --success: #1fcc92;
+  --warning: #f59e0b;
+  --error: #dc5861;
+  --info: #3046eb;
+  --highlight: #fd4080;
+  --success-soft: #e5faf3;
+  --warning-soft: #fff5db;
+  --error-soft: #fdebec;
+  --info-soft: #e8edff;
+  --highlight-soft: #ffe8f1;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  color: #eff0f4;
+  background: #050a1a;
+  --success-soft: #0c382f;
+  --warning-soft: #3b2b0b;
+  --error-soft: #411a21;
+  --info-soft: #14225b;
+  --highlight-soft: #48152b;
 }

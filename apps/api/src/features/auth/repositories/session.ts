@@ -28,10 +28,10 @@ export async function currentSession(
   const {
     rows: [row],
   } = await pool.query<SessionIdentity>(
-    `SELECT a.id,a.usuario AS username,a.correo AS email,p.nombre_completo AS "fullName",s.id AS "sessionId",s.expira_en AS "expiresAt"
+    `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role,s.id AS "sessionId",s.expira_en AS "expiresAt"
      FROM privado.sesiones s JOIN privado.usuarios a ON a.id=s.usuario_id
-     JOIN privado.profesionales p ON p.usuario_id=a.id
-     WHERE s.id=$1 AND a.id=$2 AND a.rol='profesional' AND a.estado='activo'
+     LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
+     WHERE s.id=$1 AND a.id=$2 AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL)) AND a.estado='activo'
        AND s.revocado_en IS NULL AND s.expira_en>clock_timestamp()`,
     [sid, id],
   )
@@ -59,7 +59,7 @@ export function publicAccount(identity: ProfessionalIdentity) {
     username: identity.username,
     email: identity.email,
     fullName: identity.fullName,
-    role: 'professional',
+    role: identity.role === 'administrador' ? 'admin' : 'professional',
     status: 'active',
     subscription: null,
   }

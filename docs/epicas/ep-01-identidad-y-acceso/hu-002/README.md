@@ -2,7 +2,7 @@
 
 **Épica:** EP-01. **Responsable:** Ferxxo. **Capas:** Web, API y BD. **Referencias:** RF01, RDF0101/0102, RS01/04/05/06/07/15. **Depende de:** HU-001, TT-004/010 y DEC-004. **Habilita:** cartera, editores profesionales y dashboard; no los implementa por sí misma.
 
-El usuario o correo identifica una sola cuenta normalizada. La API verifica Argon2id, estado activo y rol profesional; cliente y administrador no pueden usar este login. Usuario inexistente, contraseña incorrecta, cuenta inactiva y rol no permitido reciben el mismo 401/mensaje. Se calcula un hash de comparación también para identificadores inexistentes. No se registran credenciales ni se devuelven hashes/tokens en JSON.
+El usuario o correo identifica una sola cuenta normalizada. La API verifica Argon2id, estado activo y rol permitido. HU-003 amplía este login común a administradores, que acceden exclusivamente a su área; cliente no puede usar el login Web. Usuario inexistente, contraseña incorrecta, cuenta inactiva y rol no permitido reciben el mismo 401/mensaje. Se calcula un hash de comparación también para identificadores inexistentes. No se registran credenciales ni se devuelven hashes/tokens en JSON.
 
 ## Contrato Web / API
 
@@ -19,7 +19,7 @@ Web llama `/api` por proxy del mismo origen; se mantiene la configuración Vite/
 
 Login/refresh/logout requieren `Origin` exacto de `CORS_ORIGIN` y cabecera `X-CSRF-Token` coincidente con cookie. No hay CORS cross-origin ni tokens de sesión en `localStorage`/`sessionStorage`. El formulario de registro conserva su contrato anónimo HU-001.
 
-Access JWT HS256: `iss=couchonefit-api`, `aud=couchonefit-web`, `sub=account UUID`, `sid=session UUID`, `iat`, `exp` a 15 minutos. Algoritmo y claims obligatorios verificados; el JWT no decide rol ni autorización por sí solo. Cada petición privada consulta cuenta activa profesional, perfil vinculado, sesión no revocada y vencimiento BD. El perfil vuelve a filtrar por cuenta y sesión, demostrando identidad usada en la consulta.
+Access JWT HS256: `iss=couchonefit-api`, `aud=couchonefit-web`, `sub=account UUID`, `sid=session UUID`, `iat`, `exp` a 15 minutos. Algoritmo y claims obligatorios verificados; el JWT no decide rol ni autorización por sí solo. Cada petición privada consulta cuenta activa, rol persistido, sesión no revocada y vencimiento BD. El profesional requiere perfil vinculado; el administrador no tiene perfil profesional. El perfil vuelve a filtrar por cuenta y sesión, demostrando identidad usada en la consulta.
 
 `cof_access`: HttpOnly, path `/api`, máximo 15 minutos. `cof_refresh`: HttpOnly, path `/api/auth`, vence al límite absoluto de sesión a 30 días desde login. Refresh CSPRNG de 32 bytes/base64url; solo SHA-256 en BD. Los tokens anteriores conservan `usado_en` para detectar replay; la renovación bloquea sesión/token en una sola transacción. Un replay invalida también los access aún vigentes. Dos renovaciones simultáneas con el mismo token producen una renovación y una detección de replay, revocando la familia; Web serializa por promesa y Web Locks entre pestañas cuando están disponibles.
 
@@ -27,7 +27,7 @@ La autorización se evalúa con los datos vigentes en cada consulta. Si se detec
 
 ## Web
 
-`/acceso`: formulario usuario/correo + contraseña, carga, fallos españoles y enlace de registro. `/app/*` verifica sesión antes de mostrar contenido; sin acceso redirige a `/acceso?motivo=sesion&retorno=...`. El retorno solo permite rutas locales de `/app`, rechazando URLs externas, barras invertidas y controles. Una ruta privada desconocida pasa igualmente por el guard y muestra sección no disponible después de autenticar.
+`/acceso`: formulario usuario/correo + contraseña, carga, fallos españoles y enlace de registro. `/app/*` verifica sesión antes de mostrar contenido; sin acceso redirige a `/acceso?motivo=sesion&retorno=...`. El retorno solo permite rutas locales del área del rol (`/app` o `/admin` desde HU-003), rechazando URLs externas, barras invertidas y controles. Una ruta privada desconocida pasa igualmente por el guard y muestra sección no disponible después de autenticar.
 
 `/app/` y `/app/perfil` muestran identidad y perfil consultados en API, más el estado sin plan definido por DEC-004. No hay métricas ni cartera de ejemplo. `subscription:null` refleja que aún no existe asignación de suscripciones, no una consulta a un módulo SaaS implementado. El botón de salida confirma revocación antes de navegar; si falla la conexión lo comunica. La sesión se vuelve a comprobar al regresar al foco/restaurar la página.
 
@@ -47,7 +47,7 @@ Las migraciones usan la base indicada por `DATABASE_URL`. Nombres locales: `Couc
 
 Login: 20 intentos/IP/15 min antes de Argon2; CSRF y refresh: 100/IP/15 min. Limitadores por memoria/instancia, sin confiar indiscriminadamente en X-Forwarded-For: tras proxy los clientes pueden compartir límite. Antes de múltiples réplicas, verificar proxies/IP y usar almacén compartido. No se declara protección distribuida ni benchmark de hosting por estas pruebas locales.
 
-Los errores de validación son 400; fallo de identidad/sesión 401; Origin/CSRF 403; límite 429 con Retry-After; infraestructura 503 sin SQL, host o credenciales. Respuestas privadas y errores `no-store`. La política de privacidad completa, bootstrap admin, recuperación, cartera, suscripciones/pagos y despliegue mantienen sus propias tareas.
+Los errores de validación son 400; fallo de identidad/sesión 401; Origin/CSRF 403; límite 429 con Retry-After; infraestructura 503 sin SQL, host o credenciales. Respuestas privadas y errores `no-store`. El bootstrap admin está implementado en [HU-003](../hu-003/README.md). La política de privacidad completa, recuperación, cartera, suscripciones/pagos y despliegue mantienen sus propias tareas.
 
 ## Validación
 
@@ -77,7 +77,7 @@ Respuesta de perfil:
 {"profile":{"id":"UUID_DEL_PERFIL","accountId":"UUID_DEL_USUARIO","fullName":"Persona de Ejemplo","phone":null,"username":"persona","email":"persona@example.com"}}
 ```
 
-Funciones principales: `findLoginAccount` busca credencial; `loginProfessional` valida y crea sesión/hash refresh; `authenticate`/`currentSession` comprueban vigencia; `professionalProfile` consulta por identidad; `refreshProfessional` rota con bloqueo/replay; `logoutProfessional` revoca. Sus parámetros, resultados, consultas y límites transaccionales están detallados en el modelo compartido; no existen funciones SQL/RPC de negocio adicionales.
+Funciones principales: `findLoginAccount` busca credencial; `loginAccount` valida y crea sesión/hash refresh; `authenticate`/`currentSession` comprueban vigencia; `professionalProfile` consulta por identidad; `refreshAccount` rota con bloqueo/replay; `logoutAccount` revoca. Sus parámetros, resultados, consultas y límites transaccionales están detallados en el modelo compartido; no existen funciones SQL/RPC de negocio adicionales.
 
 ## Aceptación y tareas
 

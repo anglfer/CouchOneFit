@@ -1,16 +1,16 @@
 import { apiClient, ApiError } from '../../../services/api';
 
-export interface ProfessionalAccount {
+export interface Account {
   id: string;
   username: string;
   email: string;
   fullName: string;
-  role: 'professional';
+  role: 'professional' | 'admin';
   status: 'active';
   subscription: null;
 }
 interface SessionResponse {
-  account: ProfessionalAccount;
+  account: Account;
 }
 let csrfPromise: Promise<string> | undefined;
 let refreshPromise: Promise<SessionResponse> | undefined;
@@ -74,10 +74,14 @@ export async function logout(): Promise<void> {
   await mutate<void>('/api/auth/logout');
 }
 
-export function authorizedReturn(value: string | null): string {
+export function authorizedReturn(
+  value: string | null,
+  role: Account['role'] = 'professional'
+): string {
+  const base = role === 'admin' ? '/admin' : '/app';
   if (
     !value ||
-    !value.startsWith('/app') ||
+    !value.startsWith(base) ||
     Array.from(value).some(
       (character) =>
         character.charCodeAt(0) < 33 ||
@@ -85,16 +89,16 @@ export function authorizedReturn(value: string | null): string {
         character === '\\'
     )
   )
-    return '/app/';
+    return `${base}/`;
   try {
     const target = new URL(value, window.location.origin);
     if (
       target.origin !== window.location.origin ||
-      (target.pathname !== '/app' && !target.pathname.startsWith('/app/'))
+      (target.pathname !== base && !target.pathname.startsWith(`${base}/`))
     )
-      return '/app/';
+      return `${base}/`;
     return `${target.pathname}${target.search}${target.hash}`;
   } catch {
-    return '/app/';
+    return `${base}/`;
   }
 }

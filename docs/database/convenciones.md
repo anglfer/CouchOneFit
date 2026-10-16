@@ -1,6 +1,6 @@
 # Convenciones de base de datos — CouchOneFit
 
-Las convenciones siguientes son las reglas vigentes para PostgreSQL mediante Supabase. Se aplican al esquema final del producto y a nuevas migraciones. La inicial consolida HU-001/002 antes de su primera aplicación. Una vez aplicada, conservará su contenido y checksum; los cambios posteriores se incorporan con nuevas migraciones y actualizan el esquema integrado de `schemas/`.
+Estas convenciones son la fuente de verdad para PostgreSQL con Supabase, contratos SQL ↔ TypeScript ↔ JSON y nuevas migraciones. La [Guía de programación](../../DEVELOPMENT.md), enlazada desde el README raíz, resume cómo aplicarlas desde la API, Web y móvil. Se aplican al esquema final del producto. La inicial consolida HU-001/002 antes de su primera aplicación. Una vez aplicada, conservará su contenido y checksum; los cambios posteriores se incorporan con nuevas migraciones y actualizan el esquema integrado de `schemas/`.
 
 | Capa | Convención | Ejemplo |
 | --- | --- | --- |

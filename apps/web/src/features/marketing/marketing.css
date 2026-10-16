@@ -1,25 +1,28 @@
 /* CouchOne Fit - Marketing Feature Stylesheet */
 .marketing {
-  --m-primary: #3046eb;
-  --m-primary-hover: #1f35d4;
-  --m-primary-active: #1527ab;
-  --m-accent: #5534d4;
-  --m-ink: #0e1126;
-  --m-ink-heading: #070919;
-  --m-muted: #53576e;
-  --m-muted-light: #7c8099;
-  --m-canvas: #fbfcff;
-  --m-surface: #f4f6fc;
+  --m-primary: #4037f7;
+  --m-primary-hover: #3128d9;
+  --m-primary-active: #3128d9;
+  --m-accent: #6344dc;
+  --m-ink: #090918;
+  --m-ink-heading: #090918;
+  --m-muted: #434771;
+  --m-muted-light: #6c74a1;
+  --m-canvas: #f8f9fd;
+  --m-surface: #f3f4fa;
   --m-surface-raised: #ffffff;
   --m-panel: #ffffff;
-  --m-border: #e3e6f0;
-  --m-border-subtle: #edf0f8;
-  --m-blue-tint: #eef2ff;
-  --m-blue-tint-border: #d9e0fc;
-  --m-violet-tint: #f3effe;
-  --m-violet-tint-border: #e2d9fc;
-  --m-pill-bg: #eceffd;
-  --m-pill-text: #273bcf;
+  --m-border: #e3e5fc;
+  --m-border-subtle: #e3e5fc;
+  --m-blue-tint: #eae8ff;
+  --m-blue-tint-border: #d0d2fa;
+  --m-violet-tint: #f1f0ff;
+  --m-violet-tint-border: #d0d2fa;
+  --m-pill-bg: #eae8ff;
+  --m-pill-text: #4037f7;
+  --m-border-strong: #d0d2fa;
+  --m-surface-accent: #f1f0ff;
+  color-scheme: light;
   --m-shadow-sm: 0 1px 2px rgb(16 24 40 / 5%);
   --m-shadow-card:
     0 4px 20px -2px rgb(14 17 38 / 6%), 0 1px 3px rgb(14 17 38 / 4%);
@@ -131,7 +134,7 @@
   border: 1px solid transparent;
   border-radius: 12px;
   color: #ffffff;
-  background: linear-gradient(180deg, #3750f7 0%, var(--m-primary) 100%);
+  background: var(--m-primary);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
@@ -144,7 +147,7 @@
 }
 
 .marketing-button:hover {
-  background: linear-gradient(180deg, #2a44f0 0%, var(--m-primary-hover) 100%);
+  background: var(--m-primary-hover);
   box-shadow:
     0 1px 2px rgb(14 17 38 / 10%),
     0 6px 16px rgb(48 70 235 / 32%),
@@ -171,7 +174,7 @@
 
 .marketing-button.button-secondary:hover {
   background: var(--m-surface);
-  border-color: #cbcfdc;
+  border-color: var(--m-border-strong);
   color: var(--m-ink-heading);
   box-shadow: 0 2px 6px rgb(14 17 38 / 8%);
 }
@@ -204,7 +207,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgb(251 252 255 / 85%);
+  background: var(--m-canvas);
   backdrop-filter: blur(14px) saturate(160%);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   border-bottom: 1px solid var(--m-border);
@@ -390,7 +393,7 @@
   padding: 0 18px;
   border-bottom: 1px solid var(--m-border);
   color: var(--m-muted-light);
-  background: linear-gradient(180deg, #fafbfe 0%, #f4f6fb 100%);
+  background: var(--m-surface);
   font-size: 12px;
   font-weight: 500;
 }
@@ -423,7 +426,7 @@
   padding: 2px 8px;
   font-size: 11px;
   color: var(--m-muted);
-  background: #ffffff;
+  background: var(--m-panel);
 }
 
 .preview-workspace {
@@ -437,7 +440,7 @@
   flex-direction: column;
   padding: 22px 14px 18px;
   border-right: 1px solid var(--m-border);
-  background: #fafbfe;
+  background: var(--m-surface);
 }
 
 .preview-wordmark {
@@ -492,7 +495,7 @@
 }
 
 .preview-view-buttons button[aria-pressed='true'] {
-  background: #ffffff;
+  background: var(--m-panel);
   color: var(--m-primary);
   border-color: var(--m-blue-tint-border);
   box-shadow: 0 1px 3px rgb(48 70 235 / 8%);
@@ -598,7 +601,11 @@
 }
 
 .preview-metrics > div:nth-child(2) {
-  background: linear-gradient(180deg, #f3f6ff 0%, var(--m-blue-tint) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--m-surface-accent) 0%,
+    var(--m-blue-tint) 100%
+  );
   border-color: var(--m-blue-tint-border);
 }
 
@@ -732,9 +739,9 @@
 }
 
 .preview-status.is-received {
-  color: #1e3a8a;
-  background: #e0e7ff;
-  border-color: #c7d2fe;
+  color: var(--m-ink);
+  background: var(--info-soft);
+  border-color: var(--info);
 }
 
 .preview-plan-heading {
@@ -864,7 +871,7 @@
   right: 0;
   width: 258px;
   padding: 26px 18px 18px;
-  background: #ffffff;
+  background: var(--m-panel);
   border: 7px solid #1a1e34;
   border-radius: 36px;
   box-shadow: var(--m-shadow-phone);
@@ -928,7 +935,11 @@
 
 .phone-session {
   margin-top: 14px;
-  background: linear-gradient(180deg, #f1f4ff 0%, var(--m-blue-tint) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--m-surface-accent) 0%,
+    var(--m-blue-tint) 100%
+  );
   border: 1px solid var(--m-blue-tint-border);
   border-radius: 14px;
   padding: 14px;
@@ -1091,7 +1102,7 @@
 
 .feature-record {
   grid-column: 1 / -1;
-  background: linear-gradient(180deg, #ffffff 0%, var(--m-surface) 100%);
+  background: linear-gradient(180deg, var(--m-panel) 0%, var(--m-surface) 100%);
   display: grid;
   grid-template-columns: 1fr 0.95fr;
   gap: 56px;
@@ -1236,12 +1247,20 @@
 .feature-training,
 .feature-nutrition {
   padding: 40px 36px 0;
-  background: linear-gradient(180deg, #ffffff 0%, var(--m-blue-tint) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--m-panel) 0%,
+    var(--m-blue-tint) 100%
+  );
   border-color: var(--m-blue-tint-border);
 }
 
 .feature-nutrition {
-  background: linear-gradient(180deg, #ffffff 0%, var(--m-violet-tint) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--m-panel) 0%,
+    var(--m-violet-tint) 100%
+  );
   border-color: var(--m-violet-tint-border);
 }
 
@@ -1251,7 +1270,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  background: #ffffff;
+  background: var(--m-panel);
   border: 1px solid var(--m-border);
   box-shadow: var(--m-shadow-sm);
   border-radius: 12px;
@@ -1290,7 +1309,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--m-primary);
-  background: #ffffff;
+  background: var(--m-panel);
   padding: 4px 10px;
   border-radius: 6px;
   box-shadow: 0 1px 2px rgb(48 70 235 / 8%);
@@ -1318,7 +1337,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--m-accent);
-  background: #ffffff;
+  background: var(--m-panel);
   padding: 4px 10px;
   border-radius: 6px;
   box-shadow: 0 1px 2px rgb(85 52 212 / 8%);
@@ -1330,7 +1349,11 @@
 }
 
 .connected-section {
-  background: linear-gradient(180deg, var(--m-surface) 0%, #ebedf7 100%);
+  background: linear-gradient(
+    180deg,
+    var(--m-surface) 0%,
+    var(--m-surface-accent) 100%
+  );
   border-block: 1px solid var(--m-border);
 }
 
@@ -1435,7 +1458,7 @@
 
 .workflow-steps li {
   position: relative;
-  background: #ffffff;
+  background: var(--m-panel);
   border: 1px solid var(--m-border);
   border-radius: 18px;
   padding: 30px 26px;
@@ -1455,7 +1478,7 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  background: linear-gradient(180deg, #3750f7 0%, var(--m-primary) 100%);
+  background: var(--m-primary);
   color: #ffffff;
   border-radius: 10px;
   font-size: 15px;
@@ -1494,7 +1517,11 @@
   display: grid;
   gap: 32px;
   padding: 56px 64px;
-  background: linear-gradient(135deg, #eef2ff 0%, #f4f0fe 100%);
+  background: linear-gradient(
+    135deg,
+    var(--m-blue-tint) 0%,
+    var(--m-violet-tint) 100%
+  );
   border: 1px solid var(--m-blue-tint-border);
   border-radius: 24px;
   box-shadow: var(--m-shadow-card);
@@ -2140,4 +2167,54 @@
     gap: 8px;
     padding-top: 20px;
   }
+}
+
+:root[data-theme='dark'] .marketing {
+  --m-primary: #6259ff;
+  --m-primary-hover: #756eff;
+  --m-primary-active: #756eff;
+  --m-accent: #8067f5;
+  --m-canvas: #050a1a;
+  --m-panel: #0c152c;
+  --m-surface-raised: #0c152c;
+  --m-surface: #121f43;
+  --m-surface-accent: #162467;
+  --m-ink: #eff0f4;
+  --m-ink-heading: #eff0f4;
+  --m-muted: #bbbfd3;
+  --m-muted-light: #8f97af;
+  --m-border: #21305b;
+  --m-border-subtle: #21305b;
+  --m-border-strong: #293a70;
+  --m-blue-tint: #1a1d5a;
+  --m-blue-tint-border: #293a70;
+  --m-violet-tint: #162467;
+  --m-violet-tint-border: #293a70;
+  --m-pill-bg: #1a1d5a;
+  --m-pill-text: #bbbfd3;
+  color-scheme: dark;
+}
+:root[data-theme='dark'] .marketing-hero {
+  background: var(--m-canvas);
+}
+:root[data-theme='dark'] .window-dots i {
+  opacity: 0.8;
+}
+:root[data-theme='dark'] .preview-view-buttons button span {
+  background: var(--m-surface);
+}
+:root[data-theme='dark']
+  .preview-view-buttons
+  button:hover:not([aria-pressed='true']) {
+  background: var(--m-surface-accent);
+}
+.hero-heading h1 span {
+  background: var(--brand-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+:root[data-theme='dark'] .hero-heading h1 span {
+  background: none;
+  color: var(--m-primary-hover);
 }

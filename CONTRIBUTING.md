@@ -1,5 +1,7 @@
 # Guía de Trabajo con Git y Versionado
 
+Antes de crear o modificar código, revisa la [Guía de programación](DEVELOPMENT.md) y las [convenciones de base de datos y contratos](docs/database/convenciones.md). Esta guía complementa esas reglas con el flujo de Git.
+
 Esta guía establece las reglas y el flujo de trabajo con Git para el equipo de desarrollo de **CouchOne Fit** (franela, ferchito y puczil). El objetivo es mantener el repositorio ordenado, evitar pérdidas de código y prevenir conflictos destructivos al integrar.
 
 ---

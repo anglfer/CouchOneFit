@@ -23,7 +23,7 @@ export const invalidSession = () =>
   )
 let dummyHash: Promise<string> | undefined
 
-export async function loginProfessional(pool: Pool, input: unknown) {
+export async function loginAccount(pool: Pool, input: unknown) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
   const body = input as Record<string, unknown>
@@ -56,7 +56,7 @@ export async function loginProfessional(pool: Pool, input: unknown) {
   if (
     !account ||
     !matches ||
-    account.role !== 'profesional' ||
+    !['profesional', 'administrador'].includes(account.role) ||
     account.status !== 'activo'
   )
     throw invalidLogin()
@@ -66,9 +66,9 @@ export async function loginProfessional(pool: Pool, input: unknown) {
     const {
       rows: [identity],
     } = await client.query<ProfessionalIdentity>(
-      `SELECT a.id,a.usuario AS username,a.correo AS email,p.nombre_completo AS "fullName" FROM privado.usuarios a
-       JOIN privado.profesionales p ON p.usuario_id=a.id
-       WHERE a.id=$1 AND a.hash_contrasena=$2 AND a.rol='profesional' AND a.estado='activo'`,
+      `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role FROM privado.usuarios a
+       LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
+       WHERE a.id=$1 AND a.hash_contrasena=$2 AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL)) AND a.estado='activo'`,
       [account.id, account.passwordHash],
     )
     if (!identity) throw invalidLogin()
@@ -116,7 +116,7 @@ export async function authenticate(
   return identity
 }
 
-export async function refreshProfessional(
+export async function refreshAccount(
   pool: Pool,
   token: string | undefined,
 ) {
@@ -135,10 +135,10 @@ export async function refreshProfessional(
         valid: boolean
       }
     >(
-      `SELECT a.id,a.usuario AS username,a.correo AS email,p.nombre_completo AS "fullName",s.id AS "sessionId",s.expira_en AS "expiresAt",s.revocado_en AS "revokedAt",t.usado_en AS "usedAt",
-       (s.expira_en>clock_timestamp() AND a.estado='activo' AND a.rol='profesional') AS valid
+      `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role,s.id AS "sessionId",s.expira_en AS "expiresAt",s.revocado_en AS "revokedAt",t.usado_en AS "usedAt",
+       (s.expira_en>clock_timestamp() AND a.estado='activo' AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL))) AS valid
        FROM privado.tokens_renovacion t JOIN privado.sesiones s ON s.id=t.sesion_id
-       JOIN privado.usuarios a ON a.id=s.usuario_id JOIN privado.profesionales p ON p.usuario_id=a.id
+       JOIN privado.usuarios a ON a.id=s.usuario_id LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
        WHERE t.hash_token=$1 FOR UPDATE OF s,t`,
       [tokenHash(token)],
     )
@@ -176,7 +176,7 @@ export async function refreshProfessional(
   }
 }
 
-export async function logoutProfessional(
+export async function logoutAccount(
   pool: Pool,
   refresh: string | undefined,
   access: string | undefined,
