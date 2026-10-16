@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
@@ -11,28 +12,68 @@ export default defineConfig({
     proxy: { '/api': { target: 'http://localhost:3000', changeOrigin: false } },
   },
   plugins: [
+    tailwindcss(),
     react(),
     VitePWA({
-      workbox: { navigateFallbackDenylist: [/^\/api\//] },
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg', 'logo.png'],
+      // La nueva versión se aplica cuando el usuario lo confirma (ver src/shared/pwa.ts).
+      registerType: 'prompt',
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+      },
+      includeAssets: [
+        'favicon.svg',
+        'favicon-64x64.png',
+        'apple-touch-icon-180x180.png',
+        'logo.png',
+      ],
       manifest: {
-        name: 'CouchOne Fit',
-        short_name: 'CouchOneFit',
+        id: '/app/',
+        name: 'CouchOne Fit — Panel profesional',
+        short_name: 'CouchOne Fit',
         description:
-          'Aplicación Web y PWA de gestión fitness para profesionales y clientes',
-        theme_color: '#4037f7',
+          'Panel de CouchOne Fit para entrenadores, nutriólogos y administración.',
+        lang: 'es-MX',
+        dir: 'ltr',
+        categories: ['health', 'fitness', 'productivity'],
+        theme_color: '#ffffff',
         background_color: '#eaeffd',
         display: 'standalone',
-        orientation: 'portrait-primary',
+        display_override: ['standalone', 'minimal-ui'],
+        orientation: 'any',
         scope: '/',
-        start_url: '/',
+        // El panel redirige a /admin/ cuando la cuenta es administradora.
+        start_url: '/app/',
         icons: [
           {
-            src: 'logo.png',
-            sizes: '1254x1254',
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+        shortcuts: [
+          {
+            name: 'Inicio',
+            url: '/app/',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
+          },
+          {
+            name: 'Mi perfil',
+            url: '/app/perfil',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
         ],
       },

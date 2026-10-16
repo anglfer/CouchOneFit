@@ -1,3 +1,20 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --color-brand-blue: #3046eb;
+  --color-brand-primary: #4037f7;
+  --color-brand-hover: #3128d9;
+  --color-brand-violet: #6344dc;
+  --color-brand-surface: #f8f9fd;
+  --color-brand-border: #e3e5fc;
+  --color-brand-border-strong: #d0d2fa;
+  --color-brand-ink: #090918;
+  --color-brand-muted: #434771;
+  --color-brand-muted-light: #6c74a1;
+}
+
 :root {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   color-scheme: light;
