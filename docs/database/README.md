@@ -1,8 +1,8 @@
 # Operación de base de datos — CouchOneFit
 
-Los cambios de esquema se versionan con migraciones. Las migraciones del esquema inicial de identidad y de provisión administrativa ya se aplicaron al proyecto CouchOneFit compartido en Supabase y deben permanecer sin cambios. La migración de nombres en inglés `202610190001_english_identifiers.sql` existe localmente y todavía no se ha aplicado en remoto.
+Los cambios de esquema se versionan con migraciones. Las migraciones iniciales permanecen inmutables. La migración 202610190001_english_identifiers.sql se aplicó en el proyecto CouchOneFit compartido de Supabase el 19 de octubre de 2026; la verificación confirmó los conteos existentes y las relaciones sin huérfanos.
 
-**Condición para publicar:** el proyecto compartido de Supabase se usa en desarrollo y producción. Aplica la migración y publica junto con ella las versiones correspondientes de API y Web durante una misma ventana de mantenimiento. La API y Web anteriores no deben ejecutarse contra el esquema renombrado, y esta migración no debe aplicarse por separado. Móvil todavía no consume la API de identidad ni de perfil.
+**Estado del corte:** por instrucción directa, la migración ya se aplicó en Supabase. La compatibilidad del API y Web publicados no quedó verificada: la solicitud HTTP a https://couchonefit-web.vercel.app/api/health devolvió 404. No ejecutes la API anterior contra el esquema nuevo. Publica las versiones correspondientes de API y Web en el mismo corte de mantenimiento. Móvil todavía no consume la API de identidad ni de perfil.
 
 ## Referencias actuales
 
@@ -24,7 +24,7 @@ Las tablas de negocio objetivo usan el esquema no expuesto `private`. El histori
 
 ## Orden y aplicación de migraciones
 
-Los archivos ya aplicados son `202610150001_inicial_identidad_acceso.sql` y `202610160001_provision_administrador.sql`. La nueva migración `202610190001_english_identifiers.sql` conserva las filas y renombra el esquema de identidad, las restricciones, los índices, las políticas, los roles de aplicación, los valores y los objetos del historial. Nunca edites ni renombres los archivos ya aplicados.
+Los archivos aplicados son 202610150001_inicial_identidad_acceso.sql, 202610160001_provision_administrador.sql y 202610190001_english_identifiers.sql. La tercera migración conserva las filas y renombra el esquema de identidad, las restricciones, los índices, las políticas, los roles de aplicación, los valores y los objetos del historial. Nunca edites ni renombres los archivos ya aplicados.
 
 Aplica **solo las migraciones ordenadas** mediante `npm run db:migrate` en `apps/api`; no ejecutes el esquema integrado sobre esa base. La instantánea sirve para inspeccionar y comparar una base de prueba limpia. El ejecutor valida las sumas de verificación y aplica el SQL pendiente dentro de una transacción.
 

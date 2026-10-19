@@ -1,6 +1,6 @@
 # Modelo de datos de identidad y acceso
 
-Esta página describe el esquema objetivo después de `202610190001_english_identifiers.sql`. Las migraciones del esquema inicial y de provisión administrativa ya se aplicaron al proyecto compartido de Supabase y permanecen inmutables. La migración de nombres en inglés es nueva y todavía no se ha aplicado en remoto. No despliegues la API y Web anteriores junto con el esquema renombrado: publica la base de datos, la API y Web en el mismo corte. La aplicación móvil actual aún no consume la API de identidad ni de perfil.
+Esta página describe el esquema aplicado por 202610190001_english_identifiers.sql en el proyecto compartido de Supabase el 19 de octubre de 2026. La migración inicial y la de provisión administrativa permanecen inmutables. La compatibilidad de API y Web publicados no quedó verificada: la solicitud HTTP a https://couchonefit-web.vercel.app/api/health devolvió 404. No ejecutes la API anterior contra este esquema. Publica las versiones correspondientes de API y Web en el mismo corte de mantenimiento. La aplicación móvil actual aún no consume la API de identidad ni de perfil.
 
 El producto usa PostgreSQL mediante su propia autenticación de API; no usa Supabase Auth. El [esquema integrado](schemas/identity_access.sql) refleja el esquema de negocio resultante. El [glosario](../architecture/domain-glossary.md) es la referencia para los nombres de campos y valores.
 
