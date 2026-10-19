@@ -96,6 +96,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
   Future<void> _handleRefreshProfile() async {
     setState(() {
       _isRefreshing = true;
+      _errorMessage = null;
     });
     try {
       final profile = await widget.profileService.fetchProfile();
@@ -108,7 +109,9 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     } on AuthApiException catch (error) {
       if (!mounted) return;
       setState(() {
-        _profile = null;
+        if (error.statusCode == 401 || error.statusCode == 403) {
+          _profile = null;
+        }
         _isRefreshing = false;
         _errorMessage = error.message;
       });
@@ -116,6 +119,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       if (!mounted) return;
       setState(() {
         _isRefreshing = false;
+        _errorMessage = 'No pudimos completar la solicitud.';
       });
     }
   }
@@ -123,14 +127,30 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
   Future<void> _handleLogout() async {
     setState(() {
       _isRefreshing = true;
-    });
-    await widget.authService.logout();
-    if (!mounted) return;
-    setState(() {
-      _profile = null;
-      _isRefreshing = false;
       _errorMessage = null;
     });
+    try {
+      await widget.authService.logout();
+      if (!mounted) return;
+      setState(() {
+        _profile = null;
+        _isRefreshing = false;
+        _errorMessage = null;
+      });
+    } on AuthApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isRefreshing = false;
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isRefreshing = false;
+        _errorMessage =
+            'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.';
+      });
+    }
   }
 
   @override
@@ -163,6 +183,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
             : ClientProfileScreen(
                 profile: activeProfile,
                 isRefreshing: _isRefreshing,
+                errorMessage: _errorMessage,
                 onRefresh: _handleRefreshProfile,
                 onLogout: _handleLogout,
               ),

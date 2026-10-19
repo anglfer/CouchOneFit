@@ -1,18 +1,19 @@
-import { hash, verify, argon2id } from 'argon2'
+import { argon2id, hash, verify } from 'argon2'
 import type { Pool } from 'pg'
-import { publicAccount } from './account.js'
-import { validateLogin } from '../validators/login.js'
-import { randomToken, tokenHash, signAccess, verifyAccess } from './tokens.js'
 import {
-  findLoginAccount,
   currentSession,
+  findLoginAccount,
   insertSession,
-  rotateSession,
-  revokeSession,
   revokeRefreshSession,
+  revokeSession,
+  rotateSession,
+  updateAccountStatus,
 } from '../repositories/session.js'
-import type { SessionIdentity } from '../types/session.js'
 import { invalidLogin, invalidSession } from '../types/errors.js'
+import type { SessionIdentity } from '../types/session.js'
+import { validateLogin } from '../validators/login.js'
+import { publicAccount } from './account.js'
+import { randomToken, signAccess, tokenHash, verifyAccess } from './tokens.js'
 
 let dummyHash: Promise<string> | undefined
 
@@ -20,6 +21,7 @@ export async function loginAccount(
   pool: Pool,
   input: unknown,
   surface: 'web' | 'client' = 'web',
+  now?: Date,
 ) {
   const data = validateLogin(input)
   const account = await findLoginAccount(pool, data.identifier)
@@ -47,6 +49,7 @@ export async function loginAccount(
     tokenHash(refresh),
     signAccess,
     surface,
+    now,
   )
   if (!session) throw invalidLogin()
   return {
@@ -61,12 +64,13 @@ export async function authenticate(
   pool: Pool,
   token: string | undefined,
   surface: 'web' | 'any' = 'web',
+  now?: Date,
 ): Promise<SessionIdentity> {
   if (!token) throw invalidSession()
-  const { id, sid } = await verifyAccess(token)
-  const identity = await currentSession(pool, id, sid, surface)
+  const { id, sid } = await verifyAccess(token, { now })
+  const identity = await currentSession(pool, id, sid, surface, now)
   if (!identity) {
-    await revokeSession(pool, sid, id)
+    await revokeSession(pool, sid, id, now)
     throw invalidSession()
   }
   return identity
@@ -76,6 +80,7 @@ export async function refreshAccount(
   pool: Pool,
   token: string | undefined,
   surface: 'web' | 'client' = 'web',
+  now?: Date,
 ) {
   if (!token || !/^[\w-]{43}$/.test(token)) throw invalidSession()
   const refresh = randomToken()
@@ -85,6 +90,7 @@ export async function refreshAccount(
     tokenHash(refresh),
     signAccess,
     surface,
+    now,
   )
   if (!session) return null
   return {
@@ -99,13 +105,27 @@ export async function logoutAccount(
   pool: Pool,
   refresh: string | undefined,
   access: string | undefined,
+  now?: Date,
 ) {
+  let revokedByRefresh = false
   if (refresh && /^[\w-]{43}$/.test(refresh)) {
-    await revokeRefreshSession(pool, tokenHash(refresh))
-    return
+    revokedByRefresh = await revokeRefreshSession(pool, tokenHash(refresh), now)
   }
   if (access) {
-    const { id, sid } = await verifyAccess(access)
-    await revokeSession(pool, sid, id)
+    try {
+      const { id, sid } = await verifyAccess(access, { now })
+      await revokeSession(pool, sid, id, now)
+    } catch (error) {
+      if (!revokedByRefresh) throw error
+    }
   }
+}
+
+export async function setAccountStatus(
+  pool: Pool,
+  userId: string,
+  status: 'active' | 'inactive',
+  now?: Date,
+) {
+  return updateAccountStatus(pool, userId, status, now)
 }

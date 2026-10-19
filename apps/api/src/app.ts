@@ -1,35 +1,36 @@
-import express, {
-  type Express,
-  type Request,
-  type Response,
-  type NextFunction,
-} from 'express'
+import type { Express, NextFunction, Request, Response } from 'express'
+import express from 'express'
 import type { Pool } from 'pg'
-import { config } from './config/index.js'
 import { pool } from './config/database.js'
-import { registrationRoutes } from './features/auth/routes/registration.js'
-import { AuthError } from './features/auth/types/errors.js'
-import { sessionRoutes } from './features/auth/routes/session.js'
-import { professionalRoutes } from './features/professional/routes/professional.js'
+import { config } from './config/index.js'
 import { adminRoutes } from './features/admin/routes/admin.js'
+import { registrationRoutes } from './features/auth/routes/registration.js'
+import { sessionRoutes } from './features/auth/routes/session.js'
+import { AuthError } from './features/auth/types/errors.js'
 import { clientRoutes } from './features/client/routes/client.js'
+import { professionalRoutes } from './features/professional/routes/professional.js'
 
-export function createApp(database: Pool): Express {
+export interface AppOptions {
+  now?: () => Date
+}
+
+export function createApp(database: Pool, options?: AppOptions): Express {
   const app = express()
+  const now = options?.now
   app.disable('x-powered-by')
   app.use(express.json({ limit: '16kb' }))
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
       environment: config.nodeEnv,
-      timestamp: new Date().toISOString(),
+      timestamp: (now?.() ?? new Date()).toISOString(),
     })
   })
   app.use('/api/auth', registrationRoutes(database))
-  app.use('/api/auth', sessionRoutes(database))
-  app.use('/api/admin', adminRoutes(database))
-  app.use('/api/professional', professionalRoutes(database))
-  app.use('/api/client', clientRoutes(database))
+  app.use('/api/auth', sessionRoutes(database, now))
+  app.use('/api/admin', adminRoutes(database, now))
+  app.use('/api/professional', professionalRoutes(database, now))
+  app.use('/api/client', clientRoutes(database, now))
   app.use((_req, res) => {
     res
       .status(404)

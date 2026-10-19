@@ -96,17 +96,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    final stored = await _sessionStorage.readSession();
-    await _sessionStorage.clearSession();
-    if (stored == null) return;
-    try {
-      await _apiClient.postJson(
-        '/api/auth/client/logout',
-        body: <String, Object?>{'refreshToken': stored.refreshToken},
-      );
-    } catch (_) {
-      // Session is already removed locally; ignore network failure on logout.
-    }
+    await _apiClient.logoutSession();
   }
 }
 

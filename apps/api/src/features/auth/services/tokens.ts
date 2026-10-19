@@ -16,18 +16,49 @@ export function jwtKey(): Uint8Array {
     )
   return new TextEncoder().encode(value)
 }
-export function signAccess(id: string, sid: string): Promise<string> {
+const ACCESS_TTL_SECONDS = 15 * 60
+
+export interface SignAccessOptions {
+  now?: Date
+  sessionExpiresAt?: Date
+}
+
+export interface VerifyAccessOptions {
+  now?: Date
+}
+
+export function signAccess(
+  id: string,
+  sid: string,
+  options?: SignAccessOptions,
+): Promise<string> {
+  const issuedAt = Math.floor((options?.now ?? new Date()).getTime() / 1000)
+  const defaultExp = issuedAt + ACCESS_TTL_SECONDS
+  const sessionExp = options?.sessionExpiresAt
+    ? Math.floor(options.sessionExpiresAt.getTime() / 1000)
+    : defaultExp
+  const expirationTime = Math.min(defaultExp, sessionExp)
+  if (expirationTime <= issuedAt) {
+    return Promise.reject(
+      new AuthError(
+        401,
+        'SESSION_REQUIRED',
+        'Tu sesión venció o no está disponible. Inicia sesión de nuevo.',
+      ),
+    )
+  }
   return new SignJWT({ sid })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(id)
     .setIssuer('couchonefit-api')
     .setAudience('couchonefit-web')
-    .setIssuedAt()
-    .setExpirationTime('15m')
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(expirationTime)
     .sign(jwtKey())
 }
 export async function verifyAccess(
   token: string,
+  options?: VerifyAccessOptions,
 ): Promise<{ id: string; sid: string }> {
   const key = jwtKey()
   try {
@@ -37,6 +68,7 @@ export async function verifyAccess(
       audience: 'couchonefit-web',
       requiredClaims: ['sub', 'sid', 'iat', 'exp'],
       maxTokenAge: '15m',
+      ...(options?.now ? { currentDate: options.now } : {}),
     })
     const uuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

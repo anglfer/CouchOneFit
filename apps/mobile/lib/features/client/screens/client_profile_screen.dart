@@ -10,15 +10,19 @@ class ClientProfileScreen extends StatelessWidget {
     required this.onRefresh,
     required this.onLogout,
     this.isRefreshing = false,
+    this.errorMessage,
   });
 
   final ClientProfile profile;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLogout;
   final bool isRefreshing;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -32,6 +36,22 @@ class ClientProfileScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
+              if (errorMessage != null && errorMessage!.isNotEmpty) ...[
+                Container(
+                  key: const Key('client-profile-error'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    errorMessage!,
+                    style: TextStyle(color: colorScheme.onErrorContainer),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               ClientProfileCard(
                 profile: profile,
                 isRefreshing: isRefreshing,

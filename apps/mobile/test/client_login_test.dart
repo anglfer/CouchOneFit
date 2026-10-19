@@ -309,4 +309,166 @@ void main() {
     expect(find.text('Mi expediente'), findsNothing);
     expect(await storage.readSession(), isNull);
   });
+
+  testWidgets(
+      'Fallo de red al cerrar sesión no acredita logout ni borra almacenamiento hasta confirmación del servidor',
+      (tester) async {
+    final storage = InMemorySessionStorage(
+      initialSession: StoredSession(
+        accessToken: 'active.access.token',
+        refreshToken: 'active_refresh_token_1234567890123456789012345',
+        expiresAt: DateTime.utc(2026, 11, 18, 12),
+      ),
+    );
+    var networkDown = true;
+    ApiHttpRequest? capturedLogoutRequest;
+
+    final apiClient = ApiClient(
+      sessionStorage: storage,
+      now: () => DateTime.utc(2026, 10, 19, 12),
+      httpHandler: (request) async {
+        if (request.path == '/api/auth/session') {
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: <String, Object?>{'account': sampleAccount()},
+          );
+        }
+        if (request.path == '/api/client/profile') {
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: <String, Object?>{'profile': sampleProfile()},
+          );
+        }
+        if (request.path == '/api/auth/client/logout') {
+          capturedLogoutRequest = request;
+          if (networkDown) {
+            return const ApiHttpResponse(
+              statusCode: 503,
+              body: <String, Object?>{
+                'error': <String, Object?>{
+                  'code': 'SERVICE_UNAVAILABLE',
+                  'message': 'No pudimos completar la solicitud.',
+                },
+              },
+            );
+          }
+          return const ApiHttpResponse(statusCode: 204);
+        }
+        return const ApiHttpResponse(statusCode: 404);
+      },
+    );
+
+    await tester.pumpWidget(
+      CouchOneFitApp(
+        sessionStorage: storage,
+        apiClient: apiClient,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mi expediente'), findsOneWidget);
+
+    // 1. Network fails during logout: session remains active and storage is preserved
+    await tester.ensureVisible(find.byKey(const ValueKey('logout_button')));
+    await tester.tap(find.byKey(const ValueKey('logout_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mi expediente'), findsOneWidget);
+    expect(
+      find.text(
+        'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.',
+      ),
+      findsOneWidget,
+    );
+    expect(await storage.readSession(), isNotNull);
+
+    // 2. Network recovers: logout sends both Bearer and refreshToken, clears storage, and exits to login
+    networkDown = false;
+    await tester.ensureVisible(find.byKey(const ValueKey('logout_button')));
+    await tester.tap(find.byKey(const ValueKey('logout_button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      capturedLogoutRequest?.headers['Authorization'],
+      'Bearer active.access.token',
+    );
+    expect(
+      capturedLogoutRequest?.body?['refreshToken'],
+      'active_refresh_token_1234567890123456789012345',
+    );
+    expect(await storage.readSession(), isNull);
+    expect(find.text('Mi expediente'), findsNothing);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+  });
+
+  test(
+      'Clientes serializan renovaciones 401 concurrentes y limpian sesión al superar vencimiento absoluto de 30 días',
+      () async {
+    var clock = DateTime.utc(2026, 10, 19, 12);
+    final storage = InMemorySessionStorage(
+      initialSession: StoredSession(
+        accessToken: 'expired.access.1',
+        refreshToken: 'refresh_token_initial_12345678901234567890123',
+        expiresAt: DateTime.utc(2026, 11, 18, 12),
+      ),
+    );
+    var refreshCalls = 0;
+
+    final apiClient = ApiClient(
+      sessionStorage: storage,
+      now: () => clock,
+      httpHandler: (request) async {
+        if (request.path == '/api/client/profile') {
+          if (request.headers['Authorization'] != 'Bearer rotated.access.2') {
+            return const ApiHttpResponse(
+              statusCode: 401,
+              body: <String, Object?>{
+                'error': <String, Object?>{
+                  'code': 'SESSION_REQUIRED',
+                  'message': 'Tu sesión venció. Inicia sesión de nuevo.',
+                },
+              },
+            );
+          }
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: <String, Object?>{'profile': sampleProfile()},
+          );
+        }
+        if (request.path == '/api/auth/client/refresh') {
+          refreshCalls += 1;
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: <String, Object?>{
+              'account': sampleAccount(),
+              'session': sampleSession(
+                accessToken: 'rotated.access.2',
+                refreshToken: 'refresh_token_rotated_12345678901234567890123',
+              ),
+            },
+          );
+        }
+        return const ApiHttpResponse(statusCode: 404);
+      },
+    );
+
+    final results = await Future.wait(<Future<Map<String, Object?>>>[
+      apiClient.getJson('/api/client/profile', authenticated: true),
+      apiClient.getJson('/api/client/profile', authenticated: true),
+    ]);
+    expect(refreshCalls, 1);
+    expect(results.length, 2);
+    expect((await storage.readSession())?.accessToken, 'rotated.access.2');
+
+    // Advance controlled clock beyond 30-day absolute expiry
+    clock = DateTime.utc(2026, 11, 18, 12, 0, 1);
+    await expectLater(
+      apiClient.getJson('/api/client/profile', authenticated: true),
+      throwsA(
+        isA<AuthApiException>().having((e) => e.statusCode, 'statusCode', 401),
+      ),
+    );
+    expect(await storage.readSession(), isNull);
+  });
 }

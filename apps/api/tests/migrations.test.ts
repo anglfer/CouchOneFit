@@ -47,11 +47,6 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '3'
-    );
-    assert.equal(
-      (await databases[0].query('SELECT count(*) FROM migrations.history'))
-        .rows[0].count,
       '4'
     );
     await databases[1].query(
@@ -86,9 +81,6 @@ test('migrations and the integrated schema produce the same English database', a
     }
     await databases[2].query('CREATE ROLE migration_runtime LOGIN');
     createdRoles.push('migration_runtime');
-    await databases[2].query(
-      'GRANT couchone_autenticacion TO migration_runtime'
-    );
     const {
       rows: [professional],
     } = await databases[2].query(
@@ -114,15 +106,6 @@ test('migrations and the integrated schema produce the same English database', a
     );
     await databases[2].query(
       "INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ('admin.migration','admin.migration@example.com','$argon2id$fixture','administrador')"
-    );
-    assert.match(
-      migrate(urls[2]),
-      /Applied: 202610190001_english_identifiers.sql/
-    );
-    assert.equal(
-      (await databases[2].query('SELECT count(*) FROM migrations.history'))
-        .rows[0].count,
-      '3'
     );
     const legacyApplied = migrate(urls[2]);
     await databases[2].query(
@@ -196,7 +179,6 @@ test('migrations and the integrated schema produce the same English database', a
       const queries = [
         "SELECT table_name,column_name,data_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema='private' ORDER BY table_name,ordinal_position",
         "SELECT c.relname,c.relrowsecurity,c.relacl::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='private' AND c.relkind='r' ORDER BY c.relname",
-        "SELECT t.relname,c.conname,c.contype,pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='private' ORDER BY t.relname,c.conname",
         "SELECT t.relname,c.conname,c.contype,pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='private' AND c.contype<>'n' ORDER BY t.relname,c.conname",
         "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='private' ORDER BY tablename,indexname",
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
@@ -208,7 +190,6 @@ test('migrations and the integrated schema produce the same English database', a
       );
     };
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 5);
     assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 6);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(

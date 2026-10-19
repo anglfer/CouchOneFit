@@ -1,8 +1,87 @@
 import { apiClient, ApiError } from '../../../services/api';
 
 import type { Account, SessionResponse } from '../types/session';
+
+const SESSION_CHANNEL = 'couchonefit-session';
+const PRESERVED_LOCAL_STORAGE_KEYS = new Set(['cof-theme']);
+
 let csrfPromise: Promise<string> | undefined;
 let refreshPromise: Promise<SessionResponse> | undefined;
+
+export async function clearSessionState(broadcast = true): Promise<void> {
+  csrfPromise = undefined;
+  refreshPromise = undefined;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.clear();
+  } catch (error) {
+    console.error(error);
+  }
+  try {
+    for (const key of Object.keys(window.localStorage)) {
+      if (!PRESERVED_LOCAL_STORAGE_KEYS.has(key)) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  if ('caches' in window) {
+    try {
+      const names = await window.caches.keys();
+      await Promise.all(
+        names.map(async (name) => {
+          const cache = await window.caches.open(name);
+          const requests = await cache.keys();
+          await Promise.all(
+            requests
+              .filter((request) =>
+                new URL(
+                  request.url,
+                  window.location.origin
+                ).pathname.startsWith('/api/')
+              )
+              .map((request) => cache.delete(request))
+          );
+        })
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  if (broadcast && typeof BroadcastChannel !== 'undefined') {
+    try {
+      const channel = new BroadcastChannel(SESSION_CHANNEL);
+      channel.postMessage({ type: 'session-cleared' });
+      channel.close();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+}
+
+export function subscribeSessionCleared(onCleared: () => void): () => void {
+  if (typeof BroadcastChannel === 'undefined') {
+    return () => undefined;
+  }
+  try {
+    const channel = new BroadcastChannel(SESSION_CHANNEL);
+    const handler = (event: MessageEvent<{ type?: string }>) => {
+      if (event.data?.type === 'session-cleared') {
+        void clearSessionState(false);
+        onCleared();
+      }
+    };
+    channel.addEventListener('message', handler);
+    return () => {
+      channel.removeEventListener('message', handler);
+      channel.close();
+    };
+  } catch (error) {
+    console.error(error);
+    return () => undefined;
+  }
+}
 
 function csrf(): Promise<string> {
   csrfPromise ??= apiClient<{ csrfToken: string }>('/api/auth/csrf')
@@ -35,7 +114,16 @@ export function login(
 }
 function refresh(): Promise<SessionResponse> {
   if (!refreshPromise) {
-    const renew = () => mutate<SessionResponse>('/api/auth/refresh');
+    const renew = async () => {
+      try {
+        return await mutate<SessionResponse>('/api/auth/refresh');
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await clearSessionState();
+        }
+        throw error;
+      }
+    };
     refreshPromise = (
       navigator.locks
         ? navigator.locks.request('couchonefit-refresh', renew)
@@ -50,17 +138,35 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
   try {
     return await apiClient<T>(endpoint);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) throw error;
+    if (!(error instanceof ApiError) || error.status !== 401) {
+      if (error instanceof ApiError && error.status === 403) {
+        await clearSessionState(false);
+      }
+      throw error;
+    }
     await refresh();
-    return apiClient<T>(endpoint);
+    try {
+      return await apiClient<T>(endpoint);
+      }
+      throw retryError;
+    }
   }
 }
 export const readSession = () =>
   sessionRequest<SessionResponse>('/api/auth/session');
 export async function logout(): Promise<void> {
   // Wait for an in-flight refresh so it cannot reissue cookies after logout.
-  await refreshPromise?.catch(() => undefined);
-  await mutate<void>('/api/auth/logout');
+  await refreshPromise?.catch((error) => {
+    console.error(error);
+  });
+  try {
+    await mutate<void>('/api/auth/logout');
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) {
+      throw error;
+    }
+  }
+  await clearSessionState(true);
 }
 
 export function authorizedReturn(

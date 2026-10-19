@@ -1,19 +1,19 @@
 import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
-import { csrfToken, requireCsrf } from '../middleware/session-http.js'
-import { requireSession } from '../middleware/session.js'
 import {
-  loginController,
   clientLoginController,
-  refreshController,
-  clientRefreshController,
-  logoutController,
   clientLogoutController,
+  clientRefreshController,
+  loginController,
+  logoutController,
+  refreshController,
   sessionController,
 } from '../controllers/session.js'
+import { requireSession } from '../middleware/session.js'
+import { csrfToken, requireCsrf } from '../middleware/session-http.js'
 
-export function sessionRoutes(pool: Pool): Router {
+export function sessionRoutes(pool: Pool, now?: () => Date): Router {
   const router = Router()
   router.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store')
@@ -34,12 +34,21 @@ export function sessionRoutes(pool: Pool): Router {
       },
     })
   router.get('/csrf', limiter(100), csrfToken)
-  router.post('/login', limiter(20), requireCsrf, loginController(pool))
-  router.post('/client/login', limiter(20), clientLoginController(pool))
-  router.get('/session', requireSession(pool), sessionController)
-  router.post('/refresh', limiter(100), requireCsrf, refreshController(pool))
-  router.post('/client/refresh', limiter(100), clientRefreshController(pool))
-  router.post('/logout', requireCsrf, logoutController(pool))
-  router.post('/client/logout', clientLogoutController(pool))
+  router.post('/login', limiter(20), requireCsrf, loginController(pool, now))
+  router.post('/client/login', limiter(20), clientLoginController(pool, now))
+  router.get('/session', requireSession(pool, undefined, now), sessionController)
+  router.post(
+    '/refresh',
+    limiter(100),
+    requireCsrf,
+    refreshController(pool, now),
+  )
+  router.post(
+    '/client/refresh',
+    limiter(100),
+    clientRefreshController(pool, now),
+  )
+  router.post('/logout', requireCsrf, logoutController(pool, now))
+  router.post('/client/logout', clientLogoutController(pool, now))
   return router
 }

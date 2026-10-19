@@ -1,19 +1,20 @@
-import type { Account } from '../../auth/types/session';
-import { useEffect, useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
+import { useEffect, useState } from 'react';
+import AppearanceSettings from '../../../components/AppearanceSettings';
+import { Icon } from '../../../components/Icon';
+import InstallAppCard from '../../../components/InstallAppCard';
+import { Link } from '../../../components/Link';
+import { useLocation } from '../../../hooks/useLocation';
+import type { WorkspaceNavItem } from '../../../layouts/WorkspaceLayout';
+import WorkspaceLayout from '../../../layouts/WorkspaceLayout';
 import { ApiError } from '../../../services/api';
 import {
   logout,
   readSession,
   sessionRequest,
+  subscribeSessionCleared,
 } from '../../auth/services/session';
-import { useLocation } from '../../../hooks/useLocation';
-import { Link } from '../../../components/Link';
-import WorkspaceLayout, {
-  type WorkspaceNavItem,
-} from '../../../layouts/WorkspaceLayout';
-import AppearanceSettings from '../../../components/AppearanceSettings';
-import InstallAppCard from '../../../components/InstallAppCard';
-import { Icon } from '../../../components/Icon';
+import type { Account } from '../../auth/types/session';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/admin/', label: 'Inicio', icon: 'home' },
@@ -75,15 +76,26 @@ export default function AdminPage(): ReactElement {
     void check(true);
 
     const onFocus = () => void check(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void check(false);
+    };
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) void check(false);
     };
+    const unsubscribe = subscribeSessionCleared(() => {
+      if (!active) return;
+      setAccount(null);
+      window.location.replace('/acceso?motivo=salida');
+    });
 
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pageshow', onPageShow);
     return () => {
       active = false;
+      unsubscribe();
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
     };
   }, [attempt]);

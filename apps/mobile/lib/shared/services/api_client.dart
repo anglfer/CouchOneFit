@@ -36,18 +36,27 @@ class ApiClient {
     required SessionStorage sessionStorage,
     String? baseUrl,
     JsonHttpHandler? httpHandler,
+    DateTime Function()? now,
   })  : _sessionStorage = sessionStorage,
         _baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_BASE_URL',
               defaultValue: 'http://10.0.2.2:3000',
             ),
-        _httpHandler = httpHandler;
+        _httpHandler = httpHandler,
+        _now = now;
 
   final SessionStorage _sessionStorage;
   final String _baseUrl;
   final JsonHttpHandler? _httpHandler;
+  final DateTime Function()? _now;
   Future<StoredSession?>? _refreshInFlight;
+
+  DateTime _currentTime() => (_now ?? DateTime.now)().toUtc();
+
+  bool _isExpired(StoredSession session) {
+    return !session.expiresAt.toUtc().isAfter(_currentTime());
+  }
 
   Future<Map<String, Object?>> getJson(
     String path, {
@@ -71,7 +80,10 @@ class ApiClient {
     StoredSession? session;
     if (authenticated) {
       session = await _sessionStorage.readSession();
-      if (session == null) {
+      if (session == null || _isExpired(session)) {
+        if (session != null) {
+          await _sessionStorage.clearSession();
+        }
         throw const AuthApiException(
           statusCode: 401,
           code: 'SESSION_REQUIRED',
@@ -113,6 +125,37 @@ class ApiClient {
     return response.body;
   }
 
+  Future<void> logoutSession() async {
+    final pendingRefresh = _refreshInFlight;
+    if (pendingRefresh != null) {
+      try {
+        await pendingRefresh;
+      } catch (_) {
+        // Proceed with logout after in-flight refresh settles.
+      }
+    }
+    final stored = await _sessionStorage.readSession();
+    if (stored == null) return;
+    final response = await _send(
+      method: 'POST',
+      path: '/api/auth/client/logout',
+      body: <String, Object?>{'refreshToken': stored.refreshToken},
+      accessToken: stored.accessToken,
+    );
+    if (response.statusCode == 204 ||
+        response.statusCode == 200 ||
+        response.statusCode == 401) {
+      await _sessionStorage.clearSession();
+      return;
+    }
+    throw const AuthApiException(
+      statusCode: 503,
+      code: 'LOGOUT_UNCONFIRMED',
+      message:
+          'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.',
+    );
+  }
+
   Future<StoredSession?> _rotateSessionOnce(String refreshToken) {
     final existing = _refreshInFlight;
     if (existing != null) return existing;
@@ -129,6 +172,9 @@ class ApiClient {
       path: '/api/auth/client/refresh',
       body: <String, Object?>{'refreshToken': refreshToken},
     );
+    if (response.statusCode >= 500) {
+      throw _extractException(response);
+    }
     if (response.statusCode != 200) {
       await _sessionStorage.clearSession();
       return null;
@@ -149,6 +195,10 @@ class ApiClient {
     }
     final nextSession =
         StoredSession.fromJson(Map<String, Object?>.from(rawSession));
+    if (_isExpired(nextSession)) {
+      await _sessionStorage.clearSession();
+      return null;
+    }
     await _sessionStorage.saveSession(nextSession);
     return nextSession;
   }

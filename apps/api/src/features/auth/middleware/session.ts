@@ -1,9 +1,9 @@
-import type { Request, Response, NextFunction } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import type { Pool } from 'pg'
-import { cookies, bearerToken } from './session-http.js'
 import { authenticate } from '../services/session.js'
-import type { SessionIdentity } from '../types/session.js'
 import { AuthError } from '../types/errors.js'
+import type { SessionIdentity } from '../types/session.js'
+import { bearerToken, cookies } from './session-http.js'
 
 declare global {
   namespace Express {
@@ -14,14 +14,19 @@ declare global {
     }
   }
 }
-export function requireSession(pool: Pool, role?: SessionIdentity['role']) {
+export function requireSession(
+  pool: Pool,
+  role?: SessionIdentity['role'],
+  now?: () => Date,
+) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const bearer = bearerToken(req)
+      const currentTime = now?.()
       const identity =
         bearer !== undefined
-          ? await authenticate(pool, bearer, 'any')
-          : await authenticate(pool, cookies(req).cof_access, 'web')
+          ? await authenticate(pool, bearer, 'any', currentTime)
+          : await authenticate(pool, cookies(req).cof_access, 'web', currentTime)
       if (role && identity.role !== role)
         throw new AuthError(
           403,
@@ -37,9 +42,9 @@ export function requireSession(pool: Pool, role?: SessionIdentity['role']) {
     }
   }
 }
-export const requireProfessional = (pool: Pool) =>
-  requireSession(pool, 'professional')
-export const requireAdmin = (pool: Pool) =>
-  requireSession(pool, 'admin')
-export const requireClient = (pool: Pool) =>
-  requireSession(pool, 'client')
+export const requireProfessional = (pool: Pool, now?: () => Date) =>
+  requireSession(pool, 'professional', now)
+export const requireAdmin = (pool: Pool, now?: () => Date) =>
+  requireSession(pool, 'admin', now)
+export const requireClient = (pool: Pool, now?: () => Date) =>
+  requireSession(pool, 'client', now)

@@ -1,21 +1,22 @@
-import type { ProfessionalProfile } from '../types/profile';
-import type { Account } from '../../auth/types/session';
-import { useEffect, useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
+import { useEffect, useState } from 'react';
+import AppearanceSettings from '../../../components/AppearanceSettings';
+import { Icon } from '../../../components/Icon';
+import InstallAppCard from '../../../components/InstallAppCard';
+import { Link } from '../../../components/Link';
+import { useLocation } from '../../../hooks/useLocation';
+import type { WorkspaceNavItem } from '../../../layouts/WorkspaceLayout';
+import WorkspaceLayout from '../../../layouts/WorkspaceLayout';
 import { ApiError } from '../../../services/api';
+import { firstName } from '../../../utils/personName';
 import {
   logout,
   readSession,
   sessionRequest,
+  subscribeSessionCleared,
 } from '../../auth/services/session';
-import { useLocation } from '../../../hooks/useLocation';
-import { Link } from '../../../components/Link';
-import WorkspaceLayout, {
-  type WorkspaceNavItem,
-} from '../../../layouts/WorkspaceLayout';
-import AppearanceSettings from '../../../components/AppearanceSettings';
-import InstallAppCard from '../../../components/InstallAppCard';
-import { Icon } from '../../../components/Icon';
-import { firstName } from '../../../utils/personName';
+import type { Account } from '../../auth/types/session';
+import type { ProfessionalProfile } from '../types/profile';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
@@ -66,6 +67,8 @@ export default function ProfessionalPage(): ReactElement {
           window.location.replace(
             `/acceso?motivo=sesion&retorno=${encodeURIComponent(next)}`
           );
+        } else if (failure instanceof ApiError && failure.status === 403) {
+          window.location.replace('/acceso');
         } else {
           setError(
             'No pudimos comprobar tu sesión. Revisa tu conexión e inténtalo de nuevo.'
@@ -79,15 +82,27 @@ export default function ProfessionalPage(): ReactElement {
     void check(true);
 
     const onFocus = () => void check(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void check(false);
+    };
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) void check(false);
     };
+    const unsubscribe = subscribeSessionCleared(() => {
+      if (!active) return;
+      setAccount(null);
+      setProfile(null);
+      window.location.replace('/acceso?motivo=salida');
+    });
 
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pageshow', onPageShow);
     return () => {
       active = false;
+      unsubscribe();
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
     };
   }, [attempt]);
