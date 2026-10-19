@@ -77,7 +77,7 @@ La versión actual de Marketing cubre completamente la narrativa de producto, la
   - Enlaces de pie de página para Política de Privacidad y Términos de Servicio cuando se formalice la entidad legal del SaaS.
 - [x] **Catálogo y registro (acuerdo 15-oct)**: Básico $299 MXN/10 activos, Pro $599 MXN/30, Élite $999 MXN/ilimitados; precios. Reemplaza recorrido anterior de contratación por registro sin cobro ni activación de suscripción.
 
-**Configuración local:** dejar `VITE_API_URL` vacío en `.env` para usar proxy Vite `/api` → puerto 3000. El backend debe permitir el Origin real con su puerto en `CORS_ORIGIN`. Vercel mantiene `/api` mediante rewrite al dominio API existente; verificar en staging. Nunca poner credenciales de PostgreSQL en variables VITE.
+**Configuración local:** dejar `VITE_API_URL` vacío en `.env` para usar proxy Vite `/api` → puerto 3000. El backend debe permitir el Origin real con su puerto en `CORS_ORIGIN`. En producción, Vercel mantiene `/api` mediante rewrite a **https://api.ferkxo.tech**, API existente en Render. El desarrollo conserva la API local. [Estado comprobado y despliegue automático](../../docs/architecture/despliegue.md). Nunca poner credenciales de PostgreSQL en variables VITE.
 
 **HU-001:** formulario accesible con confirmaciones, información de registro, plan opcional, carga/error/duplicado/éxito. No persiste credenciales en el navegador. [Contrato](../../docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md), [tablas y migraciones](../../docs/database/README.md). Perfil ampliable mediante nuevas migraciones.
 

@@ -320,6 +320,13 @@ Aplicar la migración `202610150001_inicial_identidad_acceso.sql` con el usuario
 
 ## Documentación por épica e historia
 
+**Entornos:** la API de producción existente en Render es
+[https://api.ferkxo.tech](https://api.ferkxo.tech). Web publicada accede por su
+proxy `/api`; móvil de distribución usa ese dominio. Para desarrollar, Web y
+móvil conservan la API local en puerto3000. El despliegue automático de Render
+publica los cambios enviados a su rama conectada cuando termina correctamente;
+un commit local no despliega. [Configuración y comprobaciones del entorno](docs/architecture/despliegue.md).
+
 HU-006–009 incorpora cambio seguro de credenciales móvil, invitaciones privadas desde `/app/clientes`, activación anónima atómica con aviso versionado y recuperación asistida desde Web/móvil. La recuperación de profesionales/admins se autoriza en el panel; el último admin usa el comando local del custodio. No hay recuperación automática por correo ni cobros. [Contratos y evidencia](docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md), [migración/modelo incremental](docs/database/modelo-ciclo-acceso.md), [OpenAPI](docs/api/identity-lifecycle.openapi.json).
 
 Contratos, flujos y evidencia de cada HU están en [docs/epicas](docs/epicas/README.md), dentro de su épica y carpeta de historia. HU-001/002 pertenecen a [EP-01 — Identidad y acceso](docs/epicas/ep-01-identidad-y-acceso/README.md). No se atan las rutas documentales a sprints. [Convenciones de BD/código](docs/database/convenciones.md) y [modelo detallado con tablas y funciones](docs/database/modelo-identidad-acceso.md). La migración inicial consolidada crea las tablas en español y [schemas](docs/database/schemas/README.md) conserva la definición integrada; API/Web se actualizan a los campos camelCase descritos en sus contratos.

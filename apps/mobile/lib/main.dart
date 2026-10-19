@@ -4,9 +4,12 @@ import 'features/auth/services/session_storage.dart';
 import 'features/client/services/client_profile_service.dart';
 import 'routes/client_session_gate.dart';
 import 'shared/services/api_client.dart';
+import 'shared/services/api_config.dart';
 import 'shared/theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.load();
   runApp(const CouchOneFitApp());
 }
 
@@ -40,12 +43,11 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
   void initState() {
     super.initState();
     _sessionStorage = widget.sessionStorage ?? MethodChannelSessionStorage();
-    _apiClient =
-        widget.apiClient ?? ApiClient(sessionStorage: _sessionStorage);
+    _apiClient = widget.apiClient ?? ApiClient(sessionStorage: _sessionStorage);
     _authService = widget.authService ??
         AuthService(apiClient: _apiClient, sessionStorage: _sessionStorage);
-    _profileService = widget.profileService ??
-        ClientProfileService(apiClient: _apiClient);
+    _profileService =
+        widget.profileService ?? ClientProfileService(apiClient: _apiClient);
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/auth/models/session_models.dart';
 import '../../features/auth/services/session_storage.dart';
+import 'api_config.dart';
 
 class ApiHttpRequest {
   const ApiHttpRequest({
@@ -40,11 +41,7 @@ class ApiClient {
     JsonHttpHandler? httpHandler,
     DateTime Function()? now,
   })  : _sessionStorage = sessionStorage,
-        _baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:3000',
-            ),
+        _baseUrl = baseUrl ?? ApiConfig.baseUrl,
         _httpHandler = httpHandler,
         _now = now {
     if (kReleaseMode && Uri.parse(_baseUrl).scheme != 'https') {

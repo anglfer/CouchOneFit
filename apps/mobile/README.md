@@ -22,7 +22,7 @@ Desde login: «Activar mi cuenta» y «Recuperar mi acceso». Desde expediente: 
 
 Android guarda access/refresh/vencimiento mediante el canal `couchonefit/secure_session`: cifrado AES-256-GCM en preferencias privadas con clave no exportable de Android Keystore. No persiste contraseñas/códigos. Restaurar un cifrado inválido no revive una sesión. El fallback en memoria permite pruebas de widgets/plataformas sin canal nativo; iOS requiere integrar y verificar su almacenamiento nativo antes de distribución, no se acredita como validado desde Windows.
 
-API local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:35412` (HTTP solo manifest debug). Producción exige `--dart-define=API_BASE_URL=https://<host-api>`; el cliente rechaza HTTP en release. El manifest principal incluye INTERNET. Las peticiones tienen tiempos de espera y no exponen tokens en errores.
+La API se configura en el [archivo de entorno móvil](#url-de-la-api). El cliente rechaza HTTP en release. El manifest principal incluye INTERNET. Las peticiones tienen tiempos de espera y no exponen tokens en errores.
 
 Pruebas: `flutter analyze`, `flutter test` y [recorrido Android real](integration_test/account_lifecycle_test.dart). La única dependencia nueva es `integration_test` del SDK en desarrollo y sus transitivas; no se actualizan versiones ya fijadas. Preparación/reproducción en la evidencia de las HU.
 
@@ -56,3 +56,46 @@ mobile/
 - Instalar dependencias: `flutter pub get`
 - Ejecutar en desarrollo: `flutter run`
 - Análisis de código: `flutter analyze`
+
+## URL de la API
+
+Edita `apps/mobile/.env.json`; la app lo lee automáticamente al arrancar. No hace
+falta pasar argumentos al ejecutar ni modificar código Dart. El archivo local
+está ignorado por Git. En una copia nueva del repositorio, créalo desde el ejemplo:
+
+```powershell
+cd apps/mobile
+Copy-Item .env.example .env.json
+```
+
+Contenido para el emulador Android y la API local habitual en el puerto3000:
+
+```json
+{
+  "API_BASE_URL": "http://10.0.2.2:3000"
+}
+```
+
+Después usa `flutter run` o el botón de ejecutar del editor. Al cambiar la URL,
+detén y vuelve a ejecutar la app para incorporar el archivo actualizado.
+
+- Emulador Android: `http://10.0.2.2:3000`.
+- Teléfono físico: la IP de tu computadora en la misma red, por ejemplo
+  `http://192.168.1.100:3000`; `localhost` en el teléfono apunta al propio teléfono.
+- Distribución: `https://api.ferkxo.tech`, API productiva existente en Render.
+  Cambia `API_BASE_URL` en el archivo de entorno del build de distribución;
+  conserva la dirección local para desarrollar. HTTP solo está permitido en
+  compilaciones debug de Android, y el cliente exige HTTPS en release.
+
+`lib/shared/services/api_config.dart` centraliza la lectura y validación;
+`ApiClient` consume esa configuración. Para automatización sigue disponible
+`--dart-define=API_BASE_URL=...`, que tiene prioridad sobre el archivo; es opcional.
+El recorrido Android de las HU usa su puerto de pruebas35412 mediante esa opción.
+No hay cambio automático de una API local a producción ante errores de red.
+El [estado del despliegue](../../docs/architecture/despliegue.md) distingue la
+disponibilidad de la API productiva y las comprobaciones de sus endpoints.
+
+El archivo se incluye como recurso en la app compilada usando el
+[mecanismo de assets de Flutter](https://docs.flutter.dev/ui/assets/assets-and-images).
+Solo debe contener configuración pública como la URL de la API: nunca
+`DATABASE_URL`, contraseñas ni claves privadas de Supabase. No agrega dependencias.
