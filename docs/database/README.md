@@ -1,13 +1,16 @@
-# Base de datos — CouchOneFit
+# Operación de base de datos — CouchOneFit
 
-La base crece por funcionalidad mediante migraciones. Cada cambio debe explicar tablas, relaciones, restricciones, permisos, funciones consumidoras y pruebas. El responsable de integración centraliza la aplicación remota. La migración inicial ya se aplicó en CouchOneFit con autorización del usuario; el estado verificado se registra abajo.
+Los cambios de esquema se versionan con migraciones. Las migraciones del esquema inicial de identidad y de provisión administrativa ya se aplicaron al proyecto CouchOneFit compartido en Supabase y deben permanecer sin cambios. La migración de nombres en inglés `202610190001_english_identifiers.sql` existe localmente y todavía no se ha aplicado en remoto.
 
-## Documentación vigente
+**Condición para publicar:** el proyecto compartido de Supabase se usa en desarrollo y producción. Aplica la migración y publica junto con ella las versiones correspondientes de API y Web durante una misma ventana de mantenimiento. La API y Web anteriores no deben ejecutarse contra el esquema renombrado, y esta migración no debe aplicarse por separado. Móvil todavía no consume la API de identidad ni de perfil.
 
-- [Convenciones de BD y código](convenciones.md): español/snake_case en PostgreSQL, camelCase en TypeScript/JSON, PascalCase en tipos/componentes.
-- [Modelo de identidad y acceso](modelo-identidad-acceso.md): creación y evolución de tablas, diccionario, relaciones, índices, RLS, funciones, transacciones y despliegue.
-- [EP-01 — Identidad y acceso](../epicas/ep-01-identidad-y-acceso/README.md): contratos y evidencia de HU-001/002.
-- [Índice de épicas e historias](../epicas/README.md): documentación organizada sin depender de sprints.
+## Referencias actuales
+
+- [Convenciones de base de datos](convenciones.md)
+- [Modelo de datos de identidad y acceso](modelo-identidad-acceso.md)
+- [Glosario de identidad y acceso](../architecture/domain-glossary.md)
+- [Esquema integrado](schemas/identity_access.sql)
+- [Épica de identidad y acceso](../epicas/ep-01-identidad-y-acceso/README.md)
 
 ## Nombre y entornos
 
@@ -17,35 +20,32 @@ Decisión vigente del usuario: **un único proyecto Supabase, CouchOneFit, compa
 
 Las pruebas automatizadas conservan una base local exclusiva **CouchOneFit_test**; nunca deben apuntar al proyecto compartido. **CouchOneFit_dev** queda como alternativa local opcional, no como otro entorno remoto creado.
 
-Las tablas de negocio están en **privado**; el historial técnico en **migraciones.historial**. Estos son esquemas dentro de la base seleccionada por `DATABASE_URL`, no bases separadas. Ninguno debe exponerse en Data API.
+Las tablas de negocio objetivo usan el esquema no expuesto `private`. El historial de migraciones usa la tabla interna `migrations.history`. Ambos son esquemas y tablas dentro de la base PostgreSQL seleccionada por `DATABASE_URL`, no bases separadas.
 
-## Migración inicial y esquema completo
+## Orden y aplicación de migraciones
 
-Inicial: [202610150001_inicial_identidad_acceso.sql](migrations/202610150001_inicial_identidad_acceso.sql). Crea directamente el modelo español de HU-001/002: usuarios, profesionales, aceptaciones, sesiones y tokens de renovación, con sus claves, índices, roles y políticas. Se consolidó antes de la primera aplicación del proyecto; no requiere renombrar tablas ni convertir datos anteriores. HU-003 añade [202610160001_provision_administrador.sql](migrations/202610160001_provision_administrador.sql) con permisos/RLS de provisión administrativa controlada, sin nuevas tablas.
+Los archivos ya aplicados son `202610150001_inicial_identidad_acceso.sql` y `202610160001_provision_administrador.sql`. La nueva migración `202610190001_english_identifiers.sql` conserva las filas y renombra el esquema de identidad, las restricciones, los índices, las políticas, los roles de aplicación, los valores y los objetos del historial. Nunca edites ni renombres los archivos ya aplicados.
 
-La carpeta [schemas](schemas/README.md) conserva [el SQL completo integrado](schemas/identidad_acceso.sql), equivalente a las dos migraciones acumuladas. Al incorporar módulos se añadirá una migración y se actualizará el esquema integrado para reflejar el resultado acumulado. Una migración aplicada queda inmutable.
-
-Aplicar **solo las migraciones** al preparar un entorno; no ejecutar además el SQL de `schemas` sobre la misma base. El esquema integrado es referencia y se prueba por separado en una base vacía. El historial técnico `migraciones.historial` lo crea y mantiene el ejecutor, no el snapshot de negocio.
+Aplica **solo las migraciones ordenadas** mediante `npm run db:migrate` en `apps/api`; no ejecutes el esquema integrado sobre esa base. La instantánea sirve para inspeccionar y comparar una base de prueba limpia. El ejecutor valida las sumas de verificación y aplica el SQL pendiente dentro de una transacción.
 
 ## Aplicación local
 
-1. Crear una base vacía dedicada al entorno. Nunca ejecutar pruebas sobre una base de otro proyecto o producción.
-2. En `apps/api`, instalar dependencias y configurar `DATABASE_URL` con un usuario de migraciones con permisos de DDL y aprovisionamiento de roles. Ejecutar `npm run db:migrate`.
-3. El ejecutor toma un bloqueo, valida checksums y aplica SQL pendiente ordenado dentro de una transacción. Repetir no reaplica. Si un archivo registrado fue modificado, se detiene: corregir con otra migración.
-4. El historial guarda UUID, nombre único, SHA-256 y fecha de aplicación. Si contiene archivos ausentes de esta versión, el ejecutor se detiene; no borrar historial para eludir errores.
-5. Usar un usuario de conexión dedicado, sin superusuario/BYPASSRLS/DDL, con `GRANT couchone_autenticacion TO couchone_api;`. Ese rol hereda `couchone_registro`.
-6. Configurar la conexión runtime, `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes, Origin Web permitido y TLS verificado en remoto. Nunca poner secretos en Git ni en variables VITE.
+1. Usa una base local exclusiva para las pruebas; nunca apuntes las pruebas automatizadas al proyecto compartido.
+2. Ejecuta `npm run db:migrate` desde `apps/api` con una conexión de migración que tenga los permisos DDL y de roles necesarios.
+3. El ejecutor adquiere un bloqueo consultivo, valida las sumas de verificación y aplica los archivos pendientes en orden dentro de una transacción. Si un archivo aplicado cambió o falta en el historial, detiene la ejecución.
+4. Configura por separado la conexión de ejecución. Recibe `couchone_authentication`, que hereda `couchone_registration`; las cuentas de ejecución no deben tener privilegios de superusuario, `BYPASSRLS` ni DDL.
+5. Configura `AUTH_JWT_SECRET`, el origen Web permitido y TLS verificado para la API. Mantén los secretos fuera de Git y de las variables de Vite.
 
 Los roles son globales al clúster: el SQL reutiliza roles seguros al migrar dev y test, comprobando atributos/membresías. La API no aplica migraciones al arrancar.
 
 ## Pruebas y producción
 
-Configurar `TEST_DATABASE_URL` con una base **local exclusiva ya migrada** y ejecutar `npm test` en `apps/api`. La suite crea datos únicos y triggers temporales de fallo; el test de migraciones crea/elimina exclusivamente dos bases temporales propias y compara migración contra esquema integrado. Requiere permisos locales para esos triggers, SET ROLE y creación de bases. Los archivos se ejecutan en serie. Validar también API `npm run build`, Web build/lint y navegador.
+Configura `TEST_DATABASE_URL` con una base **local exclusiva ya migrada** y ejecuta `npm test` en `apps/api`. La suite crea datos únicos y triggers temporales de fallo; la prueba de migraciones crea y elimina tres bases temporales propias para una migración limpia, una instantánea y una actualización desde el historial anterior. Requiere permisos locales para esos triggers, `SET ROLE` y la creación de bases. Los archivos se ejecutan en serie. Valida también API con `npm run build`, Web con compilación y lint, y el flujo en el navegador.
 
 
 Producción exige respaldo verificado, revisión central de migraciones/permisos, aplicación controlada y smoke del runtime restringido. Ante error antes del COMMIT, rollback automático; después, nueva migración inversa revisada o restauración del respaldo. No eliminar cuentas ni historial para revertir una entrega. Más campos de perfil o tablas de otro módulo se añaden mediante otra migración.
 
-## Aplicación remota verificada — 15 de octubre de 2026
+## Evidencia remota histórica previa a la refactorización — 15 de octubre de 2026
 
 - Proyecto único: `pcoyrxdeiigynmmpxtng` (**CouchOneFit**), región `us-east-2`, PostgreSQL 17.6; organización `anglfer's Org`.
 - Migración local aplicada: `202610150001_inicial_identidad_acceso.sql`.

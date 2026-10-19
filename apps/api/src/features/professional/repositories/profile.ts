@@ -8,11 +8,11 @@ export async function professionalProfile(
   const {
     rows: [profile],
   } = await pool.query(
-    `SELECT p.id,p.usuario_id AS "accountId",p.nombre_completo AS "fullName",p.telefono AS phone,a.usuario AS username,a.correo AS email
-     FROM privado.profesionales p JOIN privado.usuarios a ON a.id=p.usuario_id
-     JOIN privado.sesiones s ON s.usuario_id=a.id
-     WHERE p.usuario_id=$1 AND s.id=$2 AND a.rol='profesional' AND a.estado='activo'
-       AND s.revocado_en IS NULL AND s.expira_en>clock_timestamp()`,
+    `SELECT p.id,p.user_id AS "userId",p.full_name AS "fullName",p.phone,a.username,a.email
+     FROM private.professionals p JOIN private.users a ON a.id=p.user_id
+     JOIN private.sessions s ON s.user_id=a.id
+     WHERE p.user_id=$1 AND s.id=$2 AND a.role='professional' AND a.status='active'
+       AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`,
     [identity.id, identity.sessionId],
   )
   return profile

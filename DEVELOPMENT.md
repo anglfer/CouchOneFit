@@ -1,59 +1,37 @@
-# Guía de programación — CouchOne Fit
+# Guía de programación
 
-Lee esta guía antes de crear o modificar código. Resume cómo nombrar y estructurar el código en las tres aplicaciones, y enlaza a la regla detallada de PostgreSQL. Si una HU, una decisión de producto o una convención específica contradice una recomendación general de esta guía, prevalece la fuente específica documentada.
+## Idioma y nombres
 
-## Fuente de verdad de los nombres y contratos
+Usa inglés para los identificadores del código, los nombres de la base de datos, los contratos de API, los nombres de pruebas y los valores legibles por máquina. Usa español para los textos que ve la persona usuaria, como mensajes de validación, correos y textos de accesibilidad.
 
-La norma compartida es [Convenciones de base de datos](docs/database/convenciones.md). Sus reglas también describen los límites entre PostgreSQL, TypeScript y JSON; no se debe usar un nombre SQL como nombre de propiedad de la aplicación.
+Usa `snake_case` en SQL; `camelCase` en TypeScript, JavaScript, Dart y JSON; y `PascalCase` en tipos, clases y componentes. No traduzcas los campos entre capas: conserva el mismo término en inglés y aplica la convención de escritura correspondiente a cada capa. Antes de cambiar un contrato existente, consulta el [glosario de identidad y acceso](docs/architecture/domain-glossary.md).
 
-| Capa | Forma | Ejemplos |
-| --- | --- | --- |
-| PostgreSQL | Español `snake_case`; tablas en plural y columnas precisas | `privado.usuarios`, `nombre_completo`, `usuario_id` |
-| Funciones SQL propias, si hay una necesidad aprobada | Español `snake_case` | `crear_sesion` |
-| TypeScript / JavaScript / JSON | `camelCase` | `nombreCompleto`, `confirmacionCorreo` |
-| Funciones, variables y métodos de aplicación | `camelCase` | `registerProfessional`, `mobileTheme`, `sessionRequest` |
-| Tipos, clases y componentes React | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalPage` |
-| CSS | `kebab-case` | `workspace-sidebar`, `--brand-primary` |
-| Clases Dart | `PascalCase`; miembros públicos `lowerCamelCase`; privados con `_` | `CouchOneFitApp`, `mobileTheme`, `_themeMode` |
+## Estructura de la aplicación
 
-Los identificadores de aplicación pueden conservar el inglés: la convención de CouchOne Fit fija el español para la base de datos y `camelCase`/`PascalCase` para la aplicación. Cuando una consulta lee SQL, asigna alias en el `SELECT` o transforma el resultado en el repositorio. Las respuestas API y los objetos JavaScript usan `camelCase`; nombres SQL como `nombre_completo` no pasan al JSON.
+Mantén las responsabilidades en las capas existentes:
 
-Los valores persistidos de rol y estado se escriben según el vocabulario español de la base (`profesional`, `activo`). Si un contrato HTTP existente utiliza valores como `professional` o `active`, mapéalos explícitamente en la frontera API; no cambies el contrato de red solo por la traducción SQL.
+1. **Rutas y controladores de API** conectan las solicitudes HTTP con las operaciones.
+2. **Validadores** reciben los datos externos como `unknown` y devuelven los errores de validación ya definidos por la aplicación.
+3. **Servicios** coordinan las operaciones del dominio con tipos explícitos.
+4. **Repositorios** usan consultas SQL parametrizadas y conservan el comportamiento de transacciones, reversión y liberación de conexiones.
+5. **Web y móvil** consumen directamente el contrato de API; los textos para la persona usuaria permanecen en español.
 
-## Funciones y responsabilidades
+No agregues una capa de traducción o alias entre filas SQL y TypeScript cuando ambos puedan usar el mismo término del dominio. Mantén valores como `professional`, `admin`, `active` y `basic` consistentes desde PostgreSQL hasta JSON y las aplicaciones cliente.
 
-No agregues procedimientos de negocio o RPC solo para mover lógica a PostgreSQL. La regla actual es implementar el dominio en funciones de aplicación y consultas parametrizadas; una función SQL propia necesita una necesidad funcional concreta y documentación de nombre, parámetros, resultado, permisos y transacción.
+## Cambios de base de datos y contratos
 
-En la API, conserva la separación que utiliza el módulo de identidad y acceso:
+- Antes de cambiar la persistencia o los campos de API, consulta las [convenciones de PostgreSQL](docs/database/convenciones.md), la historia del módulo y el [glosario del dominio](docs/architecture/domain-glossary.md).
+- No edites una migración ya aplicada. Agrega una nueva migración que conserve los datos y actualiza el esquema integrado.
+- Actualiza API, Web, móvil, datos de prueba, pruebas y documentación del contrato en el mismo cambio.
+- Los cambios de nombres en la base de datos requieren desplegar la migración y las versiones de API, Web y móvil como un corte coordinado. No ejecutes al mismo tiempo contratos viejos y nuevos contra el esquema renombrado.
+- Basa la autorización en los roles persistidos en la base de datos, no en campos enviados por el cliente ni solo en declaraciones de un JWT.
 
-1. **Ruta/controlador:** recibe la solicitud y conecta la entrada HTTP con la operación.
-2. **Validador:** trata la entrada externa como `unknown`, revisa estructura y reglas antes de convertirla al tipo del dominio. Devuelve errores de validación mediante el error de aplicación existente.
-3. **Servicio:** coordina la operación y contiene su flujo de negocio; recibe y devuelve tipos explícitos cuando el contrato ya está definido.
-4. **Repositorio:** ejecuta consultas SQL parametrizadas y mapea columnas a tipos de aplicación. Una operación de escritura con varios pasos conserva su transacción, `ROLLBACK` ante error y liberación del cliente.
+## Formato y verificaciones
 
-La firma `validateRegistration(input: unknown): Registration` ejemplifica la frontera de confianza; `insertProfessional(...): Promise<string>` ejemplifica una escritura con retorno explícito. Usa el patrón del módulo correspondiente antes de introducir una capa nueva. No dupliques validación entre API y cliente para sustituir la validación del servidor.
+Usa la configuración existente en cada aplicación:
 
-En Web, los componentes y tipos usan `PascalCase`; sus manejadores, hooks propios y funciones usan `camelCase`. En móvil, sigue Dart: clases `PascalCase`, miembros `lowerCamelCase` y estado privado con `_`. Conserva los tipos de entrada y retorno que exige el compilador de cada lenguaje.
+- **Web:** Prettier y Oxlint; consulta el [estilo de código Web](docs/architecture/formato-codigo-web.md).
+- **API:** TypeScript y los patrones existentes del módulo.
+- **Móvil:** el formateador de Dart y la configuración del analizador en `apps/mobile`.
 
-## Persistencia y cambios de contrato
-
-- Consulta primero [las convenciones completas de PostgreSQL](docs/database/convenciones.md), la HU del módulo y el [modelo de identidad y acceso](docs/database/modelo-identidad-acceso.md).
-- Integra cambios de esquema en una migración funcional y en su HU. Nunca edites una migración aplicada; conserva su checksum y corrige con una migración nueva que preserve los datos.
-- Usa parámetros de consulta, expresa nulabilidad y claves foráneas con claridad, y concede solo los permisos de la función que necesita cada rol.
-- Documenta y actualiza juntos los mapeos BD ↔ API ↔ Web/móvil, sus tipos y pruebas cuando cambie un contrato.
-- Valida la instalación limpia y el esquema integrado. En migraciones posteriores, valida también la actualización con datos existentes.
-
-## Formato y comprobaciones disponibles
-
-Usa las configuraciones existentes en cada aplicación; no inventes un formato paralelo:
-
-- **Web:** Prettier y Oxlint. La [guía de formato Web](docs/architecture/formato-codigo-web.md) describe la configuración y los comandos.
-- **Móvil:** formato y reglas del analizador configurados en `apps/mobile`.
-- **API:** conserva TypeScript y los patrones del módulo existente.
-
-## Documentación relacionada
-
-- [Convenciones de PostgreSQL y mapeos de contrato](docs/database/convenciones.md)
-- [Arquitectura y límites de las capas](docs/architecture/README.md)
-- [Guía de trabajo con Git](CONTRIBUTING.md)
-- [Plan y decisiones vigentes](PLAN_TRABAJO_V2.md)
+Los puntos de inicio están en el [README raíz](README.md), la [guía de base de datos](docs/database/README.md) y la [guía de despliegue](docs/architecture/despliegue.md).

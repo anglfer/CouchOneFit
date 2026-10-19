@@ -10,11 +10,11 @@ export async function findLoginAccount(
   pool: Pool,
   identifier: string,
 ): Promise<LoginAccount | undefined> {
-  const column = identifier.includes('@') ? 'correo' : 'usuario'
+  const column = identifier.includes('@') ? 'email' : 'username'
   const {
     rows: [row],
   } = await pool.query<LoginAccount>(
-    `SELECT id,hash_contrasena AS "passwordHash",rol AS role,estado AS status FROM privado.usuarios WHERE lower(btrim(${column}))=$1`,
+    `SELECT id,password_hash AS "passwordHash",role,status FROM private.users WHERE lower(btrim(${column}))=$1`,
     [identifier],
   )
   return row
@@ -27,18 +27,18 @@ export async function currentSession(
   const {
     rows: [row],
   } = await pool.query<SessionIdentity>(
-    `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role,s.id AS "sessionId",s.expira_en AS "expiresAt"
-     FROM privado.sesiones s JOIN privado.usuarios a ON a.id=s.usuario_id
-     LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
-     WHERE s.id=$1 AND a.id=$2 AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL)) AND a.estado='activo'
-       AND s.revocado_en IS NULL AND s.expira_en>clock_timestamp()`,
+    `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role,s.id AS "sessionId",s.expires_at AS "expiresAt"
+     FROM private.sessions s JOIN private.users a ON a.id=s.user_id
+     LEFT JOIN private.professionals p ON p.user_id=a.id
+     WHERE s.id=$1 AND a.id=$2 AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)) AND a.status='active'
+       AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`,
     [sid, id],
   )
   return row
 }
 export async function insertSession(
   pool: Pool,
-  accountId: string,
+  userId: string,
   passwordHash: string,
   refreshHash: string,
   signAccess: (id: string, sid: string) => Promise<string>,
@@ -49,24 +49,24 @@ export async function insertSession(
     const {
       rows: [identity],
     } = await client.query<ProfessionalIdentity>(
-      `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role FROM privado.usuarios a
-       LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
-       WHERE a.id=$1 AND a.hash_contrasena=$2 AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL)) AND a.estado='activo'`,
-      [accountId, passwordHash],
+      `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role FROM private.users a
+       LEFT JOIN private.professionals p ON p.user_id=a.id
+       WHERE a.id=$1 AND a.password_hash=$2 AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)) AND a.status='active'`,
+      [userId, passwordHash],
     )
     if (!identity) throw invalidLogin()
     const {
       rows: [session],
     } = await client.query<{ id: string; expiresAt: Date }>(
-      'INSERT INTO privado.sesiones (usuario_id) VALUES ($1) RETURNING id,expira_en AS "expiresAt"',
-      [accountId],
+      'INSERT INTO private.sessions (user_id) VALUES ($1) RETURNING id,expires_at AS "expiresAt"',
+      [userId],
     )
     await client.query(
-      'INSERT INTO privado.tokens_renovacion (hash_token,sesion_id) VALUES ($1,$2)',
+      'INSERT INTO private.refresh_tokens (token_hash,session_id) VALUES ($1,$2)',
       [refreshHash, session.id],
     )
-    // Firmar antes del COMMIT conserva el rollback si falla la emisión.
-    const access = await signAccess(accountId, session.id)
+    // Signing before COMMIT keeps the transaction reversible if signing fails.
+    const access = await signAccess(userId, session.id)
     await client.query('COMMIT')
     return {
       access,
@@ -101,28 +101,28 @@ export async function rotateSession(
         valid: boolean
       }
     >(
-      `SELECT a.id,a.usuario AS username,a.correo AS email,COALESCE(p.nombre_completo,a.usuario) AS "fullName",a.rol AS role,s.id AS "sessionId",s.expira_en AS "expiresAt",s.revocado_en AS "revokedAt",t.usado_en AS "usedAt",
-       (s.expira_en>clock_timestamp() AND a.estado='activo' AND (a.rol='administrador' OR (a.rol='profesional' AND p.id IS NOT NULL))) AS valid
-       FROM privado.tokens_renovacion t JOIN privado.sesiones s ON s.id=t.sesion_id
-       JOIN privado.usuarios a ON a.id=s.usuario_id LEFT JOIN privado.profesionales p ON p.usuario_id=a.id
-       WHERE t.hash_token=$1 FOR UPDATE OF s,t`,
+      `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role,s.id AS "sessionId",s.expires_at AS "expiresAt",s.revoked_at AS "revokedAt",t.used_at AS "usedAt",
+       (s.expires_at>clock_timestamp() AND a.status='active' AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL))) AS valid
+       FROM private.refresh_tokens t JOIN private.sessions s ON s.id=t.session_id
+       JOIN private.users a ON a.id=s.user_id LEFT JOIN private.professionals p ON p.user_id=a.id
+       WHERE t.token_hash=$1 FOR UPDATE OF s,t`,
       [refreshHash],
     )
     if (!row || row.revokedAt) throw invalidSession()
     if (row.usedAt || !row.valid) {
       await client.query(
-        'UPDATE privado.sesiones SET revocado_en=clock_timestamp() WHERE id=$1',
+        'UPDATE private.sessions SET revoked_at=clock_timestamp() WHERE id=$1',
         [row.sessionId],
       )
       await client.query('COMMIT')
       return null
     }
     await client.query(
-      'UPDATE privado.tokens_renovacion SET usado_en=clock_timestamp() WHERE hash_token=$1',
+      'UPDATE private.refresh_tokens SET used_at=clock_timestamp() WHERE token_hash=$1',
       [refreshHash],
     )
     await client.query(
-      'INSERT INTO privado.tokens_renovacion (hash_token,sesion_id) VALUES ($1,$2)',
+      'INSERT INTO private.refresh_tokens (token_hash,session_id) VALUES ($1,$2)',
       [nextRefreshHash, row.sessionId],
     )
     const access = await signAccess(row.id, row.sessionId)
@@ -146,7 +146,7 @@ export async function revokeSession(
   id: string,
 ): Promise<void> {
   await pool.query(
-    'UPDATE privado.sesiones SET revocado_en=clock_timestamp() WHERE id=$1 AND usuario_id=$2 AND revocado_en IS NULL',
+    'UPDATE private.sessions SET revoked_at=clock_timestamp() WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL',
     [sid, id],
   )
 }
@@ -156,8 +156,8 @@ export async function revokeRefreshSession(
   refreshHash: string,
 ): Promise<void> {
   await pool.query(
-    `UPDATE privado.sesiones SET revocado_en=clock_timestamp()
-      WHERE id=(SELECT sesion_id FROM privado.tokens_renovacion WHERE hash_token=$1) AND revocado_en IS NULL`,
+    `UPDATE private.sessions SET revoked_at=clock_timestamp()
+      WHERE id=(SELECT session_id FROM private.refresh_tokens WHERE token_hash=$1) AND revoked_at IS NULL`,
     [refreshHash],
   )
 }

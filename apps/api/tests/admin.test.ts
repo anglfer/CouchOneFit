@@ -24,14 +24,14 @@ const cookie = (r: request.Response, name: string) =>
 
 before(async () => {
   const digest = await hash(password, { type: argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 })
-  for (const role of ['administrador', 'profesional', 'cliente']) {
+  for (const role of ['admin', 'professional', 'client']) {
     const { rows: [row] } = await pool.query(
-      "INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ($1,$2,$3,$4) RETURNING id",
+      "INSERT INTO private.users (username,email,password_hash,role) VALUES ($1,$2,$3,$4) RETURNING id",
       [`${role}.${run}`, `${role}.${run}@example.com`, digest, role],
     )
     ids.set(role, row.id)
-    if (role === 'profesional') await pool.query(
-      'INSERT INTO privado.profesionales (usuario_id,nombre_completo) VALUES ($1,$2)', [row.id, 'Profesional de prueba'],
+    if (role === 'professional') await pool.query(
+      'INSERT INTO private.professionals (user_id,full_name) VALUES ($1,$2)', [row.id, 'Profesional de prueba'],
     )
   }
 })
@@ -43,28 +43,28 @@ async function post(app: ReturnType<typeof createApp>, path: string, body: objec
     .set('Cookie', [cookie(csrf, 'cof_csrf'), session && cookie(session, 'cof_access'), session && cookie(session, 'cof_refresh')].filter(Boolean).join('; '))
     .set('X-CSRF-Token', csrf.body.csrfToken).send(body)
 }
-const login = (app: ReturnType<typeof createApp>, role: string) => post(app, '/api/auth/login', { identificador: `${role}.${run}`, contrasena: password })
+const login = (app: ReturnType<typeof createApp>, role: string) => post(app, '/api/auth/login', { identifier: `${role}.${run}`, password: password })
 
-test('matriz HTTP: admin solo administración, profesional solo operación y cliente sin acceso Web', async () => {
-  const restricted = new Pool({ connectionString: value, options: '-c role=couchone_autenticacion' })
+test('HTTP authorization matrix limits admin, professional, and client access', async () => {
+  const restricted = new Pool({ connectionString: value, options: '-c role=couchone_authentication' })
   try {
     const app = createApp(restricted)
-    for (const role of ['administrador', 'profesional', 'cliente']) {
+    for (const role of ['admin', 'professional', 'client']) {
       const session = await login(app, role)
-      if (role === 'cliente') {
+      if (role === 'client') {
         assert.equal(session.status, 401)
-        const { rows: [stored] } = await pool.query('INSERT INTO privado.sesiones (usuario_id) VALUES ($1) RETURNING id', [ids.get(role)])
+        const { rows: [stored] } = await pool.query('INSERT INTO private.sessions (user_id) VALUES ($1) RETURNING id', [ids.get(role)])
         const token = await signAccess(ids.get(role)!, stored.id)
         for (const path of ['/api/admin/session', '/api/professional/profile'])
           assert.equal((await request(app).get(path).set('Cookie', `cof_access=${token}`)).status, 401)
         continue
       }
       assert.equal(session.status, 200)
-      assert.equal(session.body.account.role, role === 'administrador' ? 'admin' : 'professional')
+      assert.equal(session.body.account.role, role === 'admin' ? 'admin' : 'professional')
       const access = cookie(session, 'cof_access')
-      const expected = role === 'administrador' ? [200, 403] : [403, 200]
+      const expected = role === 'admin' ? [200, 403] : [403, 200]
       for (const [i, path] of ['/api/admin/session', '/api/professional/profile'].entries()) {
-        const response = await request(app).get(`${path}?accountId=${ids.get('profesional')}&role=admin`).set('Cookie', access)
+        const response = await request(app).get(`${path}?userId=${ids.get('professional')}&role=admin`).set('Cookie', access)
         assert.equal(response.status, expected[i])
         assert.equal(response.headers['cache-control'], 'no-store')
         if (response.status === 403) assert.equal(response.body.profile, undefined)
@@ -77,79 +77,77 @@ test('matriz HTTP: admin solo administración, profesional solo operación y cli
   } finally { await restricted.end() }
 })
 
-test('rol enviado en payload o JWT no concede permisos administrativos', async () => {
+test('request roles and JWT claims do not grant administrator permissions', async () => {
   const app = createApp(pool)
-  for (const field of ['role', 'rol']) {
-    assert.equal((await post(app, '/api/auth/login', {
-      identificador: `profesional.${run}`, contrasena: password, [field]: 'administrador',
-    })).status, 400)
-    assert.equal((await request(app).post('/api/auth/professionals').send({ [field]: 'administrador' })).status, 400)
-  }
-  const session = await login(app, 'profesional')
+  assert.equal((await post(app, '/api/auth/login', {
+    identifier: `professional.${run}`, password, role: 'admin',
+  })).status, 400)
+  assert.equal((await request(app).post('/api/auth/professionals').send({ role: 'admin' })).status, 400)
+  const session = await login(app, 'professional')
   const claims = decodeJwt(cookie(session, 'cof_access').slice('cof_access='.length))
-  const token = await new SignJWT({ ...claims, role: 'admin', rol: 'administrador' })
+  const token = await new SignJWT({ ...claims, role: 'admin' })
     .setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(process.env.AUTH_JWT_SECRET))
   assert.equal((await request(app).get('/api/admin/session').set('Cookie', `cof_access=${token}`)).status, 403)
 })
 
-test('admin renueva, rechaza replay y logout/baja invalidan sus sesiones', async () => {
+test('admin refresh rejects replay and logout or deactivation invalidates sessions', async () => {
   const app = createApp(pool)
-  const first = await login(app, 'administrador')
+  const first = await login(app, 'admin')
   const renewed = await post(app, '/api/auth/refresh', {}, first)
   assert.equal(renewed.status, 200)
   assert.equal(renewed.body.account.role, 'admin')
   assert.equal((await post(app, '/api/auth/refresh', {}, first)).status, 401)
   assert.equal((await request(app).get('/api/admin/session').set('Cookie', cookie(renewed, 'cof_access'))).status, 401)
-  const second = await login(app, 'administrador')
+  const second = await login(app, 'admin')
   assert.equal((await post(app, '/api/auth/logout', {}, second)).status, 204)
   assert.equal((await request(app).get('/api/admin/session').set('Cookie', cookie(second, 'cof_access'))).status, 401)
-  const third = await login(app, 'administrador')
+  const third = await login(app, 'admin')
   try {
-    await pool.query("UPDATE privado.usuarios SET estado='inactivo' WHERE id=$1", [ids.get('administrador')])
-    assert.equal((await login(app, 'administrador')).status, 401)
+    await pool.query("UPDATE private.users SET status='inactive' WHERE id=$1", [ids.get('admin')])
+    assert.equal((await login(app, 'admin')).status, 401)
     assert.equal((await request(app).get('/api/admin/session').set('Cookie', cookie(third, 'cof_access'))).status, 401)
-  } finally { await pool.query("UPDATE privado.usuarios SET estado='activo' WHERE id=$1", [ids.get('administrador')]) }
+  } finally { await pool.query("UPDATE private.users SET status='active' WHERE id=$1", [ids.get('admin')]) }
   assert.equal((await request(app).get('/api/admin/session').set('Cookie', cookie(third, 'cof_access'))).status, 401)
   assert.equal((await post(app, '/api/auth/refresh', {}, third)).status, 401)
 })
 
-test('seed manual muestra contraseña una vez, rechaza repetición y no eleva cuentas; runtime no puede provisionar', async () => {
+test('manual seed reveals its password once and runtime cannot provision accounts', async () => {
   const username = `seed.${run}`
   const email = `seed.${run}@example.com`
   const seed = (user = username, mail = email, changes = {}) => execFileSync(process.execPath, ['--import', 'tsx', 'scripts/seed-admin.ts'], {
     env: { ...process.env, DATABASE_URL: value, ...changes }, input: `${user}\n${mail}\n`, encoding: 'utf8', stdio: 'pipe',
   })
   const output = seed()
-  assert.match(output, /Administrador creado/)
-  const generated = output.match(/Contraseña: ([\w-]{43})/)
+  assert.match(output, /Administrator created/)
+  const generated = output.match(/Password: ([\w-]{43})/)
   assert.ok(generated)
-  const { rows: [before] } = await pool.query('SELECT * FROM privado.usuarios WHERE usuario=$1', [username])
-  assert.equal(before.rol, 'administrador')
-  assert.ok(await verify(before.hash_contrasena, generated[1]))
+  const { rows: [before] } = await pool.query('SELECT * FROM private.users WHERE username=$1', [username])
+  assert.equal(before.role, 'admin')
+  assert.ok(await verify(before.password_hash, generated[1]))
   assert.throws(() => seed())
-  const { rows: [after] } = await pool.query('SELECT * FROM privado.usuarios WHERE id=$1', [before.id])
+  const { rows: [after] } = await pool.query('SELECT * FROM private.users WHERE id=$1', [before.id])
   assert.deepEqual(after, before)
-  assert.equal((await pool.query('SELECT count(*) FROM privado.profesionales WHERE usuario_id=$1', [before.id])).rows[0].count, '0')
-  assert.throws(() => seed(`profesional.${run}`, `profesional.${run}@example.com`))
+  assert.equal((await pool.query('SELECT count(*) FROM private.professionals WHERE user_id=$1', [before.id])).rows[0].count, '0')
+  assert.throws(() => seed(`professional.${run}`, `professional.${run}@example.com`))
   assert.throws(() => seed('', ''))
   const provision = new Pool({ connectionString: value, options: '-c role=couchone_provision' })
   try {
-    await assert.rejects(provision.query('SELECT hash_contrasena FROM privado.usuarios'), /permission denied/)
-    await assert.rejects(provision.query("INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','profesional')"), /row-level security/)
+    await assert.rejects(provision.query('SELECT password_hash FROM private.users'), /permission denied/)
+    await assert.rejects(provision.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','professional')"), /row-level security/)
   } finally { await provision.end() }
   const runtime = `hu003_runtime_${run}`
   await pool.query(`CREATE ROLE ${runtime} LOGIN`)
   try {
-    await pool.query(`GRANT couchone_autenticacion TO ${runtime}`)
+    await pool.query(`GRANT couchone_authentication TO ${runtime}`)
     const url = new URL(value!)
     url.username = runtime
     url.password = ''
-    assert.throws(() => seed(undefined, undefined, { DATABASE_URL: url.toString() }), /No se pudo provisionar/)
+    assert.throws(() => seed(undefined, undefined, { DATABASE_URL: url.toString() }), /Could not provision/)
     const ordinary = new Pool({ connectionString: url.toString() })
     try {
       assert.equal((await ordinary.query("SELECT pg_has_role(current_user,'couchone_provision','MEMBER') AS allowed")).rows[0].allowed, false)
-      await assert.rejects(ordinary.query("INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','administrador')"), /row-level security/)
-      await assert.rejects(ordinary.query('UPDATE privado.usuarios SET rol=\'administrador\''), /permission denied/)
+      await assert.rejects(ordinary.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','admin')"), /row-level security/)
+      await assert.rejects(ordinary.query('UPDATE private.users SET role=\'admin\''), /permission denied/)
     } finally { await ordinary.end() }
   } finally { await pool.query(`DROP ROLE ${runtime}`) }
 })

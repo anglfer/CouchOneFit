@@ -6,7 +6,7 @@ export function publicAccount(identity: ProfessionalIdentity) {
     username: identity.username,
     email: identity.email,
     fullName: identity.fullName,
-    role: identity.role === 'administrador' ? 'admin' : 'professional',
+    role: identity.role,
     status: 'active',
     subscription: null,
   }

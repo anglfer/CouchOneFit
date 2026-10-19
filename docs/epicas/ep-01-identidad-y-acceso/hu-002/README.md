@@ -11,7 +11,7 @@ Web llama `/api` por proxy del mismo origen; se mantiene la configuración Vite/
 | Método/ruta | Uso / respuesta |
 | --- | --- |
 | `GET /api/auth/csrf` | Cookie CSRF HttpOnly y `{csrfToken}` en respuesta; cliente lo conserva solo en memoria. |
-| `POST /api/auth/login` | JSON `{identificador,contrasena}`; 200 `{account}` y cookies de sesión. Sin campos de rol/estado permitidos. |
+| `POST /api/auth/login` | JSON `{identifier,password}`; 200 `{account}` and session cookies. Role/status fields are rejected. |
 | `GET /api/auth/session` | Identidad vigente desde sesión + cuenta + perfil en BD; 401 si no es válida. |
 | `POST /api/auth/refresh` | Cookie refresh, rota token y access; 200 `{account}`. Replay revoca la sesión/familia. |
 | `POST /api/auth/logout` | Revoca sesión en BD y borra cookies; 204. No confirma éxito ante fallo de red/BD. |
@@ -35,9 +35,9 @@ Tras 401 en una lectura privada, el cliente intenta renovar una vez y repite ún
 
 ## Persistencia y despliegue
 
-La migración inicial de sesiones es [`202610150001_inicial_identidad_acceso.sql`](../../../database/migrations/202610150001_inicial_identidad_acceso.sql), compartida con HU-001 y consolidada antes de la primera aplicación del proyecto. `privado.sesiones` tiene cuenta/UUID/fechas/revocación; `privado.tokens_renovacion` tiene hash/fecha de uso/FK de sesión. No se elimina historial por este incremento.
+La migración inicial aplicada [`202610150001_inicial_identidad_acceso.sql`](../../../database/migrations/202610150001_inicial_identidad_acceso.sql) creó las tablas originales de sesión. La nueva migración renombra esas tablas como `private.sessions` y `private.refresh_tokens` y conserva sus UUID, marcas de tiempo y hashes.
 
-El rol vigente NOLOGIN `couchone_autenticacion` hereda `couchone_registro`. El usuario runtime dedicado requiere `GRANT couchone_autenticacion TO couchone_api;`: lectura de cuentas y perfil, inserción/lectura/actualización de sesiones/refresh; sin modificar cuentas/roles ni permisos DDL. Esquema privado no expuesto en Data API, RLS y grants solo de servidor. Las políticas internas no sustituyen futuros permisos por cartera. Los roles se provisionan una vez por clúster; el ejecutor los reutiliza entre bases dev/test tras comprobar atributos y membresías, manteniendo intactos archivos y checksums aplicados.
+El rol objetivo `couchone_authentication`, con atributo `NOLOGIN`, hereda permisos de `couchone_registration`. Un usuario dedicado de ejecución recibe `GRANT couchone_authentication TO couchone_api;`. Puede leer cuentas y perfiles y administrar sesiones y tokens de renovación, pero no puede modificar cuentas o roles ni ejecutar DDL. El esquema `private` no se expone mediante Data API. Aplica el cambio coordinado de base de datos, API y Web antes de actualizar el entorno compartido.
 
 `AUTH_JWT_SECRET` obligatorio: secreto aleatorio de al menos 32 bytes, exclusivo de servidor, fuera de Git y de variables VITE. La API rechaza arrancar sin configuración válida; el ejemplo no contiene un secreto. Rotarlo invalida las firmas anteriores y debe coordinarse con revocación de sesiones/refresh. Variables existentes: `DATABASE_URL`, `NODE_ENV`, `CORS_ORIGIN`, `PORT`. En producción configurar Origin Web exacto, HTTPS y cookie forwarding del proxy. No basta con una clave publicable o la URL del proyecto Supabase.
 
@@ -61,9 +61,9 @@ Los errores de validación son 400; fallo de identidad/sesión 401; Origin/CSRF 
 
 ## Modelo vigente y mapeo
 
-La migración inicial consolidada `202610150001_inicial_identidad_acceso.sql` crea directamente el modelo español. [schemas](../../../database/schemas/README.md) contiene su definición completa integrada. Tablas finales: `privado.usuarios`, `privado.profesionales`, `privado.aceptaciones_avisos`, `privado.sesiones`, `privado.tokens_renovacion`; todas con PK `id`. El historial técnico es `migraciones.historial`. Cada FK se expresa como `usuario_id` o `sesion_id`; un perfil tiene id propio más usuario_id único.
+El esquema original y el objetivo actual están documentados en la [guía del esquema integrado](../../../database/schemas/README.md). Las tablas objetivo son `private.users`, `private.professionals`, `private.notice_acceptances`, `private.sessions` y `private.refresh_tokens`; cada una tiene su propia llave primaria `id`. El historial de migraciones es `migrations.history`. Las llaves foráneas usan `user_id` o `session_id`; el perfil profesional tiene su propio ID y un `user_id` único.
 
-[Diccionario, relaciones, creación, permisos y funciones](../../../database/modelo-identidad-acceso.md). [Convenciones](../../../database/convenciones.md). El esquema SQL usa español snake_case; el repositorio proyecta camelCase explícito, por ejemplo `nombre_completo AS "fullName"`, `usuario_id AS "accountId"`, `expira_en AS "expiresAt"`. La API conserva `account`/`profile` y los valores públicos de rol/estado `professional`/`active`; la base guarda `profesional`/`activo`. No se confunden `profile.id` (perfil) y `profile.accountId` (usuario). La ruta de perfil siempre toma el usuario de la sesión verificada.
+[Modelo de datos](../../../database/modelo-identidad-acceso.md), [convenciones de base de datos](../../../database/convenciones.md) y [glosario](../../../architecture/domain-glossary.md). Los campos SQL y de la aplicación usan el mismo término en inglés, con la convención de escritura propia de cada capa y sin alias de traducción. Las respuestas de perfil distinguen `profile.id` (perfil) de `profile.userId` (cuenta); la API obtiene el ID de la cuenta de la sesión verificada.
 
 Respuesta de sesión/login/refresh:
 
@@ -74,7 +74,7 @@ Respuesta de sesión/login/refresh:
 Respuesta de perfil:
 
 ```json
-{"profile":{"id":"UUID_DEL_PERFIL","accountId":"UUID_DEL_USUARIO","fullName":"Persona de Ejemplo","phone":null,"username":"persona","email":"persona@example.com"}}
+{"profile":{"id":"UUID_DEL_PERFIL","userId":"UUID_DEL_USUARIO","fullName":"Persona de Ejemplo","phone":null,"username":"persona","email":"persona@example.com"}}
 ```
 
 Funciones principales: `findLoginAccount` busca credencial; `loginAccount` valida y crea sesión/hash refresh; `authenticate`/`currentSession` comprueban vigencia; `professionalProfile` consulta por identidad; `refreshAccount` rota con bloqueo/replay; `logoutAccount` revoca. Sus parámetros, resultados, consultas y límites transaccionales están detallados en el modelo compartido; no existen funciones SQL/RPC de negocio adicionales.

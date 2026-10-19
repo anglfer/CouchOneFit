@@ -5,22 +5,22 @@ import { hash, argon2id } from 'argon2'
 import { Pool } from 'pg'
 
 if (!process.env.DATABASE_URL)
-  throw new Error('Configura DATABASE_URL con la conexión del operador de provisión.')
+  throw new Error('Set DATABASE_URL to the provisioning operator connection.')
 const input = createInterface({ input: process.stdin, output: process.stdout, terminal: false })
 const answers = input[Symbol.asyncIterator]()
 let username: string | undefined
 let email: string | undefined
 try {
-  process.stdout.write('Usuario del administrador: ')
+  process.stdout.write('Administrator username: ')
   username = (await answers.next()).value?.trim().toLowerCase()
-  process.stdout.write('Correo del administrador: ')
+  process.stdout.write('Administrator email: ')
   email = (await answers.next()).value?.trim().toLowerCase()
 } finally {
   input.close()
 }
 if (!username || !/^[a-z0-9._]{3,30}$/.test(username)
   || !email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-  throw new Error('Revisa usuario (3–30 caracteres: letras, números, punto o guion bajo) y correo.')
+  throw new Error('Enter a valid username (3–30 lowercase letters, numbers, dots, or underscores) and email.')
 const password = randomBytes(32).toString('base64url')
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 })
@@ -32,11 +32,11 @@ try {
     await client.query('SET LOCAL ROLE couchone_provision')
     const digest = await hash(password, { type: argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 })
     await client.query(
-      "INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ($1,$2,$3,'administrador')",
+      "INSERT INTO private.users (username,email,password_hash,role) VALUES ($1,$2,$3,'admin')",
       [username, email, digest],
     )
     await client.query('COMMIT')
-    console.log(`\nAdministrador creado sin perfil profesional.\nUsuario: ${username}\nContraseña: ${password}\nGuarda esta contraseña: no se guarda en archivos ni se vuelve a mostrar.`)
+    console.log(`\nAdministrator created without a professional profile.\nUsername: ${username}\nPassword: ${password}\nSave this password now; it is not stored or shown again.`)
   } catch (error) {
     await client.query('ROLLBACK')
     throw error
@@ -44,8 +44,8 @@ try {
     client.release()
   }
 } catch (error) {
-  // No imprimir parámetros SQL ni conexiones con secretos en fallos de provisión.
-  console.error(error instanceof Error && !('code' in error) ? error.message : 'No se pudo provisionar el administrador; revisa permisos, migraciones e identificadores.')
+  // Never print SQL parameters or secret-bearing connections during provisioning failures.
+  console.error(error instanceof Error && !('code' in error) ? error.message : 'Could not provision the administrator; check permissions, migrations, and identifiers.')
   process.exitCode = 1
 } finally {
   await pool.end()

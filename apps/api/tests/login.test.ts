@@ -31,16 +31,16 @@ before(async () => {
     parallelism: 1,
   })
   for (const [name, role, status] of [
-    ['prof', 'profesional', 'activo'],
-    ['otro', 'profesional', 'activo'],
-    ['baja', 'profesional', 'inactivo'],
-    ['cliente', 'cliente', 'activo'],
-    ['admin', 'administrador', 'activo'],
+    ['prof', 'professional', 'active'],
+    ['otro', 'professional', 'active'],
+    ['baja', 'professional', 'inactive'],
+    ['client', 'client', 'active'],
+    ['admin', 'admin', 'active'],
   ]) {
     const {
       rows: [row],
     } = await pool.query(
-      'INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol,estado) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      'INSERT INTO private.users (username,email,password_hash,role,status) VALUES ($1,$2,$3,$4,$5) RETURNING id',
       [
         `${name}.${run}`,
         `${name}.${run}@example.com`,
@@ -49,9 +49,9 @@ before(async () => {
         status,
       ],
     )
-    if (role === 'profesional')
+    if (role === 'professional')
       await pool.query(
-        'INSERT INTO privado.profesionales (usuario_id,nombre_completo) VALUES ($1,$2)',
+        'INSERT INTO private.professionals (user_id,full_name) VALUES ($1,$2)',
         [row.id, `Nombre ${name}`],
       )
     if (name === 'prof') professionalId = row.id
@@ -71,7 +71,7 @@ function cookie(response: request.Response, name: string): string {
 }
 async function login(
   identifier = `prof.${run}`,
-  contrasena = password,
+  suppliedPassword = password,
   target = app,
 ) {
   const csrf = await request(target).get('/api/auth/csrf')
@@ -80,7 +80,7 @@ async function login(
     .set('Origin', origin)
     .set('Cookie', cookie(csrf, 'cof_csrf'))
     .set('X-CSRF-Token', csrf.body.csrfToken ?? '')
-    .send({ identificador: identifier, contrasena })
+    .send({ identifier, password: suppliedPassword })
 }
 async function mutation(
   path: string,
@@ -106,7 +106,7 @@ async function mutation(
     .send({})
 }
 
-test('login por usuario/correo normalizados crea sesión y consulta solo su perfil', async () => {
+test('normalized username or email login creates a session and reads its own profile', async () => {
   for (const identifier of [
     ` PROF.${run.toUpperCase()} `,
     ` PROF.${run.toUpperCase()}@EXAMPLE.COM `,
@@ -129,41 +129,41 @@ test('login por usuario/correo normalizados crea sesión y consulta solo su perf
     assert.equal(claims.sub, professionalId)
     assert.ok(claims.sid)
     const profile = await request(app)
-      .get(`/api/professional/profile?accountId=${otherId}`)
+      .get(`/api/professional/profile?userId=${otherId}`)
       .set('Cookie', access)
     assert.equal(profile.status, 200)
-    assert.equal(profile.body.profile.accountId, professionalId)
+    assert.equal(profile.body.profile.userId, professionalId)
     const {
       rows: [session],
-    } = await pool.query('SELECT * FROM privado.sesiones WHERE id=$1', [
+    } = await pool.query('SELECT * FROM private.sessions WHERE id=$1', [
       claims.sid,
     ])
-    assert.equal(session.usuario_id, professionalId)
+    assert.equal(session.user_id, professionalId)
     assert.equal(
-      new Date(session.expira_en).getTime() -
-        new Date(session.creado_en).getTime(),
+      new Date(session.expires_at).getTime() -
+        new Date(session.created_at).getTime(),
       30 * 86400000,
     )
     const {
       rows: [stored],
     } = await pool.query(
-      'SELECT hash_token FROM privado.tokens_renovacion WHERE sesion_id=$1',
+      'SELECT token_hash FROM private.refresh_tokens WHERE session_id=$1',
       [claims.sid],
     )
-    assert.match(stored.hash_token, /^[a-f0-9]{64}$/)
+    assert.match(stored.token_hash, /^[a-f0-9]{64}$/)
     assert.notEqual(
-      stored.hash_token,
+      stored.token_hash,
       cookie(response, 'cof_refresh').slice('cof_refresh='.length),
     )
   }
 })
 
-test('contraseña incorrecta, cuenta inexistente/inactiva y cliente responden igual', async () => {
+test('wrong passwords and missing, inactive, or client accounts return the same response', async () => {
   const responses = [
     await login(`prof.${run}`, 'incorrecta de prueba'),
     await login(`ausente.${run}`),
     await login(`baja.${run}`),
-    await login(`cliente.${run}`),
+    await login(`client.${run}`),
   ]
   for (const response of responses) {
     assert.equal(response.status, 401)
@@ -172,7 +172,7 @@ test('contraseña incorrecta, cuenta inexistente/inactiva y cliente responden ig
   }
 })
 
-test('API privada sin sesión o con token manipulado/expirado devuelve 401', async () => {
+test('private API requests without a session or with altered or expired tokens return 401', async () => {
   for (const path of ['/api/auth/session', '/api/professional/profile'])
     assert.equal((await request(app).get(path)).status, 401)
   const session = await login()
@@ -209,11 +209,11 @@ test('API privada sin sesión o con token manipulado/expirado devuelve 401', asy
   )
 })
 
-test('baja se comprueba en cada consulta y la sesión no revive al reactivar la cuenta', async () => {
+test('account status is checked on each request and reactivation does not revive sessions', async () => {
   const response = await login(`otro.${run}`)
   try {
     await pool.query(
-      "UPDATE privado.usuarios SET estado='inactivo' WHERE id=$1",
+      "UPDATE private.users SET status='inactive' WHERE id=$1",
       [otherId],
     )
     assert.equal(
@@ -226,7 +226,7 @@ test('baja se comprueba en cada consulta y la sesión no revive al reactivar la 
     )
   } finally {
     await pool.query(
-      "UPDATE privado.usuarios SET estado='activo' WHERE id=$1",
+      "UPDATE private.users SET status='active' WHERE id=$1",
       [otherId],
     )
   }
@@ -240,13 +240,13 @@ test('baja se comprueba en cada consulta y la sesión no revive al reactivar la 
   )
 })
 
-test('caducidad absoluta de BD impide acceso y renovación, incluso con access válido', async () => {
+test('absolute database expiry blocks access and refresh even with a valid access token', async () => {
   const response = await login()
   const claims = decodeJwt(
     cookie(response, 'cof_access').slice('cof_access='.length),
   )
   await pool.query(
-    "UPDATE privado.sesiones SET creado_en=now()-interval '31 days',expira_en=now()-interval '1 day' WHERE id=$1",
+    "UPDATE private.sessions SET created_at=now()-interval '31 days',expires_at=now()-interval '1 day' WHERE id=$1",
     [claims.sid],
   )
   assert.equal(
@@ -260,7 +260,7 @@ test('caducidad absoluta de BD impide acceso y renovación, incluso con access v
   assert.equal((await mutation('/api/auth/refresh', response)).status, 401)
 })
 
-test('dos refresh simultáneos del mismo token no producen dos renovaciones válidas', async () => {
+test('simultaneous refresh attempts cannot both rotate the same token', async () => {
   const response = await login()
   const results = await Promise.all([
     mutation('/api/auth/refresh', response),
@@ -278,15 +278,15 @@ test('dos refresh simultáneos del mismo token no producen dos renovaciones vál
   )
 })
 
-test('fallo al crear refresh revierte sesión y no emite cookies ni detalles internos', async () => {
+test('refresh creation failure rolls back the session and exposes no internal details', async () => {
   const {
     rows: [initial],
-  } = await pool.query('SELECT count(*) FROM privado.sesiones')
+  } = await pool.query('SELECT count(*) FROM private.sessions')
   await pool.query(
-    "CREATE FUNCTION privado.fallar_insercion_sesion() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'detalle de infraestructura privado'; END $$",
+    "CREATE FUNCTION private.fail_session_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'detalle de infraestructura private'; END $$",
   )
   await pool.query(
-    'CREATE TRIGGER fallar_insercion_sesion BEFORE INSERT ON privado.tokens_renovacion FOR EACH ROW EXECUTE FUNCTION privado.fallar_insercion_sesion()',
+    'CREATE TRIGGER fail_session_insert BEFORE INSERT ON private.refresh_tokens FOR EACH ROW EXECUTE FUNCTION private.fail_session_insert()',
   )
   try {
     const response = await login()
@@ -298,17 +298,17 @@ test('fallo al crear refresh revierte sesión y no emite cookies ni detalles int
     )
     const {
       rows: [final],
-    } = await pool.query('SELECT count(*) FROM privado.sesiones')
+    } = await pool.query('SELECT count(*) FROM private.sessions')
     assert.equal(final.count, initial.count)
   } finally {
     await pool.query(
-      'DROP TRIGGER fallar_insercion_sesion ON privado.tokens_renovacion',
+      'DROP TRIGGER fail_session_insert ON private.refresh_tokens',
     )
-    await pool.query('DROP FUNCTION privado.fallar_insercion_sesion()')
+    await pool.query('DROP FUNCTION private.fail_session_insert()')
   }
 })
 
-test('renueva, conserva límite absoluto y replay revoca también el access vigente', async () => {
+test('refresh preserves absolute expiry and replay revokes the current access token', async () => {
   const first = await login()
   const claims = decodeJwt(
     cookie(first, 'cof_access').slice('cof_access='.length),
@@ -318,12 +318,12 @@ test('renueva, conserva límite absoluto y replay revoca también el access vige
   assert.notEqual(cookie(next, 'cof_refresh'), cookie(first, 'cof_refresh'))
   const {
     rows: [session],
-  } = await pool.query('SELECT * FROM privado.sesiones WHERE id=$1', [
+  } = await pool.query('SELECT * FROM private.sessions WHERE id=$1', [
     claims.sid,
   ])
   assert.equal(
-    new Date(session.expira_en).getTime() -
-      new Date(session.creado_en).getTime(),
+    new Date(session.expires_at).getTime() -
+      new Date(session.created_at).getTime(),
     30 * 86400000,
   )
   assert.equal((await mutation('/api/auth/refresh', first)).status, 401)
@@ -337,7 +337,7 @@ test('renueva, conserva límite absoluto y replay revoca también el access vige
   )
 })
 
-test('logout revoca sesión: no permite reutilizar access ni refresh', async () => {
+test('logout revokes the session and prevents access or refresh token reuse', async () => {
   const response = await login()
   assert.equal((await mutation('/api/auth/logout', response)).status, 204)
   assert.equal(
@@ -351,7 +351,7 @@ test('logout revoca sesión: no permite reutilizar access ni refresh', async () 
   assert.equal((await mutation('/api/auth/refresh', response)).status, 401)
 })
 
-test('Origin y CSRF son obligatorios para login/refresh/logout; payload no concede rol', async () => {
+test('Origin and CSRF are required and login payloads cannot assign roles', async () => {
   for (const path of [
     '/api/auth/login',
     '/api/auth/refresh',
@@ -369,11 +369,11 @@ test('Origin y CSRF son obligatorios para login/refresh/logout; payload no conce
     .set('Origin', origin)
     .set('Cookie', cookie(csrf, 'cof_csrf'))
     .set('X-CSRF-Token', csrf.body.csrfToken)
-    .send({ identificador: `prof.${run}`, contrasena: password, role: 'admin' })
+    .send({ identifier: `prof.${run}`, password: password, role: 'admin' })
   assert.equal(response.status, 400)
 })
 
-test('limita intentos de acceso antes del hash', async () => {
+test('login attempts are rate limited before password hashing', async () => {
   const isolated = createApp(pool)
   for (let i = 0; i < 20; i++) await login('ausente', password, isolated)
   const response = await login('ausente', password, isolated)
@@ -381,10 +381,10 @@ test('limita intentos de acceso antes del hash', async () => {
   assert.ok(response.headers['retry-after'])
 })
 
-test('conexión runtime sin DDL: login y consulta funcionan, no puede crear admin', async () => {
+test('runtime without DDL can authenticate but cannot create an admin', async () => {
   const restricted = new Pool({
     connectionString: databaseUrl,
-    options: '-c role=couchone_autenticacion',
+    options: '-c role=couchone_authentication',
   })
   try {
     const response = await login(`prof.${run}`, password, createApp(restricted))
@@ -393,10 +393,10 @@ test('conexión runtime sin DDL: login y consulta funcionan, no puede crear admi
       .get('/api/professional/profile')
       .set('Cookie', cookie(response, 'cof_access'))
     assert.equal(profile.status, 200)
-    assert.equal(profile.body.profile.accountId, professionalId)
+    assert.equal(profile.body.profile.userId, professionalId)
     await assert.rejects(
       restricted.query(
-        "UPDATE privado.usuarios SET rol='administrador' WHERE id=$1",
+        "UPDATE private.users SET role='admin' WHERE id=$1",
         [professionalId],
       ),
       /permission denied/,
@@ -406,7 +406,7 @@ test('conexión runtime sin DDL: login y consulta funcionan, no puede crear admi
   }
 })
 
-test('cookies de sesión en producción llevan Secure y no exponen tokens al cliente', async () => {
+test('production session cookies are secure and tokens are not exposed to clients', async () => {
   const { config } = await import('../src/config/index.js')
   const previous = config.nodeEnv
   config.nodeEnv = 'production'
@@ -421,7 +421,7 @@ test('cookies de sesión en producción llevan Secure y no exponen tokens al cli
   }
 })
 
-test('login y perfil fallan de forma segura si BD está caída', async () => {
+test('login and profile fail safely when the database is unavailable', async () => {
   const existing = await login(`prof.${run}`, password, createApp(pool))
   const unavailable = new Pool({
     connectionString: 'postgresql://postgres@127.0.0.1:1/absent',
@@ -445,7 +445,7 @@ test('login y perfil fallan de forma segura si BD está caída', async () => {
   }
 })
 
-test('fallo al firmar acceso revierte alta y rotación de sesión', async () => {
+test('access signing failure rolls back registration and session rotation', async () => {
   const { insertSession, rotateSession, findLoginAccount } =
     await import('../src/features/auth/repositories/session.js')
   const { randomToken, tokenHash, signAccess } =
@@ -455,7 +455,7 @@ test('fallo al firmar acceso revierte alta y rotación de sesión', async () => 
   const count = async () =>
     (
       await pool.query(
-        'SELECT count(*) FROM privado.sesiones WHERE usuario_id=$1',
+        'SELECT count(*) FROM private.sessions WHERE user_id=$1',
         [account.id],
       )
     ).rows[0].count
@@ -494,11 +494,11 @@ test('fallo al firmar acceso revierte alta y rotación de sesión', async () => 
     (error) => error === failure,
   )
   const { rows: tokens } = await pool.query(
-    'SELECT usado_en FROM privado.tokens_renovacion WHERE sesion_id=$1',
+    'SELECT used_at FROM private.refresh_tokens WHERE session_id=$1',
     [decodeJwt(session.access).sid],
   )
   assert.equal(tokens.length, 1)
-  assert.equal(tokens[0].usado_en, null)
+  assert.equal(tokens[0].used_at, null)
   assert.ok(
     await rotateSession(
       pool,

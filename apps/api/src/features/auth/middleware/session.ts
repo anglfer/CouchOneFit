@@ -24,7 +24,7 @@ export function requireSession(pool: Pool, role?: SessionIdentity['role']) {
           'Tu cuenta no tiene acceso a esta área.',
         )
       req.identity = identity
-      if (identity.role === 'profesional') req.professional = identity
+      if (identity.role === 'professional') req.professional = identity
       next()
     } catch (error) {
       next(error)
@@ -32,6 +32,6 @@ export function requireSession(pool: Pool, role?: SessionIdentity['role']) {
   }
 }
 export const requireProfessional = (pool: Pool) =>
-  requireSession(pool, 'profesional')
+  requireSession(pool, 'professional')
 export const requireAdmin = (pool: Pool) =>
-  requireSession(pool, 'administrador')
+  requireSession(pool, 'admin')

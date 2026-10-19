@@ -12,6 +12,10 @@ La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exact
 
 Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Based_) según la especificación oficial en `docs/architecture/README.md`.
 
+## Nombres de código y API
+
+Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros, las llaves JSON y los valores de roles o estados persistidos o enviados por API. Cuando una funcionalidad móvil empiece a consumir esos contratos, sigue el [glosario compartido de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles de la aplicación. Las pantallas móviles actuales todavía no llaman a la API de identidad ni de perfil.
+
 ```text
 mobile/
 └── lib/

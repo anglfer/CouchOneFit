@@ -1,5 +1,5 @@
 export interface ProfessionalProfile {
-  accountId: string;
+  userId: string;
   fullName: string;
   username: string;
   email: string;

@@ -19,7 +19,7 @@ let dummyHash: Promise<string> | undefined
 export async function loginAccount(pool: Pool, input: unknown) {
   const data = validateLogin(input)
   const account = await findLoginAccount(pool, data.identifier)
-  // Igualar el trabajo de hash también para identificadores inexistentes.
+  // Keep password-hash work consistent for unknown identifiers.
   const digest =
     account?.passwordHash ??
     (await (dummyHash ??= hash(randomToken(), {
@@ -32,8 +32,8 @@ export async function loginAccount(pool: Pool, input: unknown) {
   if (
     !account ||
     !matches ||
-    !['profesional', 'administrador'].includes(account.role) ||
-    account.status !== 'activo'
+    (account.role !== 'professional' && account.role !== 'admin') ||
+    account.status !== 'active'
   )
     throw invalidLogin()
   const refresh = randomToken()

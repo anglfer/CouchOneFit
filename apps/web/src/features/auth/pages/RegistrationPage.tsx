@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Brand } from '../../../components/Brand';
 import { Link } from '../../../components/Link';
 import { ApiError } from '../../../services/api';
+import type { Registration } from '../types/registration';
 import { registerProfessional } from '../services/registration';
 import {
   REGISTRATION_NOTICE,
@@ -29,14 +30,14 @@ export default function RegistrationPage(): ReactElement {
     const form = event.currentTarget;
     const data = new FormData(form);
     const value = (name: string) => String(data.get(name) ?? '');
-    const password = value('contrasena');
-    const email = value('correo').trim().toLowerCase();
+    const password = value('password');
+    const email = value('email').trim().toLowerCase();
     let validationError = '';
-    if (email !== value('confirmacionCorreo').trim().toLowerCase())
+    if (email !== value('emailConfirmation').trim().toLowerCase())
       validationError = 'Los correos no coinciden.';
     else if ([...password].length < 15 || [...password].length > 128)
       validationError = 'La contraseña debe tener entre 15 y 128 caracteres.';
-    else if (password !== value('confirmacionContrasena'))
+    else if (password !== value('passwordConfirmation'))
       validationError = 'Las contraseñas no coinciden.';
     if (validationError) {
       setError(validationError);
@@ -47,16 +48,16 @@ export default function RegistrationPage(): ReactElement {
     setError('');
     try {
       await registerProfessional({
-        nombreCompleto: value('nombreCompleto'),
-        usuario: value('usuario'),
-        correo: email,
-        confirmacionCorreo: value('confirmacionCorreo'),
-        contrasena: password,
-        confirmacionContrasena: value('confirmacionContrasena'),
-        telefono: value('telefono'),
-        planInteres: value('planInteres') || null,
-        avisoVersion: NOTICE_VERSION,
-        aceptaAviso: data.get('aceptaAviso') === 'on',
+        fullName: value('fullName'),
+        username: value('username'),
+        email,
+        emailConfirmation: value('emailConfirmation'),
+        password,
+        passwordConfirmation: value('passwordConfirmation'),
+        phone: value('phone'),
+        planInterest: (value('planInterest') || null) as Registration['planInterest'],
+        noticeVersion: NOTICE_VERSION,
+        acceptsNotice: data.get('acceptsNotice') === 'on',
       });
       form.reset();
       setIsComplete(true);
@@ -182,7 +183,7 @@ export default function RegistrationPage(): ReactElement {
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Nombre completo</span>
                     <input
-                      name="nombreCompleto"
+                      name="fullName"
                       autoComplete="name"
                       required
                       minLength={3}
@@ -195,7 +196,7 @@ export default function RegistrationPage(): ReactElement {
                     <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                       <span>Usuario</span>
                       <input
-                        name="usuario"
+                        name="username"
                         autoComplete="username"
                         required
                         maxLength={60}
@@ -206,7 +207,7 @@ export default function RegistrationPage(): ReactElement {
                     <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                       <span>Teléfono (opcional)</span>
                       <input
-                        name="telefono"
+                        name="phone"
                         type="tel"
                         autoComplete="tel"
                         inputMode="numeric"
@@ -228,7 +229,7 @@ export default function RegistrationPage(): ReactElement {
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Correo electrónico</span>
                     <input
-                      name="correo"
+                      name="email"
                       type="email"
                       autoComplete="email"
                       required
@@ -240,7 +241,7 @@ export default function RegistrationPage(): ReactElement {
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Confirma tu correo</span>
                     <input
-                      name="confirmacionCorreo"
+                      name="emailConfirmation"
                       type="email"
                       autoComplete="off"
                       required
@@ -252,7 +253,7 @@ export default function RegistrationPage(): ReactElement {
                     <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                       <span>Contraseña</span>
                       <input
-                        name="contrasena"
+                        name="password"
                         type="password"
                         autoComplete="new-password"
                         required
@@ -263,7 +264,7 @@ export default function RegistrationPage(): ReactElement {
                     <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                       <span>Confirma tu contraseña</span>
                       <input
-                        name="confirmacionContrasena"
+                        name="passwordConfirmation"
                         type="password"
                         autoComplete="new-password"
                         required
@@ -278,7 +279,7 @@ export default function RegistrationPage(): ReactElement {
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Plan que te interesa (opcional)</span>
                     <select
-                      name="planInteres"
+                      name="planInterest"
                       value={selectedPlanId}
                       onChange={(event) =>
                         setSelectedPlanId(event.target.value)
@@ -303,7 +304,7 @@ export default function RegistrationPage(): ReactElement {
                   </details>
                   <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer pt-1">
                     <input
-                      name="aceptaAviso"
+                      name="acceptsNotice"
                       type="checkbox"
                       required
                       className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"

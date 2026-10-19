@@ -273,7 +273,7 @@ export default function AdminPage(): ReactElement {
                       Acceso administrativo activo
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                      La gestión de profesionales, planes y suscripciones estará
+                      La gestión de professionals, planes y suscripciones estará
                       disponible aquí conforme se habiliten los módulos de
                       HU-010, HU-012 y HU-014.
                     </p>

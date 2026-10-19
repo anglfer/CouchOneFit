@@ -37,8 +37,8 @@ export default function AccessPage(): ReactElement {
     setError('');
     try {
       const { account } = await login(
-        String(data.get('identificador') ?? ''),
-        String(data.get('contrasena') ?? '')
+        String(data.get('identifier') ?? ''),
+        String(data.get('password') ?? '')
       );
       window.location.replace(authorizedReturn(returnTo, account.role));
     } catch (failure) {
@@ -101,7 +101,7 @@ export default function AccessPage(): ReactElement {
             <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
               <span>Usuario o correo</span>
               <input
-                name="identificador"
+                name="identifier"
                 autoComplete="username"
                 maxLength={254}
                 required
@@ -113,7 +113,7 @@ export default function AccessPage(): ReactElement {
             <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
               <span>Contraseña</span>
               <input
-                name="contrasena"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 required

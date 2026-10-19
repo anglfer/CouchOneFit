@@ -7,18 +7,18 @@ export function validateLogin(input: unknown): Login {
   const body = input as Record<string, unknown>
   if (
     Object.keys(body).some(
-      (key) => !['identificador', 'contrasena'].includes(key),
+      (key) => !['identifier', 'password'].includes(key),
     ) ||
-    typeof body.identificador !== 'string' ||
-    typeof body.contrasena !== 'string' ||
-    !body.identificador.trim() ||
-    body.identificador.length > 254 ||
-    [...body.contrasena].length < 1 ||
-    [...body.contrasena].length > 128
+    typeof body.identifier !== 'string' ||
+    typeof body.password !== 'string' ||
+    !body.identifier.trim() ||
+    body.identifier.length > 254 ||
+    [...body.password].length < 1 ||
+    [...body.password].length > 128
   )
     throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
   return {
-    identifier: body.identificador.trim().toLowerCase(),
-    password: body.contrasena,
+    identifier: body.identifier.trim().toLowerCase(),
+    password: body.password,
   }
 }

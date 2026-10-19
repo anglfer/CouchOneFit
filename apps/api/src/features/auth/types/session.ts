@@ -3,7 +3,7 @@ export interface ProfessionalIdentity {
   username: string
   email: string
   fullName: string
-  role: 'profesional' | 'administrador'
+  role: 'professional' | 'admin'
 }
 export interface SessionIdentity extends ProfessionalIdentity {
   sessionId: string
@@ -13,6 +13,6 @@ export interface SessionIdentity extends ProfessionalIdentity {
 export interface LoginAccount {
   id: string
   passwordHash: string
-  role: string
-  status: string
+  role: 'professional' | 'client' | 'admin'
+  status: 'active' | 'inactive'
 }

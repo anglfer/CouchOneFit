@@ -6,7 +6,7 @@
 
 Se reutilizan `/api/auth/login`, `/session`, `/refresh`, `/logout` y `/csrf`. Usuario/correo y contraseña son los únicos campos de login; `role`/`rol` se rechazan con 400. La API verifica Argon2id, estado y rol persistidos; no utiliza claims de rol para autorizar. El administrador no necesita ni recibe un perfil profesional. Su `fullName` público usa el usuario como nombre de presentación; no se añade otra tabla de perfiles.
 
-El rol `administrador` en PostgreSQL se devuelve como `account.role: "admin"`; el profesional conserva `"professional"`. Ambos conservan cookies HttpOnly, SameSite/CSRF, expiración, rotación y revocación existentes. El cliente no puede iniciar sesión Web; su flujo móvil corresponde a HU-004/008.
+El valor actual `admin` en PostgreSQL se devuelve como `account.role: "admin"`; el profesional conserva `"professional"`. Ambos conservan cookies HttpOnly, SameSite/CSRF, expiración, rotación y revocación existentes. El cliente no puede iniciar sesión Web; su flujo móvil corresponde a HU-004/008.
 
 | Identidad | Sesión común | `/api/admin/*` | `/api/professional/*` |
 | --- | --- | --- | --- |
@@ -33,13 +33,13 @@ Seed versionada: [`scripts/seed-admin.ts`](../../../../apps/api/scripts/seed-adm
 4. Ejecutar manualmente `npm run db:seed:admin` y responder usuario/correo. Genera una contraseña aleatoria de 32 bytes, usa una transacción, bloqueo de provisión y `SET LOCAL ROLE couchone_provision`; la BD guarda únicamente el hash Argon2id. Tras COMMIT muestra la contraseña una vez en consola: guardarla en el gestor de contraseñas. No crea archivos de credenciales.
 5. Es una seed de creación de un solo uso por cuenta. Repetir con los mismos identificadores falla por unicidad sin modificar la cuenta ni revelar otra contraseña. Identificadores ocupados por otro rol también fallan sin elevar cuentas. Cambiar contraseña o reactivar cuentas requiere un procedimiento separado.
 
-La seed no corre al iniciar API ni con el registro público. No existe endpoint de autoalta admin, contraseña versionada o cuenta maestra en el código. El runtime conserva solo `couchone_autenticacion` y no puede insertar admins ni actualizar roles.
+La seed no corre al iniciar API ni con el registro público. No existe endpoint de autoalta admin, contraseña versionada o cuenta maestra en el código. Tras la migración coordinada, el runtime conserva solo `couchone_authentication` y no puede insertar admins ni actualizar roles.
 
 ## Evidencia
 
 - Entrega inicial: 28 pruebas API/PostgreSQL local correctas, incluyendo registro/login, permisos y comparación entre migraciones y esquema integrado. Tras el ajuste a ejecución manual se reejecutaron las cuatro pruebas de administración: matriz de roles, payload/JWT manipulado, ciclo de sesión y seed manual con contraseña verificable, rechazo de repetición sin cambio de hash, conflicto con profesional, datos faltantes y denegación al runtime. Todas pasaron. Cluster temporal local; suite destructiva nunca ejecutada contra Supabase.
 - API y Web compilan; lint Web sin errores. El asesor de seguridad de Supabase no reportó avisos.
-- Migración aplicada en `pcoyrxdeiigynmmpxtng` mediante el ejecutor y registrada con checksum en `migraciones.historial`. Inicial intacta. Respaldo previo de `privado` e historial guardado localmente fuera de Git.
+- Evidencia remota histórica: la migración administrativa se aplicó en `pcoyrxdeiigynmmpxtng` y se registró en la tabla anterior `migraciones.historial`. La migración de refactorización renombra el esquema actual como `private` y traslada el historial a `migrations.history`; todavía no se ha aplicado en remoto. La migración inicial permanece inmutable.
 - Provisión inicial con la versión anterior de la seed: se ejecutó dos veces y creó un solo `admin.couchone`, activo, correo técnico `admin@couchonefit.invalid`, sin perfil profesional; la segunda ejecución conservó credenciales. La contraseña inicial sigue en el archivo local previo `apps/api/.env.admin`, ignorado por Git, para no perder acceso a la cuenta ya creada. El script actual no lo lee ni lo genera. El permiso temporal SET del operador se restauró a FALSE.
 - Smoke HTTP local con PostgreSQL remoto: login y sesión admin 200, ruta profesional 403, anónimo 401, renovación conservando rol y logout invalidando acceso; checksum remoto idéntico y runtime sin membresía de provisión ni UPDATE de rol. Se preservó la cuenta profesional preexistente.
 - Navegador local contra Supabase real: `/admin/` anónimo solicita login, login entra a administración y `/app/perfil` redirige al área admin; retorno de login hacia `/app/perfil` también entra a `/admin/` y logout vuelve a acceso con confirmación.

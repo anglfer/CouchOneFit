@@ -7,7 +7,7 @@ import { RegistrationError } from '../types/registration.js'
 export async function registerProfessional(pool: Pool, input: unknown) {
   const data = validateRegistration(input)
   try {
-    const passwordHash = await hash(data.contrasena, {
+    const passwordHash = await hash(data.password, {
       type: argon2id,
       memoryCost: 19456,
       timeCost: 2,

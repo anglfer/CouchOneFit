@@ -12,17 +12,17 @@ export async function insertProfessional(
     const {
       rows: [account],
     } = await client.query<{ id: string }>(
-      `INSERT INTO privado.usuarios (usuario, correo, hash_contrasena, rol)
-       VALUES ($1, $2, $3, 'profesional') RETURNING id`,
-      [data.usuario, data.correo, passwordHash],
+      `INSERT INTO private.users (username, email, password_hash, role)
+       VALUES ($1, $2, $3, 'professional') RETURNING id`,
+      [data.username, data.email, passwordHash],
     )
     await client.query(
-      'INSERT INTO privado.profesionales (usuario_id, nombre_completo, telefono, plan_interes) VALUES ($1, $2, $3, $4)',
-      [account.id, data.nombreCompleto, data.telefono, data.planInteres],
+      'INSERT INTO private.professionals (user_id, full_name, phone, plan_interest) VALUES ($1, $2, $3, $4)',
+      [account.id, data.fullName, data.phone, data.planInterest],
     )
     await client.query(
-      'INSERT INTO privado.aceptaciones_avisos (usuario_id, version) VALUES ($1, $2)',
-      [account.id, data.avisoVersion],
+      'INSERT INTO private.notice_acceptances (user_id, version) VALUES ($1, $2)',
+      [account.id, data.noticeVersion],
     )
     await client.query('COMMIT')
     return account.id

@@ -28,10 +28,10 @@ async function mutate<T>(endpoint: string, body: unknown = {}): Promise<T> {
   }
 }
 export function login(
-  identificador: string,
-  contrasena: string
+  identifier: string,
+  password: string
 ): Promise<SessionResponse> {
-  return mutate('/api/auth/login', { identificador, contrasena });
+  return mutate('/api/auth/login', { identifier, password });
 }
 function refresh(): Promise<SessionResponse> {
   if (!refreshPromise) {
@@ -58,7 +58,7 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
 export const readSession = () =>
   sessionRequest<SessionResponse>('/api/auth/session');
 export async function logout(): Promise<void> {
-  // Esperar una renovación en curso evita volver a emitir cookies después del logout.
+  // Wait for an in-flight refresh so it cannot reissue cookies after logout.
   await refreshPromise?.catch(() => undefined);
   await mutate<void>('/api/auth/logout');
 }
