@@ -8,10 +8,16 @@ class LoginScreen extends StatelessWidget {
     required this.isSubmitting,
     required this.onSubmit,
     this.errorMessage,
+    this.statusMessage,
+    this.onActivate,
+    this.onRecover,
   });
 
   final bool isSubmitting;
   final String? errorMessage;
+  final String? statusMessage;
+  final VoidCallback? onActivate;
+  final VoidCallback? onRecover;
   final Future<void> Function(String identifier, String password) onSubmit;
 
   @override
@@ -35,11 +41,23 @@ class LoginScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
+              if (statusMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child:
+                      Semantics(liveRegion: true, child: Text(statusMessage!)),
+                ),
               LoginForm(
                 isSubmitting: isSubmitting,
                 errorMessage: errorMessage,
                 onSubmit: onSubmit,
               ),
+              TextButton(
+                  onPressed: isSubmitting ? null : onActivate,
+                  child: const Text('Activar mi cuenta')),
+              TextButton(
+                  onPressed: isSubmitting ? null : onRecover,
+                  child: const Text('Recuperar mi acceso')),
             ],
           ),
         ),

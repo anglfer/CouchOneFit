@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/models/session_models.dart';
 import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/account_access_screen.dart';
 import '../features/auth/services/auth_service.dart';
 import '../features/client/models/client_profile.dart';
 import '../features/client/screens/client_profile_screen.dart';
@@ -28,6 +29,29 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
   bool _isSubmitting = false;
   bool _isRefreshing = false;
   String? _errorMessage;
+  String? _statusMessage;
+
+  Future<void> _openAccess(AccountAccessMode mode) async {
+    final result = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AccountAccessScreen(
+                mode: mode, authService: widget.authService)));
+    if (!mounted || result == null) return;
+    if (result == 'activated') {
+      await _restoreSession();
+    } else {
+      setState(() {
+        _profile = null;
+        _errorMessage = null;
+        _statusMessage = result == 'sessionRequired'
+            ? 'Tu sesión venció. Inicia sesión de nuevo.'
+            : result == 'requiresLogin'
+                ? 'Tu cuenta está activada. Inicia sesión con tus credenciales.'
+                : 'Credenciales actualizadas. Inicia sesión de nuevo. Todas tus sesiones anteriores se cerraron.';
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -63,6 +87,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
+      _statusMessage = null;
     });
     try {
       await widget.authService.login(
@@ -178,7 +203,10 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
             ? LoginScreen(
                 isSubmitting: _isSubmitting,
                 errorMessage: _errorMessage,
+                statusMessage: _statusMessage,
                 onSubmit: _handleLogin,
+                onActivate: () => _openAccess(AccountAccessMode.activation),
+                onRecover: () => _openAccess(AccountAccessMode.recovery),
               )
             : ClientProfileScreen(
                 profile: activeProfile,
@@ -186,6 +214,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
                 errorMessage: _errorMessage,
                 onRefresh: _handleRefreshProfile,
                 onLogout: _handleLogout,
+                onCredentials: () => _openAccess(AccountAccessMode.credentials),
               ),
       ),
     );

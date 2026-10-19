@@ -15,10 +15,16 @@ import {
   subscribeSessionCleared,
 } from '../../auth/services/session';
 import type { Account } from '../../auth/types/session';
+import RecoveryPanel from '../../auth/components/RecoveryPanel';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/admin/', label: 'Inicio', icon: 'home' },
   { href: '/admin/perfil', label: 'Mi cuenta', icon: 'shield' },
+  {
+    href: '/admin/recuperacion',
+    label: 'Recuperación asistida',
+    icon: 'shield',
+  },
 ];
 
 export default function AdminPage(): ReactElement {
@@ -32,7 +38,8 @@ export default function AdminPage(): ReactElement {
   const pathname = rawPath.replace(/\/$/, '') || '/admin';
   const isProfilePage = pathname === '/admin/perfil';
   const isHome = pathname === '/admin';
-  const knownRoute = isHome || isProfilePage;
+  const isRecoveryPage = pathname === '/admin/recuperacion';
+  const knownRoute = isHome || isProfilePage || isRecoveryPage;
 
   useEffect(() => {
     let active = true;
@@ -114,7 +121,11 @@ export default function AdminPage(): ReactElement {
     }
   }
 
-  const pageTitle = isProfilePage ? 'Mi cuenta' : 'Inicio';
+  const pageTitle = isRecoveryPage
+    ? 'Recuperación asistida'
+    : isProfilePage
+      ? 'Mi cuenta'
+      : 'Inicio';
   const user = account
     ? { name: account.username, detail: 'Administrador' }
     : null;
@@ -155,7 +166,9 @@ export default function AdminPage(): ReactElement {
           </div>
         </div>
       ) : account ? (
-        !knownRoute ? (
+        isRecoveryPage ? (
+          <RecoveryPanel />
+        ) : !knownRoute ? (
           <section className="p-8 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 text-center space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
               Esta sección no está disponible.

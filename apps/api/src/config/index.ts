@@ -1,6 +1,6 @@
-import dotenv from 'dotenv'
+import dotenv from 'dotenv';
 
-dotenv.config()
+dotenv.config();
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
@@ -17,4 +17,4 @@ export const config = {
     secretKey: process.env.SUPABASE_SECRET_KEY || '',
     jwksUrl: process.env.SUPABASE_JWKS_URL || '',
   },
-}
+};

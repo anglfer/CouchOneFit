@@ -17,10 +17,14 @@ import {
 } from '../../auth/services/session';
 import type { Account } from '../../auth/types/session';
 import type { ProfessionalProfile } from '../types/profile';
+import ClientAccessPanel from '../components/ClientAccessPanel';
+import RecoveryPanel from '../../auth/components/RecoveryPanel';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
   { href: '/app/perfil', label: 'Mi perfil', icon: 'user' },
+  { href: '/app/clientes', label: 'Acceso de clientes', icon: 'user' },
+  { href: '/app/recuperacion', label: 'Recuperación asistida', icon: 'shield' },
 ];
 
 export default function ProfessionalPage(): ReactElement {
@@ -35,7 +39,9 @@ export default function ProfessionalPage(): ReactElement {
   const pathname = rawPath.replace(/\/$/, '') || '/app';
   const isProfilePage = pathname === '/app/perfil';
   const isHome = pathname === '/app';
-  const knownRoute = isHome || isProfilePage;
+  const isClientsPage = pathname === '/app/clientes';
+  const isRecoveryPage = pathname === '/app/recuperacion';
+  const knownRoute = isHome || isProfilePage || isClientsPage || isRecoveryPage;
 
   useEffect(() => {
     let active = true;
@@ -124,7 +130,13 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = isProfilePage ? 'Mi perfil' : 'Inicio';
+  const pageTitle = isClientsPage
+    ? 'Acceso de clientes'
+    : isRecoveryPage
+      ? 'Recuperación asistida'
+      : isProfilePage
+        ? 'Mi perfil'
+        : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -167,7 +179,11 @@ export default function ProfessionalPage(): ReactElement {
           </div>
         </div>
       ) : account && profile ? (
-        !knownRoute ? (
+        isClientsPage ? (
+          <ClientAccessPanel />
+        ) : isRecoveryPage ? (
+          <RecoveryPanel />
+        ) : !knownRoute ? (
           <section className="p-8 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 text-center space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
               Esta sección no está disponible.
@@ -303,21 +319,22 @@ export default function ProfessionalPage(): ReactElement {
                     </span>
                     <div>
                       <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                        Aún no tienes un plan asignado
+                        Acceso a tu cartera
                       </h2>
                     </div>
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
-                    Tu cuenta profesional está activa. Para comenzar a dar de
-                    alta clientes y crear planes necesitas un plan asignado.
+                    Consulta el acceso de los expedientes preparados y entrega
+                    sus invitaciones. La disponibilidad depende de tu
+                    suscripción vigente.
                   </p>
                 </div>
                 <div>
                   <Link
-                    to="/#planes"
+                    to="/app/clientes"
                     className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-all"
                   >
-                    Conocer los planes →
+                    Acceso de clientes →
                   </Link>
                 </div>
               </section>
@@ -364,7 +381,7 @@ export default function ProfessionalPage(): ReactElement {
                       Cartera de clientes
                     </span>
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      Requiere suscripción
+                      Según suscripción vigente
                     </span>
                   </li>
                   <li className="py-2.5 flex items-center justify-between">

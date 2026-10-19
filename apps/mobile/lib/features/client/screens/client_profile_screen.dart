@@ -11,6 +11,7 @@ class ClientProfileScreen extends StatelessWidget {
     required this.onLogout,
     this.isRefreshing = false,
     this.errorMessage,
+    this.onCredentials,
   });
 
   final ClientProfile profile;
@@ -18,6 +19,7 @@ class ClientProfileScreen extends StatelessWidget {
   final Future<void> Function() onLogout;
   final bool isRefreshing;
   final String? errorMessage;
+  final VoidCallback? onCredentials;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +60,9 @@ class ClientProfileScreen extends StatelessWidget {
                 onRefresh: onRefresh,
                 onLogout: onLogout,
               ),
+              TextButton(
+                  onPressed: isRefreshing ? null : onCredentials,
+                  child: const Text('Cambiar mis credenciales')),
             ],
           ),
         ),

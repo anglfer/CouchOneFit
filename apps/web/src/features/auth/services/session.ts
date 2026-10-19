@@ -92,11 +92,15 @@ function csrf(): Promise<string> {
     });
   return csrfPromise;
 }
-async function mutate<T>(endpoint: string, body: unknown = {}): Promise<T> {
+export async function mutate<T>(
+  endpoint: string,
+  body: unknown = {},
+  method = 'POST'
+): Promise<T> {
   const token = await csrf();
   try {
     return await apiClient<T>(endpoint, {
-      method: 'POST',
+      method,
       headers: { 'X-CSRF-Token': token },
       body: JSON.stringify(body),
     });
@@ -147,6 +151,12 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
     await refresh();
     try {
       return await apiClient<T>(endpoint);
+    } catch (retryError) {
+      if (
+        retryError instanceof ApiError &&
+        [401, 403].includes(retryError.status)
+      ) {
+        await clearSessionState();
       }
       throw retryError;
     }
@@ -154,6 +164,25 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
 }
 export const readSession = () =>
   sessionRequest<SessionResponse>('/api/auth/session');
+export async function sessionMutation<T>(
+  endpoint: string,
+  body: unknown = {},
+  method = 'POST'
+): Promise<T> {
+  try {
+    return await mutate<T>(endpoint, body, method);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) throw error;
+    await refresh();
+    try {
+      return await mutate<T>(endpoint, body, method);
+    } catch (retryError) {
+      if (retryError instanceof ApiError && retryError.status === 401)
+        await clearSessionState();
+      throw retryError;
+    }
+  }
+}
 export async function logout(): Promise<void> {
   // Wait for an in-flight refresh so it cannot reissue cookies after logout.
   await refreshPromise?.catch((error) => {

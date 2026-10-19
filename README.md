@@ -15,7 +15,7 @@
 - **Itzel Yutzil Sánchez López**
 - **Michel Omar Nava Oliva**
 
-Plan vigente: [PLAN_TRABAJO_V2.md](PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
+Plan vigente: [PLAN_TRABAJO_V2.md](plan/PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
 
 > 📌 **Antes de programar:** empieza por la [Guía de programación](DEVELOPMENT.md), las [convenciones de base de datos y contratos](docs/database/convenciones.md), y el [glosario de identidad y acceso](docs/architecture/domain-glossary.md). Para ramas, commits y manejo de archivos compartidos, consulta la [Guía de Trabajo con Git](CONTRIBUTING.md).
 
@@ -319,5 +319,7 @@ Aplicar la migración `202610150001_inicial_identidad_acceso.sql` con el usuario
 
 
 ## Documentación por épica e historia
+
+HU-006–009 incorpora cambio seguro de credenciales móvil, invitaciones privadas desde `/app/clientes`, activación anónima atómica con aviso versionado y recuperación asistida desde Web/móvil. La recuperación de profesionales/admins se autoriza en el panel; el último admin usa el comando local del custodio. No hay recuperación automática por correo ni cobros. [Contratos y evidencia](docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md), [migración/modelo incremental](docs/database/modelo-ciclo-acceso.md), [OpenAPI](docs/api/identity-lifecycle.openapi.json).
 
 Contratos, flujos y evidencia de cada HU están en [docs/epicas](docs/epicas/README.md), dentro de su épica y carpeta de historia. HU-001/002 pertenecen a [EP-01 — Identidad y acceso](docs/epicas/ep-01-identidad-y-acceso/README.md). No se atan las rutas documentales a sprints. [Convenciones de BD/código](docs/database/convenciones.md) y [modelo detallado con tablas y funciones](docs/database/modelo-identidad-acceso.md). La migración inicial consolidada crea las tablas en español y [schemas](docs/database/schemas/README.md) conserva la definición integrada; API/Web se actualizan a los campos camelCase descritos en sus contratos.

@@ -43,11 +43,29 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610160001_provision_administrador.sql/);
     assert.match(applied, /Applied: 202610190001_english_identifiers.sql/);
     assert.match(applied, /Applied: 202610190002_client_records.sql/);
+    assert.match(applied, /Applied: 202610190003_account_lifecycle.sql/);
+    assert.doesNotMatch(migrate(), /Applied:/);
+    // Git can check out the same immutable SQL with Windows or Unix newlines.
+    for (const { filename } of (
+      await databases[0].query('SELECT filename FROM migrations.history')
+    ).rows) {
+      const sql = readFileSync(
+        new URL(`../../../docs/database/migrations/${filename}`, import.meta.url),
+        'utf8'
+      );
+      const opposite = sql.includes('\r\n')
+        ? sql.replaceAll('\r\n', '\n')
+        : sql.replaceAll('\n', '\r\n');
+      await databases[0].query(
+        'UPDATE migrations.history SET checksum=$1 WHERE filename=$2',
+        [createHash('sha256').update(opposite).digest('hex'), filename]
+      );
+    }
     assert.doesNotMatch(migrate(), /Applied:/);
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '4'
+      '5'
     );
     await databases[1].query(
       readFileSync(
@@ -119,7 +137,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '4'
+      '5'
     );
     assert.equal(
       (
@@ -190,7 +208,7 @@ test('migrations and the integrated schema produce the same English database', a
       );
     };
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 6);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 10);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

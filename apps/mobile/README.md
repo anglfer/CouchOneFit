@@ -14,7 +14,17 @@ Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Bas
 
 ## Nombres de código y API
 
-Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros, las llaves JSON y los valores de roles o estados persistidos o enviados por API. Cuando una funcionalidad móvil empiece a consumir esos contratos, sigue el [glosario compartido de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles de la aplicación. Las pantallas móviles actuales todavía no llaman a la API de identidad ni de perfil.
+Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros y las llaves JSON; roles/estados en inglés y minúsculas. Sigue el [glosario de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles. Login, perfil propio, activación, credenciales y recuperación consumen la API de identidad propia.
+
+## Activación y seguridad HU-006–009
+
+Desde login: «Activar mi cuenta» y «Recuperar mi acceso». Desde expediente: «Cambiar mis credenciales». Confirmaciones/aviso versionado obligatorios y canje atómico en servidor; no se recapturan nombre ni datos físicos. Cambiar contraseña revoca todas las sesiones y guía al reingreso. [Contratos, tareas y evidencia](../../docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md).
+
+Android guarda access/refresh/vencimiento mediante el canal `couchonefit/secure_session`: cifrado AES-256-GCM en preferencias privadas con clave no exportable de Android Keystore. No persiste contraseñas/códigos. Restaurar un cifrado inválido no revive una sesión. El fallback en memoria permite pruebas de widgets/plataformas sin canal nativo; iOS requiere integrar y verificar su almacenamiento nativo antes de distribución, no se acredita como validado desde Windows.
+
+API local: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:35412` (HTTP solo manifest debug). Producción exige `--dart-define=API_BASE_URL=https://<host-api>`; el cliente rechaza HTTP en release. El manifest principal incluye INTERNET. Las peticiones tienen tiempos de espera y no exponen tokens en errores.
+
+Pruebas: `flutter analyze`, `flutter test` y [recorrido Android real](integration_test/account_lifecycle_test.dart). La única dependencia nueva es `integration_test` del SDK en desarrollo y sus transitivas; no se actualizan versiones ya fijadas. Preparación/reproducción en la evidencia de las HU.
 
 ```text
 mobile/

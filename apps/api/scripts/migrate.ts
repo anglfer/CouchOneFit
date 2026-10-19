@@ -55,7 +55,12 @@ try {
       [name],
     )
     if (previous) {
-      if (previous.checksum !== checksum)
+      // Historical checkouts used both CRLF and LF. Preserve their recorded
+      // checksums and accept only those newline variants of the same SQL.
+      const lf = sql.replaceAll('\r\n', '\n')
+      const compatibleChecksums = [sql, lf, lf.replaceAll('\n', '\r\n')]
+        .map((source) => createHash('sha256').update(source).digest('hex'))
+      if (!compatibleChecksums.includes(previous.checksum))
         throw new Error(`Applied migration was modified: ${name}`)
       continue
     }

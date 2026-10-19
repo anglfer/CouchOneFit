@@ -66,6 +66,7 @@ export async function insertSession(
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+    await client.query("SELECT set_config('app.subject_id',$1,true)", [userId])
     const {
       rows: [identity],
     } = await client.query<ProfessionalIdentity>(
@@ -80,7 +81,7 @@ export async function insertSession(
            ($3='web' AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)))
            OR ($3='client' AND a.role='client' AND c.id IS NOT NULL)
          )
-         AND a.status='active'`,
+         AND a.status='active' FOR SHARE OF a`,
       [userId, passwordHash, surface],
     )
     if (!identity) throw invalidLogin()
