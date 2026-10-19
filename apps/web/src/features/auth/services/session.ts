@@ -1,17 +1,6 @@
 import { apiClient, ApiError } from '../../../services/api';
 
-export interface ProfessionalAccount {
-  id: string;
-  username: string;
-  email: string;
-  fullName: string;
-  role: 'professional';
-  status: 'active';
-  subscription: null;
-}
-interface SessionResponse {
-  account: ProfessionalAccount;
-}
+import type { Account, SessionResponse } from '../types/session';
 let csrfPromise: Promise<string> | undefined;
 let refreshPromise: Promise<SessionResponse> | undefined;
 
@@ -39,10 +28,10 @@ async function mutate<T>(endpoint: string, body: unknown = {}): Promise<T> {
   }
 }
 export function login(
-  identificador: string,
-  contrasena: string
+  identifier: string,
+  password: string
 ): Promise<SessionResponse> {
-  return mutate('/api/auth/login', { identificador, contrasena });
+  return mutate('/api/auth/login', { identifier, password });
 }
 function refresh(): Promise<SessionResponse> {
   if (!refreshPromise) {
@@ -69,15 +58,19 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
 export const readSession = () =>
   sessionRequest<SessionResponse>('/api/auth/session');
 export async function logout(): Promise<void> {
-  // Esperar una renovación en curso evita volver a emitir cookies después del logout.
+  // Wait for an in-flight refresh so it cannot reissue cookies after logout.
   await refreshPromise?.catch(() => undefined);
   await mutate<void>('/api/auth/logout');
 }
 
-export function authorizedReturn(value: string | null): string {
+export function authorizedReturn(
+  value: string | null,
+  role: Account['role'] = 'professional'
+): string {
+  const base = role === 'admin' ? '/admin' : '/app';
   if (
     !value ||
-    !value.startsWith('/app') ||
+    !value.startsWith(base) ||
     Array.from(value).some(
       (character) =>
         character.charCodeAt(0) < 33 ||
@@ -85,16 +78,16 @@ export function authorizedReturn(value: string | null): string {
         character === '\\'
     )
   )
-    return '/app/';
+    return `${base}/`;
   try {
     const target = new URL(value, window.location.origin);
     if (
       target.origin !== window.location.origin ||
-      (target.pathname !== '/app' && !target.pathname.startsWith('/app/'))
+      (target.pathname !== base && !target.pathname.startsWith(`${base}/`))
     )
-      return '/app/';
+      return `${base}/`;
     return `${target.pathname}${target.search}${target.hash}`;
   } catch {
-    return '/app/';
+    return `${base}/`;
   }
 }

@@ -1,75 +1,53 @@
 # Convenciones de base de datos — CouchOneFit
 
-Las convenciones siguientes son las reglas vigentes para PostgreSQL mediante Supabase. Se aplican al esquema final del producto y a nuevas migraciones. La inicial consolida HU-001/002 antes de su primera aplicación. Una vez aplicada, conservará su contenido y checksum; los cambios posteriores se incorporan con nuevas migraciones y actualizan el esquema integrado de `schemas/`.
+Este documento define los identificadores de PostgreSQL, los cambios de esquema y los contratos entre la base de datos y la API. La [guía de programación](../../DEVELOPMENT.md) resume cómo aplicar estas reglas en API, Web y móvil. El [glosario de identidad y acceso](../architecture/domain-glossary.md) contiene los nombres acordados para la funcionalidad actual.
+
+## Idioma y formato de nombres
+
+Todos los identificadores de la base de datos y los valores persistidos del dominio usan inglés. No mezcles inglés y español ni traduzcas un mismo campo en cada capa.
 
 | Capa | Convención | Ejemplo |
 | --- | --- | --- |
-| Base de datos | Español, `snake_case` | `usuario_id`, `nombre_completo`, `creado_en` |
-| TypeScript / JavaScript y JSON propio | `camelCase` | `nombreCompleto`, `confirmacionCorreo`, `expiresAt` |
-| Clases, tipos y componentes | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalApp` |
+| Esquemas, tablas, columnas, restricciones, índices y políticas de PostgreSQL | Inglés `snake_case` | `private.users`, `full_name`, `fk_sessions_user` |
+| Campos de TypeScript, JavaScript, Dart y JSON | Inglés `camelCase` | `fullName`, `createdAt`, `sessionId` |
+| Clases, tipos, interfaces y componentes | Inglés `PascalCase` | `ProfessionalIdentity`, `RegistrationPage` |
+| Roles y estados persistidos o enviados por API | Inglés en minúsculas | `professional`, `admin`, `active` |
 
-El vocabulario de BD es español, sin mezclar `usuarios` con `users` ni `sesiones` con `sessions`. La aplicación ya tiene nombres técnicos en inglés; pueden mantenerse si cumplen camelCase/PascalCase y su mapeo SQL es explícito. Por ejemplo, `usuarios.correo AS email` y `sesiones.expira_en AS "expiresAt"`. No se filtran nombres SQL como `full_name` al contrato TypeScript. Los valores de rol/estado persistidos son españoles; el contrato HTTP existente conserva `professional`/`active` mediante serialización explícita.
+El español se reserva para los textos que ve la persona usuaria, como etiquetas, mensajes de validación, correos y textos de accesibilidad. Las funciones integradas conservan sus nombres propios de PostgreSQL.
 
-## Identificadores
+## Identificadores y relaciones
 
-- Minúsculas, palabras separadas por `_`, sin espacios, acentos, `ñ` ni caracteres especiales.
-- Usar `anio`, `contrasena`, `numero_telefono`, `fecha_nacimiento`; no `año`, `contraseña` ni `fechaNacimiento` en SQL.
-- Tablas en plural: `usuarios`, `profesionales`, `sesiones`. Sin `tbl_`, `tb_` o `tabla_`.
-- Columnas generalmente en singular y con significado preciso. Evitar `dato`, `valor`, `tipo2`, `campo1` cuando exista un nombre de dominio concreto.
-- Esquemas propios: `privado` para identidad/acceso y `migraciones` para control técnico. No exponerlos en Data API ni conceder acceso a roles públicos.
+- Usa palabras en inglés, en minúsculas y separadas por guiones bajos en PostgreSQL. No uses acentos, `ñ` ni identificadores traducidos.
+- Usa nombres de tablas en plural: `users`, `professionals`, `sessions`.
+- Nombra cada columna según su significado y agrega `_id` a las llaves foráneas (`user_id`, `session_id`).
+- Las tablas propias usan `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`, salvo que el dominio requiera otra llave.
+- La tabla dependiente guarda la llave foránea. Usa `ON DELETE RESTRICT` cuando borrar una cuenta no deba borrar su historial; usa otra acción solo si el dominio lo requiere expresamente.
+- Usa una tabla de unión para relaciones de muchos a muchos. Agrega unicidad solo cuando sea una regla real del producto.
+- Mantén los objetos de identidad y acceso en el esquema no expuesto `private`. No concedas acceso a este esquema mediante la Data API pública.
 
-El nombre del proyecto/base indicado por el usuario, `CouchOneFit`, y los entornos `CouchOneFit_dev`/`CouchOneFit_test` son una excepción de capitalización explícita. Al crearlos con SQL se usan comillas dobles. Esto no cambia el nombre SQL remoto que indique la conexión de Supabase.
+## Tipos y credenciales
 
-## Claves y relaciones
+- Usa `uuid` para identidades, `timestamptz` para instantes y `date` para fechas de calendario sin hora.
+- Nombra las marcas de tiempo según el evento: `created_at`, `accepted_at`, `expires_at`, `revoked_at` y `used_at`.
+- Usa texto para números telefónicos. Representa los datos opcionales ausentes con `NULL`.
+- Guarda únicamente hashes de contraseñas Argon2id en `users.password_hash`; nunca guardes contraseñas en texto plano ni cifradas de forma reversible.
+- Guarda únicamente hashes SHA-256 de secretos aleatorios de tokens de renovación en `refresh_tokens.token_hash`. Conserva los tokens usados mientras la sesión pueda ser objeto de repetición.
 
-Toda tabla propia actual tiene `id uuid PRIMARY KEY`, con `gen_random_uuid()` generado por PostgreSQL. No usar `id_usuario`, `usuario_pk` ni `usuarioId` como PK propia. Un UUID no sustituye validaciones ni permisos.
+## Restricciones, índices, roles y políticas
 
-Las FK usan `<entidad>_id`: `usuario_id`, `sesion_id`, `profesional_id`. Deben tener tipo compatible con la PK y expresar nulabilidad y comportamiento de eliminación. No usar cascadas que eliminen historial sin una regla funcional aprobada; las relaciones de identidad actuales usan `ON DELETE RESTRICT`.
+Usa nombres en inglés que indiquen el objeto y su propósito. Los prefijos son `pk_` para llaves primarias, `fk_` para llaves foráneas, `uk_` para restricciones únicas, `ck_` para validaciones e `idx_` para índices. Ejemplos: `pk_users`, `fk_sessions_user`, `uk_professionals_user_id`, `ck_users_role` e `idx_sessions_user_id`.
 
-- **1:N:** la tabla dependiente guarda la FK. Ejemplo implementado: `sesiones.usuario_id → usuarios.id`.
-- **1:1:** la tabla dependiente tiene su propio `id` y FK única. Ejemplo implementado: `profesionales.id` más `usuario_id UNIQUE`. La cuenta y el perfil no comparten una PK por accidente.
-- **N:M:** tabla intermedia con ambas FK. Si necesita orden, fechas u otros datos de relación, también se documentan esas columnas y las restricciones específicas.
+Agrega índices para consultas reales, no para todas las columnas. Normaliza la unicidad de usuario y correo con índices de expresión sobre `lower(btrim(...))` cuando las comparaciones no distingan mayúsculas.
 
-Ejemplo futuro de N:M, ilustrativo y **no creado** por HU-001/002:
-
-```sql
--- Cada fila representa una posición de un ejercicio dentro de una rutina.
--- Las tablas rutinas/ejercicios pertenecen a sus módulos y no existen en este incremento.
-rutinas_ejercicios (
-  id uuid PRIMARY KEY,
-  rutina_id uuid REFERENCES rutinas(id),
-  ejercicio_id uuid REFERENCES ejercicios(id),
-  orden integer,
-  UNIQUE (rutina_id, orden)
-)
-```
-
-No imponer unicidad de `(rutina_id, ejercicio_id)` sin confirmar si un ejercicio puede repetirse en posiciones distintas.
-
-## Tipos, fechas y credenciales
-
-- Identidades con `uuid`; fechas/instantes con `timestamptz`, fechas sin hora con `date` cuando corresponda al módulo.
-- `creado_en`, `aceptado_en`, `expira_en`, `revocado_en`, `usado_en` expresan su evento; solo se crean los campos que utiliza la funcionalidad.
-- Teléfono como texto, no número aritmético. `NULL` representa ausencia, no una cadena vacía o cero inventado.
-- Contraseñas nunca en claro ni reversiblemente cifradas. El proveedor elegido para CouchOneFit es auth propia de API: `usuarios.hash_contrasena` guarda únicamente Argon2id con salt. No se cambia a Supabase Auth por esta convención.
-- Tokens refresh: solo `hash_token` SHA-256 de un secreto aleatorio de 32 bytes; el hash no sustituye la contraseña ni permite iniciar sesión. Tokens usados se conservan para detectar replay durante la vida de sesión.
-
-## Restricciones, índices, roles y funciones
-
-Los nombres incluyen la tabla y propósito: `pk_usuarios`, `fk_sesiones_usuario`, `uk_profesionales_usuario_id`, `ck_usuarios_rol`, `idx_sesiones_usuario_id`. Prefijos técnicos: `pk` primaria, `fk` foránea, `uk` unicidad, `ck` comprobación, `idx` índice. El contenido del nombre es español.
-
-Los índices responden a consultas reales. La unicidad normalizada de usuario/correo usa índices expresionales `lower(btrim(...))`. No escribir `UNIQUE(lower(...))` dentro de `CREATE TABLE`. No añadir índices de cada columna sin una lectura que los justifique.
-
-Roles técnicos actuales: `couchone_registro` y `couchone_autenticacion`, NOLOGIN, sin privilegios DDL ni BYPASSRLS. El usuario de conexión dedicado recibe la membresía vigente; nunca es la cuenta de un profesional.
-
-Si un módulo necesita una función SQL propia, su nombre también será español `snake_case`, con parámetros/resultado/permisos y transacción documentados. No añadir funciones/RPC sin uso. Actualmente el dominio se implementa en funciones TypeScript camelCase y consultas parametrizadas; no hay procedimientos de negocio almacenados. `gen_random_uuid`, `lower`, `btrim`, `now`, `clock_timestamp`, `format` y catálogos del sistema son nombres de PostgreSQL que no se traducen.
+Los roles de base de datos de la aplicación usan nombres en inglés, tienen el atributo `NOLOGIN` y reciben solo los permisos necesarios para su operación de API. Las conexiones de ejecución no deben tener privilegios DDL ni `BYPASSRLS`. Mantén activa la seguridad por filas y alinea sus políticas con el rol persistido y la operación.
 
 ## Migraciones y contratos
 
-1. Incorporar tablas por funcionalidad, con DDL, diccionario, relaciones, índices, permisos y pruebas en la HU correspondiente.
-2. No editar, renombrar ni borrar migraciones aplicadas. Corregir mediante una nueva que preserve datos o documente una transformación autorizada.
-3. El ejecutor envuelve los cambios en transacción, bloquea migraciones concurrentes y registra nombre/checksum/fecha. El esquema integrado debe reflejar el resultado de todas las migraciones.
-4. Especificar mapeo BD ↔ TypeScript ↔ JSON. Al cambiar el contrato, actualizar API, Web, pruebas y documentación juntos. Las rutas HTTP, cookies, claims JWT y códigos de error no se renombran solo por cambiar un identificador SQL.
-5. Validar instalación limpia y equivalencia del esquema integrado; en futuras migraciones, también actualización con datos existentes. Los despliegues de cambios de nombres requieren detener la versión anterior durante migración y desplegar API/Web compatibles; no ejecutar versiones incompatibles en paralelo.
+1. Agrega los cambios de esquema en una migración nueva y ordenada. Los archivos y hashes de migraciones aplicadas son inmutables.
+2. Conserva los datos al renombrar esquemas, tablas, columnas, restricciones, índices, políticas, roles o valores. Verifica de antemano las condiciones que podrían hacer fallar la migración o causar pérdida de datos.
+3. Mantén el esquema integrado igual al resultado de todas las migraciones aplicadas.
+4. Usa consultas parametrizadas. Los repositorios consultan directamente con los nombres en inglés y no agregan alias SQL cuyo único propósito sea traducir nombres para el código de la aplicación.
+5. Actualiza el contrato de API, los consumidores Web y móvil, las pruebas, los datos de prueba, el glosario y la documentación de la funcionalidad en el mismo cambio.
+6. Verifica tanto una instalación limpia como una actualización con filas existentes. Los cambios de nombres requieren un despliegue coordinado de base de datos, API, Web y cualquier versión móvil que consuma el contrato; las versiones viejas y nuevas no deben ejecutarse simultáneamente durante el corte.
 
-Modelo actual y funciones: [identidad y acceso](modelo-identidad-acceso.md). Historias: [EP-01](../epicas/ep-01-identidad-y-acceso/README.md). Aplicación local/producción: [README de BD](README.md).
+El [modelo de identidad y acceso](modelo-identidad-acceso.md) documenta el diseño y los permisos actuales. La [guía de base de datos](README.md) describe las operaciones de migración.

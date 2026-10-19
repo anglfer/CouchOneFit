@@ -1,18 +1,32 @@
 ---
 name: CouchOne Fit Marketing
 colors:
-  primary: '#3046eb'
-  primary-hover: '#2336c7'
-  secondary: '#6344dc'
-  ink: '#141630'
-  muted: '#626479'
-  canvas: '#fdfdff'
-  surface: '#f3f4fa'
-  border: '#dddfea'
-  dark-canvas: '#111322'
-  dark-surface: '#1b1e33'
-  dark-ink: '#f1f2fb'
-  dark-muted: '#b6b9cf'
+  primary: '#4037F7'
+  primary-hover: '#3128D9'
+  secondary: '#6344DC'
+  ink: '#090918'
+  muted: '#434771'
+  text-muted: '#6C74A1'
+  canvas: '#F8F9FD'
+  surface: '#FFFFFF'
+  surface-secondary: '#F3F4FA'
+  surface-accent: '#F1F0FF'
+  primary-soft: '#EAE8FF'
+  border: '#E3E5FC'
+  border-strong: '#D0D2FA'
+  dark-primary: '#6259FF'
+  dark-primary-hover: '#756EFF'
+  dark-secondary: '#8067F5'
+  dark-canvas: '#050A1A'
+  dark-surface: '#0C152C'
+  dark-surface-secondary: '#121F43'
+  dark-surface-accent: '#162467'
+  dark-ink: '#EFF0F4'
+  dark-muted: '#BBBFD3'
+  dark-text-muted: '#8F97AF'
+  dark-border: '#21305B'
+  dark-border-strong: '#293A70'
+  dark-primary-soft: '#1A1D5A'
 typography:
   display:
     {
@@ -55,7 +69,7 @@ Marketing público para entrenadores y nutriólogos. Referencia de composición:
 
 ## Colors
 
-Azul y violeta derivados del logo existente; azul para acciones, violeta para énfasis secundario. Superficies neutras frías. El tema sigue la preferencia del sistema en toda la página.
+Actualización aprobada el 16 de octubre de 2026. Marca, seis paletas y estados comunes en [DESIGN.md raíz](../../DESIGN.md). Primario `#4037F7`, azul corporativo `#3046EB` y violeta `#6344DC`. Degradado de marca: `linear-gradient(135deg, #3046EB 0%, #4037F7 48%, #6344DC 100%)`. Un botón de sol/luna en la cabecera alterna claro/oscuro y guarda la elección entre páginas y recargas, incluido acceso y registro. Sin elección guardada sigue al sistema. No usar rosa/naranja como acción principal.
 
 ## Typography
 
@@ -67,15 +81,15 @@ Contenedor de 1200px, navegación de 76px, hero asimétrico y vista conceptual i
 
 ## Elevation & Depth
 
-Sombras suaves solo en las vistas de producto. Un degradado azul/violeta tenue en el hero. Sin glassmorphism ni movimiento continuo.
+Sombras suaves solo en las vistas de producto. Degradado de marca en el énfasis del hero claro; en oscuro, texto de énfasis claro y superficies azul nocturno para conservar legibilidad. Sin glassmorphism ni movimiento continuo.
 
 ## Shapes
 
-Botones de 12px, paneles de 24px e indicadores circulares. Los radios del marco de dispositivo son una excepción representativa del hardware.
+Botones de 12px, tarjetas de 20–24px e indicadores circulares. El panel profesional usa un layout independiente con navegación izquierda y radios de 6/8px; no hereda los componentes comerciales. Los radios del marco de dispositivo son una excepción representativa del hardware.
 
 ## Components
 
-Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Contratar plan» abre `/registro` con plan de interés; «Contáctanos» abre registro sin plan. Registro conectado a API/PostgreSQL; pagos y login se integran en sus módulos correspondientes.
+Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Contratar plan» abre `/registro` con plan de interés; «Contáctanos» abre registro sin plan. Registro conectado a API/PostgreSQL; acceso profesional disponible en `/acceso`; pagos se integran en su módulo correspondiente.
 
 ## Do's and Don'ts
 

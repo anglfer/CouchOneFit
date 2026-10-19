@@ -10,8 +10,8 @@ import { pool } from './config/database.js'
 import { registrationRoutes } from './features/auth/routes/registration.js'
 import { AuthError } from './features/auth/types/errors.js'
 import { sessionRoutes } from './features/auth/routes/session.js'
-import { requireProfessional } from './features/auth/middleware/professional-session.js'
-import { professionalProfile } from './features/auth/repositories/session.js'
+import { professionalRoutes } from './features/professional/routes/professional.js'
+import { adminRoutes } from './features/admin/routes/admin.js'
 
 export function createApp(database: Pool): Express {
   const app = express()
@@ -26,28 +26,8 @@ export function createApp(database: Pool): Express {
   })
   app.use('/api/auth', registrationRoutes(database))
   app.use('/api/auth', sessionRoutes(database))
-  app.use(
-    '/api/professional',
-    (_req, res, next) => {
-      res.set('Cache-Control', 'no-store')
-      next()
-    },
-    requireProfessional(database),
-  )
-  app.get('/api/professional/profile', async (req, res, next) => {
-    try {
-      const profile = await professionalProfile(database, req.professional!)
-      if (!profile)
-        throw new AuthError(
-          401,
-          'SESSION_REQUIRED',
-          'Tu sesión venció. Inicia sesión de nuevo.',
-        )
-      res.json({ profile })
-    } catch (error) {
-      next(error)
-    }
-  })
+  app.use('/api/admin', adminRoutes(database))
+  app.use('/api/professional', professionalRoutes(database))
   app.use((_req, res) => {
     res
       .status(404)

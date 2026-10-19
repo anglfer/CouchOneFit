@@ -4,7 +4,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { Pool } from 'pg'
 
 if (!process.env.DATABASE_URL)
-  throw new Error('Configura DATABASE_URL para aplicar migraciones.')
+  throw new Error('Set DATABASE_URL before applying migrations.')
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 5000,
@@ -15,11 +15,19 @@ try {
   await client.query(
     "SELECT pg_advisory_xact_lock(hashtext('couchonefit_migrations'))",
   )
-  await client.query('CREATE SCHEMA IF NOT EXISTS migraciones')
-  await client.query('REVOKE ALL ON SCHEMA migraciones FROM PUBLIC')
-  await client.query(
-    'CREATE TABLE IF NOT EXISTS migraciones.historial (id uuid CONSTRAINT pk_historial PRIMARY KEY DEFAULT gen_random_uuid(), nombre text NOT NULL CONSTRAINT uk_historial_nombre UNIQUE, suma_verificacion text NOT NULL, aplicado_en timestamptz NOT NULL DEFAULT now())',
-  )
+  const hasHistory = async () => {
+    const { rows: [history] } = await client.query(
+      "SELECT to_regclass('migrations.history') IS NOT NULL AS current, to_regclass('migraciones.historial') IS NOT NULL AS legacy",
+    )
+    return history.current ? 'current' : history.legacy ? 'legacy' : 'new'
+  }
+  if (await hasHistory() === 'new') {
+    await client.query('CREATE SCHEMA migrations')
+    await client.query('REVOKE ALL ON SCHEMA migrations FROM PUBLIC')
+    await client.query(
+      'CREATE TABLE migrations.history (id uuid CONSTRAINT pk_migration_history PRIMARY KEY DEFAULT gen_random_uuid(), filename text NOT NULL CONSTRAINT uk_migration_history_filename UNIQUE, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())',
+    )
+  }
   const directory = new URL(
     '../../../docs/database/migrations/',
     import.meta.url,
@@ -27,29 +35,37 @@ try {
   const names = (await readdir(directory))
     .filter((name) => /^\d{12}_[a-z0-9_]+\.sql$/.test(name))
     .sort()
-  const { rows: applied } = await client.query('SELECT nombre FROM migraciones.historial')
-  if (applied.some((row) => !names.includes(row.nombre)))
-    throw new Error('El historial contiene migraciones ausentes en esta versión; revisar antes de continuar.')
+  const trackingSchema = async () =>
+    (await hasHistory()) === 'legacy'
+      ? { table: 'migraciones.historial', filename: 'nombre', checksum: 'suma_verificacion' }
+      : { table: 'migrations.history', filename: 'filename', checksum: 'checksum' }
+  const tracking = await trackingSchema()
+  const { rows: applied } = await client.query(
+    `SELECT ${tracking.filename} AS filename FROM ${tracking.table}`,
+  )
+  if (applied.some((row) => !names.includes(row.filename)))
+    throw new Error('Migration history contains files missing from this version.')
   for (const name of names) {
     const sql = await readFile(new URL(name, directory), 'utf8')
     const checksum = createHash('sha256').update(sql).digest('hex')
     const {
       rows: [previous],
     } = await client.query(
-      'SELECT suma_verificacion AS checksum FROM migraciones.historial WHERE nombre=$1',
+      `SELECT ${tracking.checksum} AS checksum FROM ${tracking.table} WHERE ${tracking.filename}=$1`,
       [name],
     )
     if (previous) {
       if (previous.checksum !== checksum)
-        throw new Error(`Migración aplicada modificada: ${name}`)
+        throw new Error(`Applied migration was modified: ${name}`)
       continue
     }
     await client.query(sql)
+    const currentTracking = await trackingSchema()
     await client.query(
-      'INSERT INTO migraciones.historial (nombre,suma_verificacion) VALUES ($1,$2)',
+      `INSERT INTO ${currentTracking.table} (${currentTracking.filename},${currentTracking.checksum}) VALUES ($1,$2)`,
       [name, checksum],
     )
-    console.log(`Aplicada: ${name}`)
+    console.log(`Applied: ${name}`)
   }
   await client.query('COMMIT')
 } catch (error) {
