@@ -1,17 +1,6 @@
 import { apiClient, ApiError } from '../../../services/api';
 
-export interface Account {
-  id: string;
-  username: string;
-  email: string;
-  fullName: string;
-  role: 'professional' | 'admin';
-  status: 'active';
-  subscription: null;
-}
-interface SessionResponse {
-  account: Account;
-}
+import type { Account, SessionResponse } from '../types/session';
 let csrfPromise: Promise<string> | undefined;
 let refreshPromise: Promise<SessionResponse> | undefined;
 

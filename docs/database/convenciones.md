@@ -6,7 +6,7 @@ Estas convenciones son la fuente de verdad para PostgreSQL con Supabase, contrat
 | --- | --- | --- |
 | Base de datos | Español, `snake_case` | `usuario_id`, `nombre_completo`, `creado_en` |
 | TypeScript / JavaScript y JSON propio | `camelCase` | `nombreCompleto`, `confirmacionCorreo`, `expiresAt` |
-| Clases, tipos y componentes | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalApp` |
+| Clases, tipos y componentes | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalPage` |
 
 El vocabulario de BD es español, sin mezclar `usuarios` con `users` ni `sesiones` con `sessions`. La aplicación ya tiene nombres técnicos en inglés; pueden mantenerse si cumplen camelCase/PascalCase y su mapeo SQL es explícito. Por ejemplo, `usuarios.correo AS email` y `sesiones.expira_en AS "expiresAt"`. No se filtran nombres SQL como `full_name` al contrato TypeScript. Los valores de rol/estado persistidos son españoles; el contrato HTTP existente conserva `professional`/`active` mediante serialización explícita.
 

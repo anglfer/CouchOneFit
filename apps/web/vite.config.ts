@@ -15,7 +15,7 @@ export default defineConfig({
     tailwindcss(),
     react(),
     VitePWA({
-      // La nueva versión se aplica cuando el usuario lo confirma (ver src/shared/pwa.ts).
+      // La nueva versión se aplica cuando el usuario lo confirma (ver src/services/pwa.ts).
       registerType: 'prompt',
       workbox: {
         navigateFallbackDenylist: [/^\/api\//],

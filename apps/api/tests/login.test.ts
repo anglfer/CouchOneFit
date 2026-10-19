@@ -444,3 +444,67 @@ test('login y perfil fallan de forma segura si BD está caída', async () => {
     await unavailable.end()
   }
 })
+
+test('fallo al firmar acceso revierte alta y rotación de sesión', async () => {
+  const { insertSession, rotateSession, findLoginAccount } =
+    await import('../src/features/auth/repositories/session.js')
+  const { randomToken, tokenHash, signAccess } =
+    await import('../src/features/auth/services/tokens.js')
+  const account = await findLoginAccount(pool, `prof.${run}`)
+  assert.ok(account)
+  const count = async () =>
+    (
+      await pool.query(
+        'SELECT count(*) FROM privado.sesiones WHERE usuario_id=$1',
+        [account.id],
+      )
+    ).rows[0].count
+  const initial = await count()
+  const failure = new Error('firma de prueba no disponible')
+  const failSigning = async () => {
+    throw failure
+  }
+  const refresh = randomToken()
+  await assert.rejects(
+    insertSession(
+      pool,
+      account.id,
+      account.passwordHash,
+      tokenHash(refresh),
+      failSigning,
+    ),
+    (error) => error === failure,
+  )
+  assert.equal(await count(), initial)
+
+  const session = await insertSession(
+    pool,
+    account.id,
+    account.passwordHash,
+    tokenHash(refresh),
+    signAccess,
+  )
+  await assert.rejects(
+    rotateSession(
+      pool,
+      tokenHash(refresh),
+      tokenHash(randomToken()),
+      failSigning,
+    ),
+    (error) => error === failure,
+  )
+  const { rows: tokens } = await pool.query(
+    'SELECT usado_en FROM privado.tokens_renovacion WHERE sesion_id=$1',
+    [decodeJwt(session.access).sid],
+  )
+  assert.equal(tokens.length, 1)
+  assert.equal(tokens[0].usado_en, null)
+  assert.ok(
+    await rotateSession(
+      pool,
+      tokenHash(refresh),
+      tokenHash(randomToken()),
+      signAccess,
+    ),
+  )
+})

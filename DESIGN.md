@@ -194,7 +194,7 @@ Validar contraste por combinación y tamaño; los HEX por sí solos no certifica
 ## Alcance implementado y fuentes
 
 - Web: marca y estados en `apps/web/src/index.css`; marketing claro/oscuro en `apps/web/src/features/marketing/marketing.css`; acceso/registro en `apps/web/src/features/auth/registration.css`.
-- Panel y administración: estructura compartida `apps/web/src/features/workspace/WorkspaceLayout.tsx` y tokens/estilos en `workspace.css`, sin dependencia visual del marketing.
+- Panel y administración: estructura compartida `apps/web/src/layouts/WorkspaceLayout.tsx`, componentes en `apps/web/src/components/` y tokens globales en `apps/web/src/index.css`, sin dependencia visual del marketing.
 - Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas.
 - Las vistas conceptuales de marketing conservan su contenido de ejemplo. Las pantallas reales usan la API y conservan comprobación de sesión, redirección por rol, reintento y cierre de sesión.
 - Esta decisión no añade agenda, chat, notificaciones, rachas, fotografías, reportes, bibliotecas multimedia ni reglas comerciales. Permisos y suscripciones siguen las HU/DEC y la API.

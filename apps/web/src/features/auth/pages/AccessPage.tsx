@@ -5,8 +5,8 @@ import {
   type FormEvent,
   type ReactElement,
 } from 'react';
-import { Brand } from '../../marketing/components/MarketingNavigation';
-import { Link } from '../../../shared/Link';
+import { Brand } from '../../../components/Brand';
+import { Link } from '../../../components/Link';
 import { authorizedReturn, login, readSession } from '../services/session';
 import { ApiError } from '../../../services/api';
 

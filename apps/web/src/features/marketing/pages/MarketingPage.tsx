@@ -1,14 +1,13 @@
 import type { ReactElement } from 'react';
-import { Link } from '../../../shared/Link';
-import { Brand, MarketingNavigation } from '../components/MarketingNavigation';
+import { Link } from '../../../components/Link';
+import { MarketingNavigation } from '../components/MarketingNavigation';
+import { Brand } from '../../../components/Brand';
 import { ProductPreview } from '../components/ProductPreview';
-import {
-  ConnectedExperience,
-  FrequentlyAskedQuestions,
-  HowItWorks,
-  Plans,
-  ProductFeatures,
-} from '../components/ProductStory';
+import { ProductFeatures } from '../components/ProductFeatures';
+import { ConnectedExperience } from '../components/ConnectedExperience';
+import { HowItWorks } from '../components/HowItWorks';
+import { Plans } from '../components/Plans';
+import { FrequentlyAskedQuestions } from '../components/FrequentlyAskedQuestions';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -23,7 +22,6 @@ export default function MarketingPage(): ReactElement {
       </a>
       <MarketingNavigation />
       <main id="contenido" tabIndex={-1} className="focus:outline-none">
-
         <section
           className="relative pt-16 pb-14 bg-gradient-to-b from-indigo-50/60 via-[#f8f9fd] to-[#f8f9fd] border-b border-indigo-100/60"
           aria-labelledby="hero-title"
@@ -62,7 +60,8 @@ export default function MarketingPage(): ReactElement {
                   to="/registro"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-md shadow-indigo-600/25 hover:shadow-lg hover:shadow-indigo-600/35 transition-all"
                 >
-                  Contáctanos y comienza gratis <span aria-hidden="true">→</span>
+                  Contáctanos y comienza gratis{' '}
+                  <span aria-hidden="true">→</span>
                 </Link>
                 <a
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl shadow-xs transition-all"

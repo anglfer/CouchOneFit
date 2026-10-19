@@ -12,7 +12,7 @@ La norma compartida es [Convenciones de base de datos](docs/database/convencione
 | Funciones SQL propias, si hay una necesidad aprobada | Español `snake_case` | `crear_sesion` |
 | TypeScript / JavaScript / JSON | `camelCase` | `nombreCompleto`, `confirmacionCorreo` |
 | Funciones, variables y métodos de aplicación | `camelCase` | `registerProfessional`, `mobileTheme`, `sessionRequest` |
-| Tipos, clases y componentes React | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalApp` |
+| Tipos, clases y componentes React | `PascalCase` | `Registration`, `ProfessionalIdentity`, `ProfessionalPage` |
 | CSS | `kebab-case` | `workspace-sidebar`, `--brand-primary` |
 | Clases Dart | `PascalCase`; miembros públicos `lowerCamelCase`; privados con `_` | `CouchOneFitApp`, `mobileTheme`, `_themeMode` |
 

@@ -196,7 +196,10 @@ web/
     ├── features/
     │   └── [feature]/          # components, pages, hooks, services, types
     ├── components/             # UI compartida global
-    ├── layouts/
+    ├── layouts/                # Estructuras de páginas compartidas
+    ├── hooks/                  # Hooks React transversales
+    ├── services/               # HTTP, tema y PWA
+    ├── utils/                  # Navegación y funciones compartidas
     ├── routes/
     └── app/
 ```

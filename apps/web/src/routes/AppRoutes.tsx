@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
-import { useLocation } from '../shared/router';
-import { Link } from '../shared/Link';
+import { useLocation } from '../hooks/useLocation';
+import { Link } from '../components/Link';
 import MarketingPage from '../features/marketing/pages/MarketingPage';
 import RegistrationPage from '../features/auth/pages/RegistrationPage';
 import AccessPage from '../features/auth/pages/AccessPage';
-import ProfessionalApp from '../features/auth/pages/ProfessionalApp';
-import AdminApp from '../features/admin/pages/AdminApp';
+import ProfessionalPage from '../features/professional/pages/ProfessionalPage';
+import AdminPage from '../features/admin/pages/AdminPage';
 
 export default function AppRoutes(): ReactElement {
   const { pathname } = useLocation();
@@ -14,10 +14,10 @@ export default function AppRoutes(): ReactElement {
   if (pathname === '/registro') return <RegistrationPage />;
   if (pathname === '/acceso') return <AccessPage />;
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return <AdminApp />;
+    return <AdminPage />;
   }
   if (pathname === '/app' || pathname.startsWith('/app/')) {
-    return <ProfessionalApp />;
+    return <ProfessionalPage />;
   }
 
   return (
@@ -47,4 +47,3 @@ export default function AppRoutes(): ReactElement {
     </main>
   );
 }
-

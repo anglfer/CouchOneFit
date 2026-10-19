@@ -524,4 +524,3 @@ export function ProductPreview(): ReactElement {
     </figure>
   );
 }
-

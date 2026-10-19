@@ -1,12 +1,13 @@
 import { useRef, useState, type FormEvent, type ReactElement } from 'react';
-import { Brand } from '../../marketing/components/MarketingNavigation';
-import { Link } from '../../../shared/Link';
-import { apiClient, ApiError } from '../../../services/api';
+import { Brand } from '../../../components/Brand';
+import { Link } from '../../../components/Link';
+import { ApiError } from '../../../services/api';
+import { registerProfessional } from '../services/registration';
 import {
   REGISTRATION_NOTICE,
   NOTICE_VERSION,
   registrationPlans,
-} from '../content';
+} from '../constants/registration';
 
 export default function RegistrationPage(): ReactElement {
   const requestedPlan = new URLSearchParams(window.location.search).get('plan');
@@ -45,20 +46,17 @@ export default function RegistrationPage(): ReactElement {
     setIsSubmitting(true);
     setError('');
     try {
-      await apiClient('/api/auth/professionals', {
-        method: 'POST',
-        body: JSON.stringify({
-          nombreCompleto: value('nombreCompleto'),
-          usuario: value('usuario'),
-          correo: email,
-          confirmacionCorreo: value('confirmacionCorreo'),
-          contrasena: password,
-          confirmacionContrasena: value('confirmacionContrasena'),
-          telefono: value('telefono'),
-          planInteres: value('planInteres') || null,
-          avisoVersion: NOTICE_VERSION,
-          aceptaAviso: data.get('aceptaAviso') === 'on',
-        }),
+      await registerProfessional({
+        nombreCompleto: value('nombreCompleto'),
+        usuario: value('usuario'),
+        correo: email,
+        confirmacionCorreo: value('confirmacionCorreo'),
+        contrasena: password,
+        confirmacionContrasena: value('confirmacionContrasena'),
+        telefono: value('telefono'),
+        planInteres: value('planInteres') || null,
+        avisoVersion: NOTICE_VERSION,
+        aceptaAviso: data.get('aceptaAviso') === 'on',
       });
       form.reset();
       setIsComplete(true);
@@ -223,7 +221,9 @@ export default function RegistrationPage(): ReactElement {
                     <p id="username-help">
                       3–30 letras, números, puntos o guion bajo.
                     </p>
-                    <p id="phone-help">10–15 dígitos, sin espacios ni prefijo +.</p>
+                    <p id="phone-help">
+                      10–15 dígitos, sin espacios ni prefijo +.
+                    </p>
                   </div>
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Correo electrónico</span>
@@ -297,7 +297,9 @@ export default function RegistrationPage(): ReactElement {
                     <summary className="font-semibold text-slate-800 cursor-pointer">
                       Sobre tu registro
                     </summary>
-                    <p className="mt-2 leading-relaxed">{REGISTRATION_NOTICE}</p>
+                    <p className="mt-2 leading-relaxed">
+                      {REGISTRATION_NOTICE}
+                    </p>
                   </details>
                   <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer pt-1">
                     <input

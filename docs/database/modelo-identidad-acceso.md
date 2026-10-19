@@ -153,7 +153,7 @@ No hay funciones SQL/RPC de negocio almacenadas en el esquema. Las funciones sig
 | `signAccess` / `verifyAccess` — `services/tokens.ts` | IDs → JWT; JWT → IDs verificados | Sin SQL; HS256 allowlist, `iss/aud/sub/sid/iat/exp`, duración 15 min, clave solo servidor ≥32 bytes. |
 | `randomToken` / `tokenHash` — `services/tokens.ts` | aleatoriedad → base64url; token → SHA-256 | CSPRNG 32 bytes. BD recibe solo hash refresh. |
 | `csrfToken` / `requireCsrf` — `middleware/session-http.ts` | request/response → token informativo o autorización | Cookie CSRF HttpOnly; compara Origin permitido y token de cabecera en tiempo constante. Sin tablas de CSRF. |
-| `requireSession` / `requireProfessional` / `requireAdmin` — `middleware/professional-session.ts` | request → identidad comprobada y autorización | Autentica y restringe por rol persistido; 401 sin sesión válida y 403 ante rol incorrecto. |
+| `requireSession` / `requireProfessional` / `requireAdmin` — `middleware/session.ts` | request → identidad comprobada y autorización | Autentica y restringe por rol persistido; 401 sin sesión válida y 403 ante rol incorrecto. |
 
 Web usa `login`, `readSession`, `sessionRequest`, `logout` y `authorizedReturn` en `apps/web/src/features/auth/services/session.ts`. Las lecturas privadas pueden renovar una vez, con promesa compartida y Web Locks entre pestañas cuando existen. Los contratos propios usan camelCase (`csrfToken`, `fullName`, `accountId`, `nombreCompleto`); las cookies y claims estándar conservan su nombre por compatibilidad.
 

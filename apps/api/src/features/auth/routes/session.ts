@@ -1,21 +1,14 @@
-import { Router, type RequestHandler } from 'express'
+import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
+import { csrfToken, requireCsrf } from '../middleware/session-http.js'
+import { requireSession } from '../middleware/session.js'
 import {
-  cookies,
-  csrfToken,
-  requireCsrf,
-  setSessionCookies,
-  clearSessionCookies,
-} from '../middleware/session-http.js'
-import { requireSession } from '../middleware/professional-session.js'
-import {
-  loginAccount,
-  refreshAccount,
-  logoutAccount,
-  invalidSession,
-} from '../services/session.js'
-import { publicAccount } from '../repositories/session.js'
+  loginController,
+  refreshController,
+  logoutController,
+  sessionController,
+} from '../controllers/session.js'
 
 export function sessionRoutes(pool: Pool): Router {
   const router = Router()
@@ -38,44 +31,9 @@ export function sessionRoutes(pool: Pool): Router {
       },
     })
   router.get('/csrf', limiter(100), csrfToken)
-  router.post('/login', limiter(20), requireCsrf, (async (req, res, next) => {
-    try {
-      const session = await loginAccount(pool, req.body)
-      setSessionCookies(res, session)
-      res.json({ account: session.account })
-    } catch (error) {
-      next(error)
-    }
-  }) as RequestHandler)
-  router.get('/session', requireSession(pool), (req, res) => {
-    res.json({ account: publicAccount(req.identity!) })
-  })
-  router.post('/refresh', limiter(100), requireCsrf, (async (
-    req,
-    res,
-    next,
-  ) => {
-    try {
-      const session = await refreshAccount(pool, cookies(req).cof_refresh)
-      if (!session) {
-        clearSessionCookies(res)
-        throw invalidSession()
-      }
-      setSessionCookies(res, session)
-      res.json({ account: session.account })
-    } catch (error) {
-      next(error)
-    }
-  }) as RequestHandler)
-  router.post('/logout', requireCsrf, (async (req, res, next) => {
-    try {
-      const jar = cookies(req)
-      await logoutAccount(pool, jar.cof_refresh, jar.cof_access)
-      clearSessionCookies(res)
-      res.status(204).end()
-    } catch (error) {
-      next(error)
-    }
-  }) as RequestHandler)
+  router.post('/login', limiter(20), requireCsrf, loginController(pool))
+  router.get('/session', requireSession(pool), sessionController)
+  router.post('/refresh', limiter(100), requireCsrf, refreshController(pool))
+  router.post('/logout', requireCsrf, logoutController(pool))
   return router
 }
