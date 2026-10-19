@@ -23,16 +23,27 @@ export async function currentSession(
   pool: Pool,
   id: string,
   sid: string,
+  surface: 'web' | 'any' = 'web',
 ): Promise<SessionIdentity | undefined> {
   const {
     rows: [row],
   } = await pool.query<SessionIdentity>(
-    `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role,s.id AS "sessionId",s.expires_at AS "expiresAt"
+    `SELECT a.id,a.username,a.email,
+            COALESCE(p.full_name,c.full_name,a.username) AS "fullName",
+            a.role,c.id AS "clientId",c.status AS "clientStatus",
+            s.id AS "sessionId",s.expires_at AS "expiresAt"
      FROM private.sessions s JOIN private.users a ON a.id=s.user_id
      LEFT JOIN private.professionals p ON p.user_id=a.id
-     WHERE s.id=$1 AND a.id=$2 AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)) AND a.status='active'
+     LEFT JOIN private.clients c ON c.user_id=a.id
+     WHERE s.id=$1 AND a.id=$2
+       AND (
+         a.role='admin'
+         OR (a.role='professional' AND p.id IS NOT NULL)
+         OR ($3='any' AND a.role='client' AND c.id IS NOT NULL)
+       )
+       AND a.status='active'
        AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()`,
-    [sid, id],
+    [sid, id, surface],
   )
   return row
 }
@@ -42,6 +53,7 @@ export async function insertSession(
   passwordHash: string,
   refreshHash: string,
   signAccess: (id: string, sid: string) => Promise<string>,
+  surface: 'web' | 'client' = 'web',
 ) {
   const client = await pool.connect()
   try {
@@ -49,10 +61,19 @@ export async function insertSession(
     const {
       rows: [identity],
     } = await client.query<ProfessionalIdentity>(
-      `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role FROM private.users a
+      `SELECT a.id,a.username,a.email,
+              COALESCE(p.full_name,c.full_name,a.username) AS "fullName",
+              a.role,c.id AS "clientId",c.status AS "clientStatus"
+       FROM private.users a
        LEFT JOIN private.professionals p ON p.user_id=a.id
-       WHERE a.id=$1 AND a.password_hash=$2 AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)) AND a.status='active'`,
-      [userId, passwordHash],
+       LEFT JOIN private.clients c ON c.user_id=a.id
+       WHERE a.id=$1 AND a.password_hash=$2
+         AND (
+           ($3='web' AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)))
+           OR ($3='client' AND a.role='client' AND c.id IS NOT NULL)
+         )
+         AND a.status='active'`,
+      [userId, passwordHash, surface],
     )
     if (!identity) throw invalidLogin()
     const {
@@ -86,6 +107,7 @@ export async function rotateSession(
   refreshHash: string,
   nextRefreshHash: string,
   signAccess: (id: string, sid: string) => Promise<string>,
+  surface: 'web' | 'client' = 'web',
 ) {
   const client = await pool.connect()
   try {
@@ -101,12 +123,20 @@ export async function rotateSession(
         valid: boolean
       }
     >(
-      `SELECT a.id,a.username,a.email,COALESCE(p.full_name,a.username) AS "fullName",a.role,s.id AS "sessionId",s.expires_at AS "expiresAt",s.revoked_at AS "revokedAt",t.used_at AS "usedAt",
-       (s.expires_at>clock_timestamp() AND a.status='active' AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL))) AS valid
+      `SELECT a.id,a.username,a.email,
+              COALESCE(p.full_name,c.full_name,a.username) AS "fullName",
+              a.role,c.id AS "clientId",c.status AS "clientStatus",
+              s.id AS "sessionId",s.expires_at AS "expiresAt",s.revoked_at AS "revokedAt",t.used_at AS "usedAt",
+       (s.expires_at>clock_timestamp() AND a.status='active' AND (
+         ($2='web' AND (a.role='admin' OR (a.role='professional' AND p.id IS NOT NULL)))
+         OR ($2='client' AND a.role='client' AND c.id IS NOT NULL)
+       )) AS valid
        FROM private.refresh_tokens t JOIN private.sessions s ON s.id=t.session_id
-       JOIN private.users a ON a.id=s.user_id LEFT JOIN private.professionals p ON p.user_id=a.id
+       JOIN private.users a ON a.id=s.user_id
+       LEFT JOIN private.professionals p ON p.user_id=a.id
+       LEFT JOIN private.clients c ON c.user_id=a.id
        WHERE t.token_hash=$1 FOR UPDATE OF s,t`,
-      [refreshHash],
+      [refreshHash, surface],
     )
     if (!row || row.revokedAt) throw invalidSession()
     if (row.usedAt || !row.valid) {

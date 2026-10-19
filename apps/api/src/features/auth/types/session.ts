@@ -3,7 +3,9 @@ export interface ProfessionalIdentity {
   username: string
   email: string
   fullName: string
-  role: 'professional' | 'admin'
+  role: 'professional' | 'client' | 'admin'
+  clientId?: string | null
+  clientStatus?: 'active' | 'inactive' | null
 }
 export interface SessionIdentity extends ProfessionalIdentity {
   sessionId: string

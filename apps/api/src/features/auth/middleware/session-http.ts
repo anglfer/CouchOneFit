@@ -6,6 +6,12 @@ import { randomToken } from '../services/tokens.js'
 import { AuthError } from '../types/errors.js'
 
 export const cookies = (req: Request) => parseCookie(req.headers.cookie ?? '')
+export function bearerToken(req: Request): string | undefined {
+  const header = req.get('Authorization')
+  if (!header) return undefined
+  const match = /^Bearer\s+(\S+)$/i.exec(header.trim())
+  return match ? match[1] : ''
+}
 const options = (path: string): CookieOptions => ({
   path,
   httpOnly: true,

@@ -43,6 +43,18 @@ CREATE TABLE private.professionals (
   plan_interest text CONSTRAINT ck_professionals_plan_interest CHECK (plan_interest IN ('basic', 'pro', 'elite')),
   CONSTRAINT fk_professionals_user_role FOREIGN KEY (user_id, user_role) REFERENCES private.users (id, role) ON DELETE RESTRICT
 );
+CREATE TABLE private.clients (
+  id uuid CONSTRAINT pk_clients PRIMARY KEY DEFAULT gen_random_uuid(),
+  professional_id uuid NOT NULL CONSTRAINT fk_clients_professional REFERENCES private.professionals (id) ON DELETE RESTRICT,
+  user_id uuid CONSTRAINT uk_clients_user_id UNIQUE,
+  user_role text NOT NULL DEFAULT 'client' CONSTRAINT ck_clients_user_role CHECK (user_role = 'client'),
+  full_name text NOT NULL CONSTRAINT ck_clients_full_name CHECK (char_length(btrim(full_name)) BETWEEN 2 AND 150),
+  goal text CONSTRAINT ck_clients_goal CHECK (goal IS NULL OR char_length(btrim(goal)) BETWEEN 1 AND 500),
+  status text NOT NULL DEFAULT 'active' CONSTRAINT ck_clients_status CHECK (status IN ('active', 'inactive')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_clients_user_role FOREIGN KEY (user_id, user_role) REFERENCES private.users (id, role) ON DELETE RESTRICT
+);
+CREATE INDEX idx_clients_professional_id ON private.clients (professional_id);
 CREATE TABLE private.notice_acceptances (
   id uuid CONSTRAINT pk_notice_acceptances PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL CONSTRAINT fk_notice_acceptances_user REFERENCES private.users (id) ON DELETE RESTRICT,
@@ -70,24 +82,10 @@ CREATE INDEX idx_refresh_tokens_session_id ON private.refresh_tokens(session_id)
 REVOKE ALL ON ALL TABLES IN SCHEMA private FROM PUBLIC;
 ALTER TABLE private.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.professionals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.notice_acceptances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE private.refresh_tokens ENABLE ROW LEVEL SECURITY;
-GRANT USAGE ON SCHEMA private TO couchone_registration,couchone_authentication;
-GRANT INSERT,SELECT ON private.users,private.professionals,private.notice_acceptances TO couchone_registration;
-GRANT SELECT ON private.users TO couchone_authentication;
-GRANT SELECT,INSERT,UPDATE ON private.sessions,private.refresh_tokens TO couchone_authentication;
-CREATE POLICY insert_professional_users ON private.users FOR INSERT TO couchone_registration WITH CHECK (role='professional' AND status='active');
-CREATE POLICY select_professional_users ON private.users FOR SELECT TO couchone_registration USING (role='professional');
-CREATE POLICY select_login_users ON private.users FOR SELECT TO couchone_authentication USING(true);
-CREATE POLICY insert_professionals ON private.professionals FOR INSERT TO couchone_registration WITH CHECK(true);
-CREATE POLICY select_professionals ON private.professionals FOR SELECT TO couchone_registration USING(true);
-CREATE POLICY insert_notice_acceptances ON private.notice_acceptances FOR INSERT TO couchone_registration WITH CHECK(true);
-CREATE POLICY select_notice_acceptances ON private.notice_acceptances FOR SELECT TO couchone_registration USING(true);
-CREATE POLICY manage_sessions ON private.sessions FOR ALL TO couchone_authentication USING(true) WITH CHECK(true);
-CREATE POLICY manage_refresh_tokens ON private.refresh_tokens FOR ALL TO couchone_authentication USING(true) WITH CHECK(true);
-
-
 DO $roles$
 BEGIN
   BEGIN
@@ -104,6 +102,20 @@ BEGIN
   END IF;
 END $roles$;
 GRANT USAGE ON SCHEMA private TO couchone_provision;
+GRANT USAGE ON SCHEMA private TO couchone_registration,couchone_authentication;
+GRANT INSERT,SELECT ON private.users,private.professionals,private.notice_acceptances TO couchone_registration;
+GRANT SELECT ON private.users,private.clients TO couchone_authentication;
+GRANT SELECT,INSERT,UPDATE ON private.sessions,private.refresh_tokens TO couchone_authentication;
+CREATE POLICY insert_professional_users ON private.users FOR INSERT TO couchone_registration WITH CHECK (role='professional' AND status='active');
+CREATE POLICY select_professional_users ON private.users FOR SELECT TO couchone_registration USING (role='professional');
+CREATE POLICY select_login_users ON private.users FOR SELECT TO couchone_authentication USING(true);
+CREATE POLICY insert_professionals ON private.professionals FOR INSERT TO couchone_registration WITH CHECK(true);
+CREATE POLICY select_professionals ON private.professionals FOR SELECT TO couchone_registration USING(true);
+CREATE POLICY select_clients ON private.clients FOR SELECT TO couchone_authentication USING(true);
+CREATE POLICY insert_notice_acceptances ON private.notice_acceptances FOR INSERT TO couchone_registration WITH CHECK(true);
+CREATE POLICY select_notice_acceptances ON private.notice_acceptances FOR SELECT TO couchone_registration USING(true);
+CREATE POLICY manage_sessions ON private.sessions FOR ALL TO couchone_authentication USING(true) WITH CHECK(true);
+CREATE POLICY manage_refresh_tokens ON private.refresh_tokens FOR ALL TO couchone_authentication USING(true) WITH CHECK(true);
 GRANT SELECT (id,username,email,role,status), INSERT (username,email,password_hash,role)
   ON private.users TO couchone_provision;
 CREATE POLICY insert_controlled_admins ON private.users

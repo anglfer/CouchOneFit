@@ -9,28 +9,31 @@ El producto usa PostgreSQL mediante su propia autenticación de API; no usa Supa
 ```mermaid
 erDiagram
   USERS ||--o| PROFESSIONALS : "user_id unique"
+  USERS ||--o| CLIENTS : "user_id unique"
+  PROFESSIONALS ||--o{ CLIENTS : professional_id
   USERS ||--o{ NOTICE_ACCEPTANCES : user_id
   USERS ||--o{ SESSIONS : user_id
   SESSIONS ||--o{ REFRESH_TOKENS : session_id
 ```
 
-| Tabla | Campos | Reglas |
-| --- | --- | --- |
-| `private.users` | `id`, `username`, `email`, `password_hash`, `role`, `status`, `created_at` | Llave primaria UUID; usuario y correo únicos normalizados; roles `professional`, `client` o `admin`; estados `active` o `inactive`. Los hashes de contraseña usan Argon2id. |
-| `private.professionals` | `id`, `user_id`, `user_role`, `full_name`, `phone`, `plan_interest` | Un perfil por cuenta; `user_role` siempre es `professional`; el plan opcional es `basic`, `pro` o `elite`. Un plan de interés no crea una suscripción. |
-| `private.notice_acceptances` | `id`, `user_id`, `version`, `accepted_at` | Una aceptación por persona usuaria y versión del aviso. |
-| `private.sessions` | `id`, `user_id`, `created_at`, `expires_at`, `revoked_at` | Vigencia absoluta de 30 días; la revocación invalida el acceso y los tokens de renovación. |
-| `private.refresh_tokens` | `id`, `token_hash`, `session_id`, `created_at`, `used_at` | Guarda únicamente hashes SHA-256 de tokens; conserva los tokens usados para detectar intentos de repetición. |
+| Tabla                        | Campos                                                                                       | Reglas                                                                                                                                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `private.users`              | `id`, `username`, `email`, `password_hash`, `role`, `status`, `created_at`                   | Llave primaria UUID; usuario y correo únicos normalizados; roles `professional`, `client` o `admin`; estados `active` o `inactive`. Los hashes de contraseña usan Argon2id.            |
+| `private.professionals`      | `id`, `user_id`, `user_role`, `full_name`, `phone`, `plan_interest`                          | Un perfil por cuenta; `user_role` siempre es `professional`; el plan opcional es `basic`, `pro` o `elite`. Un plan de interés no crea una suscripción.                                 |
+| `private.clients`            | `id`, `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `status`, `created_at` | Expediente del cliente creado por su profesional; `user_id` es único y anulable hasta activar la cuenta; `user_role` siempre es `client` con FK compuesta a `private.users(id, role)`. |
+| `private.notice_acceptances` | `id`, `user_id`, `version`, `accepted_at`                                                    | Una aceptación por persona usuaria y versión del aviso.                                                                                                                                |
+| `private.sessions`           | `id`, `user_id`, `created_at`, `expires_at`, `revoked_at`                                    | Vigencia absoluta de 30 días; la revocación invalida el acceso y los tokens de renovación.                                                                                             |
+| `private.refresh_tokens`     | `id`, `token_hash`, `session_id`, `created_at`, `used_at`                                    | Guarda únicamente hashes SHA-256 de tokens; conserva los tokens usados para detectar intentos de repetición.                                                                           |
 
 Todas las llaves foráneas de cuentas, perfiles y sesiones usan `ON DELETE RESTRICT`. Desactivar una cuenta conserva su historial. Las tablas privadas tienen seguridad por filas y no se exponen mediante Supabase Data API.
 
 ## Roles de base de datos
 
-| Rol | Propósito |
-| --- | --- |
-| `couchone_registration` | Registrar cuentas profesionales, perfiles y aceptación del aviso. |
-| `couchone_authentication` | Hereda permisos de registro y administra sesiones y hashes de tokens de renovación. |
-| `couchone_provision` | Preparar una cuenta administrativa una sola vez; nunca se concede al proceso de API en ejecución. |
+| Rol                       | Propósito                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `couchone_registration`   | Registrar cuentas profesionales, perfiles y aceptación del aviso.                                 |
+| `couchone_authentication` | Hereda permisos de registro y administra sesiones y hashes de tokens de renovación.               |
+| `couchone_provision`      | Preparar una cuenta administrativa una sola vez; nunca se concede al proceso de API en ejecución. |
 
 Todos los roles de aplicación tienen `NOLOGIN`. La API autoriza cada solicitud con el rol persistido de la cuenta y su estado activo. Un dato del cliente o una declaración de JWT no puede conceder un rol.
 

@@ -5,8 +5,11 @@ import { csrfToken, requireCsrf } from '../middleware/session-http.js'
 import { requireSession } from '../middleware/session.js'
 import {
   loginController,
+  clientLoginController,
   refreshController,
+  clientRefreshController,
   logoutController,
+  clientLogoutController,
   sessionController,
 } from '../controllers/session.js'
 
@@ -32,8 +35,11 @@ export function sessionRoutes(pool: Pool): Router {
     })
   router.get('/csrf', limiter(100), csrfToken)
   router.post('/login', limiter(20), requireCsrf, loginController(pool))
+  router.post('/client/login', limiter(20), clientLoginController(pool))
   router.get('/session', requireSession(pool), sessionController)
   router.post('/refresh', limiter(100), requireCsrf, refreshController(pool))
+  router.post('/client/refresh', limiter(100), clientRefreshController(pool))
   router.post('/logout', requireCsrf, logoutController(pool))
+  router.post('/client/logout', clientLogoutController(pool))
   return router
 }

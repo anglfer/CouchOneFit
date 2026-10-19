@@ -39,7 +39,7 @@ try {
     (await hasHistory()) === 'legacy'
       ? { table: 'migraciones.historial', filename: 'nombre', checksum: 'suma_verificacion' }
       : { table: 'migrations.history', filename: 'filename', checksum: 'checksum' }
-  const tracking = await trackingSchema()
+  let tracking = await trackingSchema()
   const { rows: applied } = await client.query(
     `SELECT ${tracking.filename} AS filename FROM ${tracking.table}`,
   )
@@ -60,9 +60,9 @@ try {
       continue
     }
     await client.query(sql)
-    const currentTracking = await trackingSchema()
+    tracking = await trackingSchema()
     await client.query(
-      `INSERT INTO ${currentTracking.table} (${currentTracking.filename},${currentTracking.checksum}) VALUES ($1,$2)`,
+      `INSERT INTO ${tracking.table} (${tracking.filename},${tracking.checksum}) VALUES ($1,$2)`,
       [name, checksum],
     )
     console.log(`Applied: ${name}`)

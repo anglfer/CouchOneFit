@@ -12,6 +12,7 @@ import { AuthError } from './features/auth/types/errors.js'
 import { sessionRoutes } from './features/auth/routes/session.js'
 import { professionalRoutes } from './features/professional/routes/professional.js'
 import { adminRoutes } from './features/admin/routes/admin.js'
+import { clientRoutes } from './features/client/routes/client.js'
 
 export function createApp(database: Pool): Express {
   const app = express()
@@ -28,6 +29,7 @@ export function createApp(database: Pool): Express {
   app.use('/api/auth', sessionRoutes(database))
   app.use('/api/admin', adminRoutes(database))
   app.use('/api/professional', professionalRoutes(database))
+  app.use('/api/client', clientRoutes(database))
   app.use((_req, res) => {
     res
       .status(404)

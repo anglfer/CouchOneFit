@@ -13,11 +13,16 @@ docs/epicas/
     hu-002/
       README.md
       plan-implementacion.md
+    hu-003/
+      README.md
+    hu-004/
+      README.md
+      plan-implementacion.md
 ```
 
 | Épica | Historias documentadas |
 | --- | --- |
-| [EP-01 — Identidad y acceso](ep-01-identidad-y-acceso/README.md) | [HU-001 — Registro profesional](ep-01-identidad-y-acceso/hu-001/README.md), [HU-002 — Acceso profesional](ep-01-identidad-y-acceso/hu-002/README.md), [HU-003 — Acceso administrativo](ep-01-identidad-y-acceso/hu-003/README.md) |
+| [EP-01 — Identidad y acceso](ep-01-identidad-y-acceso/README.md) | [HU-001 — Registro profesional](ep-01-identidad-y-acceso/hu-001/README.md), [HU-002 — Acceso profesional](ep-01-identidad-y-acceso/hu-002/README.md), [HU-003 — Acceso administrativo](ep-01-identidad-y-acceso/hu-003/README.md), [HU-004 — Acceso posterior cliente](ep-01-identidad-y-acceso/hu-004/README.md) |
 
 Cada HU documenta propósito, alcance, dependencias, contrato HTTP, recorrido, funciones y persistencia involucradas, errores, pruebas y estado real. Su plan de implementación y evidencia local viven dentro de la misma carpeta. Las nuevas épicas/historias se añaden cuando se trabajen, sin crear carpetas vacías para todo el backlog.
 

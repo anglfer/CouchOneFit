@@ -22,3 +22,22 @@ export function validateLogin(input: unknown): Login {
     password: body.password,
   }
 }
+
+export function validateRefreshPayload(input: unknown): string | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
+  const body = input as Record<string, unknown>
+  if (Object.keys(body).some((key) => key !== 'refreshToken'))
+    throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
+  return typeof body.refreshToken === 'string' ? body.refreshToken.trim() : undefined
+}
+
+export function validateLogoutPayload(input: unknown): string | undefined {
+  if (input === undefined || input === null) return undefined
+  if (typeof input !== 'object' || Array.isArray(input))
+    throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
+  const body = input as Record<string, unknown>
+  if (Object.keys(body).some((key) => key !== 'refreshToken'))
+    throw new AuthError(400, 'INVALID_LOGIN', 'Revisa los datos de acceso.')
+  return typeof body.refreshToken === 'string' ? body.refreshToken.trim() : undefined
+}

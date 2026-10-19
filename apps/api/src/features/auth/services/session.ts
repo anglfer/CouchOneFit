@@ -16,7 +16,11 @@ import { invalidLogin, invalidSession } from '../types/errors.js'
 
 let dummyHash: Promise<string> | undefined
 
-export async function loginAccount(pool: Pool, input: unknown) {
+export async function loginAccount(
+  pool: Pool,
+  input: unknown,
+  surface: 'web' | 'client' = 'web',
+) {
   const data = validateLogin(input)
   const account = await findLoginAccount(pool, data.identifier)
   // Keep password-hash work consistent for unknown identifiers.
@@ -29,12 +33,11 @@ export async function loginAccount(pool: Pool, input: unknown) {
       parallelism: 1,
     })))
   const matches = await verify(digest, data.password)
-  if (
-    !account ||
-    !matches ||
-    (account.role !== 'professional' && account.role !== 'admin') ||
-    account.status !== 'active'
-  )
+  const roleAllowed =
+    surface === 'client'
+      ? account?.role === 'client'
+      : account?.role === 'professional' || account?.role === 'admin'
+  if (!account || !matches || !roleAllowed || account.status !== 'active')
     throw invalidLogin()
   const refresh = randomToken()
   const session = await insertSession(
@@ -43,7 +46,9 @@ export async function loginAccount(pool: Pool, input: unknown) {
     account.passwordHash,
     tokenHash(refresh),
     signAccess,
+    surface,
   )
+  if (!session) throw invalidLogin()
   return {
     access: session.access,
     refresh,
@@ -55,10 +60,11 @@ export async function loginAccount(pool: Pool, input: unknown) {
 export async function authenticate(
   pool: Pool,
   token: string | undefined,
+  surface: 'web' | 'any' = 'web',
 ): Promise<SessionIdentity> {
   if (!token) throw invalidSession()
   const { id, sid } = await verifyAccess(token)
-  const identity = await currentSession(pool, id, sid)
+  const identity = await currentSession(pool, id, sid, surface)
   if (!identity) {
     await revokeSession(pool, sid, id)
     throw invalidSession()
@@ -66,7 +72,11 @@ export async function authenticate(
   return identity
 }
 
-export async function refreshAccount(pool: Pool, token: string | undefined) {
+export async function refreshAccount(
+  pool: Pool,
+  token: string | undefined,
+  surface: 'web' | 'client' = 'web',
+) {
   if (!token || !/^[\w-]{43}$/.test(token)) throw invalidSession()
   const refresh = randomToken()
   const session = await rotateSession(
@@ -74,6 +84,7 @@ export async function refreshAccount(pool: Pool, token: string | undefined) {
     tokenHash(token),
     tokenHash(refresh),
     signAccess,
+    surface,
   )
   if (!session) return null
   return {
