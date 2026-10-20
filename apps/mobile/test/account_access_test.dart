@@ -61,16 +61,18 @@ void main() {
     await fill(tester, 'emailConfirmation', 'cliente@example.com');
     await fill(tester, 'password', password);
     await fill(tester, 'passwordConfirmation', 'no coincide');
-    await tester.ensureVisible(find.text('Activar cuenta'));
-    await tester.tap(find.text('Activar cuenta'));
+    await tester
+        .ensureVisible(find.widgetWithText(FilledButton, 'Activar mi cuenta'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Activar mi cuenta'));
     await tester.pumpAndSettle();
     expect(calls, 0);
     await fill(tester, 'passwordConfirmation', password);
     await tester.ensureVisible(find.byType(CheckboxListTile));
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pump();
-    await tester.ensureVisible(find.text('Activar cuenta'));
-    await tester.tap(find.text('Activar cuenta'));
+    await tester
+        .ensureVisible(find.widgetWithText(FilledButton, 'Activar mi cuenta'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Activar mi cuenta'));
     await tester.pumpAndSettle();
     expect(captured!.path, '/api/auth/activation');
     expect(captured!.body!.keys.toSet(), {
@@ -88,7 +90,8 @@ void main() {
     expect(captured!.body!['noticeVersion'], '2026-10-15.1');
     expect(
         find.text('El usuario o correo no está disponible.'), findsOneWidget);
-    expect(find.text('Activar cuenta'), findsOneWidget);
+    expect(
+        find.widgetWithText(FilledButton, 'Activar mi cuenta'), findsOneWidget);
   });
   testWidgets(
       'prevalidation does not submit activation and loading blocks duplicate requests',
@@ -102,7 +105,7 @@ void main() {
       return pending.future;
     });
     await fill(tester, 'code', code);
-    final button = find.text('Comprobar código sin consumirlo');
+    final button = find.text('Comprobar código');
     await tester.ensureVisible(button);
     await tester.tap(button);
     await tester.pump();
@@ -123,12 +126,13 @@ void main() {
       captured = request;
       return const ApiHttpResponse(statusCode: 204);
     });
-    expect(find.textContaining('relación conocida'), findsOneWidget);
+    expect(find.textContaining('código de recuperación válido por 30 minutos'),
+        findsOneWidget);
     await fill(tester, 'code', code);
     await fill(tester, 'password', password);
     await fill(tester, 'passwordConfirmation', password);
-    await tester.ensureVisible(find.text('Guardar credenciales'));
-    await tester.tap(find.text('Guardar credenciales'));
+    await tester.ensureVisible(find.text('Guardar cambios'));
+    await tester.tap(find.text('Guardar cambios'));
     await tester.pumpAndSettle();
     expect(captured!.path, '/api/auth/recovery/reset');
     expect(captured!.body!.keys.toSet(),

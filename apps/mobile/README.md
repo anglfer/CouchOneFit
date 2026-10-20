@@ -8,6 +8,19 @@ Aplicación móvil orientada a los clientes y atletas de CouchOne Fit, desarroll
 
 La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. Inicio/Planes/Progreso/Cuenta y las tarjetas de entrenamiento/alimentación/check-in siguen siendo composición prevista por sus HU; esta actualización no implementa esas pantallas. No agrega agenda, chat, notificaciones, rachas o fotografías.
 
+## Interacción móvil
+
+Bienvenida, acceso y expediente comparten respuestas táctiles y transiciones breves.
+La cabecera compacta, la tipografía y las superficies siguen una misma composición;
+las líneas de las tarjetas se dibujan una sola vez al entrar, sin movimiento continuo.
+El expediente presenta identidad y objetivo en tarjetas, conserva sus acciones de
+cuenta y permite actualizar deslizando hacia abajo. Los datos siguen viniendo de
+la API; no se muestran métricas ni módulos pendientes.
+
+La preferencia de movimiento reducido del teléfono desactiva entradas, el trazado
+de las tarjetas y rebotes. Las pruebas cubren anchos de 320, 390 y 768 unidades,
+texto ampliado, ambos temas, presión/cancelación y actualización por gesto.
+
 ## Arquitectura
 
 Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Based_) según la especificación oficial en `docs/architecture/README.md`.
