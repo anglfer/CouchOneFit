@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import '../../features/auth/models/session_models.dart';
 import '../../features/auth/services/session_storage.dart';
+import 'api_config.dart';
 
 class ApiHttpRequest {
   const ApiHttpRequest({
@@ -38,13 +41,13 @@ class ApiClient {
     JsonHttpHandler? httpHandler,
     DateTime Function()? now,
   })  : _sessionStorage = sessionStorage,
-        _baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:3000',
-            ),
+        _baseUrl = baseUrl ?? ApiConfig.baseUrl,
         _httpHandler = httpHandler,
-        _now = now;
+        _now = now {
+    if (kReleaseMode && Uri.parse(_baseUrl).scheme != 'https') {
+      throw ArgumentError('Configura API_BASE_URL con HTTPS para producción.');
+    }
+  }
 
   final SessionStorage _sessionStorage;
   final String _baseUrl;
@@ -116,7 +119,9 @@ class ApiClient {
 
     if (response.statusCode >= 400) {
       if (authenticated &&
-          (response.statusCode == 401 || response.statusCode == 403)) {
+          (response.statusCode == 401 ||
+              (response.statusCode == 403 &&
+                  _extractException(response).code == 'ROLE_FORBIDDEN'))) {
         await _sessionStorage.clearSession();
       }
       throw _extractException(response);
@@ -245,7 +250,8 @@ class ApiClient {
     if (handler != null) {
       return handler(request);
     }
-    final client = HttpClient();
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
     try {
       final uri = Uri.parse('$_baseUrl$path');
       final httpRequest = await client.openUrl(method, uri);
@@ -253,8 +259,12 @@ class ApiClient {
       if (body != null) {
         httpRequest.add(utf8.encode(jsonEncode(body)));
       }
-      final httpResponse = await httpRequest.close();
-      final text = await utf8.decoder.bind(httpResponse).join();
+      final httpResponse =
+          await httpRequest.close().timeout(const Duration(seconds: 15));
+      final text = await utf8.decoder
+          .bind(httpResponse)
+          .join()
+          .timeout(const Duration(seconds: 15));
       var decodedBody = <String, Object?>{};
       if (text.trim().isNotEmpty) {
         final parsed = jsonDecode(text);
@@ -266,6 +276,13 @@ class ApiClient {
         statusCode: httpResponse.statusCode,
         body: decodedBody,
       );
+    } on TimeoutException {
+      return const ApiHttpResponse(statusCode: 503, body: {
+        'error': {
+          'code': 'SERVICE_UNAVAILABLE',
+          'message': 'La conexión tardó demasiado. Inténtalo de nuevo.'
+        }
+      });
     } on SocketException {
       return const ApiHttpResponse(
         statusCode: 503,

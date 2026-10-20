@@ -8,13 +8,36 @@ Aplicación móvil orientada a los clientes y atletas de CouchOne Fit, desarroll
 
 La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. Inicio/Planes/Progreso/Cuenta y las tarjetas de entrenamiento/alimentación/check-in siguen siendo composición prevista por sus HU; esta actualización no implementa esas pantallas. No agrega agenda, chat, notificaciones, rachas o fotografías.
 
+## Interacción móvil
+
+Bienvenida, acceso y expediente comparten respuestas táctiles y transiciones breves.
+La cabecera compacta, la tipografía y las superficies siguen una misma composición;
+las líneas de las tarjetas se dibujan una sola vez al entrar, sin movimiento continuo.
+El expediente presenta identidad y objetivo en tarjetas, conserva sus acciones de
+cuenta y permite actualizar deslizando hacia abajo. Los datos siguen viniendo de
+la API; no se muestran métricas ni módulos pendientes.
+
+La preferencia de movimiento reducido del teléfono desactiva entradas, el trazado
+de las tarjetas y rebotes. Las pruebas cubren anchos de 320, 390 y 768 unidades,
+texto ampliado, ambos temas, presión/cancelación y actualización por gesto.
+
 ## Arquitectura
 
 Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Based_) según la especificación oficial en `docs/architecture/README.md`.
 
 ## Nombres de código y API
 
-Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros, las llaves JSON y los valores de roles o estados persistidos o enviados por API. Cuando una funcionalidad móvil empiece a consumir esos contratos, sigue el [glosario compartido de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles de la aplicación. Las pantallas móviles actuales todavía no llaman a la API de identidad ni de perfil.
+Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros y las llaves JSON; roles/estados en inglés y minúsculas. Sigue el [glosario de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles. Login, perfil propio, activación, credenciales y recuperación consumen la API de identidad propia.
+
+## Activación y seguridad HU-006–009
+
+Desde login: «Activar mi cuenta» y «Recuperar mi acceso». Desde expediente: «Cambiar mis credenciales». Confirmaciones/aviso versionado obligatorios y canje atómico en servidor; no se recapturan nombre ni datos físicos. Cambiar contraseña revoca todas las sesiones y guía al reingreso. [Contratos, tareas y evidencia](../../docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md).
+
+Android guarda access/refresh/vencimiento mediante el canal `couchonefit/secure_session`: cifrado AES-256-GCM en preferencias privadas con clave no exportable de Android Keystore. No persiste contraseñas/códigos. Restaurar un cifrado inválido no revive una sesión. El fallback en memoria permite pruebas de widgets/plataformas sin canal nativo; iOS requiere integrar y verificar su almacenamiento nativo antes de distribución, no se acredita como validado desde Windows.
+
+La API se configura en el [archivo de entorno móvil](#url-de-la-api). El cliente rechaza HTTP en release. El manifest principal incluye INTERNET. Las peticiones tienen tiempos de espera y no exponen tokens en errores.
+
+Pruebas: `flutter analyze`, `flutter test` y [recorrido Android real](integration_test/account_lifecycle_test.dart). La única dependencia nueva es `integration_test` del SDK en desarrollo y sus transitivas; no se actualizan versiones ya fijadas. Preparación/reproducción en la evidencia de las HU.
 
 ```text
 mobile/
@@ -46,3 +69,46 @@ mobile/
 - Instalar dependencias: `flutter pub get`
 - Ejecutar en desarrollo: `flutter run`
 - Análisis de código: `flutter analyze`
+
+## URL de la API
+
+Edita `apps/mobile/.env.json`; la app lo lee automáticamente al arrancar. No hace
+falta pasar argumentos al ejecutar ni modificar código Dart. El archivo local
+está ignorado por Git. En una copia nueva del repositorio, créalo desde el ejemplo:
+
+```powershell
+cd apps/mobile
+Copy-Item .env.example .env.json
+```
+
+Contenido para el emulador Android y la API local habitual en el puerto3000:
+
+```json
+{
+  "API_BASE_URL": "http://10.0.2.2:3000"
+}
+```
+
+Después usa `flutter run` o el botón de ejecutar del editor. Al cambiar la URL,
+detén y vuelve a ejecutar la app para incorporar el archivo actualizado.
+
+- Emulador Android: `http://10.0.2.2:3000`.
+- Teléfono físico: la IP de tu computadora en la misma red, por ejemplo
+  `http://192.168.1.100:3000`; `localhost` en el teléfono apunta al propio teléfono.
+- Distribución: `https://api.ferkxo.tech`, API productiva existente en Render.
+  Cambia `API_BASE_URL` en el archivo de entorno del build de distribución;
+  conserva la dirección local para desarrollar. HTTP solo está permitido en
+  compilaciones debug de Android, y el cliente exige HTTPS en release.
+
+`lib/shared/services/api_config.dart` centraliza la lectura y validación;
+`ApiClient` consume esa configuración. Para automatización sigue disponible
+`--dart-define=API_BASE_URL=...`, que tiene prioridad sobre el archivo; es opcional.
+El recorrido Android de las HU usa su puerto de pruebas35412 mediante esa opción.
+No hay cambio automático de una API local a producción ante errores de red.
+El [estado del despliegue](../../docs/architecture/despliegue.md) distingue la
+disponibilidad de la API productiva y las comprobaciones de sus endpoints.
+
+El archivo se incluye como recurso en la app compilada usando el
+[mecanismo de assets de Flutter](https://docs.flutter.dev/ui/assets/assets-and-images).
+Solo debe contener configuración pública como la URL de la API: nunca
+`DATABASE_URL`, contraseñas ni claves privadas de Supabase. No agrega dependencias.

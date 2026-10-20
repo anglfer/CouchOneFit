@@ -95,6 +95,9 @@ export default function AccessPage(): ReactElement {
           </p>
         )}
 
+        <Link to="/recuperar" className="block mb-4 text-sm text-indigo-600">
+          ¿Olvidaste tu contraseña o perdiste tu dispositivo?
+        </Link>
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="space-y-4">
             <legend className="sr-only">Acceso a tu cuenta</legend>

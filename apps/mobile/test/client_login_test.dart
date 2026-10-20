@@ -86,6 +86,11 @@ void main() {
     expect(find.textContaining('código'), findsNothing);
     expect(find.text('Iniciar sesión'), findsOneWidget);
 
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('welcome_login_button')));
+    await tester.tap(find.byKey(const ValueKey('welcome_login_button')));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const ValueKey('login_identifier_field')),
       'sofia.fit@example.com',
@@ -94,6 +99,8 @@ void main() {
       find.byKey(const ValueKey('login_password_field')),
       'ClaveSuperSecreta#2026',
     );
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('login_submit_button')));
     await tester.tap(find.byKey(const ValueKey('login_submit_button')));
     await tester.pumpAndSettle();
 
@@ -104,7 +111,8 @@ void main() {
     expect(find.text('Mejorar resistencia y movilidad'), findsOneWidget);
 
     // Payload sent only identifier and password, never code
-    expect(capturedLoginRequest?.body?.keys.toSet(), {'identifier', 'password'});
+    expect(
+        capturedLoginRequest?.body?.keys.toSet(), {'identifier', 'password'});
 
     // Storage holds tokens only, never the password
     final storedRaw = storage.rawEntries.values.join(' ');
@@ -211,6 +219,8 @@ void main() {
 
     // 2. Server revokes session / disables account; refreshing expediente drops session and wipes storage
     sessionRevokedOnServer = true;
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('refresh_profile_button')));
     await tester.tap(find.byKey(const ValueKey('refresh_profile_button')));
     await tester.pumpAndSettle();
 
@@ -277,6 +287,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('welcome_login_button')));
+    await tester.tap(find.byKey(const ValueKey('welcome_login_button')));
+    await tester.pumpAndSettle();
+
     await tester.enterText(
       find.byKey(const ValueKey('login_identifier_field')),
       'inactivo@example.com',
@@ -285,7 +300,8 @@ void main() {
       find.byKey(const ValueKey('login_password_field')),
       'Clave#2026',
     );
-    await tester.ensureVisible(find.byKey(const ValueKey('login_submit_button')));
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('login_submit_button')));
     await tester.tap(find.byKey(const ValueKey('login_submit_button')));
     await tester.pumpAndSettle();
 
@@ -298,7 +314,8 @@ void main() {
 
     // Even if an unexpected non-client role payload were returned, mobile rejects it with 403
     mode = 'professional_payload';
-    await tester.ensureVisible(find.byKey(const ValueKey('login_submit_button')));
+    await tester
+        .ensureVisible(find.byKey(const ValueKey('login_submit_button')));
     await tester.tap(find.byKey(const ValueKey('login_submit_button')));
     await tester.pumpAndSettle();
 

@@ -117,6 +117,19 @@ ThemeData mobileTheme(Brightness brightness) {
       foregroundColor: WidgetStateProperty.resolveWith((states) =>
           states.contains(WidgetState.disabled) ? muted : Colors.white),
     )),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: dark ? secondary : primary,
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: dark ? secondary : primary,
+        minimumSize: const Size(48, 48),
+      ),
+    ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: dark ? const Color(0xFF081126) : Colors.white,
       surfaceTintColor: Colors.transparent,

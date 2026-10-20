@@ -1,0 +1,830 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CouchOne Fit — ciclo de identidad HU-006–009",
+    "version": "2026-10-19",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Desarrollo local; producción requiere TLS."
+    }
+  ],
+  "paths": {
+    "/api/me/credentials": {
+      "patch": {
+        "operationId": "changeOwnCredentials",
+        "summary": "HU-006: cambia usuario/clave propios, exige clave actual y revoca todas las sesiones.",
+        "security": [
+          {
+            "bearerSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Credenciales actualizadas; reingreso obligatorio.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients": {
+      "get": {
+        "operationId": "listOwnClientAccess",
+        "summary": "Expedientes propios; sin códigos ni hashes; lista vacía sin suscripción activa.",
+        "security": [
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cartera privada.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "clients": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ClientRecord"
+                      }
+                    }
+                  },
+                  "required": [
+                    "clients"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}/invitations": {
+      "parameters": [
+        {
+          "name": "clientId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "issueClientInvitation",
+        "summary": "HU-007: genera o reemplaza; TTL7d; expediente propio activo no vinculado, profesional/sub activos. Sin segunda reserva.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Código nuevo; anterior invalidado tras COMMIT.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeDelivery"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "revokeClientInvitation",
+        "summary": "Revoca la invitación del expediente propio.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Temporal eliminado.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/activation/prevalidate": {
+      "post": {
+        "operationId": "prevalidateInvitation",
+        "summary": "Anónimo. No consume ni expone expediente; canje revalida.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Disponible en este instante.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "valid": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "valid"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/activation": {
+      "post": {
+        "operationId": "activateClientAccount",
+        "summary": "HU-008: cuenta+vínculo+aviso+DELETE atómicos; sesión después de COMMIT.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Activation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cuenta activada; sesión móvil o guía de login si falla emisión posterior.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/recovery-targets": {
+      "get": {
+        "operationId": "listAuthorizedRecoveryTargets",
+        "summary": "Solo clientes propios para profesional; profesionales/otros admins para admin. Nunca público.",
+        "security": [
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cuentas autorizadas.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecoveryTarget"
+                      }
+                    }
+                  },
+                  "required": [
+                    "accounts"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{userId}/recovery": {
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "issueAssistedReset",
+        "summary": "HU-009: operador autorizado corrobora relación conocida fuera de banda y reautentica. Reemplaza código anterior; TTL30min.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Verification"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Código de entrega privada; el titular elige la clave.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeDelivery"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/recovery/reset": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "HU-009: consume código separado, cambia clave y revoca sesiones en una transacción. No crea cuenta/expediente.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reset"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Contraseña cambiada; reingreso obligatorio.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Credentials": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "trim/lower, ASCII [a-z0-9._], 3–30 caracteres"
+          },
+          "currentPassword": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "15–128 puntos de código Unicode; sin trim, normalización ni truncamiento."
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "username",
+          "currentPassword",
+          "password",
+          "passwordConfirmation"
+        ]
+      },
+      "Activation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "emailConfirmation": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "15–128 puntos de código Unicode; sin trim, normalización ni truncamiento."
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "writeOnly": true
+          },
+          "noticeVersion": {
+            "const": "2026-10-15.1"
+          },
+          "acceptsNotice": {
+            "const": true
+          }
+        },
+        "required": [
+          "username",
+          "email",
+          "emailConfirmation",
+          "password",
+          "passwordConfirmation",
+          "code",
+          "noticeVersion",
+          "acceptsNotice"
+        ]
+      },
+      "Reset": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "writeOnly": true
+          },
+          "password": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "15–128 puntos de código Unicode; sin trim, normalización ni truncamiento."
+          },
+          "passwordConfirmation": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "code",
+          "password",
+          "passwordConfirmation"
+        ]
+      },
+      "Verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "identityVerified": {
+            "const": true
+          },
+          "verificationMethod": {
+            "const": "known_relationship"
+          },
+          "currentPassword": {
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "identityVerified",
+          "verificationMethod",
+          "currentPassword"
+        ]
+      },
+      "CodeDelivery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Entrega privada única; no persistir ni registrar."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "code",
+          "expiresAt"
+        ]
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "role": {
+            "const": "client"
+          },
+          "status": {
+            "const": "active"
+          },
+          "clientStatus": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "clientId",
+          "username",
+          "email",
+          "fullName",
+          "role",
+          "status",
+          "clientStatus"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresAt"
+        ]
+      },
+      "ActivationResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "activated": {
+                "const": true
+              },
+              "account": {
+                "$ref": "#/components/schemas/Account"
+              },
+              "session": {
+                "$ref": "#/components/schemas/Session"
+              }
+            },
+            "required": [
+              "activated",
+              "account",
+              "session"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "activated": {
+                "const": true
+              },
+              "requiresLogin": {
+                "const": true
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "activated",
+              "requiresLogin",
+              "message"
+            ]
+          }
+        ]
+      },
+      "ClientRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "invitationExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "fullName",
+          "goal",
+          "status",
+          "invitationExpiresAt"
+        ]
+      },
+      "RecoveryTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "professional",
+              "admin",
+              "client"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "webSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "cof_access"
+      },
+      "csrfToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      },
+      "bearerSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -12,6 +12,30 @@ class AuthService {
   final ApiClient _apiClient;
   final SessionStorage _sessionStorage;
 
+  Future<bool> activate(Map<String, Object?> body) async {
+    final payload =
+        await _apiClient.postJson('/api/auth/activation', body: body);
+    if (payload['requiresLogin'] == true) return false;
+    await _saveLogin(payload);
+    return true;
+  }
+
+  Future<void> prevalidate(String code) async {
+    await _apiClient
+        .postJson('/api/auth/activation/prevalidate', body: {'code': code});
+  }
+
+  Future<void> changeCredentials(Map<String, Object?> body) async {
+    await _apiClient.requestJson('PATCH', '/api/me/credentials',
+        body: body, authenticated: true);
+    await _sessionStorage.clearSession();
+  }
+
+  Future<void> resetPassword(Map<String, Object?> body) async {
+    await _apiClient.postJson('/api/auth/recovery/reset', body: body);
+    await _sessionStorage.clearSession();
+  }
+
   Future<ClientAccount> login({
     required String identifier,
     required String password,
@@ -33,6 +57,10 @@ class AuthService {
       },
     );
 
+    return _saveLogin(payload);
+  }
+
+  Future<ClientAccount> _saveLogin(Map<String, Object?> payload) async {
     final rawAccount = payload['account'];
     final rawSession = payload['session'];
     if (rawAccount is! Map || rawSession is! Map) {
@@ -99,4 +127,3 @@ class AuthService {
     await _apiClient.logoutSession();
   }
 }
-

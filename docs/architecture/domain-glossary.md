@@ -69,4 +69,6 @@ Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `
 
 ## Alcance
 
+HU-006–009 añade `subscriptions` (`professional_id`, `plan`, `status`, `expires_at`), `invitations` (`client_id`, `token_hash`), `password_resets` (`user_id`, `issued_by`, `token_hash`) y `access_events` (`actor_id`, `subject_id`, `client_id`, `action`). JSON usa `currentPassword`, `passwordConfirmation`, `code`, `expiresAt`, `invitationExpiresAt`, `identityVerified`, `verificationMethod`, `activated`, `requiresLogin`. Los secretos no son identificadores de expediente ni se conservan tras el canje. [Modelo incremental](../database/modelo-ciclo-acceso.md).
+
 Este glosario cubre el esquema y los contratos de identidad y acceso implementados actualmente. Antes de implementar otros dominios, agrega aquí sus nombres acordados. Las etiquetas, los mensajes, los correos y los textos de accesibilidad que ve la persona usuaria permanecen en español.

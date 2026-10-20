@@ -1,6 +1,40 @@
 # Estrategia de Infraestructura y Despliegue
 
-Arquitectura operativa de CouchOne Fit: Web/PWA, API y PostgreSQL centralizado. Registro, acceso profesional y sesiones están implementados localmente; pagos y demás módulos conservan sus propios incrementos. Las instrucciones y objetivos de este documento requieren verificación en el entorno de despliegue; no acreditan disponibilidad ni configuración remota. Plan y dependencias: [PLAN_TRABAJO_V2.md](../../PLAN_TRABAJO_V2.md).
+Arquitectura operativa de CouchOne Fit: Web/PWA, API y PostgreSQL centralizado. La API de producción está publicada en Render en **https://api.ferkxo.tech**. El desarrollo de Web y móvil utiliza la API local; no cambia automáticamente a producción si falla una solicitud. Pagos y demás módulos conservan sus propios incrementos. Plan y dependencias: [PLAN_TRABAJO_V2.md](../../plan/PLAN_TRABAJO_V2.md).
+
+## Entornos y estado comprobado — 19 de octubre de 2026
+
+| Uso | Destino de API |
+| --- | --- |
+| Producción móvil | `https://api.ferkxo.tech`, configurado en el `.env.json` del build de distribución. |
+| Producción Web | `/api` del mismo origen; [Vercel](../../apps/web/vercel.json) lo reenvía a `https://api.ferkxo.tech/api/:path*`. |
+| Desarrollo Web | `/api` del mismo origen en puerto5000; Vite lo reenvía a `http://localhost:3000`. |
+| Desarrollo móvil Android emulado | `http://10.0.2.2:3000`, mediante `apps/mobile/.env.json`. En teléfono físico se usa la IP de la computadora. |
+
+El responsable confirma el servicio productivo existente y su despliegue
+automático desde Git. En Render, el flujo es push o merge a la rama conectada
+→ compilación/despliegue correctos → nueva versión activa. Un commit únicamente
+local no publica cambios. Los modos `On Commit` y `After CI Checks Pass` se
+describen en la [documentación oficial de Render](https://render.com/docs/deploys#automatic-deploys).
+Esta revisión no cambió el servicio ni inspeccionó su panel para confirmar la
+rama o el modo exacto de auto-deploy.
+
+Comprobaciones HTTP puntuales, sin crear cuentas ni modificar datos:
+
+- `GET https://api.ferkxo.tech/api/health`: **200**, JSON `status=ok`,
+  `environment=production`; confirma que el proceso publicado responde.
+- `POST /api/auth/client/login`, con identidad sintética inexistente: **503**.
+- `POST /api/auth/activation/prevalidate`, con código sintético inexistente:
+  **404**. No se acredita que la versión publicada incluya las HU-006–009.
+- Login Web con origen local5000: **403 CSRF_INVALID**; la API local sigue siendo
+  el destino de desarrollo, sin ampliar el allowlist productivo.
+- La dirección Web histórica `https://couchonefit-web.vercel.app/api/health`
+  respondió **404 DEPLOYMENT_NOT_FOUND**; no acredita la URL Web actual.
+
+La API es el destino productivo vigente. La respuesta de salud no acredita por
+sí sola acceso a PostgreSQL ni el funcionamiento de todos los endpoints; los
+resultados anteriores quedan pendientes de revisar en logs/configuración y en
+la versión activa de Render antes de dar por validado el recorrido productivo.
 
 ---
 
@@ -29,11 +63,15 @@ Se conserva Vercel/React/Vite, sin migración ni compra de dominio. Propietario 
 
 ### Enrutamiento SPA
 
-El archivo [apps/web/vercel.json](../../apps/web/vercel.json) del corte contiene fallbackSPA; el ejemplo histórico siguiente **no es la topología completa vigente ni proxy implementado**:
+El archivo [apps/web/vercel.json](../../apps/web/vercel.json) contiene el proxy de
+API antes del fallback SPA:
 
 ```json
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.ferkxo.tech/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
 ```
 
@@ -41,15 +79,15 @@ El archivo [apps/web/vercel.json](../../apps/web/vercel.json) del corte contiene
 
 | Variable       | Requerida | Descripción                                                                          | Ejemplo                           |
 | :------------- | :-------- | :----------------------------------------------------------------------------------- | :-------------------------------- |
-| `VITE_API_URL` | Sí        | Base Web **mismo origen `/api`**, según contrato del helper TT-002; no doble prefijo | `/api` (sugerido, no configurado) |
+| `VITE_API_URL` | No | Dejar vacío para que el cliente use `/api/...` del mismo origen; el helper ya incluye el prefijo. | Vacío |
 
-### Topología de sesión decidida — pendiente de implementación/pruebas
+### Topología de sesión — configuración versionada y verificación por entorno
 
 - Navegador→Vercel `/api/:path`→Render HTTPS **`/api/:path`** preservando prefijo/query/método/body/cookies; aplicar proxy antes fallbackSPA, assets/SW/manifest fuerafallback incorrecto. Vite proxy local misma topología. No cross-site cookie `None` ni compra dominio.
 - Cookies host-only **sin Domain** (`strip Domain` si upstream lo incorpora), HttpOnly/Secure/SameSiteStrict; preservar correctamente múltiples `Set-Cookie`/flags sin cachearlo ni registrar tokens. HTTPSprod; HTTPdev excepción local sin datos reales permite noSecure. Web privados `Cache-Control: no-store`, no cacheCDN/proxy/SW ni tokens en frontend; verificar respuesta real, no asumirlo por rewrite.
 - CSRF mutaciones: Originallowlist **y** token; CORS/orígenes por entorno con mínimos permisos. Confiar forwardedheaders solo bajo topología verificada, nunca en rol/identidad enviada por cliente. Móvil conecta RenderTLS/Bearersecurestore, no requiere proxyWeb.
 - AuthAPI/PostgreSQL: Argon2id19MiB/t2/p1 mínimo conbenchmark, JWT15min HS256allowlist/iss/aud/exp/sub/sid, sesión/cuentaBD porrequest failclosed/rolvigente, refreshhashrotativo30d **absolutos desde login**/replayrevocafamilia y logoutinmediato. No SupabaseJWKS/proveedor integrado como opción pendiente.
-- Emisión/consumo invitación/reset y registro aviso requieren contratos TT-009; rutas/DDL/variables aquí son **sugeridos**, no implementados. Validar proxy/no-cache/CSRF/refresh/logout/roles enbrowserreal antespromover.
+- Emisión/consumo de invitación/reset y registro de aviso están implementados en el repositorio; [contratos y evidencia HU-006–009](../epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md). Su publicación y funcionamiento remoto se verifican por separado del código local.
 
 ---
 
@@ -57,7 +95,7 @@ El archivo [apps/web/vercel.json](../../apps/web/vercel.json) del corte contiene
 
 La API corre como un proceso persistente de Node.js que expone endpoints REST a la aplicación web y a la app móvil.
 
-- **Destino histórico documentado:** dominio existente del servicio, resolver desde configuración autorizada sin afirmar que esté operativo.
+- **Destino productivo vigente:** [https://api.ferkxo.tech](https://api.ferkxo.tech), servicio existente en Render; salud200 comprobada en el corte anterior.
 - **Liveness:** `/api/health`; readiness de PostgreSQL/permisos/migraciones separado, aún TT-016. Un200health no certifica negocio.
 - **Root Directory:** `apps/api`
 - **Environment:** `Node`
@@ -89,7 +127,7 @@ La capa de datos se centraliza en **Supabase**:
 - **PostgreSQL:** Tablas relacionales para profesionales, expedientes, planes nutricionales, rutinas y check-ins diarios _(esquema en proceso de diseño)_.
 - **SinStorage/fotos:** HU-038fueraV2/8SPexcluidos; HU-025pospuesta/5SPexcluidos, no mediosa respaldar.
 - **Acceso:** exclusivamenteAPI, `pg`/SQLparametrizado/migracionesversionadas, conexiónúnicaportxn y `SET LOCAL`contextoRLSderivadodesesiónconfiable; grantsmínimos/rolordinario vsDDL separados. Rolespúblicos sinaccesonegocio. AislamientoRNF06/RS01 **debe probarse**, no garantizado por centralizarAPI.
-- **Estado real:** corte8-oct sin tablas propias/policies/migraciones negocio; conexión real pendienteTT-003/016, no“Supabaseconectado”por variables. Modelos/rutas/DDL documentales sugeridos hastaTT-003/009.
+- **Estado real de BD:** cinco migraciones aplicadas al proyecto compartido CouchOneFit y diez tablas privadas con RLS; [operación y evidencia de Supabase](../database/README.md). La configuración/conectividad del proceso publicado en Render requiere su propia comprobación; no se deduce del éxito de la conexión local.
 
 ## 5. Objetivos, respaldo y retención — DEC-011/013
 

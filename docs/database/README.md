@@ -2,12 +2,13 @@
 
 Los cambios de esquema se versionan con migraciones. Las migraciones iniciales permanecen inmutables. La migración 202610190001_english_identifiers.sql se aplicó en el proyecto CouchOneFit compartido de Supabase el 19 de octubre de 2026; la verificación confirmó los conteos existentes y las relaciones sin huérfanos.
 
-**Estado del corte:** por instrucción directa, la migración ya se aplicó en Supabase. La compatibilidad del API y Web publicados no quedó verificada: la solicitud HTTP a https://couchonefit-web.vercel.app/api/health devolvió 404. No ejecutes la API anterior contra el esquema nuevo. Publica las versiones correspondientes de API y Web en el mismo corte de mantenimiento. Móvil todavía no consume la API de identidad ni de perfil.
+**Estado del corte:** por instrucción directa, la migración ya se aplicó en Supabase. La compatibilidad del API y Web publicados no quedó verificada: la solicitud HTTP a https://couchonefit-web.vercel.app/api/health devolvió 404. No ejecutes la API anterior contra el esquema nuevo. Publica las versiones correspondientes de API y Web en el mismo corte de mantenimiento. La aplicación móvil del repositorio ya consume identidad/perfil y el ciclo HU-006–009; el despliegue publicado debe verificarse en el corte coordinado.
 
 ## Referencias actuales
 
 - [Convenciones de base de datos](convenciones.md)
 - [Modelo de datos de identidad y acceso](modelo-identidad-acceso.md)
+- [Credenciales, invitaciones, activación y recuperación HU-006–009](modelo-ciclo-acceso.md)
 - [Glosario de identidad y acceso](../architecture/domain-glossary.md)
 - [Esquema integrado](schemas/identity_access.sql)
 - [Épica de identidad y acceso](../epicas/ep-01-identidad-y-acceso/README.md)
@@ -24,9 +25,11 @@ Las tablas de negocio objetivo usan el esquema no expuesto `private`. El histori
 
 ## Orden y aplicación de migraciones
 
-Los archivos aplicados son 202610150001_inicial_identidad_acceso.sql, 202610160001_provision_administrador.sql y 202610190001_english_identifiers.sql. La tercera migración conserva las filas y renombra el esquema de identidad, las restricciones, los índices, las políticas, los roles de aplicación, los valores y los objetos del historial. Nunca edites ni renombres los archivos ya aplicados.
+Los archivos aplicados son 202610150001_inicial_identidad_acceso.sql, 202610160001_provision_administrador.sql, 202610190001_english_identifiers.sql, 202610190002_client_records.sql y 202610190003_account_lifecycle.sql. La tercera migración conserva las filas y renombra el esquema de identidad, las restricciones, los índices, las políticas, los roles de aplicación, los valores y los objetos del historial. Las dos últimas se aplicaron al proyecto compartido el 19 de octubre de 2026, a las 20:41 UTC, para expedientes y HU-006–009. Nunca edites ni renombres los archivos ya aplicados.
 
 Aplica **solo las migraciones ordenadas** mediante `npm run db:migrate` en `apps/api`; no ejecutes el esquema integrado sobre esa base. La instantánea sirve para inspeccionar y comparar una base de prueba limpia. El ejecutor valida las sumas de verificación y aplica el SQL pendiente dentro de una transacción.
+
+El ejecutor reconoce las variantes LF/CRLF del mismo SQL para permitir checkouts en distintos sistemas operativos; conserva las sumas históricas y rechaza cambios de contenido. La [CA pública versionada](../../apps/api/certs/README.md) permite usar `sslmode=verify-full&sslrootcert=certs/supabase-root-2021.crt` desde `apps/api` sin rutas absolutas propias de una computadora. Las credenciales siguen únicamente en el `.env` ignorado.
 
 ## Aplicación local
 
