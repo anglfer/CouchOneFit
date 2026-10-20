@@ -15,8 +15,6 @@
 - **Itzel Yutzil Sánchez López**
 - **Michel Omar Nava Oliva**
 
-Plan vigente: [PLAN_TRABAJO_V2.md](plan/PLAN_TRABAJO_V2.md), §3.3/3.4. Alcance planificado: 271 SP activos, 13 excluidos y 284 históricos; el backlog distingue decisiones, implementación y validación operativa.
-
 > 📌 **Antes de programar:** empieza por la [Guía de programación](DEVELOPMENT.md), las [convenciones de base de datos y contratos](docs/database/convenciones.md), y el [glosario de identidad y acceso](docs/architecture/domain-glossary.md). Para ramas, commits y manejo de archivos compartidos, consulta la [Guía de Trabajo con Git](CONTRIBUTING.md).
 
 ---
