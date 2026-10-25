@@ -27,10 +27,19 @@ const navigation: WorkspaceNavItem[] = [
   { href: '/app/recuperacion', label: 'Recuperación asistida', icon: 'shield' },
 ];
 
+interface SubscriptionInfo {
+  status: 'active' | 'suspended' | 'none';
+  planName: string | null;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+}
+
 export default function ProfessionalPage(): ReactElement {
   const { pathname: rawPath } = useLocation();
   const [account, setAccount] = useState<Account | null>(null);
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -53,21 +62,28 @@ export default function ProfessionalPage(): ReactElement {
         if (session.account.role === 'admin') {
           setAccount(null);
           setProfile(null);
+          setSubscription(null);
           window.location.replace('/admin/');
           return;
         }
-        const result = await sessionRequest<{ profile: ProfessionalProfile }>(
-          '/api/professional/profile'
-        );
+        
+        const [profileRes, subRes] = await Promise.all([
+          sessionRequest<{ profile: ProfessionalProfile }>('/api/professional/profile'),
+          sessionRequest<{ subscription: SubscriptionInfo }>('/api/me/subscription')
+        ]);
+        
         if (active) {
           setAccount(session.account);
-          setProfile(result.profile);
+          setProfile(profileRes.profile);
+          setSubscription(subRes.subscription);
           setError('');
         }
       } catch (failure) {
         if (!active) return;
         setAccount(null);
         setProfile(null);
+        setSubscription(null);
+        
         if (failure instanceof ApiError && failure.status === 401) {
           const next = window.location.pathname + window.location.search;
           window.location.replace(
@@ -98,6 +114,7 @@ export default function ProfessionalPage(): ReactElement {
       if (!active) return;
       setAccount(null);
       setProfile(null);
+      setSubscription(null);
       window.location.replace('/acceso?motivo=salida');
     });
 
@@ -121,6 +138,7 @@ export default function ProfessionalPage(): ReactElement {
       await logout();
       setAccount(null);
       setProfile(null);
+      setSubscription(null);
       window.location.replace('/acceso?motivo=salida');
     } catch {
       setError(
@@ -359,40 +377,35 @@ export default function ProfessionalPage(): ReactElement {
                     </h2>
                   </div>
                 </div>
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                  <li className="py-2.5 flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Tipo de cuenta
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                      Profesional
-                    </span>
-                  </li>
-                  <li className="py-2.5 flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Estado del acceso
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      Activo
-                    </span>
-                  </li>
-                  <li className="py-2.5 flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Cartera de clientes
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      Según suscripción vigente
-                    </span>
-                  </li>
-                  <li className="py-2.5 flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">
-                      Acceso a la app cliente
-                    </span>
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                      Vinculación por código
-                    </span>
-                  </li>
-                </ul>
+                
+                {subscription ? (
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                    <li className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Plan actual</span>
+                      <span className="font-bold text-indigo-700 dark:text-indigo-400">{subscription.planName || 'Básico'}</span>
+                    </li>
+                    <li className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Estado</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${subscription.status === 'active' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                        {subscription.status === 'active' ? 'Activo' : 'Suspendido'}
+                      </span>
+                    </li>
+                    <li className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Clientes activos</span>
+                      <span className="font-mono text-sm">
+                        {subscription.used} / {subscription.limit === null ? '∞' : subscription.limit}
+                      </span>
+                    </li>
+                    <li className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-600 dark:text-slate-400">Capacidad restante</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        {subscription.remaining === null ? 'Ilimitado' : `${subscription.remaining} plazas libres`}
+                      </span>
+                    </li>
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-500 animate-pulse mt-4">Cargando estado...</p>
+                )}
               </section>
 
               <InstallAppCard />

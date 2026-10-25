@@ -16,9 +16,13 @@ import {
 } from '../../auth/services/session';
 import type { Account } from '../../auth/types/session';
 import RecoveryPanel from '../../auth/components/RecoveryPanel';
+import PlanCatalog from '../components/PlanCatalog';
+import ProfessionalDirectory from '../components/ProfessionalDirectory';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/admin/', label: 'Inicio', icon: 'home' },
+  { href: '/admin/profesionales', label: 'Profesionales', icon: 'user' },
+  { href: '/admin/planes', label: 'Catálogo de Planes', icon: 'shield' },
   { href: '/admin/perfil', label: 'Mi cuenta', icon: 'shield' },
   {
     href: '/admin/recuperacion',
@@ -39,7 +43,10 @@ export default function AdminPage(): ReactElement {
   const isProfilePage = pathname === '/admin/perfil';
   const isHome = pathname === '/admin';
   const isRecoveryPage = pathname === '/admin/recuperacion';
-  const knownRoute = isHome || isProfilePage || isRecoveryPage;
+  const isPlanesPage = pathname === '/admin/planes';
+  const isProfesionalesPage = pathname === '/admin/profesionales';
+
+  const knownRoute = isHome || isProfilePage || isRecoveryPage || isPlanesPage || isProfesionalesPage;
 
   useEffect(() => {
     let active = true;
@@ -125,7 +132,12 @@ export default function AdminPage(): ReactElement {
     ? 'Recuperación asistida'
     : isProfilePage
       ? 'Mi cuenta'
-      : 'Inicio';
+      : isPlanesPage
+        ? 'Catálogo de Planes'
+        : isProfesionalesPage
+          ? 'Directorio de Profesionales'
+          : 'Inicio';
+
   const user = account
     ? { name: account.username, detail: 'Administrador' }
     : null;
@@ -168,6 +180,10 @@ export default function AdminPage(): ReactElement {
       ) : account ? (
         isRecoveryPage ? (
           <RecoveryPanel />
+        ) : isPlanesPage ? (
+          <PlanCatalog />
+        ) : isProfesionalesPage ? (
+          <ProfessionalDirectory />
         ) : !knownRoute ? (
           <section className="p-8 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 text-center space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -298,10 +314,12 @@ export default function AdminPage(): ReactElement {
                       Acceso administrativo activo
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                      La gestión de professionals, planes y suscripciones estará
-                      disponible aquí conforme se habiliten los módulos de
-                      HU-010, HU-012 y HU-014.
+                      La gestión de profesionales, planes y suscripciones está disponible. Utiliza el menú lateral para acceder al Directorio de Profesionales o al Catálogo de Planes.
                     </p>
+                    <div className="mt-4 flex gap-3">
+                        <Link to="/admin/profesionales" className="px-4 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition-colors">Ver Profesionales</Link>
+                        <Link to="/admin/planes" className="px-4 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition-colors">Gestionar Planes</Link>
+                    </div>
                   </div>
                 </div>
               </section>

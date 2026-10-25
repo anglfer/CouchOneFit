@@ -2,12 +2,14 @@ import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
 import { lifecycleControllers } from '../controllers/lifecycle.js'
+import { subscriptionController } from '../../professional/controllers/subscription.js';
 import {
   requireClient,
   requireProfessional,
   requireSession,
 } from '../middleware/session.js'
 import { requireCsrf } from '../middleware/session-http.js'
+
 
 export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
   const router = Router()
@@ -65,5 +67,10 @@ export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
     requireSession(pool, undefined, now),
     controller.recoveryTargets
   )
+  router.get(
+  '/me/subscription',
+  requireProfessional(pool, now),
+  subscriptionController(pool)
+);
   return router
 }

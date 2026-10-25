@@ -62,13 +62,16 @@ export default function ClientAccessPanel() {
         )
       );
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 401)
-        window.location.replace('/acceso?motivo=sesion');
-      setError(
-        failure instanceof ApiError
-          ? failure.message
-          : 'No pudimos completar la solicitud.'
-      );
+      if (failure instanceof ApiError) {
+        if (failure.status === 401) window.location.replace('/acceso?motivo=sesion');
+        else if (failure.status === 409 && failure.code === 'CUPO_AGOTADO') {
+          setError('No tienes cupo suficiente en tu plan actual. Desactiva un cliente existente o contacta a soporte para un upgrade.');
+        } else {
+          setError(failure.message);
+        }
+      } else {
+        setError('No pudimos completar la solicitud.');
+      }
     } finally {
       setBusy('');
     }

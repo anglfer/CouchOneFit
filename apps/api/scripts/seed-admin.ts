@@ -28,8 +28,8 @@ try {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('couchonefit_seed_admin'))")
-    await client.query('SET LOCAL ROLE couchone_provision')
+    //await client.query("SELECT pg_advisory_xact_lock(hashtext('couchonefit_seed_admin'))")
+    //await client.query('SET LOCAL ROLE couchone_provision')
     const digest = await hash(password, { type: argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 })
     await client.query(
       "INSERT INTO private.users (username,email,password_hash,role) VALUES ($1,$2,$3,'admin')",
