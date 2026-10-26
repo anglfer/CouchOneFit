@@ -6,26 +6,26 @@ Como profesional, quiero crear mi cuenta desde Web para administrar mi cartera c
 
 ## Flujo y alcance
 
-`/` → «Contáctanos» → `/registro`, o «Contratar plan» → `/registro?plan=basico|pro|elite`. Se validan datos y confirmaciones; API crea usuario, perfil y aceptación en una transacción. Web muestra carga, error/duplicado o éxito y enlace a `/acceso`. Login se implementa en [HU-002](../hu-002/README.md).
+`/` → «Contáctanos» → `/registro`, o «Contratar plan» → `/registro?plan=basic|pro|elite`. Se validan datos y confirmaciones; API crea usuario, perfil y aceptación en una transacción. Web muestra carga, error/duplicado o éxito y enlace a `/acceso`. Login se implementa en [HU-002](../hu-002/README.md).
 
 Formulario: nombre, usuario, correo y confirmación, contraseña y confirmación, teléfono opcional, plan de interés opcional e información de registro versionada. Precios actuales: Básico $299 MXN/10 activos, Pro $599 MXN/30, Élite $999 MXN/ilimitados. No se añade periodicidad o cobro no implementado. Campos de especialidad/consultorio/biografía se incorporarán cuando exista su funcionalidad.
 
 ## Contrato HTTP vigente
 
-`POST /api/auth/professionals`, JSON propio **camelCase**, hasta 16 KiB. Nombres SQL españoles snake_case solo dentro de BD/repositorio.
+`POST /api/auth/professionals`, JSON con identificadores en inglés **camelCase**, hasta 16 KiB. PostgreSQL usa los mismos términos en inglés `snake_case`; no se aceptan campos traducidos ni alias del contrato anterior.
 
 ```json
 {
-  "nombreCompleto": "Persona de Ejemplo",
-  "usuario": "persona.ejemplo",
-  "correo": "persona@example.com",
-  "confirmacionCorreo": "persona@example.com",
-  "contrasena": "una frase suficientemente larga",
-  "confirmacionContrasena": "una frase suficientemente larga",
-  "telefono": "5512345678",
-  "planInteres": "pro",
-  "avisoVersion": "2026-10-15.1",
-  "aceptaAviso": true
+  "fullName": "Persona de Ejemplo",
+  "username": "persona.ejemplo",
+  "email": "persona@example.com",
+  "emailConfirmation": "persona@example.com",
+  "password": "una frase suficientemente larga",
+  "passwordConfirmation": "una frase suficientemente larga",
+  "phone": "5512345678",
+  "planInterest": "pro",
+  "noticeVersion": "2026-10-15.1",
+  "acceptsNotice": true
 }
 ```
 
@@ -35,9 +35,9 @@ Respuesta 201:
 {"account":{"id":"UUID_DEL_USUARIO","role":"professional","status":"active","subscription":null}}
 ```
 
-No devuelve hash, contraseña, access, refresh ni cookie de sesión. `account.id` es la identidad de usuario; `profesionales.id` es la identidad propia del perfil. El registro conserva el contrato de rol/estado de API, mientras BD guarda `profesional`/`activo` mediante la serialización del servidor.
+No devuelve hash, contraseña, access, refresh ni cookie de sesión. `account.id` es la identidad de usuario; `professionals.id` es la identidad propia del perfil. API y BD conservan los mismos valores de rol/estado: `professional` y `active`, sin traducirlos entre capas.
 
-Los nombres snake_case del contrato anterior se reemplazan por los camelCase de este ejemplo; no se aceptan alias duplicados. API y Web deben desplegarse coordinados. Las rutas HTTP, códigos de error y versión del texto informativo se conservan; cambiar nombres de campos no reescribe aceptaciones.
+Los campos camelCase en español del contrato anterior se sustituyeron por los nombres en inglés de este ejemplo; no se aceptan alias duplicados. API y Web deben desplegarse coordinados. Las rutas HTTP, códigos de error y versión del texto informativo se conservan; cambiar nombres de campos no reescribe aceptaciones.
 
 ## Validación
 
@@ -46,7 +46,7 @@ Los nombres snake_case del contrato anterior se reemplazan por los camelCase de 
 - Correo obligatorio, máximo 254, trim/lower completo por política de aplicación; confirmación normalizada coincidente. No verificación SMTP.
 - Contraseña 15–128 puntos de código, sin composición obligatoria, trim, normalización o truncamiento. Confirmación exacta. Argon2id con salt generado por biblioteca, 19456 KiB/2 iteraciones/1 hilo.
 - Teléfono opcional de 10–15 dígitos, texto; vacío se transforma en NULL.
-- `planInteres`: null, `basico`, `pro`, `elite`; `aceptaAviso:true` y versión vigente obligatorios.
+- `planInterest`: null, `basic`, `pro`, `elite`; `acceptsNotice:true` y `noticeVersion` vigente obligatorios.
 - Rechazar claves extra, incluidas rol/estado/suscripción. Los privilegios nunca proceden del cliente.
 
 ## Persistencia y funciones
@@ -54,7 +54,7 @@ Los nombres snake_case del contrato anterior se reemplazan por los camelCase de 
 1. `registrationController` entrega el payload al servicio.
 2. `validateRegistration` produce `Registration` camelCase o 400.
 3. `registerProfessional` genera Argon2id y llama a `insertProfessional`.
-4. `insertProfessional` toma una conexión `pg`, abre transacción e inserta `privado.usuarios`, `privado.profesionales` y `privado.aceptaciones_avisos`; COMMIT solo tras las tres inserciones. Ante fallo, ROLLBACK y liberación de conexión.
+4. `insertProfessional` toma una conexión `pg`, abre transacción e inserta `private.users`, `private.professionals` y `private.notice_acceptances`; COMMIT solo tras las tres inserciones. Ante fallo, ROLLBACK y liberación de conexión.
 5. Unicidad concurrente se resuelve con índices únicos normalizados; SQLSTATE 23505 se convierte a 409 seguro, sin identificar qué cuenta existe.
 
 Rutas de código bajo `apps/api/src/features/auth/`: controller `controllers/registration.ts`, validación `validators/registration.ts`, servicio `services/registration.ts`, repositorio `repositories/registration.ts`, tipo `types/registration.ts`, ruta `routes/registration.ts`. Web: `apps/web/src/features/auth/pages/RegistrationPage.tsx`.

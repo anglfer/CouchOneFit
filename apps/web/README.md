@@ -72,7 +72,7 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 La versión actual de Marketing cubre completamente la narrativa de producto, la vista interactiva, la propuesta de valor y las preguntas frecuentes. Los elementos pendientes para futuras etapas son:
 
-- [x] **CTA de registro:** «Contáctanos» → `/registro`; «Contratar plan» → `/registro?plan=basico|pro|elite`. «Acceso profesional» enlaza a `/acceso`; `/app/*` verifica sesión en API.
+- [x] **CTA de registro:** «Contáctanos» → `/registro`; «Contratar plan» → `/registro?plan=basic|pro|elite`. «Acceso profesional» enlaza a `/acceso`; `/app/*` verifica sesión en API.
 - [ ] **Páginas de términos legales y privacidad (`RNF12`, `RNF19`, `RS23`)**:
   - Enlaces de pie de página para Política de Privacidad y Términos de Servicio cuando se formalice la entidad legal del SaaS.
 - [x] **Catálogo y registro (acuerdo 15-oct)**: Básico $299 MXN/10 activos, Pro $599 MXN/30, Élite $999 MXN/ilimitados; precios. Reemplaza recorrido anterior de contratación por registro sin cobro ni activación de suscripción.

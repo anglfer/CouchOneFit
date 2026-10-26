@@ -13,12 +13,12 @@ Migración incremental: [`202610190002_client_records.sql`](../../../database/mi
 - Tabla `private.clients`:
   - `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`
   - `professional_id uuid NOT NULL REFERENCES private.professionals(id) ON DELETE RESTRICT`
-  - `user_id uuid UNIQUE REFERENCES private.users(id) ON DELETE RESTRICT` (nulo mientras la invitación de HU-008 no se haya consumido; único una vez vinculado)
-  - `user_role text NOT NULL DEFAULT 'client'` con restricción `chk_clients_user_role` (`user_role = 'client'`) y llave foránea compuesta `(user_id, user_role) -> private.users(id, role) ON DELETE RESTRICT`, impidiendo que una cuenta `professional` o `admin` se vincule a un expediente de cliente
+  - `user_id uuid UNIQUE` (nulo mientras la invitación de HU-008 no se haya consumido; único una vez vinculado). Su relación con usuarios se impone mediante la FK compuesta siguiente, no mediante una segunda FK simple.
+  - `user_role text NOT NULL DEFAULT 'client'` con restricción `ck_clients_user_role` (`user_role = 'client'`) y llave foránea `fk_clients_user_role` compuesta `(user_id, user_role) -> private.users(id, role) ON DELETE RESTRICT`, impidiendo que una cuenta `professional` o `admin` se vincule a un expediente de cliente
   - `full_name text NOT NULL`, `goal text`, `status text NOT NULL DEFAULT 'active'` (`active` | `inactive`), `created_at timestamptz NOT NULL DEFAULT now()`
 - Seguridad en PostgreSQL:
   - RLS activa en `private.clients` (`ENABLE ROW LEVEL SECURITY`)
-  - `GRANT SELECT ON private.clients TO couchone_authentication` con política `select_clients` restringida a `user_role = 'client'` y longitud válida de `full_name`
+  - `GRANT SELECT ON private.clients TO couchone_authentication` con política `select_clients USING (true)` para el rol técnico privado. `user_role` y longitud de `full_name` se validan con restricciones de tabla, no con esa política. La API verifica sesión/rol y el repositorio filtra por identidad y vínculo para devolver solo el expediente propio. Esta política no acredita aislamiento frente a quien posea la conexión técnica del servidor.
 
 ## Contrato HTTP
 
@@ -46,7 +46,7 @@ Todos los endpoints de autenticación y perfil responden con `Cache-Control: no-
 
 - `lib/features/auth/models/session_models.dart`: modelos `ClientAccount`, `StoredSession`, `ClientLoginResult` y excepción tipada `AuthApiException`.
 - `lib/features/auth/services/session_storage.dart`: abstracción `SessionStorage` con implementación `MethodChannelSessionStorage` (`couchonefit/secure_session`) y respaldo en memoria `InMemorySessionStorage`. Guarda exclusivamente `accessToken`, `refreshToken` y `expiresAt`; nunca almacena la contraseña ni códigos de activación.
-- `lib/shared/services/api_client.dart`: cliente HTTP con inyección de `Authorization: Bearer <accessToken>` y rotación serializada de un solo vuelo (`_refreshInFlight`) ante `401`. Si la renovación falla o recibe `401`/`403`, limpia el almacenamiento seguro de inmediato.
+- `lib/shared/services/api_client.dart`: cliente HTTP con inyección de `Authorization: Bearer <accessToken>` y rotación serializada de un solo vuelo (`_refreshInFlight`) ante `401`. Limpia la sesión ante `401` definitivo o `403 ROLE_FORBIDDEN`; un rechazo de negocio o reautenticación no equivale a sesión inválida. Un error de servidor durante renovación se propaga sin acreditar logout; el cierre confirmado sigue HU-005.
 - `lib/features/auth/services/auth_service.dart`, `lib/features/auth/widgets/login_form.dart` y `lib/features/auth/screens/login_screen.dart`: pantalla de acceso para clientes activados sin solicitar código de invitación.
 - `lib/features/client/models/client_profile.dart`, `lib/features/client/services/client_profile_service.dart`, `lib/features/client/widgets/client_profile_card.dart` y `lib/features/client/screens/client_profile_screen.dart`: vista del expediente vinculado del cliente con actualización de estado y cierre de sesión.
 - `lib/routes/client_session_gate.dart`: restauración automática al iniciar o reiniciar la app, invalidación limpia ante sesiones revocadas o cuentas deshabilitadas y transición hacia el expediente.

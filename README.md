@@ -304,7 +304,7 @@ Formulario `/registro`, API `POST /api/auth/professionals` y migración incremen
 
 Contrato, reglas, límites y recorrido: [Registro profesional](docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md). Aplicación y evolución de tablas para login: [Base de datos](docs/database/README.md). Auth propia API/PostgreSQL; no Supabase Auth. Ampliar el perfil después requiere nuevas migraciones, conservando cuentas existentes.
 
-Para ejecutar: en `apps/api`, configurar `DATABASE_URL`/`CORS_ORIGIN` y aplicar `npm run db:migrate` con usuario de migraciones; iniciar con usuario de servidor dedicado mediante `npm run dev`. En `apps/web`, dejar `VITE_API_URL` vacío y ejecutar `npm run dev` (proxy `/api`). `/acceso` permite iniciar sesión y `/app/*` verifica la sesión antes de mostrar contenido privado. Configurar `AUTH_JWT_SECRET` solo en API y conceder `couchone_autenticacion` al usuario runtime para HU-002. Ver instrucciones de permisos, pruebas y TLS en BD.
+Para ejecutar: en `apps/api`, configurar `DATABASE_URL`/`CORS_ORIGIN` y aplicar `npm run db:migrate` con usuario de migraciones; iniciar con usuario de servidor dedicado mediante `npm run dev`. En `apps/web`, dejar `VITE_API_URL` vacío y ejecutar `npm run dev` (proxy `/api`). `/acceso` permite iniciar sesión y `/app/*` verifica la sesión antes de mostrar contenido privado. Configurar `AUTH_JWT_SECRET` solo en API y conceder `couchone_authentication` al usuario runtime para HU-002. Ver instrucciones de permisos, pruebas y TLS en BD.
 
 La configuración de ejemplo ya no incluye claves Supabase. Las claves anteriormente publicadas requieren rotación por el responsable: retirarlas del archivo actual no las revoca ni elimina el historial.
 
@@ -313,7 +313,7 @@ La configuración de ejemplo ya no incluye claves Supabase. Las claves anteriorm
 
 Login por usuario o correo en `/acceso`, sesión revocable PostgreSQL y guard de `/app/*`. Cada consulta privada comprueba cuenta/rol/estado/sesión; `/api/professional/profile` usa esa identidad para leer solo el perfil propio. Cuenta sin plan muestra perfil y estado vacío, sin cartera ni métricas de ejemplo. Cookies HttpOnly/Strict, Secure en producción; JWT de 15 minutos, refresh rotativo con límite absoluto de 30 días y cierre con revocación inmediata. No se guardan tokens en localStorage.
 
-Aplicar la migración `202610150001_inicial_identidad_acceso.sql` con el usuario de migraciones; usar `couchone_autenticacion` como membresía del runtime y configurar `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes fuera de Git. [Contrato y operación de acceso](docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md), [proceso de BD](docs/database/README.md). HU-005 conserva integración completa con móvil y futuros módulos; HU-002 no asigna plan ni implementa cobros.
+Aplicar todas las migraciones pendientes con el ejecutor versionado y el usuario de migraciones; usar `couchone_authentication` como membresía del runtime y configurar `AUTH_JWT_SECRET` aleatorio de al menos 32 bytes fuera de Git. La inicial conserva su contenido histórico; el esquema vigente requiere también las migraciones posteriores de provisión, nombres en inglés, expedientes y ciclo de acceso. [Contrato y operación de acceso](docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md), [proceso de BD](docs/database/README.md). HU-005 conserva integración completa con móvil y futuros módulos; HU-002 no asigna plan ni implementa cobros.
 
 
 ## Documentación por épica e historia
