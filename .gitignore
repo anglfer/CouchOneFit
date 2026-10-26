@@ -33,3 +33,4 @@ captures/
 # Test and coverage outputs
 coverage/
 *.log
+docs\superpowers

@@ -1,8 +1,10 @@
 import type { ReactElement } from 'react';
 import { Link } from '../../../components/Link';
-import { registrationPlans } from '../../auth/constants/registration';
+import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
+import { formatPlanPrice, planCapacity } from '../../../services/planCatalog';
 
 export function Plans(): ReactElement {
+  const { plans, loading, error, reload } = usePlanCatalog();
   return (
     <section
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28"
@@ -25,19 +27,23 @@ export function Plans(): ReactElement {
           </p>
         </div>
 
+        {loading && <p role="status">Cargando planes…</p>}
+        {error && (
+          <p role="alert">
+            {error} <button onClick={reload}>Reintentar</button>
+          </p>
+        )}
+        {!loading && !error && !plans.length && (
+          <p>No hay planes disponibles en este momento.</p>
+        )}
         <div
           className="grid grid-cols-1 md:grid-cols-3 gap-6"
           aria-label="Planes disponibles"
         >
-          {registrationPlans.map((plan) => {
-            const isPopular = plan.id === 'pro';
+          {plans.map((plan) => {
             return (
               <article
-                className={`p-8 rounded-2xl bg-white flex flex-col justify-between space-y-6 transition-all ${
-                  isPopular
-                    ? 'border-2 border-indigo-600 shadow-lg relative -translate-y-1'
-                    : 'border border-slate-200/90 shadow-xs'
-                }`}
+                className="p-8 rounded-2xl bg-white flex flex-col justify-between space-y-6 transition-all border border-slate-200/90 shadow-xs"
                 key={plan.id}
               >
                 <div>
@@ -45,16 +51,11 @@ export function Plans(): ReactElement {
                     <h3 className="text-xl font-bold text-slate-900">
                       {plan.name}
                     </h3>
-                    {isPopular && (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200">
-                        Más popular
-                      </span>
-                    )}
                   </div>
 
                   <p className="flex items-baseline gap-1.5 mb-3">
                     <span className="text-4xl font-black text-slate-900 tracking-tight">
-                      ${plan.price}
+                      {formatPlanPrice(plan.priceMxn)}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">
                       MXN / mes
@@ -62,16 +63,12 @@ export function Plans(): ReactElement {
                   </p>
 
                   <p className="text-sm font-medium text-slate-600">
-                    {plan.capacity}
+                    {planCapacity(plan)}
                   </p>
                 </div>
 
                 <Link
-                  className={`w-full py-3 px-4 rounded-xl text-sm font-semibold text-center transition-all cursor-pointer ${
-                    isPopular
-                      ? 'text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs shadow-indigo-600/30'
-                      : 'text-slate-700 bg-slate-100 hover:bg-slate-200'
-                  }`}
+                  className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-center transition-all cursor-pointer text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs"
                   to={`/registro?plan=${plan.id}`}
                 >
                   Elegir plan <span aria-hidden="true">→</span>

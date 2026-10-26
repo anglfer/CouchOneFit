@@ -16,6 +16,8 @@ export default function ClientAccessPanel() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [fullName, setFullName] = useState('');
+  const [goal, setGoal] = useState('');
   const [delivery, setDelivery] = useState<{
     code: string;
     expiresAt: string;
@@ -63,9 +65,12 @@ export default function ClientAccessPanel() {
       );
     } catch (failure) {
       if (failure instanceof ApiError) {
-        if (failure.status === 401) window.location.replace('/acceso?motivo=sesion');
+        if (failure.status === 401)
+          window.location.replace('/acceso?motivo=sesion');
         else if (failure.status === 409 && failure.code === 'CUPO_AGOTADO') {
-          setError('No tienes cupo suficiente en tu plan actual. Desactiva un cliente existente o contacta a soporte para un upgrade.');
+          setError(
+            'No tienes cupo suficiente en tu plan actual. Desactiva un cliente existente o contacta a soporte para un upgrade.'
+          );
         } else {
           setError(failure.message);
         }
@@ -87,6 +92,51 @@ export default function ClientAccessPanel() {
       );
     }
   }
+  async function saveRecord(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy('new');
+    setError('');
+    try {
+      await sessionMutation('/api/clients', {
+        fullName,
+        goal: goal.trim() || null,
+      });
+      setFullName('');
+      setGoal('');
+      setAttempt((value) => value + 1);
+    } catch (failure) {
+      setError(
+        failure instanceof ApiError
+          ? failure.message
+          : 'No pudimos crear el expediente.'
+      );
+    } finally {
+      setBusy('');
+    }
+  }
+  async function toggleStatus(record: ClientRecord) {
+    if (busy) return;
+    setBusy(record.id);
+    setError('');
+    setDelivery(null);
+    try {
+      await sessionMutation(
+        `/api/clients/${record.id}/status`,
+        { status: record.status === 'active' ? 'inactive' : 'active' },
+        'PATCH'
+      );
+      setAttempt((value) => value + 1);
+    } catch (failure) {
+      setError(
+        failure instanceof ApiError
+          ? failure.message
+          : 'No pudimos cambiar el estado.'
+      );
+    } finally {
+      setBusy('');
+    }
+  }
   return (
     <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 space-y-5">
       <h1 className="text-xl font-bold">Acceso a expedientes</h1>
@@ -95,6 +145,35 @@ export default function ClientAccessPanel() {
         Reemplazarla invalida inmediatamente el código anterior. Se requiere
         expediente, profesional y suscripción activos.
       </p>
+      <form onSubmit={saveRecord} className="border rounded-xl p-4 space-y-3">
+        <h2 className="font-bold">Nuevo expediente</h2>
+        <label className="block">
+          Nombre completo
+          <input
+            required
+            minLength={2}
+            maxLength={150}
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            className="block border p-2 rounded-lg w-full"
+          />
+        </label>
+        <label className="block">
+          Objetivo (opcional)
+          <input
+            maxLength={500}
+            value={goal}
+            onChange={(event) => setGoal(event.target.value)}
+            className="block border p-2 rounded-lg w-full"
+          />
+        </label>
+        <button
+          disabled={!!busy}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+        >
+          {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
+        </button>
+      </form>
       {loading ? (
         <p role="status">Cargando expedientes…</p>
       ) : clients.length === 0 ? (
@@ -118,6 +197,16 @@ export default function ClientAccessPanel() {
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
               )}
+              <button
+                type="button"
+                disabled={!!busy}
+                onClick={() => void toggleStatus(record)}
+                className="px-4 py-2 border rounded-lg"
+              >
+                {record.status === 'active'
+                  ? 'Inactivar expediente'
+                  : 'Reactivar expediente'}
+              </button>
               {!record.userId && record.status === 'active' && (
                 <button
                   type="button"

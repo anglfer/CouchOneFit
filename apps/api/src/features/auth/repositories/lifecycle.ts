@@ -134,8 +134,8 @@ export async function lockInvitationRecord(
   if (activeProfessional.rowCount !== 1) throw invalidInvitation()
   const {
     rows: [subscription],
-  } = await client.query<{ plan: string; status: string; valid: boolean }>(
-    `SELECT plan,status,expires_at>COALESCE($2::timestamptz,clock_timestamp()) AS valid FROM private.subscriptions WHERE professional_id=$1 FOR UPDATE`,
+  } = await client.query<{ status: string; valid: boolean }>(
+    `SELECT status,expires_at>COALESCE($2::timestamptz,clock_timestamp()) AS valid FROM private.subscriptions WHERE professional_id=$1 FOR UPDATE`,
     [record.professional_id, now ?? null]
   )
   if (!subscription || subscription.status !== 'active' || !subscription.valid)

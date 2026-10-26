@@ -17,29 +17,26 @@ import {
 } from '../../auth/services/session';
 import type { Account } from '../../auth/types/session';
 import type { ProfessionalProfile } from '../types/profile';
+import SubscriptionPanel from '../components/SubscriptionPanel';
+import type { SubscriptionInfo } from '../types/subscription';
 import ClientAccessPanel from '../components/ClientAccessPanel';
 import RecoveryPanel from '../../auth/components/RecoveryPanel';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
+  { href: '/app/suscripcion', label: 'Mi suscripción', icon: 'shield' },
   { href: '/app/perfil', label: 'Mi perfil', icon: 'user' },
   { href: '/app/clientes', label: 'Acceso de clientes', icon: 'user' },
   { href: '/app/recuperacion', label: 'Recuperación asistida', icon: 'shield' },
 ];
 
-interface SubscriptionInfo {
-  status: 'active' | 'suspended' | 'none';
-  planName: string | null;
-  limit: number | null;
-  used: number;
-  remaining: number | null;
-}
-
 export default function ProfessionalPage(): ReactElement {
   const { pathname: rawPath } = useLocation();
   const [account, setAccount] = useState<Account | null>(null);
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(
+    null
+  );
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -49,8 +46,14 @@ export default function ProfessionalPage(): ReactElement {
   const isProfilePage = pathname === '/app/perfil';
   const isHome = pathname === '/app';
   const isClientsPage = pathname === '/app/clientes';
+  const isSubscriptionPage = pathname === '/app/suscripcion';
   const isRecoveryPage = pathname === '/app/recuperacion';
-  const knownRoute = isHome || isProfilePage || isClientsPage || isRecoveryPage;
+  const knownRoute =
+    isHome ||
+    isProfilePage ||
+    isClientsPage ||
+    isRecoveryPage ||
+    isSubscriptionPage;
 
   useEffect(() => {
     let active = true;
@@ -66,12 +69,16 @@ export default function ProfessionalPage(): ReactElement {
           window.location.replace('/admin/');
           return;
         }
-        
+
         const [profileRes, subRes] = await Promise.all([
-          sessionRequest<{ profile: ProfessionalProfile }>('/api/professional/profile'),
-          sessionRequest<{ subscription: SubscriptionInfo }>('/api/me/subscription')
+          sessionRequest<{ profile: ProfessionalProfile }>(
+            '/api/professional/profile'
+          ),
+          sessionRequest<{ subscription: SubscriptionInfo }>(
+            '/api/me/subscription'
+          ),
         ]);
-        
+
         if (active) {
           setAccount(session.account);
           setProfile(profileRes.profile);
@@ -83,7 +90,7 @@ export default function ProfessionalPage(): ReactElement {
         setAccount(null);
         setProfile(null);
         setSubscription(null);
-        
+
         if (failure instanceof ApiError && failure.status === 401) {
           const next = window.location.pathname + window.location.search;
           window.location.replace(
@@ -103,6 +110,9 @@ export default function ProfessionalPage(): ReactElement {
 
     void check(true);
 
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void check(false);
+    }, 60000);
     const onFocus = () => void check(false);
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') void check(false);
@@ -123,6 +133,7 @@ export default function ProfessionalPage(): ReactElement {
     window.addEventListener('pageshow', onPageShow);
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
       unsubscribe();
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
@@ -148,13 +159,15 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = isClientsPage
-    ? 'Acceso de clientes'
-    : isRecoveryPage
-      ? 'Recuperación asistida'
-      : isProfilePage
-        ? 'Mi perfil'
-        : 'Inicio';
+  const pageTitle = isSubscriptionPage
+    ? 'Mi suscripción'
+    : isClientsPage
+      ? 'Acceso de clientes'
+      : isRecoveryPage
+        ? 'Recuperación asistida'
+        : isProfilePage
+          ? 'Mi perfil'
+          : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -197,7 +210,18 @@ export default function ProfessionalPage(): ReactElement {
           </div>
         </div>
       ) : account && profile ? (
-        isClientsPage ? (
+        isSubscriptionPage && subscription ? (
+          <SubscriptionPanel
+            subscription={subscription}
+            onSubscriptionChange={setSubscription}
+          />
+        ) : (isClientsPage || isRecoveryPage) &&
+          subscription?.status !== 'active' ? (
+          <p role="status">
+            Se requiere una suscripción vigente. Consulta tu plan en el inicio y
+            contrata o renueva desde Mi suscripción.
+          </p>
+        ) : isClientsPage ? (
           <ClientAccessPanel />
         ) : isRecoveryPage ? (
           <RecoveryPanel />
@@ -373,38 +397,93 @@ export default function ProfessionalPage(): ReactElement {
                       id="status-title"
                       className="text-lg font-bold text-slate-900 dark:text-white"
                     >
-                      Estado de la cuenta
+                      Estado de la suscripción
                     </h2>
                   </div>
                 </div>
-                
+
                 {subscription ? (
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                    <li className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Plan actual</span>
-                      <span className="font-bold text-indigo-700 dark:text-indigo-400">{subscription.planName || 'Básico'}</span>
-                    </li>
-                    <li className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Estado</span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${subscription.status === 'active' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                        {subscription.status === 'active' ? 'Activo' : 'Suspendido'}
-                      </span>
-                    </li>
-                    <li className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Clientes activos</span>
-                      <span className="font-mono text-sm">
-                        {subscription.used} / {subscription.limit === null ? '∞' : subscription.limit}
-                      </span>
-                    </li>
-                    <li className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Capacidad restante</span>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                        {subscription.remaining === null ? 'Ilimitado' : `${subscription.remaining} plazas libres`}
-                      </span>
-                    </li>
-                  </ul>
+                  <div>
+                    {subscription.excess > 0 && (
+                      <p role="status">
+                        Exceso: {subscription.excess} clientes. Las nuevas altas
+                        y reactivaciones están bloqueadas; tus expedientes se
+                        conservan.
+                      </p>
+                    )}
+                    {subscription.expiresAt && (
+                      <p>
+                        Vigencia hasta{' '}
+                        {new Date(subscription.expiresAt).toLocaleString(
+                          'es-MX'
+                        )}
+                      </p>
+                    )}
+                    {subscription.status !== 'active' && (
+                      <p>
+                        Contrata o renueva desde Mi suscripción para habilitar
+                        tu cartera.
+                      </p>
+                    )}
+                    <Link
+                      to="/app/suscripcion"
+                      className="inline-block my-3 text-indigo-600 font-bold"
+                    >
+                      Gestionar mi suscripción →
+                    </Link>
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      <li className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          Plan actual
+                        </span>
+                        <span className="font-bold text-indigo-700 dark:text-indigo-400">
+                          {subscription.planName || 'Sin plan asignado'}
+                        </span>
+                      </li>
+                      <li className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          Estado
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${subscription.status === 'active' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-red-50 text-red-700 border-red-200'}`}
+                        >
+                          {
+                            {
+                              active: 'Activa',
+                              suspended: 'Suspendida',
+                              expired: 'Vencida',
+                              none: 'Sin suscripción',
+                            }[subscription.status]
+                          }
+                        </span>
+                      </li>
+                      <li className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          Clientes activos
+                        </span>
+                        <span className="font-mono text-sm">
+                          {subscription.used} /{' '}
+                          {subscription.isUnlimited
+                            ? 'Ilimitado'
+                            : subscription.limit}
+                        </span>
+                      </li>
+                      <li className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-400">
+                          Capacidad restante
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          {subscription.remaining === null
+                            ? 'Ilimitado'
+                            : `${subscription.remaining} plazas libres`}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
                 ) : (
-                  <p className="text-sm text-slate-500 animate-pulse mt-4">Cargando estado...</p>
+                  <p className="text-sm text-slate-500 animate-pulse mt-4">
+                    Cargando estado...
+                  </p>
                 )}
               </section>
 

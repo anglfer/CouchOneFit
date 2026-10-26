@@ -123,3 +123,7 @@ El usuario aprueba registro con datos esenciales, ampliables después: nombre, u
 ## Implementación HU-002 — acceso profesional
 
 Acceso por usuario/correo, sesión revocable con JWT/sid y refresh rotativo, cookies Web/CSRF, guard `/app/*` y consulta de perfil basada en identidad de sesión. Cuenta sin plan conserva el estado de DEC-004; no se implementa cartera ni pagos en este incremento. [Contrato y evidencia local](../epicas/ep-01-identidad-y-acceso/hu-002/README.md). HU-005 conserva integración móvil/transversal y D0 requiere revisión independiente/despliegue acreditados.
+
+## Acuerdo vigente — autoservicio y checkout simulado (25-oct-2026)
+
+El usuario sustituye la asignación y gestión administrativa de la suscripción: el profesional con cuenta contrata y sube de nivel mediante pago simulado. Se cobra el precio completo del nuevo plan y comienza un mes calendario desde aprobación, sin prorrateo. Administrador solo consulta suscripciones; no cambia plan, estado o vigencia. El catálogo HU-010 conserva administración. Checkout con tarjetas ficticias, procesamiento/resultado persistidos, aprobación/rechazo/error/cancelación, comprobante e historial. Solo una aprobación activa o mejora el plan; reintento/recarga no duplica. Sin dinero ni datos bancarios reales. Esta instrucción sustituye las reglas anteriores DEC-005/014, HU-012 y el acceso posterior al registro de HU-039; el registro solo no activa una suscripción. Los IDs históricos RF/RDF se conservan. [Contrato vigente de EP-02](../epicas/ep-02-saas-y-administracion/README.md).

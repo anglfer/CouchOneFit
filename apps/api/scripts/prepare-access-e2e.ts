@@ -61,7 +61,7 @@ try {
       [user.id]
     )
     await client.query(
-      `INSERT INTO private.subscriptions (professional_id,plan,status,expires_at) VALUES ($1,'basic','active',clock_timestamp()+interval '30 days')
+      `INSERT INTO private.subscriptions (professional_id,plan_id,status,expires_at) VALUES ($1,(SELECT id FROM private.saas_plans WHERE name='Básico 10'),'active',clock_timestamp()+interval '30 days')
       ON CONFLICT (professional_id) DO UPDATE SET status='active',expires_at=EXCLUDED.expires_at`,
       [professional.id]
     )

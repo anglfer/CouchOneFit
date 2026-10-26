@@ -31,7 +31,7 @@ El sistema está compuesto por tres partes principales:
 
 ## Modelo general del sistema
 
-1. Admin asigna Básico (10), Pro (30) o Élite (ilimitado). El portal permite elegir un plan e iniciar el registro; el flujo actual no procesa pagos ni activa suscripciones. Sin plan, el profesional solo consulta perfil/suscripción y panel vacío.
+1. El profesional contrata Básico (10), Pro (30) o Élite (ilimitado) y sube de nivel mediante checkout simulado. El portal permite elegir un plan e iniciar el registro; el registro no activa la suscripción; el checkout autenticado la activa únicamente tras aprobar el pago simulado. Sin plan, el profesional solo consulta perfil/suscripción y panel vacío.
 2. Desde la aplicación web, el profesional registra a sus clientes, prepara sus expedientes individuales, asigna planes de entrenamiento y nutrición, y da seguimiento a su evolución.
 3. El cliente utiliza principalmente la aplicación móvil para consultar las prescripciones de su profesional y registrar sus entrenamientos, peso, adherencia y check-ins diarios.
 
@@ -117,7 +117,7 @@ Para garantizar que toda cuenta de cliente pertenezca a la cartera de un profesi
 ### Flujo del Profesional (Web / PWA)
 
 1. Desde «Contáctanos» o «Contratar plan», crea su cuenta en `/registro`; inicia sesión en `/acceso` y entra a `/app/`.
-2. Consulta plan asignado por admin; solicita cambios asistidamente, sin pantalla nueva/cobro.
+2. Consulta su suscripción y contrata/sube de nivel mediante pago simulado: precio completo y un nuevo mes desde aprobación, con comprobante e historial. El administrador solo consulta suscripciones.
 3. Entra al panel profesional y registra cliente dentro del cupo, sin asumir administración SaaS.
 4. Crea su expediente con datos físicos y parámetros iniciales.
 5. Diseña y asigna el plan de entrenamiento y/o nutrición.
@@ -328,3 +328,7 @@ un commit local no despliega. [Configuración y comprobaciones del entorno](docs
 HU-006–009 incorpora cambio seguro de credenciales móvil, invitaciones privadas desde `/app/clientes`, activación anónima atómica con aviso versionado y recuperación asistida desde Web/móvil. La recuperación de profesionales/admins se autoriza en el panel; el último admin usa el comando local del custodio. No hay recuperación automática por correo ni cobros. [Contratos y evidencia](docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md), [migración/modelo incremental](docs/database/modelo-ciclo-acceso.md), [OpenAPI](docs/api/identity-lifecycle.openapi.json).
 
 Contratos, flujos y evidencia de cada HU están en [docs/epicas](docs/epicas/README.md), dentro de su épica y carpeta de historia. HU-001/002 pertenecen a [EP-01 — Identidad y acceso](docs/epicas/ep-01-identidad-y-acceso/README.md). No se atan las rutas documentales a sprints. [Convenciones de BD/código](docs/database/convenciones.md) y [modelo detallado con tablas y funciones](docs/database/modelo-identidad-acceso.md). La migración inicial consolidada crea las tablas en español y [schemas](docs/database/schemas/README.md) conserva la definición integrada; API/Web se actualizan a los campos camelCase descritos en sus contratos.
+
+## Autoservicio y checkout simulado — 25-oct-2026
+
+Acuerdo vigente: `/app/suscripcion` permite al profesional contratar y mejorar su plan mediante checkout simulado completo. Precio íntegro del plan nuevo, nuevo mes calendario tras aprobar; sin prorrateo ni cobro real. Incluye tarjetas ficticias, procesamiento persistido, aprobación/rechazo/error/cancelación, comprobante e historial. Admin solo consulta suscripciones y no cambia plan/estado/vigencia. Sustituye menciones anteriores de asignación administrativa/no checkout. Aplicar migración incremental `202610260002_simulated_checkout.sql` antes de API/Web. [Contrato y evidencia](docs/epicas/ep-02-saas-y-administracion/README.md).

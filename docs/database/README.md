@@ -102,3 +102,15 @@ Edge comprobó contra Supabase real: registro y confirmación, duplicado visible
 ## HU-003 — provisión administrativa, 16 de octubre de 2026
 
 Se aplicó `202610160001_provision_administrador.sql` mediante `npm run db:migrate` y se verificó su checksum remoto. La seed versionada `apps/api/scripts/seed-admin.ts` creó un administrador activo sin perfil profesional; una segunda ejecución preservó sus credenciales. El permiso SET temporal del operador se restauró. La provisión inicial dejó sus credenciales en `.env.admin` local ignorado. La seed actual es manual de un solo uso por cuenta, pide usuario/correo y muestra la contraseña aleatoria una vez sin guardar archivos ni usar variables `ADMIN_*`; no se reejecutó en remoto. No se alteró la cuenta profesional existente. [Procedimiento, permisos, matriz y evidencia HTTP/navegador](../epicas/ep-01-identidad-y-acceso/hu-003/README.md). La conexión runtime dedicada y el despliegue API/Web siguen pendientes.
+
+## Incremento SaaS HU-010 a HU-014
+
+La rama incorpora las migraciones de catálogo, relación de suscripciones y corrección incremental `202610260001_saas_integrity.sql`. El esquema integrado refleja las ocho migraciones. Aplicarlas antes de desplegar los consumidores actualizados; no editar hashes históricos. [Contratos, permisos y evidencia de EP-02](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Checkout simulado — HU-012 (acuerdo 25-oct-2026)
+
+Aplicar `202610260002_simulated_checkout.sql` antes de API/Web del autoservicio. El esquema integrado refleja nueve migraciones. Retira escritura ordinaria de suscripciones al runtime; la activación solo ocurre por función restringida tras pago simulado aprobado propio, con auditoría y rollback. Admin solo consulta. No proveedor externo ni datos bancarios reales. [Contrato vigente](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Catálogo compartido — 25-oct-2026
+
+Nueva migración `202610260003_live_plan_catalog.sql` agrega `professionals.plan_interest_id` y lectura de planes activos al rol de registro. Preserva el interés histórico y no activa suscripciones. El esquema integrado refleja diez migraciones; aplicar la nueva antes de desplegar el registro actualizado. Portada/registro/checkout consumen el catálogo persistido y no valores fijos del frontend.

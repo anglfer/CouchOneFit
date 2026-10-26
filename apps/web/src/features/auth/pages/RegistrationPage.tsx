@@ -2,22 +2,23 @@ import { useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Brand } from '../../../components/Brand';
 import { Link } from '../../../components/Link';
 import { ApiError } from '../../../services/api';
-import type { Registration } from '../types/registration';
+import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
+import { formatPlanPrice, planCapacity } from '../../../services/planCatalog';
 import { registerProfessional } from '../services/registration';
-import {
-  REGISTRATION_NOTICE,
-  NOTICE_VERSION,
-  registrationPlans,
-} from '../constants/registration';
+import { REGISTRATION_NOTICE, NOTICE_VERSION } from '../constants/registration';
 
 export default function RegistrationPage(): ReactElement {
+  const {
+    plans,
+    loading: catalogLoading,
+    error: catalogError,
+    reload: reloadCatalog,
+  } = usePlanCatalog();
   const requestedPlan = new URLSearchParams(window.location.search).get('plan');
   const [selectedPlanId, setSelectedPlanId] = useState<string>(
-    registrationPlans.find((plan) => plan.id === requestedPlan)?.id ?? ''
+    requestedPlan ?? ''
   );
-  const selectedPlan = registrationPlans.find(
-    (plan) => plan.id === selectedPlanId
-  );
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState('');
@@ -55,7 +56,8 @@ export default function RegistrationPage(): ReactElement {
         password,
         passwordConfirmation: value('passwordConfirmation'),
         phone: value('phone'),
-        planInterest: (value('planInterest') || null) as Registration['planInterest'],
+        planInterest: null,
+        planInterestId: selectedPlan?.id ?? null,
         noticeVersion: NOTICE_VERSION,
         acceptsNotice: data.get('acceptsNotice') === 'on',
       });
@@ -109,7 +111,7 @@ export default function RegistrationPage(): ReactElement {
             </h2>
             <p className="text-sm text-slate-600 font-medium">
               {selectedPlan
-                ? `$${selectedPlan.price} MXN · ${selectedPlan.capacity}`
+                ? `${formatPlanPrice(selectedPlan.priceMxn)} MXN · ${planCapacity(selectedPlan)}`
                 : 'Puedes elegir un plan más adelante.'}
             </p>
             <div className="pt-2">
@@ -156,7 +158,7 @@ export default function RegistrationPage(): ReactElement {
               <div className="pt-4">
                 <Link
                   className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs shadow-indigo-600/30"
-                  to="/acceso"
+                  to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
                 >
                   Ir al acceso <span aria-hidden="true">→</span>
                 </Link>
@@ -279,21 +281,30 @@ export default function RegistrationPage(): ReactElement {
                   <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
                     <span>Plan que te interesa (opcional)</span>
                     <select
-                      name="planInterest"
-                      value={selectedPlanId}
+                      name="planInterestId"
+                      value={selectedPlan?.id ?? ''}
+                      disabled={catalogLoading}
                       onChange={(event) =>
                         setSelectedPlanId(event.target.value)
                       }
                       className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
                     >
                       <option value="">Lo elegiré después</option>
-                      {registrationPlans.map((plan) => (
+                      {plans.map((plan) => (
                         <option value={plan.id} key={plan.id}>
-                          {plan.name} · ${plan.price} MXN
+                          {plan.name} · {formatPlanPrice(plan.priceMxn)} MXN
                         </option>
                       ))}
                     </select>
                   </label>
+                  {catalogError && (
+                    <p role="alert">
+                      {catalogError}{' '}
+                      <button type="button" onClick={reloadCatalog}>
+                        Reintentar planes
+                      </button>
+                    </p>
+                  )}
                   <details className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
                     <summary className="font-semibold text-slate-800 cursor-pointer">
                       Sobre tu registro
@@ -331,7 +342,7 @@ export default function RegistrationPage(): ReactElement {
                 <p className="pt-4 text-center text-xs text-slate-500">
                   ¿Ya tienes una cuenta?{' '}
                   <Link
-                    to="/acceso"
+                    to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
                     className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
                   >
                     Ir al acceso

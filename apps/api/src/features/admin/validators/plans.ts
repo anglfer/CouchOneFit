@@ -1,34 +1,54 @@
-import { AuthError } from '../../auth/types/errors.js';
-import type { SaasPlanInput, SaasPlanUpdate } from '../repositories/plans.js';
+import { invalidInput, payload } from '../../auth/validators/lifecycle.js'
 
-export function validatePlanInput(input: unknown, isUpdate = false): SaasPlanInput | SaasPlanUpdate {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new AuthError(400, 'INVALID_INPUT', 'Datos inválidos.');
+export interface SaasPlanInput {
+  name: string
+  maxClients: number | null
+  isUnlimited: boolean
+  priceMxn: number
+  isActive: boolean
+}
+export function validatePlanInput(
+  input: unknown,
+  _isUpdate = false
+): SaasPlanInput {
+  const body = payload(input, [
+    'name',
+    'maxClients',
+    'isUnlimited',
+    'priceMxn',
+    'isActive',
+  ])
+  const name = typeof body.name === 'string' ? body.name.trim() : ''
+  if (name.length < 3 || name.length > 50)
+    return invalidInput('El nombre debe tener entre 3 y 50 caracteres.')
+  const { maxClients, priceMxn, isUnlimited } = body
+  if (
+    typeof isUnlimited !== 'boolean' ||
+    isUnlimited !== (maxClients === null) ||
+    (maxClients !== null &&
+      (typeof maxClients !== 'number' ||
+        !Number.isInteger(maxClients) ||
+        maxClients < 1 ||
+        maxClients > 2147483647))
+  )
+    return invalidInput('Indica un límite entero positivo o cupo ilimitado.')
+  if (
+    typeof priceMxn !== 'number' ||
+    !Number.isFinite(priceMxn) ||
+    priceMxn < 0 ||
+    priceMxn >= 100000000 ||
+    Math.abs(priceMxn * 100 - Math.round(priceMxn * 100)) > 0.000001
+  )
+    return invalidInput(
+      'El precio debe ser un número positivo con hasta dos decimales.'
+    )
+  if (body.isActive !== undefined && typeof body.isActive !== 'boolean')
+    return invalidInput()
+  return {
+    name,
+    maxClients: maxClients as number | null,
+    isUnlimited,
+    priceMxn,
+    isActive: (body.isActive as boolean) ?? true,
   }
-  
-  const body = input as Record<string, unknown>;
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-const maxClients = body.maxClients !== undefined ? body.maxClients : body.limit;
-const priceMxn = Number(body.priceMxn !== undefined ? body.priceMxn : body.price);
-
-  if (!name || name.length < 3) {
-    throw new AuthError(400, 'INVALID_INPUT', 'El nombre debe tener al menos 3 caracteres.');
-  }
-  if (maxClients !== null && (typeof maxClients !== 'number' || maxClients <= 0)) {
-    throw new AuthError(400, 'INVALID_INPUT', 'El límite de clientes debe ser nulo (ilimitado) o un número mayor a 0.');
-  }
-  if (isNaN(priceMxn) || priceMxn < 0) {
-    throw new AuthError(400, 'INVALID_INPUT', 'El precio debe ser un número válido.');
-  }
-
-  const result: any = { name, maxClients, priceMxn };
-
-  if (isUpdate) {
-    if (typeof body.isActive !== 'boolean') {
-      throw new AuthError(400, 'INVALID_INPUT', 'El estado activo debe ser booleano.');
-    }
-    result.isActive = body.isActive;
-  }
-
-  return result;
 }

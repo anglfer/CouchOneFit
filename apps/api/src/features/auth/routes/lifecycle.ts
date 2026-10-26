@@ -70,7 +70,7 @@ export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
   router.get(
   '/me/subscription',
   requireProfessional(pool, now),
-  subscriptionController(pool)
+  subscriptionController(pool, now)
 );
   return router
 }

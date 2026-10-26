@@ -3,6 +3,9 @@ import express from 'express';
 import type { Pool } from 'pg';
 import { pool } from './config/database.js';
 import { config } from './config/index.js';
+import { publicPlanRoutes } from './features/saas/routes/plans.js';
+import { checkoutRoutes } from './features/saas/routes/checkout.js';
+import { capacityRoutes } from './features/saas/routes/clients.js';
 import { adminRoutes } from './features/admin/routes/admin.js';
 import { registrationRoutes } from './features/auth/routes/registration.js';
 import { sessionRoutes } from './features/auth/routes/session.js';
@@ -27,9 +30,12 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       timestamp: (now?.() ?? new Date()).toISOString(),
     });
   });
+  app.use('/api/plans', publicPlanRoutes(database));
   app.use('/api/auth', registrationRoutes(database));
   app.use('/api/auth', sessionRoutes(database, now));
   app.use('/api', lifecycleRoutes(database, now));
+  app.use('/api/me', checkoutRoutes(database, now));
+  app.use('/api/clients', capacityRoutes(database, now));
   app.use('/api/admin', adminRoutes(database, now));
   app.use('/api/professional', professionalRoutes(database, now));
   app.use('/api/client', clientRoutes(database, now));
@@ -73,3 +79,4 @@ export function createApp(database: Pool, options?: AppOptions): Express {
 }
 export const app = createApp(pool);
 export default app;
+

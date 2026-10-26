@@ -11,6 +11,6 @@ export function professionalRoutes(pool: Pool, now?: () => Date): Router {
     next()
   }, requireProfessional(pool, now))
   router.get('/profile', profileController(pool))
-  router.get('/subscription', subscriptionController(pool));
+  router.get('/subscription', subscriptionController(pool, now));
   return router
 }
