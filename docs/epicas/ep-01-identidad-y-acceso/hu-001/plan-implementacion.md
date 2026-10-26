@@ -10,7 +10,7 @@ Diseño aprobado por el usuario el 15 de octubre de 2026. Ejecución en esta ses
 
 - [x] API: pruebas HTTP primero; DTO camelCase, normalización, confirmaciones, Argon2id (19456 KiB/2/1), rol fijo profesional, error seguro, límite de solicitudes.
 - [x] BD: migración inicial consolidada de cuentas, perfil 1:1 y aceptación versionada en esquema privado; unicidad expresional; transacción única. Pruebas con PostgreSQL local, concurrencia y fallo del segundo/tercer insert.
-- [x] Web: `/registro?plan=basico|pro|elite`, formulario accesible, estados de carga/error/éxito, CTA Contáctanos, precios 299/599/999 MXN, enlace de éxito al acceso con estado honesto de HU-002.
+- [x] Web: `/registro?plan=basic|pro|elite`, formulario accesible, estados de carga/error/éxito, CTA Contáctanos, precios 299/599/999 MXN, enlace de éxito al acceso con estado honesto de HU-002.
 - [x] Integración: proxy `/api` en Vite/Vercel, cliente HTTP con errores tipados, no cache de auth.
 - [x] Documentación: contrato HU-001, tablas y evolución HU-002, instrucciones de migración, ejemplos sin secretos, README y decisiones vigentes coherentes.
 - [x] Validación: API tests/build, Web build/lint y comprobación de navegación/formulario responsive cuando haya navegador disponible; revisión final del diff.

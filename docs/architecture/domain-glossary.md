@@ -4,7 +4,7 @@ Este glosario es la referencia acordada para los nombres de identidad y acceso. 
 
 ## Objetos y campos de base de datos
 
-| Nombre actual         | Nombre estándar      |
+| Nombre histórico retirado | Nombre vigente en inglés |
 | --------------------- | -------------------- |
 | `privado`             | `private`            |
 | `usuarios`            | `users`              |
@@ -35,7 +35,7 @@ Las restricciones, los índices, las políticas, los roles SQL y las funciones S
 
 ## Valores
 
-| Valor actual             | Valor estándar            |
+| Valor histórico retirado | Valor vigente en inglés |
 | ------------------------ | ------------------------- |
 | rol `profesional`        | `professional`            |
 | rol `administrador`      | `admin`                   |
@@ -51,7 +51,7 @@ El rol público `admin` coincide con el contrato de autorización que ya usa API
 
 ## Contrato JSON de registro
 
-| Campo actual             | Campo estándar         | Significado                                        |
+| Campo histórico retirado | Campo vigente en inglés | Significado                                        |
 | ------------------------ | ---------------------- | -------------------------------------------------- |
 | `nombreCompleto`         | `fullName`             | Nombre completo de la persona profesional          |
 | `usuario`                | `username`             | Nombre de usuario de la cuenta                     |
@@ -64,8 +64,8 @@ El rol público `admin` coincide con el contrato de autorización que ya usa API
 | `avisoVersion`           | `noticeVersion`        | Versión del aviso aceptado                         |
 | `aceptaAviso`            | `acceptsNotice`        | Casilla de aceptación del aviso                    |
 
-Las respuestas de sesión y perfil usan los campos en inglés que ya existen: `id`, `username`, `email`, `fullName`, `role`, `sessionId` y `expiresAt`. Los roles en JSON son `professional` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
 Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `clientId`, `professionalId`, `username`, `email`, `fullName`, `goal`, `role`, `status`, `clientStatus`, `sessionId`, `accessToken`, `refreshToken` y `expiresAt`. En PostgreSQL, el expediente del cliente vive en `private.clients` con `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `status` y `created_at`. Los roles en JSON son `professional`, `client` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
+El registro acepta los campos en inglés de esta tabla y `planInterest`/`plan` usan `basic`, `pro` o `elite`. Web devuelve `account` con `id`, `username`, `email`, `fullName`, `role`, `status` y `subscription: null`; la sesión viaja en cookies, no en JSON. Móvil devuelve la cuenta cliente con `clientId` y `clientStatus`, más `session: { accessToken, refreshToken, expiresAt }` al emitir o renovar sesión. `sessionId` es interno (`sid`), no un campo público de `account`. Los perfiles usan los mismos nombres en inglés de cada superficie y los roles `professional`, `client` y `admin`; no se traducen identificadores entre capas.
 
 ## Alcance
 

@@ -6,7 +6,7 @@
 | :---------------- | :----------------------------- | :------------------------------------------- | :------------------- |
 | **API**           | Node.js + Express + TypeScript | Feature-Based + Layered Architecture         | Render (Web Service) |
 | **Web / PWA**     | React + Vite + TypeScript      | Feature-Based + Component-Based Architecture | Vercel (SPA)         |
-| **Móvil**         | Flutter + Dart                 | Feature-Based + Component-Based Architecture | APK / App Bundle     |
+| **Móvil**         | Flutter + Dart                 | Feature-Based + Component-Based Architecture | APK Android release firmado; sin AAB/tiendas/iOS/Windows nativo en V2 |
 | **Base de Datos** | PostgreSQL (Supabase)          | Relacional / RLS                             | Supabase Cloud       |
 
 ---
@@ -148,4 +148,4 @@ La especificación completa de plataformas, configuración por entorno y variabl
 
 ## Contratos por funcionalidad y persistencia
 
-La documentación de historias se concentra en [épicas e historias](../epicas/README.md), sin carpetas por sprint. La [Guía de programación](../../DEVELOPMENT.md) resume las reglas para API, Web y móvil; las [convenciones compartidas de BD/código](../database/convenciones.md) son la fuente de verdad para PostgreSQL y mapeos de contrato. El [modelo de identidad y acceso](../database/modelo-identidad-acceso.md) documenta tablas, relaciones, índices, políticas y funciones reales de HU-001/002. PostgreSQL usa español `snake_case`; TypeScript/JSON usan `camelCase` y clases/tipos/componentes `PascalCase`. Los repositorios mapean columnas explícitamente.
+La documentación de historias se concentra en [épicas e historias](../epicas/README.md), sin carpetas por sprint. La [Guía de programación](../../DEVELOPMENT.md) resume las reglas para API, Web y móvil; las [convenciones compartidas de BD/código](../database/convenciones.md) son la fuente de verdad para PostgreSQL y mapeos de contrato. El [modelo de identidad y acceso](../database/modelo-identidad-acceso.md) documenta tablas, relaciones, índices, políticas y funciones reales de HU-001/002. Todos los identificadores del dominio usan inglés: PostgreSQL `snake_case`, TypeScript/JSON `camelCase` y clases/tipos/componentes `PascalCase`. Los repositorios mapean columnas explícitamente.
