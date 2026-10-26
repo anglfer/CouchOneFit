@@ -271,7 +271,7 @@ Sin autoeliminación UI. **Razón/alternativas:** separa operación, identidad y
 #### DEC-005 — Catálogo de planes y cupo
 
 - Básico 10, Pro 30 y Élite ilimitado: flag explícito + límite nullable, nunca sentinel 0. Restante limitado `max(0, limite-usados)` y exceso aparte; ilimitado restante `null`, etiqueta “ilimitado”. Sin plan no confiere cupo.
-- Admin cambia plan inmediatamente con confirmación de impacto y auditoría. Profesional solicita asistidamente por contacto conocido, sin pantalla nueva. Downgrade con exceso bloquea **solo alta/reactivación consumidora**, no lectura, prescripción, desactivación o invitación del activo ya reservado. Errores: 409 `CUPO_AGOTADO`; 403 `PLAN_REQUIRED`/`SUBSCRIPTION_SUSPENDED`.
+- **Acuerdo del usuario 25-oct-2026 (vigente):** el profesional contrata y sube de nivel mediante checkout simulado; cobra el precio completo del plan elegido y comienza un mes calendario nuevo desde aprobación, sin prorrateo. Administrador solo consulta suscripciones: no asigna/cambia plan, estado ni vigencia. Mantiene catálogo HU-010. Aprobación y activación auditadas y atómicas; rechazo/error/cancelación no cambian plan. El downgrade de autoservicio queda fuera de este incremento; se conserva tratamiento de exceso ante datos históricos o reducción de catálogo. Errores de cupo: 409 `CUPO_AGOTADO`; 403 `PLAN_REQUIRED`/`SUBSCRIPTION_SUSPENDED`.
 - **Actualización explícita del usuario 15-oct-2026:** publicar precios Básico 299 MXN, Pro 599 MXN y Élite 999 MXN. «Contratar plan» lleva al registro con interés preseleccionado y «Contáctanos» al mismo formulario sin plan; reemplaza el recorrido anterior de contratación previo. No solicita datos bancarios ni registra cargos o activa suscripciones. Cuenta activa sin plan/cupo; login en HU-002. Perfil ampliable mediante migraciones nuevas.
 - **Razón/alternativas:** catálogo de planes y registro previo a la contratación, sin expulsión de clientes; descarta downgrade diferido, 0=ilimitado y pagos reales. **Validación:** N−1/N/N+1, carreras, downgrade, ilimitado/null/restante, CTA a registro con precio/interés correcto y sin datos bancarios/cargos/activación; HU-010–014/039.
 
@@ -347,6 +347,9 @@ React/Vite Web/PWA (corrección del término histórico “APW”, no React Nati
 - **Razón/alternativas:** evidencia de rendimiento/recuperación sin evadir reposo ni inventar SLA; descarta 200 filas/día y health aislado. **Validación:** TT-015/021 ejecutan muestras, crecimiento, consistencia, timeout, restore y reportan mensual con cadencia/errores; no resultados existentes.
 
 #### DEC-014 — Uso y cuentas cloud
+
+**Actualización vigente 25-oct-2026:** se incluye checkout simulado dentro de la aplicación existente, sin proveedor externo, datos financieros reales ni cobros. El profesional contrata/mejora por autoservicio tras autenticarse; aprobación activa un mes calendario nuevo y registra importe completo, comprobante e historial. Administrador solo consulta suscripciones. Los párrafos siguientes describen el acuerdo anterior de 15-oct, sustituido en lo relativo a checkout/activación; se mantienen infraestructura, presupuesto y protección de secretos.
+
 
 CouchOne Fit es un producto SaaS con catálogo de planes y registro. El flujo actual no procesa pagos; presupuesto de infraestructura incremental **0** para esta fase. El recorrido actual HU-001/039 selecciona interés de plan y crea cuenta, sin datos bancarios, proveedor/pasarela, cargo, persistencia de suscripción o activación real. Conservar Vercel/Render/Supabase existentes; límites y permisos requieren verificación humana autorizada, no contratación/provisión de servicios cloud ni colaboradores acreditados por este texto. Cuenta Vercel propietario operativo Ferxxo; delegación mínima solo si capacidad real de colaboradores lo permite, nunca compartir keys. Sin compra dominio; Web proxy mismo origen `/api` HTTPS→Render conserva paths/cookies/request, sin cache de contenido privado ni `Set-Cookie`, host-only/strip Domain; no secreto frontend. Móvil Render TLS directo.
 
@@ -827,23 +830,23 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 **DoD:** D0; valor comprobado contra suscripción y recuento real de activos. HU-013 consume este cálculo y cierra el control concurrente sin convertirlo en dependencia circular de HU-011.
 
-#### HU-012 — Activar, suspender y modificar una suscripción
+#### HU-012 — Contratar y mejorar la suscripción mediante pago simulado
 
-**Como:** administrador. **Quiero:** gestionar estado/plan de suscripciones. **Para:** controlar acceso contratado sin destruir la información.
-**Referencias:** RDF0903, RDF1003, acuerdos. **Responsable:** Omar. **Capas:** API, Web, BD.
-**Depende de:** HU-003/010/011/005, DEC-004/005. **Bloquea a:** aceptación SaaS y efectos de acceso.
+**Acuerdo explícito usuario 25-oct-2026:** sustituye la gestión administrativa anterior. **Como:** profesional autenticado. **Quiero:** contratar o subir de nivel desde mi cuenta mediante checkout simulado. **Para:** habilitar/ampliar mi capacidad sin intervención del administrador.
+**Referencias:** RF09/RF10, RDF0901/0903/1003 con acuerdo complementario vigente; DEC-004/005/014. **Responsable:** Omar. **Capas:** API, Web, BD.
+**Depende de:** HU-001/002/010/011/005. No nuevos SP ni IDs RF/RDF inventados.
 
-**Aceptación:** operación válida cambia estado/plan y queda auditada; suspensión aplica matriz aprobada a profesional/cliente sin borrar historial; downgrade con exceso se trata según regla explícita, no inactiva clientes arbitrariamente; roles no admin no cambian suscripciones.
+**Aceptación:** catálogo real y elegibilidad en servidor; cotización propietaria, precio completo MXN y mes calendario nuevo desde aprobación, sin prorrateo. Checkout identificado como simulación con tarjetas ficticias, procesamiento persistido, aprobación/rechazo/error/cancelación, comprobante e historial. Una aprobación cambia suscripción y audita en una transacción; doble clic/reintentos/recarga no duplican ni extienden dos veces. Fallo/rechazo/cancelación preservan estado anterior. No datos bancarios ni dinero reales. Admin solo consulta y no cambia plan/estado/vigencia, tampoco mediante HTTP directo o privilegios runtime ordinarios.
 
-| Tarea       | Resultado concreto                                                                               |
-| ----------- | ------------------------------------------------------------------------------------------------ |
-| HU-012-API1 | Servicio/transacción de estado/cambio de plan, auditoría y verificación de cupo.                 |
-| HU-012-WEB1 | Editor de suscripción, confirmación de impacto y errores/conflictos.                             |
-| HU-012-WEB2 | Estado de acceso/capacidad en panel profesional al cambiar suscripción.                          |
-| HU-012-QA1  | Suspender/reactivar con sesiones abiertas, downgrade excedido, concurrencia y historial intacto. |
+| Tarea | Resultado concreto |
+| --- | --- |
+| HU-012-BD1 | Operaciones simuladas con snapshots/importe/estado/idempotencia, activación auditada atómica, permisos de solo consulta administrativa. |
+| HU-012-API1 | Cotización, confirmación, consulta, cancelación e historial propios; simulador de servidor sin proveedor externo, validación de precio/plan/estado. |
+| HU-012-WEB1 | Mi suscripción, selección/checkout/procesamiento/resultado/comprobante e historial recuperable tras recarga. |
+| HU-012-WEB2 | Directorio administrativo sin edición de suscripción; primera contratación disponible sin plan y actualización de cupo al aprobar. |
+| HU-012-QA1 | Éxito/fallo/cancelación, cuota obsoleta/vencida, manipulación, ownership, permisos admin, concurrencia/idempotencia, rollback y recorrido en navegador. |
 
-**DoD:** D0; reflejo móvil de permisos mediante sesión/errores comunes, sin construir administración móvil.
-
+**DoD:** D0 y evidencia de simulación sin cargos reales; no administración móvil, downgrade propio ni facturación recurrente automática.
 #### HU-013 — Impedir exceder el cupo incluso con concurrencia
 
 **Como:** plataforma. **Quiero:** controlar clientes activos en el servidor. **Para:** cumplir el límite del plan sin depender de UI.
@@ -1266,6 +1269,9 @@ El contrato de historial consume el evento confirmado HU-037 cuando existe, con 
 ### EP-08 — Portal y PWA
 
 #### HU-039 — Convertir el portal existente en acceso real al producto
+
+**Acuerdo vigente 25-oct-2026:** el visitante conserva registro/login e interés de plan. Tras autenticarse, el profesional accede a Mi suscripción y checkout simulado de HU-012. Registrarse sigue sin activar el plan; solo la aprobación del pago simulado lo activa. Catálogo privado de contratación persistido, sin pasarela ni dinero reales. Sustituye las prohibiciones anteriores de simulación/activación en el recorrido autenticado.
+
 
 **Como:** visitante/profesional. **Quiero:** conocer planes/capacidad y acceder al registro/login. **Para:** entrar al producto disponible con información clara sobre las funciones disponibles.
 **Fuente:** README raíz/portal y RF09. **Responsable:** Omar. **Capas:** API, Web, BD para catálogo.
@@ -2311,3 +2317,11 @@ Acuerdo inicial: PostgreSQL en español `snake_case`, código/JSON `camelCase` y
 ### Incremento de implementación HU-003 — 16-oct-2026
 
 Autenticación común profesional/admin con autorización por rol persistido, rutas excluyentes `/app/*` y `/admin/*`, permisos/RLS de provisión y seed controlada. Migración incremental aplicada y administrador real creado en CouchOneFit sin perfil profesional ni contraseña versionada. Matriz y seed probadas localmente, login/refresh/logout y rechazo operativo contra Supabase, recorrido de navegador local verificado. [Contrato y evidencia](docs/epicas/ep-01-identidad-y-acceso/hu-003/README.md). HU-010/012/014 conservan sus operaciones; D0/revisión independiente/despliegue API-Web pendientes, no se marca cerrada por esta anotación.
+
+### Cambio de alcance — autoservicio y pagos simulados (25-oct-2026)
+
+Por instrucción explícita del usuario se sustituyen las reglas anteriores que daban control de suscripciones al admin y excluían checkout: el profesional contrata/mejora, paga el precio completo simulado y comienza un nuevo mes calendario. Admin solo lectura de suscripciones. Esta regla prevalece sobre las menciones históricas de asignación/suspensión administrativa en este documento. No supone cobro real, prorrateo, integración externa, downgrade propio ni renovación automática. [Diseño y decisiones](../docs/superpowers/specs/2026-10-25-autoservicio-pago-simulado-design.md).
+
+### Presentación y fuente del catálogo — acuerdo posterior 25-oct-2026
+
+La GUI omite etiquetas/advertencias de prueba y simulación por petición expresa; presenta pago, procesamiento, comprobante e historial con lenguaje normal. El motor conserva la simulación sin proveedor/cobro real ni datos bancarios reales. Esta regla sustituye el aviso visible definido al diseñar el checkout. HU-010/011/012/039 comparten catálogo persistido: cambios de nombre/precio/cupo/disponibilidad se reflejan en portada, registro, checkout y administración al consultar, recuperar foco o refrescar cada 60s visible. `planInterestId` conserva la selección de cualquier plan vigente al registrarse; no concede cupo. Historial de pagos preserva snapshots; cotización obsoleta requiere nueva confirmación.

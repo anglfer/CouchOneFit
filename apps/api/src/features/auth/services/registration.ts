@@ -23,6 +23,7 @@ export async function registerProfessional(pool: Pool, input: unknown) {
       },
     }
   } catch (error) {
+    if (error instanceof RegistrationError) throw error
     if (
       typeof error === 'object' &&
       error !== null &&
@@ -32,13 +33,13 @@ export async function registerProfessional(pool: Pool, input: unknown) {
       throw new RegistrationError(
         409,
         'IDENTIFIER_UNAVAILABLE',
-        'El usuario o correo ya está registrado. Prueba con otro o ve al acceso.',
+        'El usuario o correo ya está registrado. Prueba con otro o ve al acceso.'
       )
     }
     throw new RegistrationError(
       503,
       'REGISTRATION_UNAVAILABLE',
-      'No pudimos completar el registro. Inténtalo más tarde.',
+      'No pudimos completar el registro. Inténtalo más tarde.'
     )
   }
 }

@@ -72,3 +72,13 @@ El registro acepta los campos en inglés de esta tabla y `planInterest`/`plan` u
 HU-006–009 añade `subscriptions` (`professional_id`, `plan`, `status`, `expires_at`), `invitations` (`client_id`, `token_hash`), `password_resets` (`user_id`, `issued_by`, `token_hash`) y `access_events` (`actor_id`, `subject_id`, `client_id`, `action`). JSON usa `currentPassword`, `passwordConfirmation`, `code`, `expiresAt`, `invitationExpiresAt`, `identityVerified`, `verificationMethod`, `activated`, `requiresLogin`. Los secretos no son identificadores de expediente ni se conservan tras el canje. [Modelo incremental](../database/modelo-ciclo-acceso.md).
 
 Este glosario cubre el esquema y los contratos de identidad y acceso implementados actualmente. Antes de implementar otros dominios, agrega aquí sus nombres acordados. Las etiquetas, los mensajes, los correos y los textos de accesibilidad que ve la persona usuaria permanecen en español.
+
+## SaaS — HU-010 a HU-014
+
+`saas_plans` conserva `max_clients`, `is_unlimited`, `price_mxn` e `is_active`. `subscriptions.plan_id` referencia el catálogo y sustituye la antigua columna `plan`; `professionals.plan_interest` permanece como interés de registro, independiente de la suscripción contratada. `subscription_history` y `plan_history` conservan actor y estados anteriores/nuevos. JSON usa `planId`, `planName`, `maxClients`, `isUnlimited`, `priceMxn`, `isActive`, `used`, `remaining`, `excess`, `expiresAt`, `clientsUsed`, `inactiveClients` y `subscriptionStatus`. `accountStatus` conserva el estado de la cuenta por separado. Sin suscripción: capacidad 0, nunca ilimitada. [Contrato completo](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Checkout simulado — 25-oct-2026
+
+`simulated_payments`: `professional_id`, `actor_id`, `plan_id`, `idempotency_key`, `plan_snapshot`, `expected_subscription`, `amount_cents`, `status`, `instrument`, `failure_code`, `quote_expires_at`, `processing_after`, `completed_at`, `period_start`, `period_end`. Estados `pending/processing/succeeded/failed/cancelled`. JSON camelCase; `simulated:true` y moneda `MXN`. Se cobra precio completo simulado y se activa mes nuevo; admin solo consulta suscripciones. [Contrato](../epicas/ep-02-saas-y-administracion/README.md).
+
+Catálogo compartido: `professionals.plan_interest_id` / JSON `planInterestId` conserva el UUID del plan de interés, separado de suscripción y del antiguo `plan_interest`. `GET /api/plans` publica solo `id,name,maxClients,isUnlimited,priceMxn` de planes disponibles, sin información de cuentas o suscripciones.

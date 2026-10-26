@@ -189,3 +189,160 @@ CREATE POLICY manage_password_resets ON private.password_resets FOR ALL TO couch
 CREATE POLICY lookup_password_resets ON private.password_resets FOR SELECT TO couchone_authentication USING (true);
 CREATE POLICY insert_access_events ON private.access_events FOR INSERT TO couchone_authentication WITH CHECK (true);
 CREATE POLICY select_access_events ON private.access_events FOR SELECT TO couchone_authentication USING (false);
+
+CREATE TABLE private.saas_plans (
+  id UUID CONSTRAINT pk_saas_plans PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(50) CONSTRAINT uk_saas_plans_name UNIQUE NOT NULL,
+  -- max_clients: NULL significa ilimitado. Rechaza valores 0 o negativos.
+  max_clients INTEGER NULL CONSTRAINT chk_saas_plans_max_clients CHECK (max_clients > 0),
+  price_mxn NUMERIC(10, 2) NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()
+);
+
+INSERT INTO private.saas_plans (name, max_clients, price_mxn) VALUES
+('Básico 10', 10, 299.00),
+('Pro 30', 30, 599.00),
+('Élite ilimitado', NULL, 999.00);
+ALTER TABLE private.subscriptions
+  ADD COLUMN plan_id UUID REFERENCES private.saas_plans(id) ON DELETE RESTRICT;
+
+UPDATE private.subscriptions s
+SET plan_id = p.id
+FROM private.saas_plans p
+WHERE
+  (s.plan = 'basic' AND p.name = 'Básico 10') OR
+  (s.plan = 'pro' AND p.name = 'Pro 30') OR
+  (s.plan = 'elite' AND p.name = 'Élite ilimitado');
+
+UPDATE private.subscriptions
+SET plan_id = (SELECT id FROM private.saas_plans WHERE name = 'Básico 10')
+WHERE plan_id IS NULL;
+
+ALTER TABLE private.subscriptions ALTER COLUMN plan_id SET NOT NULL;
+ALTER TABLE private.subscriptions DROP COLUMN plan;
+
+CREATE TABLE private.subscription_history (
+  id UUID CONSTRAINT pk_subscription_history PRIMARY KEY DEFAULT gen_random_uuid(),
+  professional_id UUID NOT NULL REFERENCES private.professionals(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES private.users(id), -- Registra quién autorizó el cambio
+  previous_plan_id UUID REFERENCES private.saas_plans(id),
+  new_plan_id UUID NOT NULL REFERENCES private.saas_plans(id),
+  previous_status VARCHAR(20),
+  new_status VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()
+);
+-- HU-010..014: incremental correction; earlier migration checksums are preserved.
+ALTER TABLE private.saas_plans ADD COLUMN is_unlimited boolean;
+UPDATE private.saas_plans SET is_unlimited=(max_clients IS NULL);
+ALTER TABLE private.saas_plans ALTER COLUMN is_unlimited SET NOT NULL;
+ALTER TABLE private.saas_plans ADD CONSTRAINT ck_saas_plans_capacity CHECK
+  ((is_unlimited AND max_clients IS NULL) OR (NOT is_unlimited AND max_clients IS NOT NULL AND max_clients>0));
+ALTER TABLE private.saas_plans ADD CONSTRAINT ck_saas_plans_price CHECK (price_mxn>=0 AND price_mxn<100000000 AND price_mxn<>'NaN'::numeric);
+ALTER TABLE private.saas_plans ADD CONSTRAINT ck_saas_plans_name CHECK (char_length(btrim(name)) BETWEEN 3 AND 50);
+CREATE UNIQUE INDEX uk_saas_plans_normalized_name ON private.saas_plans(lower(btrim(name)));
+ALTER TABLE private.subscription_history ADD COLUMN previous_expires_at timestamptz;
+ALTER TABLE private.subscription_history ADD COLUMN new_expires_at timestamptz;
+ALTER TABLE private.subscription_history DROP CONSTRAINT subscription_history_professional_id_fkey;
+ALTER TABLE private.subscription_history ADD CONSTRAINT fk_subscription_history_professional FOREIGN KEY (professional_id) REFERENCES private.professionals(id) ON DELETE RESTRICT;
+CREATE TABLE private.plan_history (
+  id uuid CONSTRAINT pk_plan_history PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id uuid NOT NULL REFERENCES private.saas_plans(id) ON DELETE RESTRICT,
+  actor_id uuid NOT NULL REFERENCES private.users(id) ON DELETE RESTRICT,
+  previous_value jsonb,
+  new_value jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+REVOKE ALL ON private.saas_plans,private.subscription_history,private.plan_history FROM PUBLIC;
+ALTER TABLE private.saas_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private.subscription_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private.plan_history ENABLE ROW LEVEL SECURITY;
+GRANT SELECT,INSERT,UPDATE ON private.saas_plans,private.subscriptions TO couchone_authentication;
+GRANT SELECT,INSERT ON private.subscription_history,private.plan_history TO couchone_authentication;
+GRANT UPDATE(id) ON private.professionals TO couchone_authentication;
+GRANT INSERT ON private.clients TO couchone_authentication;
+GRANT UPDATE(status) ON private.clients TO couchone_authentication;
+CREATE POLICY lock_saas_professionals ON private.professionals FOR UPDATE TO couchone_authentication USING (true) WITH CHECK (true);
+CREATE POLICY select_saas_plans ON private.saas_plans FOR SELECT TO couchone_authentication USING (true);
+CREATE POLICY insert_saas_plans ON private.saas_plans FOR INSERT TO couchone_authentication WITH CHECK
+  (EXISTS (SELECT 1 FROM private.users WHERE id::text=current_setting('app.subject_id',true) AND role='admin' AND status='active'));
+CREATE POLICY update_saas_plans ON private.saas_plans FOR UPDATE TO couchone_authentication USING
+  (EXISTS (SELECT 1 FROM private.users WHERE id::text=current_setting('app.subject_id',true) AND role='admin' AND status='active'));
+CREATE POLICY insert_saas_subscriptions ON private.subscriptions FOR INSERT TO couchone_authentication WITH CHECK
+  (EXISTS (SELECT 1 FROM private.users WHERE id::text=current_setting('app.subject_id',true) AND role='admin' AND status='active'));
+-- Existing UPDATE policy permits row locks for activation. The private API role is never public.
+CREATE POLICY insert_subscription_history ON private.subscription_history FOR INSERT TO couchone_authentication WITH CHECK
+  (actor_id::text=current_setting('app.subject_id',true) AND EXISTS (SELECT 1 FROM private.users WHERE id=actor_id AND role='admin' AND status='active'));
+CREATE POLICY insert_plan_history ON private.plan_history FOR INSERT TO couchone_authentication WITH CHECK
+  (actor_id::text=current_setting('app.subject_id',true) AND EXISTS (SELECT 1 FROM private.users WHERE id=actor_id AND role='admin' AND status='active'));
+CREATE POLICY insert_owned_clients ON private.clients FOR INSERT TO couchone_authentication WITH CHECK
+  (user_id IS NULL AND EXISTS (SELECT 1 FROM private.professionals p JOIN private.users u ON u.id=p.user_id WHERE p.id=professional_id AND u.id::text=current_setting('app.subject_id',true) AND u.status='active'));
+CREATE POLICY update_owned_client_status ON private.clients FOR UPDATE TO couchone_authentication USING
+  (EXISTS (SELECT 1 FROM private.professionals p WHERE p.id=professional_id AND p.user_id::text=current_setting('app.subject_id',true))) WITH CHECK
+  (EXISTS (SELECT 1 FROM private.professionals p WHERE p.id=professional_id AND p.user_id::text=current_setting('app.subject_id',true)));
+-- Professional self-service simulation; no payment provider or financial credentials.
+CREATE TABLE private.simulated_payments (
+ id uuid CONSTRAINT pk_simulated_payments PRIMARY KEY DEFAULT gen_random_uuid(),
+ professional_id uuid NOT NULL REFERENCES private.professionals(id) ON DELETE RESTRICT,
+ actor_id uuid NOT NULL REFERENCES private.users(id) ON DELETE RESTRICT,
+ plan_id uuid NOT NULL REFERENCES private.saas_plans(id) ON DELETE RESTRICT,
+ idempotency_key uuid NOT NULL,
+ plan_snapshot jsonb NOT NULL,
+ expected_subscription jsonb,
+ amount_cents bigint NOT NULL CHECK(amount_cents BETWEEN 0 AND 9999999999),
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN('pending','processing','succeeded','failed','cancelled')),
+ instrument text CHECK(instrument IN('test_approved','test_declined','test_error')),
+ failure_code text,
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ quote_expires_at timestamptz NOT NULL DEFAULT clock_timestamp()+interval '10 minutes',
+ processing_after timestamptz,
+ completed_at timestamptz,
+ period_start timestamptz,
+ period_end timestamptz,
+ CONSTRAINT uk_simulated_payments_idempotency UNIQUE(professional_id,idempotency_key)
+);
+CREATE UNIQUE INDEX uk_simulated_payments_open ON private.simulated_payments(professional_id) WHERE status IN('pending','processing');
+ALTER TABLE private.simulated_payments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON private.simulated_payments FROM PUBLIC;
+GRANT SELECT,INSERT,UPDATE ON private.simulated_payments TO couchone_authentication;
+CREATE POLICY own_simulated_payments ON private.simulated_payments FOR ALL TO couchone_authentication
+ USING(actor_id::text=current_setting('app.subject_id',true))
+ WITH CHECK(actor_id::text=current_setting('app.subject_id',true) AND EXISTS(SELECT 1 FROM private.professionals p WHERE p.id=professional_id AND p.user_id=actor_id));
+-- Admin subscription control is removed from both API and runtime privileges.
+REVOKE INSERT,UPDATE ON private.subscriptions FROM couchone_authentication;
+GRANT UPDATE(id) ON private.subscriptions TO couchone_authentication;
+REVOKE INSERT ON private.subscription_history FROM couchone_authentication;
+CREATE FUNCTION private.apply_simulated_payment(payment_id uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE payment private.simulated_payments%ROWTYPE; previous private.subscriptions%ROWTYPE;
+ target_plan private.saas_plans%ROWTYPE; professional uuid; started timestamptz;
+BEGIN
+ SELECT professional_id INTO professional FROM private.simulated_payments WHERE id=payment_id AND actor_id::text=current_setting('app.subject_id',true);
+ IF professional IS NULL THEN RAISE EXCEPTION 'PAYMENT_NOT_FOUND'; END IF;
+ PERFORM id FROM private.professionals WHERE id=professional FOR UPDATE;
+ SELECT * INTO payment FROM private.simulated_payments WHERE id=payment_id FOR UPDATE;
+ IF NOT EXISTS(SELECT 1 FROM private.users u JOIN private.professionals p ON p.user_id=u.id WHERE p.id=professional AND u.id=payment.actor_id AND u.role='professional' AND u.status='active') THEN RAISE EXCEPTION 'PAYMENT_FORBIDDEN'; END IF;
+ IF payment.status='succeeded' THEN RETURN; END IF;
+ IF payment.status<>'processing' OR payment.instrument IS DISTINCT FROM 'test_approved' OR payment.processing_after>clock_timestamp() OR payment.processing_after IS NULL THEN RAISE EXCEPTION 'PAYMENT_NOT_READY'; END IF;
+ SELECT * INTO target_plan FROM private.saas_plans WHERE id=payment.plan_id FOR SHARE;
+ SELECT * INTO previous FROM private.subscriptions WHERE professional_id=professional FOR UPDATE;
+ IF to_jsonb(target_plan) IS DISTINCT FROM payment.plan_snapshot OR NOT target_plan.is_active OR
+    (CASE WHEN previous.id IS NULL THEN NULL ELSE to_jsonb(previous) END) IS DISTINCT FROM payment.expected_subscription OR
+    payment.amount_cents<>round(target_plan.price_mxn*100)::bigint THEN RAISE EXCEPTION 'CHECKOUT_STALE'; END IF;
+ started:=clock_timestamp();
+ UPDATE private.simulated_payments SET status='succeeded',completed_at=started,period_start=started,
+   period_end=((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC' WHERE id=payment_id;
+ INSERT INTO private.subscriptions(professional_id,plan_id,status,expires_at) VALUES(professional,payment.plan_id,'active',((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC')
+ ON CONFLICT(professional_id) DO UPDATE SET plan_id=EXCLUDED.plan_id,status='active',expires_at=EXCLUDED.expires_at;
+ INSERT INTO private.subscription_history(professional_id,actor_id,previous_plan_id,new_plan_id,previous_status,new_status,previous_expires_at,new_expires_at)
+ VALUES(professional,payment.actor_id,previous.plan_id,payment.plan_id,previous.status,'active',previous.expires_at,((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC');
+END $$;
+REVOKE ALL ON FUNCTION private.apply_simulated_payment(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.apply_simulated_payment(uuid) TO couchone_authentication;
+-- Preserve the selected catalog plan without changing the historical registration-interest enum.
+ALTER TABLE private.professionals ADD COLUMN plan_interest_id uuid
+  CONSTRAINT fk_professionals_plan_interest REFERENCES private.saas_plans(id) ON DELETE RESTRICT;
+GRANT SELECT ON private.saas_plans TO couchone_registration;
+CREATE POLICY select_registration_plans ON private.saas_plans FOR SELECT TO couchone_registration USING(is_active);
+

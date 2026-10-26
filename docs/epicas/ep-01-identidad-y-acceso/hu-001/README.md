@@ -86,3 +86,7 @@ Formato `{"error":{"code":"...","message":"..."}}`; respuestas no-store. Web evi
 Aceptación: formulario válido crea una sola identidad; duplicados/datos inválidos no dejan alta parcial; payload admin no concede privilegio; infraestructura no revela detalles. DoD: D0, identidad profesional única y alta consistente; login se valida en HU-002 sin depender circularmente de su demostración.
 
 Pruebas: `npm test` en API con PostgreSQL local exclusivo ya migrado; API build, Web build/lint y navegador. Se comprueba instalación limpia y equivalencia entre migración y esquema integrado. [Plan de implementación/evidencia histórica](plan-implementacion.md). Estado: implementada y validada localmente; revisión independiente, configuración remota y despliegue no acreditados por este documento.
+
+## Catálogo vigente — 25-oct-2026
+
+El registro consume `GET /api/plans` y acepta `planInterestId` UUID opcional, que apunta al catálogo persistido y permite planes personalizados/renombrados. Se valida disponibilidad y se almacena en `private.professionals.plan_interest_id` sin activar suscripción. `planInterest` histórico (basic/pro/elite) sigue admitido para clientes anteriores; no enviar ambos campos. Un plan retirado entre selección y envío devuelve 409 `PLAN_UNAVAILABLE`. Aplicar `202610260003_live_plan_catalog.sql`. [Contrato vigente SaaS](../../ep-02-saas-y-administracion/README.md).

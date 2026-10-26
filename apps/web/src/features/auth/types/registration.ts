@@ -7,6 +7,7 @@ export interface Registration {
   passwordConfirmation: string;
   phone: string;
   planInterest: 'basic' | 'pro' | 'elite' | null;
+  planInterestId?: string | null;
   noticeVersion: string;
   acceptsNotice: boolean;
 }

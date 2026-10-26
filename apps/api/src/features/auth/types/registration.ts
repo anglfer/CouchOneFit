@@ -6,6 +6,7 @@ export interface Registration {
   password: string
   phone: string | null
   planInterest: 'basic' | 'pro' | 'elite' | null
+  planInterestId?: string | null
   noticeVersion: string
 }
 export { AuthError as RegistrationError } from './errors.js'

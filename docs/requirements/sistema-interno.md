@@ -150,7 +150,7 @@ Requerimientos funcionales orientados al profesional (entrenador/nutriólogo) y 
 | :--- | :--- | :--- |
 | `RDF0901` | Consultar plan contratado | Permitirá identificar el plan asociado a cada cuenta profesional. |
 | `RDF0902` | Controlar capacidad | El sistema deberá impedir que un profesional mantenga más clientes activos de los permitidos por su plan. |
-| `RDF0903` | Activar o suspender suscripción | El administrador podrá modificar el estado de la suscripción de un profesional. |
+| `RDF0903` | Activar o suspender suscripción | **Acuerdo vigente 25-oct-2026:** el profesional activa/renueva mediante pago simulado aprobado; administrador solo consulta, sin modificar estado, plan o vigencia. Sustituye la facultad administrativa histórica. |
 | `RDF0904` | Administrar planes | El administrador podrá administrar los planes disponibles y sus límites. |
 
 ---
@@ -165,6 +165,5 @@ Requerimientos funcionales orientados al profesional (entrenador/nutriólogo) y 
 | :--- | :--- | :--- |
 | `RDF1001` | Consultar profesionales | Permitirá consultar los profesionales registrados en la plataforma. |
 | `RDF1002` | Consultar clientes por profesional | Permitirá conocer cuántos clientes utiliza cada cuenta profesional. |
-| `RDF1003` | Gestionar suscripciones | Permitirá activar, suspender o modificar una suscripción. |
+| `RDF1003` | Gestionar suscripciones | **Acuerdo vigente 25-oct-2026:** contratación/mejora por el profesional con pago simulado de precio completo y nuevo periodo mensual; administrador solo consulta suscripciones. Sustituye la gestión administrativa histórica. |
 | `RDF1004` | Separar funciones administrativas | El administrador no deberá utilizar las funciones normales del entrenador como si fueran clientes propios. |
-

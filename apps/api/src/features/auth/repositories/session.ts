@@ -329,12 +329,7 @@ export async function updateAccountStatus(
       userId,
       status,
     ])
-    if (user.role === 'client') {
-      await client.query(
-        'UPDATE private.clients SET status=$2 WHERE user_id=$1',
-        [userId, status],
-      )
-    }
+    // DEC-004: account state never allocates or releases an operational place.
     let revokedSessions = 0
     if (status === 'inactive') {
       const { rowCount } = await client.query(

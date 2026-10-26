@@ -12,6 +12,7 @@ const fields = new Set([
   'passwordConfirmation',
   'phone',
   'planInterest',
+  'planInterestId',
   'noticeVersion',
   'acceptsNotice',
 ])
@@ -33,11 +34,12 @@ export function validateRegistration(input: unknown): Registration {
   const password = text('password')
   const phone = body.phone == null ? '' : text('phone').trim()
   const planInterest = body.planInterest ?? null
+  const planInterestId = body.planInterestId ?? null
   if ([...fullName].length < 3 || [...fullName].length > 120)
     return invalid('El nombre debe tener entre 3 y 120 caracteres.')
   if (!/^[a-z0-9._]{3,30}$/.test(username))
     return invalid(
-      'Usa un usuario de 3 a 30 letras, números, puntos o guion bajo.',
+      'Usa un usuario de 3 a 30 letras, números, puntos o guion bajo.'
     )
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return invalid('Escribe un correo válido.')
@@ -52,8 +54,21 @@ export function validateRegistration(input: unknown): Registration {
     (phone && !/^\d{10,15}$/.test(phone))
   )
     return invalid('El teléfono debe tener de 10 a 15 dígitos.')
-  if (planInterest !== null && !['basic', 'pro', 'elite'].includes(planInterest as string))
+  if (
+    planInterest !== null &&
+    !['basic', 'pro', 'elite'].includes(planInterest as string)
+  )
     return invalid('Selecciona un plan válido.')
+  if (
+    planInterestId !== null &&
+    (typeof planInterestId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        planInterestId
+      ))
+  )
+    return invalid('Selecciona un plan válido.')
+  if (planInterest !== null && planInterestId !== null)
+    return invalid('Selecciona un solo plan de interés.')
   if (body.acceptsNotice !== true || body.noticeVersion !== NOTICE_VERSION)
     return invalid('Confirma la información de registro vigente.')
   return {
@@ -63,6 +78,7 @@ export function validateRegistration(input: unknown): Registration {
     password,
     phone: phone || null,
     planInterest: planInterest as Registration['planInterest'],
+    planInterestId: planInterestId as string | null,
     noticeVersion: NOTICE_VERSION,
   }
 }

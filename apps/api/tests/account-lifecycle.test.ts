@@ -99,7 +99,7 @@ async function user(role: string) {
       [row.id]
     )
     await database.query(
-      "INSERT INTO private.subscriptions (professional_id,plan,expires_at) VALUES ($1,'basic',clock_timestamp()+interval '365 days')",
+      "INSERT INTO private.subscriptions (professional_id,plan_id,expires_at) VALUES ($1,(SELECT id FROM private.saas_plans WHERE name='Básico 10'),clock_timestamp()+interval '365 days')",
       [profile.id]
     )
     return { ...row, name, profileId: profile.id }
