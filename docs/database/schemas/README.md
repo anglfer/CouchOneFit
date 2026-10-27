@@ -1,6 +1,6 @@
 # Esquemas integrados de base de datos
 
-[identity_access.sql](identity_access.sql) muestra el esquema actual de identidad y acceso después de todas las migraciones: el esquema `private`, diez tablas, restricciones, índices, políticas, roles, permisos y seguridad por filas. Incluye el contrato mínimo de suscripción para invitaciones; no incorpora otros módulos planeados ni tablas de Supabase Auth.
+[identity_access.sql](identity_access.sql) muestra el esquema actual de identidad, cartera y suscripciones después de todas las migraciones: el esquema `private`, catorce tablas, restricciones, índices, políticas, roles, permisos y seguridad por filas. Incluye el expediente inicial de HU-015 en `private.clients`; no incorpora otros módulos planeados ni tablas de Supabase Auth.
 
 ## Migraciones e instantáneas
 
@@ -12,3 +12,7 @@ La prueba de migraciones aplica los archivos ordenados a una base limpia, crea o
 ## Ampliación HU-006–009
 
 La instantánea incluye `202610190003_account_lifecycle.sql`: suscripciones mínimas para validar invitaciones, temporales de invitación/reset, auditoría segura y permisos/contexto RLS. [Diccionario y operación](../modelo-ciclo-acceso.md). Nunca aplicar la instantánea sobre una base existente.
+
+## Expediente inicial — HU-015
+
+La instantánea incluye `202610270001_client_initial_record.sql`: fecha de nacimiento, estatura, peso y medidas base opcionales en `private.clients`. Las columnas se conservan anulables para expedientes anteriores; los rangos y la precisión de valores presentes se validan en SQL y el contrato de alta completo se valida en la API.

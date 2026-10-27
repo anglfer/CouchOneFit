@@ -114,3 +114,9 @@ Aplicar `202610260002_simulated_checkout.sql` antes de API/Web del autoservicio.
 ## Catálogo compartido — 25-oct-2026
 
 Nueva migración `202610260003_live_plan_catalog.sql` agrega `professionals.plan_interest_id` y lectura de planes activos al rol de registro. Preserva el interés histórico y no activa suscripciones. El esquema integrado refleja diez migraciones; aplicar la nueva antes de desplegar el registro actualizado. Portada/registro/checkout consumen el catálogo persistido y no valores fijos del frontend.
+
+## Expediente inicial — HU-015
+
+La migración incremental `202610270001_client_initial_record.sql` agrega a `private.clients` fecha de nacimiento y medidas base. No modifica ninguna migración aplicada ni rellena filas existentes: las nuevas columnas permanecen anulables para expedientes pre-HU-015. Para nuevas altas, API y restricciones SQL exigen el conjunto base consistente y validan rangos, unidades y precisión; `goal` y las medidas opcionales continúan anulables. No almacena selector de cálculo de grasa, evaluaciones ni mediciones históricas.
+
+El esquema integrado vigente es `schemas/identity_access.sql` y refleja las once migraciones. Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes esta migración ni la suite contra el proyecto Supabase compartido.
