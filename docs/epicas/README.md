@@ -31,3 +31,5 @@ EP-01 incorpora también [HU-005](ep-01-identidad-y-acceso/hu-005/README.md), [H
 La asignación a sprints permanece en [el plan de trabajo](../../plan/PLAN_TRABAJO_V2.md). Las reglas transversales están en [convenciones de BD](../database/convenciones.md), el [modelo de identidad y acceso](../database/modelo-identidad-acceso.md) y las guías de [arquitectura](../architecture/README.md).
 
 EP-02 incorpora [SaaS y administración — HU-010 a HU-014](ep-02-saas-y-administracion/README.md), con contratos, matriz de cumplimiento y evidencia.
+
+EP-03 incorpora [Cartera y expediente — HU-015](ep-03-cartera-y-expediente/hu-015/README.md). Las demás historias de la épica no se crean ni se implementan hasta que entren en alcance.
