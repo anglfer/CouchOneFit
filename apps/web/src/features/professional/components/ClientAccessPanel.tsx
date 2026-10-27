@@ -10,14 +10,42 @@ interface ClientRecord {
   status: string;
   invitationExpiresAt: string | null;
 }
+
+type ClientField =
+  | 'fullName'
+  | 'goal'
+  | 'birthDate'
+  | 'heightCm'
+  | 'weightKg'
+  | 'bodyFatPercentage'
+  | 'waistCm'
+  | 'hipCm';
+
+type ClientForm = Record<ClientField, string>;
+
+const emptyClientForm = (): ClientForm => ({
+  fullName: '',
+  goal: '',
+  birthDate: '',
+  heightCm: '',
+  weightKg: '',
+  bodyFatPercentage: '',
+  waistCm: '',
+  hipCm: '',
+});
+
+const numberOrNull = (value: string) =>
+  value.trim() === '' ? null : Number(value);
+
 export default function ClientAccessPanel() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
-  const [fullName, setFullName] = useState('');
-  const [goal, setGoal] = useState('');
+  const [form, setForm] = useState<ClientForm>(emptyClientForm);
+  const [fieldErrors, setFieldErrors] = useState<Partial<ClientForm>>({});
+  const [saved, setSaved] = useState('');
   const [delivery, setDelivery] = useState<{
     code: string;
     expiresAt: string;
@@ -97,23 +125,39 @@ export default function ClientAccessPanel() {
     if (busy) return;
     setBusy('new');
     setError('');
+    setFieldErrors({});
+    setSaved('');
     try {
       await sessionMutation('/api/clients', {
-        fullName,
-        goal: goal.trim() || null,
+        fullName: form.fullName,
+        goal: form.goal.trim() || null,
+        birthDate: form.birthDate,
+        heightCm: numberOrNull(form.heightCm),
+        weightKg: numberOrNull(form.weightKg),
+        bodyFatPercentage: numberOrNull(form.bodyFatPercentage),
+        waistCm: numberOrNull(form.waistCm),
+        hipCm: numberOrNull(form.hipCm),
       });
-      setFullName('');
-      setGoal('');
+      setForm(emptyClientForm());
+      setSaved('El expediente se guardó correctamente.');
       setAttempt((value) => value + 1);
     } catch (failure) {
-      setError(
-        failure instanceof ApiError
-          ? failure.message
-          : 'No pudimos crear el expediente.'
-      );
+      if (failure instanceof ApiError) {
+        setFieldErrors(failure.fields);
+        setError(
+          Object.keys(failure.fields).length
+            ? ''
+            : failure.message
+        );
+      } else setError('No pudimos crear el expediente.');
     } finally {
       setBusy('');
     }
+  }
+
+  function updateField(field: ClientField, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
   async function toggleStatus(record: ClientRecord) {
     if (busy) return;
@@ -153,19 +197,161 @@ export default function ClientAccessPanel() {
             required
             minLength={2}
             maxLength={150}
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
+            value={form.fullName}
+            onChange={(event) => updateField('fullName', event.target.value)}
+            aria-invalid={!!fieldErrors.fullName}
+            aria-describedby={fieldErrors.fullName ? 'client-full-name-error' : undefined}
             className="block border p-2 rounded-lg w-full"
           />
+          {fieldErrors.fullName && (
+            <p id="client-full-name-error" className="text-red-700" role="alert">
+              {fieldErrors.fullName}
+            </p>
+          )}
         </label>
+        <label className="block">
+          Fecha de nacimiento
+          <input
+            required
+            type="date"
+            value={form.birthDate}
+            onChange={(event) => updateField('birthDate', event.target.value)}
+            aria-invalid={!!fieldErrors.birthDate}
+            aria-describedby={fieldErrors.birthDate ? 'client-birth-date-error' : undefined}
+            className="block border p-2 rounded-lg w-full"
+          />
+          <span className="text-sm">Solo se registran personas de 18 años o más.</span>
+          {fieldErrors.birthDate && (
+            <p id="client-birth-date-error" className="text-red-700" role="alert">
+              {fieldErrors.birthDate}
+            </p>
+          )}
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            Estatura (cm)
+            <input
+              required
+              type="number"
+              min="100"
+              max="250"
+              step="0.1"
+              inputMode="decimal"
+              value={form.heightCm}
+              onChange={(event) => updateField('heightCm', event.target.value)}
+              aria-invalid={!!fieldErrors.heightCm}
+              aria-describedby={fieldErrors.heightCm ? 'client-height-error' : undefined}
+              className="block border p-2 rounded-lg w-full"
+            />
+            {fieldErrors.heightCm && (
+              <p id="client-height-error" className="text-red-700" role="alert">
+                {fieldErrors.heightCm}
+              </p>
+            )}
+          </label>
+          <label className="block">
+            Peso base (kg)
+            <input
+              required
+              type="number"
+              min="30"
+              max="300"
+              step="0.1"
+              inputMode="decimal"
+              value={form.weightKg}
+              onChange={(event) => updateField('weightKg', event.target.value)}
+              aria-invalid={!!fieldErrors.weightKg}
+              aria-describedby={fieldErrors.weightKg ? 'client-weight-error' : undefined}
+              className="block border p-2 rounded-lg w-full"
+            />
+            {fieldErrors.weightKg && (
+              <p id="client-weight-error" className="text-red-700" role="alert">
+                {fieldErrors.weightKg}
+              </p>
+            )}
+          </label>
+        </div>
+        <fieldset className="border rounded-lg p-3 space-y-3">
+          <legend className="px-1">Medidas base opcionales</legend>
+          <p className="text-sm">Déjalas vacías si no se midieron todavía.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block">
+              Grasa medida (%)
+              <input
+                type="number"
+                min="2"
+                max="60"
+                step="0.1"
+                inputMode="decimal"
+                value={form.bodyFatPercentage}
+                onChange={(event) => updateField('bodyFatPercentage', event.target.value)}
+                aria-invalid={!!fieldErrors.bodyFatPercentage}
+                aria-describedby={fieldErrors.bodyFatPercentage ? 'client-body-fat-error' : undefined}
+                className="block border p-2 rounded-lg w-full"
+              />
+              {fieldErrors.bodyFatPercentage && (
+                <p id="client-body-fat-error" className="text-red-700" role="alert">
+                  {fieldErrors.bodyFatPercentage}
+                </p>
+              )}
+            </label>
+            <label className="block">
+              Cintura (cm)
+              <input
+                type="number"
+                min="40"
+                max="250"
+                step="0.1"
+                inputMode="decimal"
+                value={form.waistCm}
+                onChange={(event) => updateField('waistCm', event.target.value)}
+                aria-invalid={!!fieldErrors.waistCm}
+                aria-describedby={fieldErrors.waistCm ? 'client-waist-error' : undefined}
+                className="block border p-2 rounded-lg w-full"
+              />
+              {fieldErrors.waistCm && (
+                <p id="client-waist-error" className="text-red-700" role="alert">
+                  {fieldErrors.waistCm}
+                </p>
+              )}
+            </label>
+            <label className="block">
+              Cadera (cm)
+              <input
+                type="number"
+                min="50"
+                max="250"
+                step="0.1"
+                inputMode="decimal"
+                value={form.hipCm}
+                onChange={(event) => updateField('hipCm', event.target.value)}
+                aria-invalid={!!fieldErrors.hipCm}
+                aria-describedby={fieldErrors.hipCm ? 'client-hip-error' : undefined}
+                className="block border p-2 rounded-lg w-full"
+              />
+              {fieldErrors.hipCm && (
+                <p id="client-hip-error" className="text-red-700" role="alert">
+                  {fieldErrors.hipCm}
+                </p>
+              )}
+            </label>
+          </div>
+        </fieldset>
         <label className="block">
           Objetivo (opcional)
           <input
             maxLength={500}
-            value={goal}
-            onChange={(event) => setGoal(event.target.value)}
+            value={form.goal}
+            onChange={(event) => updateField('goal', event.target.value)}
+            aria-invalid={!!fieldErrors.goal}
+            aria-describedby={fieldErrors.goal ? 'client-goal-error' : undefined}
             className="block border p-2 rounded-lg w-full"
           />
+          {fieldErrors.goal && (
+            <p id="client-goal-error" className="text-red-700" role="alert">
+              {fieldErrors.goal}
+            </p>
+          )}
         </label>
         <button
           disabled={!!busy}
@@ -173,6 +359,7 @@ export default function ClientAccessPanel() {
         >
           {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
         </button>
+        {saved && <p role="status">{saved}</p>}
       </form>
       {loading ? (
         <p role="status">Cargando expedientes…</p>
