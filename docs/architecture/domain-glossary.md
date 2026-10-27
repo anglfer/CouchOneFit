@@ -64,7 +64,7 @@ El rol público `admin` coincide con el contrato de autorización que ya usa API
 | `avisoVersion`           | `noticeVersion`        | Versión del aviso aceptado                         |
 | `aceptaAviso`            | `acceptsNotice`        | Casilla de aceptación del aviso                    |
 
-Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `clientId`, `professionalId`, `username`, `email`, `fullName`, `goal`, `role`, `status`, `clientStatus`, `sessionId`, `accessToken`, `refreshToken` y `expiresAt`. En PostgreSQL, el expediente del cliente vive en `private.clients` con `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `status` y `created_at`. Los roles en JSON son `professional`, `client` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
+Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `clientId`, `professionalId`, `username`, `email`, `fullName`, `goal`, `role`, `status`, `clientStatus`, `sessionId`, `accessToken`, `refreshToken` y `expiresAt`. En PostgreSQL, el expediente del cliente vive en `private.clients` con `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `birth_date`, `height_cm`, `weight_kg`, `body_fat_percentage`, `waist_cm`, `hip_cm`, `status` y `created_at`. Los roles en JSON son `professional`, `client` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
 El registro acepta los campos en inglés de esta tabla y `planInterest`/`plan` usan `basic`, `pro` o `elite`. Web devuelve `account` con `id`, `username`, `email`, `fullName`, `role`, `status` y `subscription: null`; la sesión viaja en cookies, no en JSON. Móvil devuelve la cuenta cliente con `clientId` y `clientStatus`, más `session: { accessToken, refreshToken, expiresAt }` al emitir o renovar sesión. `sessionId` es interno (`sid`), no un campo público de `account`. Los perfiles usan los mismos nombres en inglés de cada superficie y los roles `professional`, `client` y `admin`; no se traducen identificadores entre capas.
 
 ## Alcance
@@ -80,5 +80,9 @@ Este glosario cubre el esquema y los contratos de identidad y acceso implementad
 ## Checkout simulado — 25-oct-2026
 
 `simulated_payments`: `professional_id`, `actor_id`, `plan_id`, `idempotency_key`, `plan_snapshot`, `expected_subscription`, `amount_cents`, `status`, `instrument`, `failure_code`, `quote_expires_at`, `processing_after`, `completed_at`, `period_start`, `period_end`. Estados `pending/processing/succeeded/failed/cancelled`. JSON camelCase; `simulated:true` y moneda `MXN`. Se cobra precio completo simulado y se activa mes nuevo; admin solo consulta suscripciones. [Contrato](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Cartera y expediente — HU-015
+
+`private.clients` es el expediente único de cada cliente dentro de la cartera de su profesional. El alta HTTP usa `fullName`, `goal`, `birthDate`, `heightCm`, `weightKg`, `bodyFatPercentage`, `waistCm` y `hipCm`; los nombres SQL correspondientes usan `snake_case`. `birthDate`, `heightCm` y `weightKg` son requeridos para una alta nueva; `goal`, `bodyFatPercentage`, `waistCm` y `hipCm` son opcionales. No existe `professionalId` en el contrato de alta: el profesional se deriva de la sesión autenticada. Las filas anteriores a HU-015 pueden conservar los nuevos campos en `NULL` y no se consideran completas por ello.
 
 Catálogo compartido: `professionals.plan_interest_id` / JSON `planInterestId` conserva el UUID del plan de interés, separado de suscripción y del antiguo `plan_interest`. `GET /api/plans` publica solo `id,name,maxClients,isUnlimited,priceMxn` de planes disponibles, sin información de cuentas o suscripciones.

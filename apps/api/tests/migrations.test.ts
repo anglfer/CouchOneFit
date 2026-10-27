@@ -44,6 +44,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610190001_english_identifiers.sql/);
     assert.match(applied, /Applied: 202610190002_client_records.sql/);
     assert.match(applied, /Applied: 202610190003_account_lifecycle.sql/);
+    assert.match(applied, /Applied: 202610270001_client_initial_record.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -65,7 +66,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '10'
+      '11'
     );
     await databases[1].query(
       readFileSync(
@@ -125,19 +126,52 @@ test('migrations and the integrated schema produce the same English database', a
     await databases[2].query(
       "INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ('admin.migration','admin.migration@example.com','$argon2id$fixture','administrador')"
     );
+    const applyHistoricalMigration = async (name: string) => {
+      const sql = readFileSync(
+        new URL(`../../../docs/database/migrations/${name}`, import.meta.url),
+        'utf8'
+      )
+      await databases[2].query(sql)
+      const {
+        rows: [history],
+      } = await databases[2].query(
+        "SELECT to_regclass('migrations.history') IS NOT NULL AS current"
+      )
+      await databases[2].query(
+        history.current
+          ? 'INSERT INTO migrations.history (filename,checksum) VALUES ($1,$2)'
+          : 'INSERT INTO migraciones.historial (nombre,suma_verificacion) VALUES ($1,$2)',
+        [name, createHash('sha256').update(sql).digest('hex')]
+      )
+    }
+    for (const name of [
+      '202610190001_english_identifiers.sql',
+      '202610190002_client_records.sql',
+      '202610190003_account_lifecycle.sql',
+      '202610231730_create_saas_plans.sql',
+      '202610231745_saas_relations_history.sql',
+      '202610260001_saas_integrity.sql',
+      '202610260002_simulated_checkout.sql',
+      '202610260003_live_plan_catalog.sql',
+    ])
+      await applyHistoricalMigration(name)
+    const {
+      rows: [legacyClient],
+    } = await databases[2].query(
+      `INSERT INTO private.clients(professional_id,full_name,goal)
+       SELECT id,'Legacy client','Conservar objetivo' FROM private.professionals
+       WHERE user_id=$1 RETURNING id`,
+      [professional.id]
+    )
     const legacyApplied = migrate(urls[2]);
     await databases[2].query(
       'GRANT couchone_authentication TO migration_runtime'
     );
-    assert.match(
-      legacyApplied,
-      /Applied: 202610190001_english_identifiers.sql/
-    );
-    assert.match(legacyApplied, /Applied: 202610190002_client_records.sql/);
+    assert.match(legacyApplied, /Applied: 202610270001_client_initial_record.sql/);
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '10'
+      '11'
     );
     assert.equal(
       (
@@ -169,6 +203,24 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(migrated.version, 'fixture');
     assert.equal(migrated.session_id, session.id);
     assert.equal(migrated.token_hash, 'a'.repeat(64));
+    const {
+      rows: [preservedClient],
+    } = await databases[2].query(
+      `SELECT full_name,goal,birth_date,height_cm,weight_kg,
+              body_fat_percentage,waist_cm,hip_cm
+       FROM private.clients WHERE id=$1`,
+      [legacyClient.id]
+    );
+    assert.deepEqual(preservedClient, {
+      full_name: 'Legacy client',
+      goal: 'Conservar objetivo',
+      birth_date: null,
+      height_cm: null,
+      weight_kg: null,
+      body_fat_percentage: null,
+      waist_cm: null,
+      hip_cm: null,
+    });
     assert.equal(
       (
         await databases[2].query(

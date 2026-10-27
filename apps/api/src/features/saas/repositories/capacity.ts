@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from 'pg'
 import { AuthError } from '../../auth/types/errors.js'
 import { lockActor, transaction } from '../../auth/repositories/lifecycle.js'
 import type { SessionIdentity } from '../../auth/types/session.js'
+import type { ClientInitialRecordInput } from '../services/clients.js'
 
 export async function lockProfessional(
   client: PoolClient,
@@ -59,7 +60,7 @@ export async function writeClientStatus(
   pool: Pool,
   identity: SessionIdentity,
   input:
-    | { fullName: string; goal: string | null }
+    | ClientInitialRecordInput
     | { status: 'active' | 'inactive' },
   clientId?: string,
   now?: Date
@@ -80,8 +81,25 @@ export async function writeClientStatus(
       await requireCapacity(client, professional.id, true, now)
       return (
         await client.query(
-          'INSERT INTO private.clients (professional_id,full_name,goal) VALUES ($1,$2,$3) RETURNING id,full_name AS "fullName",goal,status',
-          [professional.id, input.fullName, input.goal]
+          `INSERT INTO private.clients (
+             professional_id,full_name,goal,birth_date,height_cm,weight_kg,
+             body_fat_percentage,waist_cm,hip_cm
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           RETURNING id,full_name AS "fullName",goal,birth_date::text AS "birthDate",
+             height_cm::float8 AS "heightCm",weight_kg::float8 AS "weightKg",
+             body_fat_percentage::float8 AS "bodyFatPercentage",waist_cm::float8 AS "waistCm",
+             hip_cm::float8 AS "hipCm",status`,
+          [
+            professional.id,
+            input.fullName,
+            input.goal,
+            input.birthDate,
+            input.heightCm,
+            input.weightKg,
+            input.bodyFatPercentage,
+            input.waistCm,
+            input.hipCm,
+          ]
         )
       ).rows[0]
     }
@@ -102,7 +120,11 @@ export async function writeClientStatus(
     )
     return (
       await client.query(
-        'UPDATE private.clients SET status=$3 WHERE id=$1 AND professional_id=$2 RETURNING id,full_name AS "fullName",goal,status',
+        `UPDATE private.clients SET status=$3 WHERE id=$1 AND professional_id=$2
+         RETURNING id,full_name AS "fullName",goal,birth_date::text AS "birthDate",
+           height_cm::float8 AS "heightCm",weight_kg::float8 AS "weightKg",
+           body_fat_percentage::float8 AS "bodyFatPercentage",waist_cm::float8 AS "waistCm",
+           hip_cm::float8 AS "hipCm",status`,
         [clientId, professional.id, input.status]
       )
     ).rows[0]
