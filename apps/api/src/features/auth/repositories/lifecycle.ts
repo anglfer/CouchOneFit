@@ -38,6 +38,16 @@ export async function context(
 ) {
   await client.query('SELECT set_config($1,$2,true)', [`app.${key}`, value])
 }
+export async function readAsSubject<T>(
+  pool: Pool,
+  subjectId: string,
+  read: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  return transaction(pool, async (client) => {
+    await context(client, 'subject_id', subjectId)
+    return read(client)
+  })
+}
 export async function lockActor(
   client: PoolClient,
   identity: SessionIdentity,
@@ -103,7 +113,8 @@ export const invalidReset = () =>
 export async function lockInvitationRecord(
   client: PoolClient,
   clientId: string,
-  now?: Date
+  now?: Date,
+  invitationHash?: string
 ) {
   await context(client, 'client_id', clientId)
   const {
@@ -114,10 +125,12 @@ export async function lockInvitationRecord(
     user_id: string | null
     status: string
   }>(
-    'SELECT id,professional_id,user_id,status FROM private.clients WHERE id=$1 FOR UPDATE',
-    [clientId]
+    invitationHash
+      ? 'SELECT id,professional_id,user_id,status FROM private.invited_client_record($1,$2)'
+      : 'SELECT id,professional_id,user_id,status FROM private.clients WHERE id=$1 FOR UPDATE',
+    invitationHash ? [invitationHash, now ?? null] : [clientId]
   )
-  if (!record || record.status !== 'active' || record.user_id)
+  if (!record || record.id !== clientId || record.status !== 'active' || record.user_id)
     throw invalidInvitation()
   const {
     rows: [professional],
@@ -126,12 +139,16 @@ export async function lockInvitationRecord(
     [record.professional_id]
   )
   if (!professional) throw invalidInvitation()
-  await context(client, 'subject_id', professional.user_id)
-  const activeProfessional = await client.query(
-    "SELECT id FROM private.users WHERE id=$1 AND status='active' FOR SHARE",
-    [professional.user_id]
-  )
-  if (activeProfessional.rowCount !== 1) throw invalidInvitation()
+  // Anonymous token access must never acquire the professional's read context.
+  if (!invitationHash) await context(client, 'subject_id', professional.user_id)
+  // Token lookup locks the active professional inside its narrow definer function.
+  if (!invitationHash) {
+    const activeProfessional = await client.query(
+      "SELECT id FROM private.users WHERE id=$1 AND status='active' FOR SHARE",
+      [professional.user_id]
+    )
+    if (activeProfessional.rowCount !== 1) throw invalidInvitation()
+  }
   const {
     rows: [subscription],
   } = await client.query<{ status: string; valid: boolean }>(

@@ -16,3 +16,5 @@ La instantánea incluye `202610190003_account_lifecycle.sql`: suscripciones mín
 ## Expediente inicial — HU-015
 
 La instantánea incluye `202610270001_client_initial_record.sql`: fecha de nacimiento, estatura, peso y medidas base opcionales en `private.clients`. Las columnas se conservan anulables para expedientes anteriores; los rangos y la precisión de valores presentes se validan en SQL y el contrato de alta completo se valida en la API.
+
+También integra `202610280001_client_read_isolation.sql` y `202610280002_invitation_professional_lock.sql`: SELECT de clientes por sujeto activo y propiedad, enlace por invitación sin UPDATE general de `user_id`, agregados administrativos y bloqueo de limpieza limitado. Las funciones especiales tienen search_path fijo y EXECUTE revocado a PUBLIC. [Inventario y frontera de confianza](../../epicas/ep-03-cartera-y-expediente/hu-015/tt-010-client-read-isolation.md).
