@@ -56,10 +56,13 @@ before(async () => {
       'utf8'
     )
   )
-  await owner.query(`CREATE ROLE ${runtimeRole} LOGIN`)
+  // Hex-only random password keeps SCRAM authentication enabled on local servers.
+  // This credential lives only for this test role and is never printed or saved.
+  const runtimePassword = randomBytes(32).toString('hex')
+  await owner.query(`CREATE ROLE ${runtimeRole} LOGIN PASSWORD '${runtimePassword}'`)
   await owner.query(`GRANT couchone_authentication TO ${runtimeRole}`)
   target.username = runtimeRole
-  target.password = ''
+  target.password = runtimePassword
   runtime = new Pool({
     connectionString: target.toString(),
     max: 8,

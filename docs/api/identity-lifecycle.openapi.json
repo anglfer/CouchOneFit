@@ -868,7 +868,8 @@
           "birthDate": {
             "type": "string",
             "format": "date",
-            "description": "Persona adulta; fecha real, no futura."
+            "description": "Persona adulta; fecha real, no futura, con año entre 0001 y 9999. La mayoría de edad se evalúa con la fecha de America/Mexico_City.",
+            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
           },
           "heightCm": {
             "type": "number",
@@ -876,13 +877,13 @@
             "maximum": 250,
             "multipleOf": 0.1
           },
-          "weightKg": {
+          "baseWeightKg": {
             "type": "number",
             "minimum": 30,
             "maximum": 300,
             "multipleOf": 0.1
           },
-          "bodyFatPercentage": {
+          "baseBodyFatPercentage": {
             "type": [
               "number",
               "null"
@@ -890,7 +891,7 @@
             "minimum": 2,
             "maximum": 60,
             "multipleOf": 0.1,
-            "description": "Medición base; no resultado calculado."
+            "description": "Medición base; no resultado calculado ni registro histórico."
           },
           "waistCm": {
             "type": [
@@ -915,7 +916,7 @@
           "fullName",
           "birthDate",
           "heightCm",
-          "weightKg"
+          "baseWeightKg"
         ]
       },
       "ClientInitialRecord": {
@@ -942,10 +943,10 @@
           "heightCm": {
             "type": "number"
           },
-          "weightKg": {
+          "baseWeightKg": {
             "type": "number"
           },
-          "bodyFatPercentage": {
+          "baseBodyFatPercentage": {
             "type": [
               "number",
               "null"
@@ -973,8 +974,8 @@
           "goal",
           "birthDate",
           "heightCm",
-          "weightKg",
-          "bodyFatPercentage",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
           "waistCm",
           "hipCm",
           "status"

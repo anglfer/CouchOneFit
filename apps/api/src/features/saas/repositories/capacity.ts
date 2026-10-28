@@ -79,15 +79,17 @@ export async function writeClientStatus(
     // All consumers of capacity and subscription writes share the professional lock.
     if ('fullName' in input) {
       await requireCapacity(client, professional.id, true, now)
+      // Match the API's adult calendar date regardless of the connection timezone.
+      await client.query("SET LOCAL TIME ZONE 'America/Mexico_City'")
       return (
         await client.query(
           `INSERT INTO private.clients (
-             professional_id,full_name,goal,birth_date,height_cm,weight_kg,
-             body_fat_percentage,waist_cm,hip_cm
+             professional_id,full_name,goal,birth_date,height_cm,base_weight_kg,
+             base_body_fat_percentage,waist_cm,hip_cm
            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
            RETURNING id,full_name AS "fullName",goal,birth_date::text AS "birthDate",
-             height_cm::float8 AS "heightCm",weight_kg::float8 AS "weightKg",
-             body_fat_percentage::float8 AS "bodyFatPercentage",waist_cm::float8 AS "waistCm",
+             height_cm::float8 AS "heightCm",base_weight_kg::float8 AS "baseWeightKg",
+             base_body_fat_percentage::float8 AS "baseBodyFatPercentage",waist_cm::float8 AS "waistCm",
              hip_cm::float8 AS "hipCm",status`,
           [
             professional.id,
@@ -95,8 +97,8 @@ export async function writeClientStatus(
             input.goal,
             input.birthDate,
             input.heightCm,
-            input.weightKg,
-            input.bodyFatPercentage,
+            input.baseWeightKg,
+            input.baseBodyFatPercentage,
             input.waistCm,
             input.hipCm,
           ]
@@ -122,8 +124,8 @@ export async function writeClientStatus(
       await client.query(
         `UPDATE private.clients SET status=$3 WHERE id=$1 AND professional_id=$2
          RETURNING id,full_name AS "fullName",goal,birth_date::text AS "birthDate",
-           height_cm::float8 AS "heightCm",weight_kg::float8 AS "weightKg",
-           body_fat_percentage::float8 AS "bodyFatPercentage",waist_cm::float8 AS "waistCm",
+           height_cm::float8 AS "heightCm",base_weight_kg::float8 AS "baseWeightKg",
+           base_body_fat_percentage::float8 AS "baseBodyFatPercentage",waist_cm::float8 AS "waistCm",
            hip_cm::float8 AS "hipCm",status`,
         [clientId, professional.id, input.status]
       )

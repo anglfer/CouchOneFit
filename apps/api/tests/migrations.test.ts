@@ -206,8 +206,8 @@ test('migrations and the integrated schema produce the same English database', a
     const {
       rows: [preservedClient],
     } = await databases[2].query(
-      `SELECT full_name,goal,birth_date,height_cm,weight_kg,
-              body_fat_percentage,waist_cm,hip_cm
+      `SELECT full_name,goal,birth_date,height_cm,base_weight_kg,
+              base_body_fat_percentage,waist_cm,hip_cm
        FROM private.clients WHERE id=$1`,
       [legacyClient.id]
     );
@@ -216,8 +216,8 @@ test('migrations and the integrated schema produce the same English database', a
       goal: 'Conservar objetivo',
       birth_date: null,
       height_cm: null,
-      weight_kg: null,
-      body_fat_percentage: null,
+      base_weight_kg: null,
+      base_body_fat_percentage: null,
       waist_cm: null,
       hip_cm: null,
     });

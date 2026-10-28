@@ -16,8 +16,8 @@ type ClientField =
   | 'goal'
   | 'birthDate'
   | 'heightCm'
-  | 'weightKg'
-  | 'bodyFatPercentage'
+  | 'baseWeightKg'
+  | 'baseBodyFatPercentage'
   | 'waistCm'
   | 'hipCm';
 
@@ -28,8 +28,8 @@ const emptyClientForm = (): ClientForm => ({
   goal: '',
   birthDate: '',
   heightCm: '',
-  weightKg: '',
-  bodyFatPercentage: '',
+  baseWeightKg: '',
+  baseBodyFatPercentage: '',
   waistCm: '',
   hipCm: '',
 });
@@ -133,8 +133,8 @@ export default function ClientAccessPanel() {
         goal: form.goal.trim() || null,
         birthDate: form.birthDate,
         heightCm: numberOrNull(form.heightCm),
-        weightKg: numberOrNull(form.weightKg),
-        bodyFatPercentage: numberOrNull(form.bodyFatPercentage),
+        baseWeightKg: numberOrNull(form.baseWeightKg),
+        baseBodyFatPercentage: numberOrNull(form.baseBodyFatPercentage),
         waistCm: numberOrNull(form.waistCm),
         hipCm: numberOrNull(form.hipCm),
       });
@@ -144,11 +144,7 @@ export default function ClientAccessPanel() {
     } catch (failure) {
       if (failure instanceof ApiError) {
         setFieldErrors(failure.fields);
-        setError(
-          Object.keys(failure.fields).length
-            ? ''
-            : failure.message
-        );
+        setError(Object.keys(failure.fields).length ? '' : failure.message);
       } else setError('No pudimos crear el expediente.');
     } finally {
       setBusy('');
@@ -200,11 +196,17 @@ export default function ClientAccessPanel() {
             value={form.fullName}
             onChange={(event) => updateField('fullName', event.target.value)}
             aria-invalid={!!fieldErrors.fullName}
-            aria-describedby={fieldErrors.fullName ? 'client-full-name-error' : undefined}
+            aria-describedby={
+              fieldErrors.fullName ? 'client-full-name-error' : undefined
+            }
             className="block border p-2 rounded-lg w-full"
           />
           {fieldErrors.fullName && (
-            <p id="client-full-name-error" className="text-red-700" role="alert">
+            <p
+              id="client-full-name-error"
+              className="text-red-700"
+              role="alert"
+            >
               {fieldErrors.fullName}
             </p>
           )}
@@ -217,12 +219,20 @@ export default function ClientAccessPanel() {
             value={form.birthDate}
             onChange={(event) => updateField('birthDate', event.target.value)}
             aria-invalid={!!fieldErrors.birthDate}
-            aria-describedby={fieldErrors.birthDate ? 'client-birth-date-error' : undefined}
+            aria-describedby={
+              fieldErrors.birthDate ? 'client-birth-date-error' : undefined
+            }
             className="block border p-2 rounded-lg w-full"
           />
-          <span className="text-sm">Solo se registran personas de 18 años o más.</span>
+          <span className="text-sm">
+            Solo se registran personas de 18 años o más.
+          </span>
           {fieldErrors.birthDate && (
-            <p id="client-birth-date-error" className="text-red-700" role="alert">
+            <p
+              id="client-birth-date-error"
+              className="text-red-700"
+              role="alert"
+            >
               {fieldErrors.birthDate}
             </p>
           )}
@@ -240,7 +250,9 @@ export default function ClientAccessPanel() {
               value={form.heightCm}
               onChange={(event) => updateField('heightCm', event.target.value)}
               aria-invalid={!!fieldErrors.heightCm}
-              aria-describedby={fieldErrors.heightCm ? 'client-height-error' : undefined}
+              aria-describedby={
+                fieldErrors.heightCm ? 'client-height-error' : undefined
+              }
               className="block border p-2 rounded-lg w-full"
             />
             {fieldErrors.heightCm && (
@@ -258,15 +270,19 @@ export default function ClientAccessPanel() {
               max="300"
               step="0.1"
               inputMode="decimal"
-              value={form.weightKg}
-              onChange={(event) => updateField('weightKg', event.target.value)}
-              aria-invalid={!!fieldErrors.weightKg}
-              aria-describedby={fieldErrors.weightKg ? 'client-weight-error' : undefined}
+              value={form.baseWeightKg}
+              onChange={(event) =>
+                updateField('baseWeightKg', event.target.value)
+              }
+              aria-invalid={!!fieldErrors.baseWeightKg}
+              aria-describedby={
+                fieldErrors.baseWeightKg ? 'client-weight-error' : undefined
+              }
               className="block border p-2 rounded-lg w-full"
             />
-            {fieldErrors.weightKg && (
+            {fieldErrors.baseWeightKg && (
               <p id="client-weight-error" className="text-red-700" role="alert">
-                {fieldErrors.weightKg}
+                {fieldErrors.baseWeightKg}
               </p>
             )}
           </label>
@@ -283,15 +299,25 @@ export default function ClientAccessPanel() {
                 max="60"
                 step="0.1"
                 inputMode="decimal"
-                value={form.bodyFatPercentage}
-                onChange={(event) => updateField('bodyFatPercentage', event.target.value)}
-                aria-invalid={!!fieldErrors.bodyFatPercentage}
-                aria-describedby={fieldErrors.bodyFatPercentage ? 'client-body-fat-error' : undefined}
+                value={form.baseBodyFatPercentage}
+                onChange={(event) =>
+                  updateField('baseBodyFatPercentage', event.target.value)
+                }
+                aria-invalid={!!fieldErrors.baseBodyFatPercentage}
+                aria-describedby={
+                  fieldErrors.baseBodyFatPercentage
+                    ? 'client-body-fat-error'
+                    : undefined
+                }
                 className="block border p-2 rounded-lg w-full"
               />
-              {fieldErrors.bodyFatPercentage && (
-                <p id="client-body-fat-error" className="text-red-700" role="alert">
-                  {fieldErrors.bodyFatPercentage}
+              {fieldErrors.baseBodyFatPercentage && (
+                <p
+                  id="client-body-fat-error"
+                  className="text-red-700"
+                  role="alert"
+                >
+                  {fieldErrors.baseBodyFatPercentage}
                 </p>
               )}
             </label>
@@ -306,11 +332,17 @@ export default function ClientAccessPanel() {
                 value={form.waistCm}
                 onChange={(event) => updateField('waistCm', event.target.value)}
                 aria-invalid={!!fieldErrors.waistCm}
-                aria-describedby={fieldErrors.waistCm ? 'client-waist-error' : undefined}
+                aria-describedby={
+                  fieldErrors.waistCm ? 'client-waist-error' : undefined
+                }
                 className="block border p-2 rounded-lg w-full"
               />
               {fieldErrors.waistCm && (
-                <p id="client-waist-error" className="text-red-700" role="alert">
+                <p
+                  id="client-waist-error"
+                  className="text-red-700"
+                  role="alert"
+                >
                   {fieldErrors.waistCm}
                 </p>
               )}
@@ -326,7 +358,9 @@ export default function ClientAccessPanel() {
                 value={form.hipCm}
                 onChange={(event) => updateField('hipCm', event.target.value)}
                 aria-invalid={!!fieldErrors.hipCm}
-                aria-describedby={fieldErrors.hipCm ? 'client-hip-error' : undefined}
+                aria-describedby={
+                  fieldErrors.hipCm ? 'client-hip-error' : undefined
+                }
                 className="block border p-2 rounded-lg w-full"
               />
               {fieldErrors.hipCm && (
@@ -344,7 +378,9 @@ export default function ClientAccessPanel() {
             value={form.goal}
             onChange={(event) => updateField('goal', event.target.value)}
             aria-invalid={!!fieldErrors.goal}
-            aria-describedby={fieldErrors.goal ? 'client-goal-error' : undefined}
+            aria-describedby={
+              fieldErrors.goal ? 'client-goal-error' : undefined
+            }
             className="block border p-2 rounded-lg w-full"
           />
           {fieldErrors.goal && (

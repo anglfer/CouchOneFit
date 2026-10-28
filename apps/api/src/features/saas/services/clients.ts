@@ -9,8 +9,8 @@ export interface ClientInitialRecordInput {
   goal: string | null
   birthDate: string
   heightCm: number
-  weightKg: number
-  bodyFatPercentage: number | null
+  baseWeightKg: number
+  baseBodyFatPercentage: number | null
   waistCm: number | null
   hipCm: number | null
 }
@@ -20,8 +20,8 @@ const clientFields = [
   'goal',
   'birthDate',
   'heightCm',
-  'weightKg',
-  'bodyFatPercentage',
+  'baseWeightKg',
+  'baseBodyFatPercentage',
   'waistCm',
   'hipCm',
 ]
@@ -30,14 +30,13 @@ const dateAtUtcMidnight = (value: string) =>
   new Date(`${value}T00:00:00.000Z`)
 
 function validDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000-')) return false
   const parsed = dateAtUtcMidnight(value)
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value
 }
 
 function isTenth(value: number) {
-  const tenths = value * 10
-  return Math.abs(tenths - Math.round(tenths)) <= 1e-9
+  return Number(value.toFixed(1)) === value
 }
 
 function clientInputError(fields: Record<string, string>): never {
@@ -51,7 +50,7 @@ function clientInputError(fields: Record<string, string>): never {
 
 function optionalMeasurement(
   body: Record<string, unknown>,
-  key: 'bodyFatPercentage' | 'waistCm' | 'hipCm',
+  key: 'baseBodyFatPercentage' | 'waistCm' | 'hipCm',
   minimum: number,
   maximum: number,
   unit: string,
@@ -74,7 +73,7 @@ function optionalMeasurement(
 
 function requiredMeasurement(
   body: Record<string, unknown>,
-  key: 'heightCm' | 'weightKg',
+  key: 'heightCm' | 'baseWeightKg',
   minimum: number,
   maximum: number,
   unit: string,
@@ -105,7 +104,7 @@ export function validateClientInitialRecord(
   const body = payload(input, clientFields)
   const fields: Record<string, string> = {}
   const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : ''
-  if (fullName.length < 2 || fullName.length > 150)
+  if ([...fullName].length < 2 || [...fullName].length > 150)
     fields.fullName = 'Escribe un nombre completo de 2 a 150 caracteres.'
 
   const goal =
@@ -116,7 +115,7 @@ export function validateClientInitialRecord(
         : null
   if (
     (body.goal !== undefined && body.goal !== null && typeof body.goal !== 'string') ||
-    (goal !== null && (goal.length < 1 || goal.length > 500))
+    (goal !== null && ([...goal].length < 1 || [...goal].length > 500))
   )
     fields.goal = 'Escribe un objetivo de 1 a 500 caracteres o déjalo vacío.'
 
@@ -126,16 +125,20 @@ export function validateClientInitialRecord(
   } else {
     const adultDate = dateAtUtcMidnight(birthDate)
     adultDate.setUTCFullYear(adultDate.getUTCFullYear() + 18)
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(now)
+    const part = (type: string) => parts.find((value) => value.type === type)!.value
+    const today = dateAtUtcMidnight(`${part('year')}-${part('month')}-${part('day')}`)
     if (adultDate > today)
       fields.birthDate = 'El cliente debe tener al menos 18 años.'
   }
 
   const heightCm = requiredMeasurement(body, 'heightCm', 100, 250, 'cm', fields)
-  const weightKg = requiredMeasurement(body, 'weightKg', 30, 300, 'kg', fields)
-  const bodyFatPercentage = optionalMeasurement(
+  const baseWeightKg = requiredMeasurement(body, 'baseWeightKg', 30, 300, 'kg', fields)
+  const baseBodyFatPercentage = optionalMeasurement(
     body,
-    'bodyFatPercentage',
+    'baseBodyFatPercentage',
     2,
     60,
     '%',
@@ -150,8 +153,8 @@ export function validateClientInitialRecord(
     goal,
     birthDate,
     heightCm: heightCm!,
-    weightKg: weightKg!,
-    bodyFatPercentage,
+    baseWeightKg: baseWeightKg!,
+    baseBodyFatPercentage,
     waistCm,
     hipCm,
   }
