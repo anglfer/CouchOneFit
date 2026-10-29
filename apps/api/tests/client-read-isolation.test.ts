@@ -431,3 +431,148 @@ test('HU-017 successful editing preserves nonempty invitations and existing acce
   assert.equal((await editRecord(id, {version: 1, goal: 'New base goal'})).status, 200)
   assert.deepEqual(await related(), before)
 })
+
+async function statusActor() {
+  const id = randomUUID(), key = `status.${id.slice(0,8)}`
+  await database.query("INSERT INTO private.users(id,username,email,password_hash,role) SELECT $1,$2,$3,password_hash,'professional' FROM private.users WHERE id=$4", [id,key,`${key}@example.com`,actors.proA.id])
+  const professional = (await database.query('INSERT INTO private.professionals(user_id,full_name) VALUES($1,$2) RETURNING id', [id,key])).rows[0].id
+  const session = (await database.query('INSERT INTO private.sessions(user_id) VALUES($1) RETURNING id', [id])).rows[0].id
+  await database.query("INSERT INTO private.subscriptions(professional_id,plan_id,expires_at) SELECT $1,id,clock_timestamp()+interval '30 days' FROM private.saas_plans WHERE name='Básico 10'", [professional])
+  const { signAccess } = await import('../src/features/auth/services/tokens.js')
+  actors[key] = {id,professional,session,token:await signAccess(id,session)}
+  return key
+}
+async function statusFixture(actor: string, status = 'active') {
+  return (await database.query('INSERT INTO private.clients(professional_id,full_name,status) VALUES($1,$2,$3) RETURNING id', [actors[actor].professional,`HU018 ${randomUUID()}`,status])).rows[0].id as string
+}
+async function changeStatus(id: string, body: unknown, actor: string) {
+  const csrf=await request(app).get('/api/auth/csrf')
+  return request(app).patch(`/api/clients/${id}/status`).set('Authorization',`Bearer ${actors[actor].token}`)
+    .set('Origin','http://localhost:5000').set('Cookie',csrf.headers['set-cookie']).set('X-CSRF-Token',csrf.body.csrfToken).send(body)
+}
+const statusSnapshot = async (id: string) => (await database.query('SELECT * FROM private.clients WHERE id=$1',[id])).rows[0]
+const statusEvents = async (id: string) => (await database.query("SELECT * FROM private.access_events WHERE client_id=$1 AND action IN ('client_record_activated','client_record_inactivated') ORDER BY created_at,id",[id])).rows
+
+test('HU-018 effective transitions audit once and no-op repetitions ignore older versions without consuming capacity', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor)
+  const before=await statusSnapshot(id)
+  const down=await changeStatus(id,{status:'inactive',version:1},actor)
+  assert.equal(down.status,200); assert.equal(down.body.client.version,2)
+  assert.deepEqual(Object.keys(down.body.client).sort(),['id','fullName','goal','birthDate','heightCm','baseWeightKg','baseBodyFatPercentage','waistCm','hipCm','status','version'].sort())
+  const repeat=await changeStatus(id,{status:'inactive',version:1},actor)
+  assert.equal(repeat.status,200); assert.equal(repeat.body.client.version,2)
+  assert.equal((await statusEvents(id)).length,1)
+  assert.equal((await statusEvents(id))[0].actor_id,actors[actor].id)
+  assert.equal((await statusEvents(id))[0].action,'client_record_inactivated')
+  assert.equal((await changeStatus(id,{status:'active',version:2},actor)).status,200)
+  assert.equal((await statusSnapshot(id)).version,3)
+  const stale=await changeStatus(id,{status:'inactive',version:1},actor)
+  assert.equal(stale.status,409); assert.equal(stale.body.error.code,'CLIENT_RECORD_CONFLICT')
+  assert.equal((await statusSnapshot(id)).status,'active')
+  assert.equal((await statusEvents(id)).length,2)
+  const after=await statusSnapshot(id)
+  for(const key of Object.keys(before).filter(key=>!['version','status'].includes(key))) assert.deepEqual(after[key],before[key],key)
+})
+
+test('HU-018 concurrent duplicates emit one audit; opposite old requests and HU-017 editors cannot overwrite newer transitions', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor)
+  const repeated=await Promise.all([changeStatus(id,{status:'inactive',version:1},actor),changeStatus(id,{status:'inactive',version:1},actor)])
+  assert.deepEqual(repeated.map(r=>r.status),[200,200]); assert.equal((await statusEvents(id)).length,1)
+  assert.equal((await statusSnapshot(id)).version,2)
+  const editor=await editRecord(id,{version:1,goal:'stale editor'},actor)
+  assert.equal(editor.status,409)
+  const edit=await editRecord(id,{version:2,goal:'updated base'},actor)
+  assert.equal(edit.status,200)
+  assert.equal((await changeStatus(id,{status:'active',version:2},actor)).status,409)
+  assert.equal((await changeStatus(id,{status:'inactive',version:1},actor)).status,200)
+  assert.equal((await statusSnapshot(id)).version,3)
+  assert.equal((await statusEvents(id)).length,1)
+})
+
+test('HU-018 ordinary roles reject foreign/malformed/forged/anonymous requests and preserve state and audit', async () => {
+  const actor=await statusActor(), other=await statusActor(), id=await statusFixture(actor)
+  const before=await statusSnapshot(id)
+  for(const body of [{status:'inactive'}, {status:'inactive',version:0},{status:'inactive',version:'1'}, {status:'inactive',version:1,accountStatus:'inactive'},
+    {status:'inactive',version:1,userId:actors.clientB.id},{status:'inactive',version:1,professionalId:actors[other].professional},{status:'deleted',version:1}])
+    assert.equal((await changeStatus(id,body,actor)).status,400)
+  for(const denied of ['clientB','admin']) assert.equal((await changeStatus(id,{status:'inactive',version:1},denied)).status,403)
+  const foreign=await changeStatus(id,{status:'inactive',version:1},other), missing=await changeStatus(randomUUID(),{status:'inactive',version:1},other)
+  assert.equal(foreign.status,404); assert.deepEqual(foreign.body,missing.body)
+  assert.equal((await request(app).patch(`/api/clients/${id}/status`).send({status:'inactive',version:1})).status,401)
+  assert.equal((await request(app).patch(`/api/clients/${id}/status`).set('Authorization',`Bearer ${actors[actor].token}`).send({status:'inactive',version:1})).status,403)
+  assert.deepEqual(await statusSnapshot(id),before); assert.equal((await statusEvents(id)).length,0)
+})
+
+test('HU-018 audit failure rolls back status/version/place and releases transaction context', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor), before=await statusSnapshot(id)
+  await database.query("CREATE FUNCTION private.fail_hu018_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action IN ('client_record_activated','client_record_inactivated') THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_hu018_audit BEFORE INSERT ON private.access_events FOR EACH ROW EXECUTE FUNCTION private.fail_hu018_audit()")
+  try{assert.equal((await changeStatus(id,{status:'inactive',version:1},actor)).status,503)}
+  finally{await database.query('DROP TRIGGER fail_hu018_audit ON private.access_events; DROP FUNCTION private.fail_hu018_audit()')}
+  assert.deepEqual(await statusSnapshot(id),before); assert.equal((await statusEvents(id)).length,0)
+  assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount,0)
+  assert.equal((await changeStatus(id,{status:'inactive',version:1},actor)).status,200)
+})
+
+test('HU-018 inactivation preserves linked account/open sessions/subscription and client read/refresh; account inactivity remains independent', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor)
+  const user=randomUUID(), key=`client.${user.slice(0,8)}`
+  await database.query("INSERT INTO private.users(id,username,email,password_hash,role) SELECT $1,$2,$3,password_hash,'client' FROM private.users WHERE id=$4",[user,key,`${key}@example.com`,actors.proA.id])
+  await database.query('UPDATE private.clients SET user_id=$2 WHERE id=$1',[id,user])
+  const {createHash}=await import('node:crypto'), {signAccess}=await import('../src/features/auth/services/tokens.js')
+  const session=(await database.query('INSERT INTO private.sessions(user_id) VALUES($1) RETURNING id',[user])).rows[0].id
+  const refresh=randomBytes(32).toString('base64url')
+  await database.query('INSERT INTO private.refresh_tokens(session_id,token_hash) VALUES($1,$2)',[session,createHash('sha256').update(refresh).digest('hex')])
+  const token=await signAccess(user,session)
+  const sub=(await database.query('SELECT * FROM private.subscriptions WHERE professional_id=$1',[actors[actor].professional])).rows[0]
+  assert.equal((await changeStatus(id,{status:'inactive',version:2},actor)).status,200)
+  assert.equal((await database.query('SELECT status FROM private.users WHERE id=$1',[user])).rows[0].status,'active')
+  assert.equal((await database.query('SELECT revoked_at FROM private.sessions WHERE id=$1',[session])).rows[0].revoked_at,null)
+  assert.deepEqual((await database.query('SELECT * FROM private.subscriptions WHERE professional_id=$1',[actors[actor].professional])).rows[0],sub)
+  assert.equal((await request(app).get('/api/client/profile').set('Authorization',`Bearer ${token}`)).status,200)
+  assert.equal((await request(app).post('/api/auth/client/login').send({identifier:key,password})).status,200)
+  const renewed=await request(app).post('/api/auth/client/refresh').send({refreshToken:refresh})
+  assert.equal(renewed.status,200)
+  const {setAccountStatus}=await import('../src/features/auth/services/session.js')
+  await setAccountStatus(database,user,'inactive')
+  assert.equal((await changeStatus(id,{status:'active',version:3},actor)).status,200)
+  assert.equal((await database.query('SELECT status FROM private.users WHERE id=$1',[user])).rows[0].status,'inactive')
+  assert.equal((await request(app).get('/api/client/profile').set('Authorization',`Bearer ${token}`)).status,401)
+})
+
+test('HU-018 invitation survives inactivation, cannot be issued/redeemed while inactive and regains eligibility after explicit reactivation', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor)
+  const code=randomBytes(32).toString('base64url'), {createHash}=await import('node:crypto')
+  await database.query("INSERT INTO private.invitations(client_id,token_hash,expires_at) VALUES($1,$2,clock_timestamp()+interval '1 day')",[id,createHash('sha256').update(code).digest('hex')])
+  await database.query("INSERT INTO private.access_events(actor_id,client_id,action) VALUES($1,$2,'invitation_issued')",[actors[actor].id,id])
+  const invitation=(await database.query('SELECT * FROM private.invitations WHERE client_id=$1',[id])).rows
+  const prevalidate=()=>request(app).post('/api/auth/activation/prevalidate').send({code})
+  assert.equal((await prevalidate()).status,200)
+  assert.equal((await changeStatus(id,{status:'inactive',version:1},actor)).status,200)
+  assert.equal((await prevalidate()).status,400)
+  const csrf = await request(app).get('/api/auth/csrf')
+  const issue = await request(app).post(`/api/clients/${id}/invitations`).set('Authorization',`Bearer ${actors[actor].token}`)
+    .set('Origin','http://localhost:5000').set('Cookie',csrf.headers['set-cookie']).set('X-CSRF-Token',csrf.body.csrfToken).send({})
+  assert.equal(issue.status,400)
+  assert.deepEqual((await database.query('SELECT * FROM private.invitations WHERE client_id=$1',[id])).rows,invitation)
+  assert.equal((await changeStatus(id,{status:'active',version:2},actor)).status,200)
+  assert.equal((await prevalidate()).status,200)
+  assert.equal((await database.query("SELECT count(*)::int AS n FROM private.access_events WHERE client_id=$1 AND action='invitation_issued'",[id])).rows[0].n,1)
+})
+
+test('HU-018 last-place competition, no-op at full capacity and DEC-004 suspended/no-plan eligibility', async () => {
+  const actor=await statusActor(), first=await statusFixture(actor,'inactive'), second=await statusFixture(actor,'inactive')
+  await database.query("INSERT INTO private.clients(professional_id,full_name) SELECT $1,'Reserved '||n FROM generate_series(1,9) n",[actors[actor].professional])
+  const outcomes=await Promise.all([changeStatus(first,{status:'active',version:1},actor),changeStatus(second,{status:'active',version:1},actor)])
+  assert.deepEqual(outcomes.map(r=>r.status).sort(),[200,409])
+  assert.equal(outcomes.find(r=>r.status===409)!.body.error.code,'CUPO_AGOTADO')
+  const winner=(await statusSnapshot(first)).status==='active'?first:second
+  assert.equal((await changeStatus(winner,{status:'active',version:1},actor)).status,200)
+  assert.equal((await statusEvents(winner)).length,1)
+  const before=await statusSnapshot(winner)
+  await database.query("UPDATE private.subscriptions SET status='suspended' WHERE professional_id=$1",[actors[actor].professional])
+  assert.equal((await changeStatus(winner,{status:'inactive',version:before.version},actor)).status,403)
+  await database.query('DELETE FROM private.subscriptions WHERE professional_id=$1',[actors[actor].professional])
+  const noPlan=await changeStatus(winner,{status:'inactive',version:before.version},actor)
+  assert.equal(noPlan.status,403); assert.equal(noPlan.body.error.code,'PLAN_REQUIRED')
+  assert.deepEqual(await statusSnapshot(winner),before)
+})

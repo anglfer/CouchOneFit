@@ -50,6 +50,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.match(applied, /Applied: 202610280003_client_portfolio_order.sql/);
     assert.match(applied, /Applied: 202610280004_client_record_version.sql/);
+    assert.match(applied, /Applied: 202610290001_client_record_status_audit.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -71,7 +72,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '15'
+      '16'
     );
     await databases[1].query(
       readFileSync(
@@ -168,7 +169,15 @@ test('migrations and the integrated schema produce the same English database', a
        WHERE user_id=$1 RETURNING id`,
       [professional.id]
     )
+    await databases[2].query("INSERT INTO private.invitations(client_id,token_hash,expires_at) VALUES($1,$2,clock_timestamp()+interval '1 day')", [legacyClient.id, 'b'.repeat(64)]);
+    await databases[2].query("INSERT INTO private.access_events(actor_id,client_id,action) VALUES($1,$2,'invitation_issued')", [professional.id, legacyClient.id]);
+    const priorRelated = {
+      invitations: (await databases[2].query('SELECT * FROM private.invitations WHERE client_id=$1', [legacyClient.id])).rows,
+      events: (await databases[2].query('SELECT * FROM private.access_events WHERE client_id=$1', [legacyClient.id])).rows,
+    };
     const legacyApplied = migrate(urls[2]);
+    assert.deepEqual((await databases[2].query('SELECT * FROM private.invitations WHERE client_id=$1', [legacyClient.id])).rows, priorRelated.invitations);
+    assert.deepEqual((await databases[2].query('SELECT * FROM private.access_events WHERE client_id=$1', [legacyClient.id])).rows, priorRelated.events);
     await databases[2].query(
       `GRANT couchone_authentication TO ${runtimeRole}`
     );
@@ -177,10 +186,11 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(legacyApplied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.match(legacyApplied, /Applied: 202610280003_client_portfolio_order.sql/);
       assert.match(legacyApplied, /Applied: 202610280004_client_record_version.sql/);
+      assert.match(legacyApplied, /Applied: 202610290001_client_record_status_audit.sql/);
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '15'
+      '16'
     );
     assert.equal(
       (

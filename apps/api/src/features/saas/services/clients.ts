@@ -1,6 +1,7 @@
 import type { Pool } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
-import { invalidInput, payload, uuid } from '../../auth/validators/lifecycle.js'
+import { uuid } from '../../auth/validators/lifecycle.js'
+import { clientStatusInput } from '../validators/client-status.js'
 import { writeClientStatus } from '../repositories/capacity.js'
 import { validateClientInitialRecord } from '../../professional/validators/client-record.js'
 export { validateClientInitialRecord } from '../../professional/validators/client-record.js'
@@ -27,13 +28,11 @@ export function setClientStatus(
   input: unknown,
   now?: Date
 ) {
-  const body = payload(input, ['status'])
-  if (body.status !== 'active' && body.status !== 'inactive')
-    return invalidInput()
+  const body = clientStatusInput(input)
   return writeClientStatus(
     pool,
     identity,
-    { status: body.status },
+    body,
     uuid(id),
     now
   )

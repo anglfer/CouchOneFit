@@ -1,6 +1,10 @@
 import type { Pool, PoolClient } from 'pg'
 import { AuthError } from '../../auth/types/errors.js'
-import { lockActor, transaction } from '../../auth/repositories/lifecycle.js'
+import {
+  audit,
+  lockActor,
+  transaction
+} from '../../auth/repositories/lifecycle.js'
 import type { SessionIdentity } from '../../auth/types/session.js'
 import type { ClientInitialRecordInput } from '../services/clients.js'
 
@@ -22,7 +26,7 @@ export async function requireCapacity(
   now?: Date
 ) {
   const {
-    rows: [subscription],
+    rows: [subscription]
   } = await client.query(
     `SELECT s.status,s.expires_at,p.max_clients FROM private.subscriptions s JOIN private.saas_plans p ON p.id=s.plan_id WHERE s.professional_id=$1`,
     [professionalId]
@@ -30,7 +34,7 @@ export async function requireCapacity(
   if (!subscription)
     throw new AuthError(403, 'PLAN_REQUIRED', 'Se requiere un plan asignado.')
   const {
-    rows: [time],
+    rows: [time]
   } = await client.query(
     'SELECT COALESCE($1::timestamptz,clock_timestamp()) AS now',
     [now ?? null]
@@ -43,7 +47,7 @@ export async function requireCapacity(
     )
   if (consume && subscription.max_clients !== null) {
     const {
-      rows: [usage],
+      rows: [usage]
     } = await client.query(
       "SELECT count(*)::int AS used FROM private.clients WHERE professional_id=$1 AND status='active'",
       [professionalId]
@@ -61,14 +65,14 @@ export async function writeClientStatus(
   identity: SessionIdentity,
   input:
     | ClientInitialRecordInput
-    | { status: 'active' | 'inactive' },
+    | { status: 'active' | 'inactive'; version: number },
   clientId?: string,
   now?: Date
 ) {
   return transaction(pool, async (client) => {
     await lockActor(client, identity, now, true)
     const {
-      rows: [professional],
+      rows: [professional]
     } = await client.query(
       'SELECT id FROM private.professionals WHERE user_id=$1',
       [identity.id]
@@ -100,35 +104,70 @@ export async function writeClientStatus(
             input.baseWeightKg,
             input.baseBodyFatPercentage,
             input.waistCm,
-            input.hipCm,
+            input.hipCm
           ]
         )
       ).rows[0]
     }
-    // Do not lock a client row before subscription: invitation/activation already lock it.
+    // Status/edit writes serialize on the professional. Lock the client before any
+    // subscription row lock, consistent with invitation/activation; eligibility is a read.
     const {
-      rows: [record],
+      rows: [record]
     } = await client.query(
-      'SELECT status FROM private.clients WHERE id=$1 AND professional_id=$2',
+      `SELECT id,user_id AS "userId",status,version,full_name AS "fullName",goal,
+        birth_date::text AS "birthDate",height_cm::float8 AS "heightCm",base_weight_kg::float8 AS "baseWeightKg",
+        base_body_fat_percentage::float8 AS "baseBodyFatPercentage",waist_cm::float8 AS "waistCm",hip_cm::float8 AS "hipCm"
+        FROM private.clients WHERE id=$1 AND professional_id=$2 FOR UPDATE`,
       [clientId, professional.id]
     )
     if (!record)
       throw new AuthError(404, 'NOT_FOUND', 'El expediente no existe.')
+    // Revalidate eligibility even for repetitions. A no-op never allocates capacity
+    // or emits another audit event, regardless of an older (well-formed) version.
+    await requireCapacity(client, professional.id, false, now)
+    const { userId: linkedUserId, ...current } = record
+    if (
+      input.version > record.version ||
+      (record.status !== input.status && record.version !== input.version)
+    )
+      throw new AuthError(
+        409,
+        'CLIENT_RECORD_CONFLICT',
+        'El expediente cambió. Consulta su estado actual y vuelve a confirmar.'
+      )
+    if (record.status === input.status) return current
     await requireCapacity(
       client,
       professional.id,
       input.status === 'active' && record.status !== 'active',
       now
     )
-    return (
+    const updated = (
       await client.query(
-        `UPDATE private.clients SET status=$3 WHERE id=$1 AND professional_id=$2
+        `UPDATE private.clients SET status=$3 WHERE id=$1 AND professional_id=$2 AND version=$4
          RETURNING id,full_name AS "fullName",goal,birth_date::text AS "birthDate",
            height_cm::float8 AS "heightCm",base_weight_kg::float8 AS "baseWeightKg",
            base_body_fat_percentage::float8 AS "baseBodyFatPercentage",waist_cm::float8 AS "waistCm",
-           hip_cm::float8 AS "hipCm",status`,
-        [clientId, professional.id, input.status]
+           hip_cm::float8 AS "hipCm",status,version`,
+        [clientId, professional.id, input.status, input.version]
       )
     ).rows[0]
+    if (!updated)
+      throw new AuthError(
+        409,
+        'CLIENT_RECORD_CONFLICT',
+        'El expediente cambió. Consulta su estado actual.'
+      )
+    await audit(
+      client,
+      input.status === 'active'
+        ? 'client_record_activated'
+        : 'client_record_inactivated',
+      identity.id,
+      linkedUserId ?? null,
+      clientId,
+      now
+    )
+    return updated
   })
 }

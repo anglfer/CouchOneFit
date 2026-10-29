@@ -91,6 +91,13 @@ async function mutation(
   body: unknown,
   token = admin
 ) {
+  // Existing capacity scenarios now supply the version required by HU-018.
+  // Explicit HU-018 stale/retry tests always send their own version.
+  if (path.endsWith('/status') && body && typeof body === 'object' && !Object.hasOwn(body, 'version')) {
+    const id = path.split('/')[3]
+    const row = (await db.query('SELECT version FROM private.clients WHERE id=$1', [id])).rows[0]
+    body = { ...body, version: row?.version ?? 1 }
+  }
   const csrf = await request(app).get('/api/auth/csrf')
   return request(app)
     [method](path)

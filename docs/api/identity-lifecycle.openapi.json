@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CouchOne Fit — identidad, cartera y expediente",
-    "version": "2026-10-28",
-    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial."
+    "version": "2026-10-29",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación."
   },
   "servers": [
     {
@@ -797,6 +797,138 @@
           }
         }
       }
+    },
+    "/api/clients/{clientId}/status": {
+      "patch": {
+        "operationId": "changeOwnClientRecordStatus",
+        "summary": "HU-018: inactivar/reactivar expediente propio con versión y auditoría atómicas.",
+        "description": "Profesional y suscripción vigentes, propiedad y RLS. No cambia cuenta/suscripción, no revoca sesiones ni borra invitaciones/historial. Transición efectiva requiere versión exacta; reactivar consume una plaza, inactivar libera. Estado ya actual y versión no futura: 200 sin UPDATE, nueva reserva ni evento, incluso con versión antigua. Versión futura o distinta para una transición: 409 CLIENT_RECORD_CONFLICT. Se revalida elegibilidad también al repetir. Auditoría y versión se confirman en la misma transacción; fallo revierte todo. No reenvío automático ante respuesta incierta: consultar GET y confirmar explícitamente. Cache-Control: no-store.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientRecordStatusPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estado resultante confirmado o repetición sin efectos; ClientBaseRecord.version administrada por BD.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "client"
+                  ],
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientBaseRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT; error.fields por campo cuando aplica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SESSION_REQUIRED: sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN, CSRF_INVALID, PLAN_REQUIRED o SUBSCRIPTION_SUSPENDED; un error de negocio no equivale a sesión revocada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: mismo error para expediente ajeno o inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CUPO_AGOTADO al consumir última plaza, o CLIENT_RECORD_CONFLICT por transición con versión antigua/futura. Sin cambios ni auditoría.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: no se confirma éxito ni se repite automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1441,6 +1573,30 @@
             "minimum": 50,
             "maximum": 250,
             "multipleOf": 0.1
+          }
+        }
+      },
+      "ClientRecordStatusPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "description": "Estado operativo del expediente, nunca de cuenta o suscripción."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Precondición obtenida de GET /api/clients/{clientId}; no es valor asignable."
           }
         }
       }
