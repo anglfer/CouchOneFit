@@ -8,7 +8,7 @@ Por acuerdo confirmado por la persona usuaria, `feature/api-client-portfolio` es
 
 ## Antecedente del flujo
 
-El incremento posterior [HU-020 — Perfil base propio](hu-020/README.md) incorpora API propia de lectura y Flutter de datos/objetivo/medidas iniciales. API verificada; Flutter estable local con análisis/formato correctos y 39/39 pruebas. APK/recorrido real pendientes del entorno Android indicado en evidencia. Progreso permanece sin integrar hasta HU-036; no equivale a módulo sin registros ni a HU-020 completa. Este incremento se conserva en commits locales, sin push por instrucción actual. HU-019 consolidado sigue pendiente de artefactos de los otros módulos; no se implementan dentro de HU-020.
+El incremento posterior [HU-020 — Perfil base propio](hu-020/README.md) incorpora API propia de lectura y Flutter de datos/objetivo/medidas iniciales. API verificada; Flutter estable local con análisis/formato correctos, 39/39 pruebas y APK debug compilado. Arranque/conectividad real/recorrido Android pendientes según evidencia. Progreso permanece sin integrar hasta HU-036; no equivale a módulo sin registros ni a HU-020 completa. Este incremento se conserva en commits locales, sin push por instrucción actual. HU-019 consolidado sigue pendiente de artefactos de los otros módulos; no se implementan dentro de HU-020.
 
 HU-015 se publicó primero en su propia rama y PR #22. Con autorización explícita, HU-016 se desarrolló después en una rama dependiente desde HU-015; inicialmente se planteó un PR por HU. Ese plan fue sustituido por commits por historia y un PR al completar la épica. La confirmación vigente conserva la rama de HU-016 como única rama de EP-03; el antecedente no implica crear otra rama para HU-017.
 

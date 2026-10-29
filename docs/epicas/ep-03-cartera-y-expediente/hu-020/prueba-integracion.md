@@ -21,13 +21,13 @@ $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 $env:Path = "C:\Users\mayth\dev\flutter\bin;$env:JAVA_HOME\bin;$env:Path"
 ```
 
-Command-line Tools **22.0** ya está instalado en el SDK existente. Faltan plataforma **36** y NDK **28.2.13676358**; Build Tools 36.0.0 ya existe. `sdkmanager` detecta **7 de 8 licencias sin aceptar**. Primero la persona usuaria debe revisarlas personalmente:
+Command-line Tools **22.0**, plataforma **36 revisión 2**, NDK **28.2.13676358** y Build Tools **36.0.0** ya están instalados en el SDK existente. La persona usuaria confirmó revisión/aceptación personal y sdkmanager la verificó antes de instalar los dos paquetes pendientes. No repetir la instalación ni aceptar acuerdos automáticamente. Para comprobar licencias en otra sesión:
 
 ```powershell
 & "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:ANDROID_HOME" --licenses
 ```
 
-Leer cada acuerdo y responder y solo si se acepta; el agente no lo hace ni escribe hashes. Después comprobar aceptaciones e instalar exclusivamente:
+Leer cada acuerdo pendiente y responder y solo si se acepta; el agente no lo hace ni escribe hashes. Comando de referencia para otra computadora que requiera los dos componentes, no necesario repetir aquí:
 
 ```powershell
 & "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:ANDROID_HOME" 'platforms;android-36' 'ndk;28.2.13676358'
@@ -37,9 +37,11 @@ No usar --update ni agregar paquetes distintos. Luego repetir APK y revisar mani
 
 La API del recorrido debe permanecer en **127.0.0.1:3000** mediante el asistente local, no el launcher general de server.ts que no fija host. Debug permite HTTP; profile no lo habilita y release exige HTTPS. Solo cuando haya emulador arrancado se comprobará health en `http://10.0.2.2:3000/api/health` desde Android y las consultas de la app debug. Health desde Windows y lectura de manifest no equivalen a esa conexión real. No cambiar a 0.0.0.0 ni abrir firewall indiscriminadamente si falla.
 
-Análisis, formato HU-020 y 39/39 widget/unit tests ya aprobados. APK/dispositivo no se acreditan por ello. Visual Studio C++ no se necesita para Android. `flutter doctor -v` y `flutter devices` permiten comprobar el estado una vez resueltos esos puntos.
+Análisis, formato HU-020 y 39/39 widget/unit tests ya aprobados. Posteriormente **APK debug también aprobado**, assembleDebug 281.4 s, con manifiesto mínimo24/target36/HTTP debug y recurso API local inspeccionados. Arranque/dispositivo/recorrido no se acreditan por ello. Visual Studio C++ no se necesita para Android. `flutter doctor -v` y `flutter devices` permiten comprobar el estado una vez resuelta la aceleración o conectado un dispositivo autorizado.
 
-El intento real de `flutter build apk --debug --no-pub` falló con «NDK not configured… 28.2.13676358» antes de generar APK. Se deshabilitó la descarga automática con `GRADLE_OPTS=-Dorg.gradle.project.android.builder.sdkDownload=false` solo en ese proceso. No se cambian versiones ni lockfiles como solución. Completar los componentes/licencias explícitos y repetir compilación; no asumir que los widgets validaron Gradle/instalación/Keystore.
+El **primer** intento real de `flutter build apk --debug --no-pub` falló con «NDK not configured… 28.2.13676358». Tras la aceptación personal e instalación autorizada, el mismo comando **pasó**; la descarga automática sigue deshabilitada mediante `GRADLE_OPTS=-Dorg.gradle.project.android.builder.sdkDownload=false` solo en ese proceso. No se cambiaron versiones/lockfiles. APK en `build/app/outputs/flutter-apk/app-debug.apk` desde apps/mobile. No instalar ni iniciar el recorrido hasta disponer de dispositivo y verificar conectividad.
+
+Opciones de arranque a explicar/autorizar antes de cualquier cambio de Windows: **Windows Hypervisor Platform (WHPX)**, recomendada por [Android Developers](https://developer.android.com/studio/run/emulator-acceleration#vm-windows), con posible administrador y reinicio, reutilizando el AVD API37 existente; o **Android físico ya reconocido por ADB**, con depuración/trust autorizados por su propietario. No habilitar VirtualMachinePlatform innecesariamente ni instalar AEHD/controladores dentro de este alcance. En un teléfono real, 10.0.2.2 no es el alias del host: se puede usar redirección USB temporal `adb -s <id> reverse tcp:3000 tcp:3000` y API_BASE_URL `http://127.0.0.1:3000` para debug, solo después de elegir/autorizar ese dispositivo. Mantener API en loopback, sin exposición LAN. Ninguna de estas opciones se ejecutó todavía.
 
 Desde apps/mobile, una vez disponible:
 
