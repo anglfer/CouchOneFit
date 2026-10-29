@@ -4,7 +4,7 @@ Responsable: Franela Whaite. EP-03; referencias RDF0302/RDF0303. La historia coi
 
 ## Dependencia y ramas
 
-La persona usuaria autorizó explícitamente la excepción a CONTRIBUTING.md de crear `feature/api-client-portfolio` desde `feature/api-client-initial-record`, en el commit base `6b2c0a0473402c76ba1eff33dd184adf6c63ce24`. HU-015 sigue publicada en el PR #22 en borrador, sin merge. Los commits de HU-016 pertenecen exclusivamente a la nueva rama; el futuro PR tendrá inicialmente como base `feature/api-client-initial-record`, para que su diff solo contenga HU-016. No se publicó esta rama ni se modificó el PR #22.
+La persona usuaria autorizó explícitamente la excepción a CONTRIBUTING.md de crear `feature/api-client-portfolio` desde `feature/api-client-initial-record`, en el commit base `6b2c0a0473402c76ba1eff33dd184adf6c63ce24`. HU-015 sigue publicada en el PR #22 en borrador, sin merge. Los commits de HU-016 pertenecen exclusivamente a la nueva rama. El acuerdo posterior del equipo, incorporado por instrucción de la persona usuaria, organiza commits por historia y pospone el próximo PR hasta completar EP-03: no se creará un PR separado para HU-016. El PR #22 existente se conserva tal como está. Esto sustituye el plan inicial de abrir un PR HU-016 contra HU-015. No se publicó esta rama.
 
 Cuando HU-015 se integre, primero se revisará cómo se integró y se elegirá el procedimiento que preserve los commits y la revisión. No hay autorización para rebase, cherry-pick, force-push o cambio de base automáticos. No se declara HU-015 aceptada ni TT-010 transversal completo. La exposición concreta de lectura de clientes fue corregida y probada en la dependencia; requiere revisión independiente y no sustituye toda TT-010.
 

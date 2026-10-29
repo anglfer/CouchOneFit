@@ -30,7 +30,13 @@ La primera suite detectó una aserción antigua de respuesta exacta que no conte
 
 ## Rama
 
-`feature/api-client-portfolio` nace de HU-015 `6b2c0a0` por excepción explícita. El aviso compartido consta como R previo de la persona usuaria. La referencia HU-015 y PR #22 no se modificaron; no se publica la rama nueva. El futuro PR tendrá inicialmente base HU-015. Tras su integración se revisará primero el método real y se elegirá cómo preservar commits/revisión; no hay rebase, cherry-pick, force-push o cambio de base automáticos. [Contrato y alcance](README.md).
+`feature/api-client-portfolio` nace de HU-015 `6b2c0a0` por excepción explícita. El aviso compartido consta como R previo de la persona usuaria. La referencia HU-015 y PR #22 no se modificaron; no se publica la rama nueva. Acuerdo posterior: commits por historia y próximo PR al completar EP-03; no abrir PR de HU-016. El PR #22 se conserva tal como está. La base del futuro PR de épica se resolverá cuando corresponda, tras revisar las dependencias reales, sin modificarla automáticamente. Tras su integración se revisará primero el método real y se elegirá cómo preservar commits/revisión; no hay rebase, cherry-pick, force-push o cambio de base automáticos. [Contrato y alcance](README.md).
+
+## Preparación manual posterior, sin resultados humanos nuevos
+
+Se recompilaron API/Web desde esta rama y se reinició solo la API antigua identificada como asistente que conserva datos. Vite se reutilizó y se comprobaron su módulo HU-016, mismo origen/proxy y la conexión runtime exclusiva local. Se crearon 24 clientes sintéticos propios `HU016 QA` (2 activos/22 inactivos) y una fixture ajena; las tres filas previas se conservaron y verificaron por hash. No se cambió contraseña de acceso, plan ni suscripción; activos usados 5/10. Los asistentes y marcadores siguen ignorados.
+
+Una comprobación HTTP local a través de Vite confirmó páginas 20+4 sin duplicados/ajenos y ficha propia 200/ajena 404; su sesión sintética temporal se eliminó por ID exacto sin afectar sesiones previas. No es recorrido humano ni repetición de la suite. El [recorrido actualizado](prueba-web-manual.md) distingue pasos humanos de aislamiento/respuestas antiguas ya automatizados. Las fixtures y servicios se conservan, sin limpieza, push, PR nuevo ni cambios al PR #22.
 
 ## Commits por bloque
 
