@@ -25,7 +25,7 @@ El cupo se reserva al activar/crear el expediente, no al invitar/canjear. Un dow
 
 ## Grants y RLS
 
-`couchone_authentication` hereda registro. Recibe SELECT de suscripciones y UPDATE únicamente de `subscriptions.id` para lock de fila, sin cambiar plan/estado/vencimiento; SELECT/INSERT/UPDATE/DELETE de temporales; INSERT de eventos sin lectura efectiva bajo RLS; UPDATE solo de `users.username/password_hash` y `clients.user_id`. No recibe DDL, borrado de cuentas ni cambios de rol/estado/datos físicos. No hay grants a `anon`, `authenticated` ni PUBLIC.
+`couchone_authentication` hereda registro. Recibe SELECT de suscripciones y UPDATE únicamente de `subscriptions.id` para lock de fila, sin cambiar plan/estado/vencimiento; SELECT/INSERT/UPDATE/DELETE de temporales; INSERT de eventos sin lectura efectiva bajo RLS; En el incremento original, UPDATE de `users.username/password_hash` y `clients.user_id`; posteriormente TT-010 revocó el UPDATE directo de user_id y lo restringió a la función de activación. HU-017 añade únicamente UPDATE de datos base propios bajo RLS y versión administrada por trigger; estado conserva su permiso separado. No recibe DDL, borrado de cuentas ni cambios de rol o propietario. Estado operativo conserva el permiso específico de SaaS, independiente de los datos base. No hay grants a `anon`, `authenticated` ni PUBLIC.
 
 El backend establece contexto con `set_config(..., true)` dentro de la transacción (SET LOCAL), nunca desde claims arbitrarios, headers o campos del formulario:
 

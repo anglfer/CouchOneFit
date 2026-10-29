@@ -31,6 +31,8 @@ En un conjunto sin modificaciones, el recorrido no omite ni duplica registros. L
 
 ## Contrato auxiliar de lectura mínima
 
+Actualización por HU-017: esta lectura devuelve además `version` administrada por BD para el editor. La búsqueda, estados, tamaños 20/50/100, cursores y proyección del listado permanecen intactos. La ficha mínima originalmente solo de lectura ahora ofrece acceso al [editor HU-017](../hu-017/README.md), sin expediente consolidado ni edición histórica. Los párrafos de alcance original de HU-016 describen su entrega anterior.
+
 `GET /api/clients/{clientId}` y Web `/app/clientes/{clientId}` muestran exclusivamente datos base del expediente propio: `id`, `fullName`, `status`, `goal`, `birthDate`, `heightCm`, `baseWeightKg`, `baseBodyFatPercentage`, `waistCm`, `hipCm`. Los números son JSON numérico; la fecha es `YYYY-MM-DD`. Los campos antiguos pueden ser NULL y se muestran como «Sin registrar», sin fabricar valores ni alterar registros anteriores.
 
 UUID inválido: 400. Sin sesión válida: 401. Rol no profesional: 403. Ajeno, inexistente o no disponible por suscripción: mismo 404 `CLIENT_NOT_FOUND`, sin revelar propietario. Incluye expedientes propios activos e inactivos. Se conserva la política de suscripción del listado existente; no se concede una excepción nueva de acceso. La vista tiene carga, error/reintento y vuelta a cartera; no contiene formulario de edición.

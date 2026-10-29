@@ -11,14 +11,14 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 ## Estado Actual de Implementación
 
-| Módulo / Capa                        | Estado                      | Descripción técnica                                                                                                                                                                           |
-| :----------------------------------- | :-------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Marketing público (`/`)**          | **Completado (v1)**         | Landing responsive, temática fija clara/blanca, narrativa guiada por `/docs`, showcase interactivo del producto (panel profesional + app cliente sincronizada) y diálogo de estado de acceso. |
-| **Enrutamiento base**                | **Funcional**               | `AppRoutes.tsx` incluye `/`, `/registro` y `/acceso` y guard de `/app/*`; rutas privadas desconocidas se resuelven después de comprobar sesión.                                               |
-| **Autenticación profesional**        | **Implementada localmente** | Registro y login por API/PostgreSQL; cookies protegidas, renovación serializada, revocación y perfil propio. Ver contrato HU-002.                                                             |
-| **Sistema interno / Dashboard**      | **Pendiente**               | No existen pantallas para gestión de clientes, expedientes ni evaluaciones.                                                                                                                   |
-| **Planes de alimentación y rutinas** | **Pendiente**               | No existe el configurador ni la activación de planes.                                                                                                                                         |
-| **PWA acotada a la app privada**     | **Pendiente**               | El manifiesto y service worker deben delimitarse a `/app/` para no registrar PWA en la landing comercial.                                                                                     |
+| Módulo / Capa                        | Estado                      | Descripción técnica                                                                                                                                                                                   |
+| :----------------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Marketing público (`/`)**          | **Completado (v1)**         | Landing responsive, temática fija clara/blanca, narrativa guiada por `/docs`, showcase interactivo del producto (panel profesional + app cliente sincronizada) y diálogo de estado de acceso.         |
+| **Enrutamiento base**                | **Funcional**               | `AppRoutes.tsx` incluye `/`, `/registro` y `/acceso` y guard de `/app/*`; rutas privadas desconocidas se resuelven después de comprobar sesión.                                                       |
+| **Autenticación profesional**        | **Implementada localmente** | Registro y login por API/PostgreSQL; cookies protegidas, renovación serializada, revocación y perfil propio. Ver contrato HU-002.                                                                     |
+| **Sistema interno / Dashboard**      | **Pendiente**               | HU-015/016/017 implementan localmente alta, cartera y edición de datos base con versión; recorrido HU-017 y revisión pendientes. Evaluaciones e integración completa del dashboard siguen pendientes. |
+| **Planes de alimentación y rutinas** | **Pendiente**               | No existe el configurador ni la activación de planes.                                                                                                                                                 |
+| **PWA acotada a la app privada**     | **Pendiente**               | El manifiesto y service worker deben delimitarse a `/app/` para no registrar PWA en la landing comercial.                                                                                             |
 
 ---
 
@@ -115,6 +115,7 @@ npm run dev
 Usar `http://localhost:5000` o `http://127.0.0.1:5000`. En `apps/web/.env`, dejar `VITE_API_URL=` vacío para usar el proxy del mismo origen. En `apps/api/.env`, configurar `CORS_ORIGIN=http://localhost:5000,http://127.0.0.1:5000`, `PORT=3000`, la conexión PostgreSQL con TLS verificado y `AUTH_JWT_SECRET`. Si se modifica el entorno, reiniciar el proceso correspondiente. No usar el puerto 5173 como Origin si la web se ejecuta en 5000.
 
 Verificado el 15 de octubre de 2026 en Edge con Supabase real: registro 201 y confirmación, duplicado 409 visible, login y perfil propio, persistencia al recargar, logout, redirección de rutas privadas sin sesión y acceso por ambos hosts locales. La cuenta de prueba y sus datos relacionados fueron eliminados. El fallo reproducido antes de corregir el entorno era `ERR_CONNECTION_REFUSED` al llamar al puerto 3000 sin API activa; la URL directa antigua de Vite y el Origin 5173 también estaban desalineados. No fue necesario cambiar el formulario ni las migraciones.
+
 # Acceso HU-006–009
 
 `/app/clientes` muestra expedientes preparados propios y permite generar/reemplazar, copiar/ocultar y revocar invitaciones. `/app/recuperacion` y `/admin/recuperacion` autorizan recuperación solo para las cuentas permitidas tras corroboración fuera de banda y contraseña del operador. `/recuperar`, accesible desde login, explica el procedimiento y permite al titular introducir su nueva clave en privado. El código no se guarda en navegador. Las mutaciones usan sesión persistida, mismo origen y CSRF, con renovación al vencer el access.

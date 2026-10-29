@@ -20,3 +20,5 @@ La instantánea incluye `202610270001_client_initial_record.sql`: fecha de nacim
 También integra `202610280001_client_read_isolation.sql` y `202610280002_invitation_professional_lock.sql`: SELECT de clientes por sujeto activo y propiedad, enlace por invitación sin UPDATE general de `user_id`, agregados administrativos y bloqueo de limpieza limitado. Las funciones especiales tienen search_path fijo y EXECUTE revocado a PUBLIC. [Inventario y frontera de confianza](../../epicas/ep-03-cartera-y-expediente/hu-015/tt-010-client-read-isolation.md).
 
 La rama HU-016 integra además 202610280003_client_portfolio_order.sql: índice B-tree por profesional y orden de cursor. La instantánea equivale a catorce migraciones sin modificar datos ni grants/RLS. Ver [HU-016](../../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
+
+HU-017 añade `202610280004_client_record_version.sql`: versión por trigger y UPDATE limitado a datos base bajo RLS existente. El estado actual equivale a quince migraciones y catorce tablas; no modifica SQL histórico ni inventa tablas de evaluaciones o planes de cliente. [Contrato y evidencia](../../epicas/ep-03-cartera-y-expediente/hu-017/README.md).

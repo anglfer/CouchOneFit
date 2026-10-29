@@ -130,3 +130,7 @@ Los consumidores autenticados establecen contexto local a la transacción. Activ
 ## Consulta de cartera — HU-016
 
 La migración 202610280003_client_portfolio_order.sql agrega únicamente el índice compuesto por professional_id, created_at DESC e id DESC para recorrido por propietario/cursor. No cambia datos, grants ni RLS. El repositorio profesional usa readAsSubject, parámetros y propietario además de RLS; la lectura por ID conserva NULL históricos. Ver [contrato y evidencia](../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
+
+## Edición de datos base — HU-017
+
+`202610280004_client_record_version.sql` agrega versión positiva administrada por trigger ante cambios efectivos, incluidos estado y enlace de activación. Concede UPDATE únicamente de las ocho columnas editables, manteniendo RLS de propiedad y sin UPDATE de versión/propietario/cuenta. No elimina ni transforma datos previos; el conjunto base NULL heredado se conserva. La instantánea refleja quince migraciones y sigue teniendo catorce tablas. No ejecutar la instantánea sobre bases existentes. [Contrato, elegibilidad DEC-004 sin consumo de cupo y verificación](../epicas/ep-03-cartera-y-expediente/hu-017/README.md).
