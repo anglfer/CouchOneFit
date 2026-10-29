@@ -1,4 +1,4 @@
-# Recorrido manual y caso pendiente — HU-017
+# Recorrido manual y comprobación opcional — HU-017
 
 Resultados parciales reportados por la persona usuaria, registrados abajo. Los casos propuestos no se consideran ejecutados por su mera presencia en esta guía. Mantener fixtures existentes y usar solo datos sintéticos propios. No repetir altas, invitaciones ni el recorrido completo de HU-016. URL: `http://127.0.0.1:5000/app/clientes`; acceso sintético existente `qa.hu015.web` y contraseña elegida localmente, sin publicarla.
 
@@ -35,7 +35,7 @@ No se pulsó Guardar estando Offline. El fallo durante PATCH, su mensaje de resu
 
 ## Comprobación adicional aislada de PATCH
 
-Pendiente; no modifica código, configuración de la aplicación, autenticación ni datos de prueba. Mantener Network en Online/No throttling. Para distinguir método HTTP se propone [Protocol monitor de Chrome](https://developer.chrome.com/docs/devtools/protocol-monitor), con [Fetch.requestPaused / failRequest](https://chromedevtools.github.io/devtools-protocol/tot/Fetch/). No usar Offline global ni bloquear `/api/*`. El bloqueo ordinario por URL no distingue por sí solo GET de PATCH sobre la misma ficha; aquí se pausa esa URL y se rechaza únicamente el evento cuyo método se comprueba como PATCH.
+Opcional y no realizada: D0.5/10 no exige Protocol Monitor ni repetir manualmente cada caso negativo automatizado. No bloquea publicar avances. No modifica código, configuración de la aplicación, autenticación ni datos de prueba. Mantener Network en Online/No throttling. Para distinguir método HTTP se propone [Protocol monitor de Chrome](https://developer.chrome.com/docs/devtools/protocol-monitor), con [Fetch.requestPaused / failRequest](https://chromedevtools.github.io/devtools-protocol/tot/Fetch/). No usar Offline global ni bloquear `/api/*`. El bloqueo ordinario por URL no distingue por sí solo GET de PATCH sobre la misma ficha; aquí se pausa esa URL y se rechaza únicamente el evento cuyo método se comprueba como PATCH.
 
 1. Antes de llenar el editor, habilitar Protocol Monitor en DevTools → Settings → Experiments, si hace falta; abrirlo desde More tools o el menú Ctrl+Shift+P. Seleccionar como target la página local `http://127.0.0.1:5000`, no otra pestaña. Abrir la ficha propia y Editar; cambiar un dato sintético sin guardar.
 2. Sustituir `UUID_PROPIO` por el ID de la ficha y enviar en la entrada de comandos del monitor:

@@ -25,7 +25,8 @@ T: no había API/Web activas. Se inició API desde el build actual con el asiste
 | Migración limpia/actualización | T: quince migraciones, checksums, datos anteriores y versión 1; paridad de columnas, restricciones, índices, permisos, RLS, función y triggers con esquema integrado. E: catorce SQL históricos intactos. | Cumple |
 | Contrato y convenciones | E/T: OpenAPI, proyecciones, nombres y referencias; capas API, textos españoles y DTO alineados. Sin tablas históricas, índices o dependencias especulativas. | Cumple |
 | Formato previo | T: format:check global conserva 53 archivos previos ajenos; antes eran 55. El archivo de sesión y el README Web, ahora modificados, se formatearon y dejaron de contribuir al conteo. No se presenta el comando global como aprobado. | Pendiente transversal |
-| Recorrido real / revisión independiente — D0.8/10 | R: edición/validación/persistencia, conflicto/reaplicación, recuperación de sesión Offline → Online y descarte tras logout confirmados. Fallo durante PATCH y mensaje incierto no comprobados manualmente. [Detalle y caso pendiente](prueba-web-manual.md). HU-015 y TT-010 transversal conservan sus puertas de aceptación. | Pendiente |
+| Validación desde app real — D0.10 | R: edición/validación/persistencia, conflicto/reaplicación, recuperación de sesión Offline → Online y descarte tras logout confirmados. T: error de transporte y mensaje incierto simulados automáticamente; no observados manualmente. D0 no exige repetir cada caso negativo en navegador ni usar Protocol Monitor. | Cumple con el alcance reportado |
+| Revisión independiente / dependencias — D0.8 | Aún no hay revisión por otro integrante de HU-017; HU-015 y TT-010 transversal conservan sus puertas de aceptación. No se declara D0 cerrado. | Pendiente |
 
 ## Resultados de suites
 
@@ -54,12 +55,18 @@ La revisión detectó y corrigió una normalización de campos omitidos que podr
 
 ## Límites de entrega
 
-Commits locales por bloques HU-017; sin push por instrucción actual, sin nueva rama/PR, merge, despliegue o Supabase. `feature/api-client-initial-record` y PR #22 permanecen intactos. Los asistentes/credenciales/marcadores son ignorados y no se publican. D0 y TT-010 transversal no se cierran por estos resultados; falta revisión independiente y completar la observación manual aislada del fallo durante PATCH. La validación real ya reportada conserva su alcance explícito.
+Commits por bloques HU-017; la instrucción posterior autoriza publicar avances únicamente en feature/api-client-portfolio tras revisión/verificaciones, sin nueva rama/PR, merge, despliegue o Supabase. `feature/api-client-initial-record` y PR #22 permanecen intactos. Los asistentes/credenciales/marcadores son ignorados y no se publican. D0 y TT-010 transversal no se cierran por estos resultados; falta revisión independiente. La observación manual aislada del fallo durante PATCH queda opcional y no bloquea publicación; la validación real reportada conserva su alcance explícito. No se ha probado una pérdida real de respuesta posterior al COMMIT.
 
 ## Commits locales
 
 - 48cd3f8: BD/API, validación reutilizada, PATCH, versión, OpenAPI y pruebas.
 - b87fc29: editor Web, conflicto/resultado incierto y regresiones de sesión.
-- La evidencia y los contratos documentales se guardan en un bloque documental separado de HU-017, sin publicación.
+- La evidencia y los contratos documentales se guardan en bloques documentales separados de HU-017; la publicación de avances se autoriza posteriormente.
 
 Escaneo final de archivos publicables: sin coincidencias de secretos locales conocidos, patrones de credenciales ni temporales. Los helpers y marcadores locales continúan ignorados por Git.
+
+## Criterio de publicación tras revisión final
+
+D0.5 exige casos negativos automatizados en el nivel adecuado y D0.10 validación desde una app real; ninguno exige Protocol Monitor ni ejecución humana de cada fallo de transporte. El error simulado y el recorrido humano reportado satisfacen esos aspectos, sin convertirlos en pérdida real de respuesta tras COMMIT. Se corrige la interpretación anterior que trataba la prueba manual propuesta como requisito adicional. D0.8 mantiene la revisión independiente antes de merge; no exige hacerla antes de publicar avances para revisión. Ver [matriz final](revision-final.md).
+
+El código, pruebas y migraciones coinciden sin diferencias con los commits cuya suite API 107/107 y Web 22/22 ya se ejecutó. En esta revisión documental se vuelven a comprobar OpenAPI (34 referencias), formato Web afectado, builds y lint; no se repiten suites sin cambios funcionales. origin/main en 27a7df7 ya es ancestro; fetch no trae commits pendientes de integrar y no se ejecuta merge. La rama HU-015 conserva 6b2c0a0.
