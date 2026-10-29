@@ -28,6 +28,11 @@ class ClientSessionGate extends StatefulWidget {
 
 class _ClientSessionGateState extends State<ClientSessionGate> {
   ClientProfile? _profile;
+  bool _loadingProfile = true;
+  bool _hasSession = false;
+  bool _queryFailed = false;
+  String? _expectedClientId;
+  int _epoch = 0;
   bool _isSubmitting = false;
   bool _isRefreshing = false;
   bool _showWelcome = true;
@@ -44,6 +49,10 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       await _restoreSession();
     } else {
       setState(() {
+        ++_epoch;
+        _hasSession = false;
+        _expectedClientId = null;
+        _queryFailed = false;
         _profile = null;
         if (result == 'requiresLogin') _showWelcome = false;
         _errorMessage = null;
@@ -62,123 +71,83 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     _restoreSession();
   }
 
-  Future<void> _restoreSession() async {
+  bool _definitive(AuthApiException error) => error.statusCode == 401 ||
+      (error.statusCode == 403 && error.code == 'ROLE_FORBIDDEN');
+
+  Future<void> _loadProfile({bool validateSession = true}) async {
+    final epoch = ++_epoch;
+    setState(() { _loadingProfile = true; _queryFailed = false; _errorMessage = null; });
     try {
-      final restored = await widget.authService.restoreSession();
-      if (restored == null) return;
+      // The endpoint revalidates the session on every read; restoration also
+      // resolves its subject before obtaining the initial record.
+      final account = validateSession ? await widget.authService.restoreSession() : null;
+      if (!mounted || epoch != _epoch) return;
+      if (validateSession && account == null) {
+        setState(() { _hasSession = false; _profile = null; _expectedClientId = null; });
+        return;
+      }
+      if (account != null) {
+        if (_expectedClientId != account.clientId) _profile = null;
+        _expectedClientId = account.clientId;
+      }
+      _hasSession = true;
       final profile = await widget.profileService.fetchProfile();
-      if (!mounted) return;
-      setState(() {
-        _profile = profile;
-        _errorMessage = null;
-      });
+      if (!mounted || epoch != _epoch) return;
+      if (profile.id != _expectedClientId) {
+        throw const AuthApiException(statusCode: 503, code: 'INVALID_RESPONSE',
+            message: 'No pudimos consultar tu expediente. Inténtalo de nuevo.');
+      }
+      setState(() { _profile = profile; _queryFailed = false; });
     } on AuthApiException catch (error) {
-      if (!mounted) return;
+      if (!mounted || epoch != _epoch) return;
       setState(() {
         _profile = null;
+        if (_definitive(error)) {
+          _hasSession = false; _expectedClientId = null; _showWelcome = false;
+        } else { _queryFailed = true; }
         _errorMessage = error.message;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _profile = null;
-      });
+      if (!mounted || epoch != _epoch) return;
+      setState(() { _profile = null; _queryFailed = true;
+        _errorMessage = 'No pudimos consultar tu expediente. Revisa tu conexión e inténtalo de nuevo.'; });
+    } finally {
+      if (mounted && epoch == _epoch) setState(() { _loadingProfile = false; _isRefreshing = false; });
     }
   }
+
+  Future<void> _restoreSession() => _loadProfile();
 
   Future<void> _handleLogin(String identifier, String password) async {
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-      _statusMessage = null;
-    });
+    setState(() { _isSubmitting = true; _errorMessage = null; _statusMessage = null; });
     try {
-      await widget.authService.login(
-        identifier: identifier,
-        password: password,
-      );
-      final profile = await widget.profileService.fetchProfile();
+      final account = await widget.authService.login(identifier: identifier, password: password);
       if (!mounted) return;
-      setState(() {
-        _profile = profile;
-        _isSubmitting = false;
-        _showWelcome = false;
-        _errorMessage = null;
-      });
+      setState(() { _profile = null; _expectedClientId = account.clientId;
+        _hasSession = true; _showWelcome = false; });
+      await _loadProfile(validateSession: false);
     } on AuthApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _profile = null;
-        _isSubmitting = false;
-        _errorMessage = error.message;
-      });
+      if (mounted) setState(() { _profile = null; _hasSession = false; _errorMessage = error.message; });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _profile = null;
-        _isSubmitting = false;
-        _errorMessage = 'No pudimos completar la solicitud.';
-      });
+      if (mounted) setState(() { _profile = null; _hasSession = false; _errorMessage = 'No pudimos completar la solicitud.'; });
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  Future<void> _handleRefreshProfile() async {
-    setState(() {
-      _isRefreshing = true;
-      _errorMessage = null;
-    });
-    try {
-      final profile = await widget.profileService.fetchProfile();
-      if (!mounted) return;
-      setState(() {
-        _profile = profile;
-        _isRefreshing = false;
-        _errorMessage = null;
-      });
-    } on AuthApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        if (error.statusCode == 401 || error.statusCode == 403) {
-          _profile = null;
-        }
-        _isRefreshing = false;
-        _errorMessage = error.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isRefreshing = false;
-        _errorMessage = 'No pudimos completar la solicitud.';
-      });
-    }
-  }
+  Future<void> _handleRefreshProfile() => _loadProfile(validateSession: false);
 
   Future<void> _handleLogout() async {
-    setState(() {
-      _isRefreshing = true;
-      _errorMessage = null;
-    });
+    ++_epoch;
+    setState(() { _profile = null; _loadingProfile = true; _isRefreshing = true; });
     try {
       await widget.authService.logout();
       if (!mounted) return;
-      setState(() {
-        _profile = null;
-        _isRefreshing = false;
-        _errorMessage = null;
-      });
-    } on AuthApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isRefreshing = false;
-        _errorMessage = error.message;
-      });
+      setState(() { _hasSession = false; _expectedClientId = null; _queryFailed = false;
+        _loadingProfile = false; _isRefreshing = false; _errorMessage = null; });
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isRefreshing = false;
-        _errorMessage =
-            'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.';
-      });
+      if (mounted) setState(() { _loadingProfile = false; _isRefreshing = false; _queryFailed = true;
+        _errorMessage = 'No pudimos confirmar el cierre de sesión. Revisa tu conexión e inténtalo de nuevo.'; });
     }
   }
 
@@ -234,7 +203,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       ),
       body: SafeArea(
         child: AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
+          duration: _loadingProfile || _queryFailed || activeProfile == null || MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 320),
           switchInCurve: Curves.easeOutCubic,
@@ -254,7 +223,17 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
                           begin: const Offset(0, 0.025), end: Offset.zero)
                       .animate(animation),
                   child: child)),
-          child: activeProfile == null
+          child: _loadingProfile
+              ? Center(key: const ValueKey('record-loading'), child: Column(mainAxisSize: MainAxisSize.min,
+                  children: [const CircularProgressIndicator(), Text(_isRefreshing ? 'Cerrando sesión…' : 'Consultando tu expediente…')]))
+              : _queryFailed
+                  ? Center(key: const ValueKey('record-query-error'), child: Padding(padding: const EdgeInsets.all(24),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Semantics(liveRegion: true, child: Text(_errorMessage ?? 'No pudimos consultar tu expediente.')),
+                        TextButton(onPressed: () => _loadProfile(), child: const Text('Reintentar consulta')),
+                        if (_hasSession) TextButton(onPressed: _handleLogout, child: const Text('Cerrar sesión')),
+                      ])))
+              : activeProfile == null
               ? _showWelcome && _errorMessage == null && _statusMessage == null
                   ? WelcomeScreen(
                       key: const ValueKey('welcome-screen'),

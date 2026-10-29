@@ -9,6 +9,9 @@ void main() {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const CouchOneFitApp());
 
+    expect(find.byKey(const ValueKey('record-loading')), findsOneWidget);
+    await tester.pumpAndSettle();
+
     // Verify that the title text is rendered.
     expect(find.text('CouchOne Fit'), findsOneWidget);
   });

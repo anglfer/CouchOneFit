@@ -9,15 +9,15 @@ class ClientProfileService {
 
   Future<ClientProfile> fetchProfile() async {
     final payload = await _apiClient.getJson(
-      '/api/client/profile',
+      '/api/me/record',
       authenticated: true,
     );
-    final rawProfile = payload['profile'];
-    if (rawProfile is! Map) {
+    final rawProfile = payload['record'];
+    if (rawProfile is! Map || rawProfile['id'] is! String || rawProfile['fullName'] is! String) {
       throw const AuthApiException(
-        statusCode: 401,
-        code: 'SESSION_REQUIRED',
-        message: 'Tu sesión venció. Inicia sesión de nuevo.',
+        statusCode: 503,
+        code: 'INVALID_RESPONSE',
+        message: 'No pudimos consultar tu expediente. Inténtalo de nuevo.',
       );
     }
     return ClientProfile.fromJson(Map<String, Object?>.from(rawProfile));
