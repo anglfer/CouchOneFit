@@ -453,6 +453,84 @@ async function changeStatus(id: string, body: unknown, actor: string) {
 const statusSnapshot = async (id: string) => (await database.query('SELECT * FROM private.clients WHERE id=$1',[id])).rows[0]
 const statusEvents = async (id: string) => (await database.query("SELECT * FROM private.access_events WHERE client_id=$1 AND action IN ('client_record_activated','client_record_inactivated') ORDER BY created_at,id",[id])).rows
 
+test('HU-020 own base projection excludes ownership, progress and history; query injection and other roles cannot select another record', async () => {
+  for (const suffix of ['A','B']) {
+    const actor=actors[`client${suffix}`]
+    const response=await request(app).get('/api/me/record').set('Authorization',`Bearer ${actor.token}`)
+    assert.equal(response.status,200)
+    assert.equal(response.headers['cache-control'],'no-store')
+    assert.equal(response.body.record.id,actor.client)
+    assert.deepEqual(Object.keys(response.body.record).sort(),['id','fullName','goal','status','username','email','birthDate','heightCm','baseWeightKg','baseBodyFatPercentage','waistCm','hipCm'].sort())
+    const stored=await statusSnapshot(actor.client!)
+    for (const [json,sql] of [['baseBodyFatPercentage','base_body_fat_percentage'],['waistCm','waist_cm'],['hipCm','hip_cm']])
+      assert.equal(response.body.record[json],stored[sql] === null ? null : Number(stored[sql]))
+    assert.equal((await request(app).get(`/api/me/record?clientId=${actors.clientA.client}`).set('Authorization',`Bearer ${actor.token}`)).status,400)
+    const legacy=await request(app).get('/api/client/profile').set('Authorization',`Bearer ${actor.token}`)
+    assert.equal(legacy.status,200); assert.equal(legacy.body.profile.id,actor.client)
+    assert.equal('birthDate' in legacy.body.profile,false)
+    assert.equal('professionalId' in legacy.body.profile,true)
+    assert.equal((await request(app).patch('/api/me/record').set('Authorization',`Bearer ${actor.token}`).send({goal:'forged'})).status,403)
+  }
+  for (const role of ['proA','admin']) assert.equal((await request(app).get('/api/me/record').set('Authorization',`Bearer ${actors[role].token}`)).status,403)
+  assert.equal((await request(app).get('/api/me/record')).status,401)
+  assert.equal((await request(app).get('/api/me/plans').set('Authorization',`Bearer ${actors.proA.token}`)).status,200)
+  assert.equal((await request(app).get('/api/me/plans').set('Authorization',`Bearer ${actors.clientB.token}`)).status,403)
+  assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount,0)
+})
+
+test('HU-020 reads inactive own record without subscription or quota; revoked account and sessions cannot read', async () => {
+  const actor=await statusActor(), id=await statusFixture(actor,'inactive')
+  const user=randomUUID(), name=`qa020.${user.slice(0,8)}`
+  await database.query("INSERT INTO private.users(id,username,email,password_hash,role) SELECT $1,$2,$3,password_hash,'client' FROM private.users WHERE id=$4",[user,name,`${name}@example.com`,actors.proA.id])
+  await database.query('UPDATE private.clients SET user_id=$2 WHERE id=$1',[id,user])
+  await database.query('DELETE FROM private.subscriptions WHERE professional_id=$1',[actors[actor].professional])
+  await database.query("UPDATE private.users SET status='inactive' WHERE id=$1",[actors[actor].id])
+  const session=(await database.query('INSERT INTO private.sessions(user_id) VALUES($1) RETURNING id',[user])).rows[0].id
+  const {signAccess}=await import('../src/features/auth/services/tokens.js')
+  const token=await signAccess(user,session)
+  const read=()=>request(app).get('/api/me/record').set('Authorization',`Bearer ${token}`)
+  const result=await read(); assert.equal(result.status,200); assert.equal(result.body.record.id,id)
+  for (const key of ['birthDate','heightCm','baseWeightKg','baseBodyFatPercentage','waistCm','hipCm']) assert.equal(result.body.record[key],null)
+  await database.query('UPDATE private.sessions SET revoked_at=clock_timestamp() WHERE id=$1',[session])
+  assert.equal((await read()).status,401)
+  await database.query("UPDATE private.users SET status='inactive' WHERE id=$1",[user])
+  assert.equal((await read()).status,401)
+})
+
+test('HU-020 vertical registration invitation activation and professional edit preserve the exact linked record and client isolation', async () => {
+  const key=`qa020.${randomBytes(5).toString('hex')}`, email=`${key}@example.com`
+  const registered=await request(app).post('/api/auth/professionals').send({fullName:'HU020 QA professional',username:key,email,emailConfirmation:email,password,passwordConfirmation:password,planInterest:'basic',noticeVersion:'2026-10-15.1',acceptsNotice:true})
+  assert.equal(registered.status,201)
+  const user=registered.body.account.id
+  const professional=(await database.query('SELECT id FROM private.professionals WHERE user_id=$1',[user])).rows[0].id
+  // Subscription setup is synthetic QA provisioning, not a fabricated payment.
+  await database.query("INSERT INTO private.subscriptions(professional_id,plan_id,expires_at) SELECT $1,id,clock_timestamp()+interval '30 days' FROM private.saas_plans WHERE name='Básico 10'",[professional])
+  const csrf=await request(app).get('/api/auth/csrf')
+  const login=await request(app).post('/api/auth/login').set('Origin','http://localhost:5000').set('Cookie',csrf.headers['set-cookie']).set('X-CSRF-Token',csrf.body.csrfToken).send({identifier:key,password})
+  assert.equal(login.status,200)
+  const cookies=[...csrf.headers['set-cookie'],...login.headers['set-cookie']]
+  const web=(method:'post'|'patch',url:string,body:unknown)=>request(app)[method](url).set('Origin','http://localhost:5000').set('Cookie',cookies).set('X-CSRF-Token',csrf.body.csrfToken).send(body)
+  const base={fullName:'HU020 QA Unicode Sofía',goal:'Objetivo inicial',birthDate:'1990-06-15',heightCm:170.5,baseWeightKg:70.2,baseBodyFatPercentage:20.2,waistCm:80.2,hipCm:90.2}
+  const created=await web('post','/api/clients',base); assert.equal(created.status,201)
+  const id=created.body.client.id
+  const invitation=await web('post',`/api/clients/${id}/invitations`,{}); assert.equal(invitation.status,201)
+  const clientName=`c.${key}`, clientEmail=`${clientName}@example.com`
+  const activation=await request(app).post('/api/auth/activation').send({code:invitation.body.code,username:clientName,email:clientEmail,emailConfirmation:clientEmail,password,passwordConfirmation:password,noticeVersion:'2026-10-15.1',acceptsNotice:true})
+  assert.equal(activation.status,201)
+  assert.equal(activation.body.account.clientId,id)
+  const token=activation.body.session.accessToken
+  const read=()=>request(app).get('/api/me/record').set('Authorization',`Bearer ${token}`)
+  const first=await read(); assert.equal(first.status,200); assert.equal(first.body.record.id,id)
+  for(const [field,value] of Object.entries(base)) assert.deepEqual(first.body.record[field],value)
+  const version=(await statusSnapshot(id)).version
+  const edited=await web('patch',`/api/clients/${id}`,{version,goal:'Objetivo actualizado HU020',baseWeightKg:71.3}); assert.equal(edited.status,200)
+  const updated=await read(); assert.equal(updated.body.record.id,id); assert.equal(updated.body.record.goal,'Objetivo actualizado HU020'); assert.equal(updated.body.record.baseWeightKg,71.3)
+  const other=await request(app).get('/api/me/record').set('Authorization',`Bearer ${actors.clientB.token}`)
+  assert.equal(other.body.record.id,actors.clientB.client); assert.notEqual(other.body.record.id,id)
+  assert.equal((await request(app).get(`/api/me/record?clientId=${id}`).set('Authorization',`Bearer ${actors.clientB.token}`)).status,400)
+  assert.equal((await database.query('SELECT count(*)::int AS n FROM private.clients WHERE id=$1',[id])).rows[0].n,1)
+})
+
 test('HU-018 effective transitions audit once and no-op repetitions ignore older versions without consuming capacity', async () => {
   const actor=await statusActor(), id=await statusFixture(actor)
   const before=await statusSnapshot(id)

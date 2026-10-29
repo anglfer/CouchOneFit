@@ -929,6 +929,107 @@
           }
         }
       }
+    },
+    "/api/me/record": {
+      "get": {
+        "operationId": "readOwnClientRecord",
+        "summary": "Consultar el perfil base del cliente vinculado a la sesión",
+        "description": "Solo cliente activo con sesión vigente y expediente vinculado. Sin parámetros: identidad derivada del servidor y RLS. Expediente inactivo/profesional inactivo/suscripción ausente o suspendida no bloquean lectura propia (DEC-004). Perfil base/peso inicial y medidas base no son progreso (DEC-009). No se incluyen categorías ni históricos todavía no integrados. Sin caché privada. El endpoint /api/client/profile conserva íntegramente su contrato anterior.",
+        "security": [
+          {
+            "bearerSession": []
+          },
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mismo expediente preparado, sin recaptura",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "record"
+                  ],
+                  "properties": {
+                    "record": {
+                      "$ref": "#/components/schemas/ClientOwnRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No acepta query parameters/IDs/filtros"
+          },
+          "401": {
+            "description": "Sesión inválida, revocada, cuenta inactiva o sin vínculo"
+          },
+          "403": {
+            "description": "Rol distinto de cliente"
+          },
+          "503": {
+            "description": "Consulta no disponible; no equivale a rechazo definitivo de sesión"
+          }
+        }
+      }
+    },
+    "/api/client/profile": {
+      "get": {
+        "operationId": "readLegacyClientProfile",
+        "summary": "Perfil de identidad del cliente conservado por compatibilidad",
+        "description": "Contrato anterior conservado: no añade medidas base ni progreso. Identidad derivada de sesión, no seleccionable por ID del consumidor. Preferir /api/me/record para perfil base HU-020.",
+        "security": [
+          {
+            "bearerSession": []
+          },
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil propio anterior, no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "profile"
+                  ],
+                  "properties": {
+                    "profile": {
+                      "$ref": "#/components/schemas/ClientLegacyProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida"
+          },
+          "403": {
+            "description": "Rol incorrecto"
+          },
+          "503": {
+            "description": "Consulta no disponible"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1440,7 +1541,11 @@
             ]
           },
           "status": {
-            "const": "active"
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
           },
           "birthDate": {
             "type": [
@@ -1599,6 +1704,142 @@
             "description": "Precondición obtenida de GET /api/clients/{clientId}; no es valor asignable."
           }
         }
+      },
+      "ClientOwnRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "birthDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "heightCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseWeightKg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
+          "waistCm",
+          "hipCm",
+          "username",
+          "email"
+        ],
+        "description": "HU-020: perfil base propio preparado por el profesional, medidas iniciales autorizadas según DEC-009; no progreso, historial, propietario ni permisos inventados. Columnas anteriores incompletas conservan null."
+      },
+      "ClientLegacyProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "professionalId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "username",
+          "email",
+          "userId",
+          "professionalId"
+        ]
       }
     },
     "securitySchemes": {
