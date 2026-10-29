@@ -6,7 +6,7 @@
 
 [Plan vigente](../../../../plan/PLAN_TRABAJO_V2.md), HU-019 (RDF0404, RNF07/13/18), DEC-004/006/009 y D0 §5.2; [requerimientos](../../../requirements/sistema-interno.md), RDF0404; DEVELOPMENT y convenciones BD. Perfil/objetivo/medidas base reutilizan HU-015/016/017/018. No se implementan las épicas de alimentación, entrenamiento, evaluaciones o seguimiento.
 
-La persona usuaria reportó aviso previo al equipo para los cambios compartidos HU-019. No se acredita aprobación ni revisión de otro integrante. La implementación fue realizada por el asistente por autorización de la persona usuaria; Franela conserva integración/coordinación. Única rama: feature/api-client-portfolio; commits por HU, sin nuevo PR ni publicación en este paso. PR #22 y su rama se conservan intactos.
+La persona usuaria reportó aviso previo al equipo para los cambios compartidos HU-019. No se acredita aprobación ni revisión de otro integrante. La implementación fue realizada por el asistente por autorización de la persona usuaria; Franela conserva integración/coordinación. Única rama: feature/api-client-portfolio; commits por HU, sin nuevo PR; publicación posterior autorizada tras las verificaciones. PR #22 y su rama se conservan intactos.
 
 ## Contrato implementado
 
