@@ -2,14 +2,8 @@ import { useEffect, useState } from 'react';
 import { ApiError } from '../../../services/api';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 
-interface ClientRecord {
-  id: string;
-  userId: string | null;
-  fullName: string;
-  goal: string | null;
-  status: string;
-  invitationExpiresAt: string | null;
-}
+import { Link } from '../../../components/Link';
+import type { ClientRecord, PortfolioResponse } from '../types/portfolio';
 
 type ClientField =
   | 'fullName'
@@ -39,7 +33,7 @@ const numberOrNull = (value: string) =>
 
 export default function ClientAccessPanel() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -52,25 +46,54 @@ export default function ClientAccessPanel() {
     clientId: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    pageSize: 20,
+  });
+  const [cursors, setCursors] = useState<Array<string | null>>([null]);
+  const [pageInfo, setPageInfo] = useState<
+    PortfolioResponse['pageInfo'] | null
+  >(null);
+  const [hasClients, setHasClients] = useState(false);
+  const [listError, setListError] = useState('');
+  const requestKey = JSON.stringify([attempt, filters, cursors]);
+  const loading = loadedKey !== requestKey;
   useEffect(() => {
     let active = true;
-    void sessionRequest<{ clients: ClientRecord[] }>('/api/clients')
+    const params = new URLSearchParams({
+      search: filters.search,
+      status: filters.status,
+      pageSize: String(filters.pageSize),
+    });
+    const cursor = cursors.at(-1);
+    if (cursor) params.set('cursor', cursor);
+    void sessionRequest<PortfolioResponse>(`/api/clients?${params}`)
       .then((result) => {
         if (active) {
           setClients(result.clients);
-          setError('');
+          setHasClients(result.hasClients);
+          setPageInfo(result.pageInfo);
+          setListError('');
+          setDelivery(null);
         }
       })
       .catch(() => {
-        if (active) setError('No pudimos consultar los expedientes.');
+        if (active) {
+          setListError('No pudimos consultar los expedientes.');
+          setClients([]);
+          setPageInfo(null);
+          setDelivery(null);
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setLoadedKey(requestKey);
       });
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, [attempt, filters, cursors, requestKey]);
   async function invitation(record: ClientRecord, revoke = false) {
     if (busy) return;
     setBusy(record.id);
@@ -139,6 +162,9 @@ export default function ClientAccessPanel() {
         hipCm: numberOrNull(form.hipCm),
       });
       setForm(emptyClientForm());
+      setCursors([null]);
+      setSearch('');
+      setFilters((current) => ({ ...current, search: '', status: '' }));
       setSaved('El expediente se guardó correctamente.');
       setAttempt((value) => value + 1);
     } catch (failure) {
@@ -397,16 +423,100 @@ export default function ClientAccessPanel() {
         </button>
         {saved && <p role="status">{saved}</p>}
       </form>
+      <form
+        aria-label="Buscar en mi cartera"
+        className="flex flex-wrap gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (busy) return;
+          setAttempt((value) => value + 1);
+          setCursors([null]);
+          setFilters((current) => ({ ...current, search: search.trim() }));
+        }}
+      >
+        <label>
+          Buscar por nombre
+          <input
+            className="block border rounded p-2"
+            disabled={!!busy}
+            maxLength={150}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <label>
+          Estado
+          <select
+            className="block border rounded p-2"
+            disabled={!!busy}
+            value={filters.status}
+            onChange={(event) => {
+              setCursors([null]);
+              setFilters((current) => ({
+                ...current,
+                status: event.target.value,
+              }));
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+        </label>
+        <label>
+          Por página
+          <select
+            className="block border rounded p-2"
+            disabled={!!busy}
+            value={filters.pageSize}
+            onChange={(event) => {
+              setCursors([null]);
+              setFilters((current) => ({
+                ...current,
+                pageSize: Number(event.target.value),
+              }));
+            }}
+          >
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </label>
+        <button type="submit" disabled={!!busy} className="border rounded p-2">
+          Buscar
+        </button>
+      </form>
       {loading ? (
         <p role="status">Cargando expedientes…</p>
+      ) : listError ? (
+        <div role="alert">
+          <p>{listError}</p>
+          <button
+            type="button"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            Reintentar consulta
+          </button>
+        </div>
       ) : clients.length === 0 ? (
-        <p>No hay expedientes preparados en tu cartera.</p>
+        <p role="status">
+          {!hasClients
+            ? 'Tu cartera está vacía.'
+            : cursors.length > 1
+              ? 'No quedan resultados en esta página. Vuelve a la anterior.'
+              : 'No hay resultados para estos filtros.'}
+        </p>
       ) : (
         <ul className="space-y-4">
           {clients.map((record) => (
             <li key={record.id} className="border rounded-xl p-4 space-y-3">
-              <h2 className="font-bold">{record.fullName}</h2>
+              <h2 className="font-bold">
+                <Link to={`/app/clientes/${record.id}`}>{record.fullName}</Link>
+              </h2>
               <p>{record.goal}</p>
+              <p>
+                Estado: {record.status === 'active' ? 'Activo' : 'Inactivo'}
+              </p>
               <p>
                 {record.userId
                   ? 'Cuenta vinculada'
@@ -458,13 +568,35 @@ export default function ClientAccessPanel() {
           ))}
         </ul>
       )}
+      <nav
+        aria-label="Páginas de mi cartera"
+        className="flex items-center gap-3"
+      >
+        <button
+          type="button"
+          disabled={!!busy || loading || cursors.length <= 1}
+          onClick={() => setCursors((current) => current.slice(0, -1))}
+        >
+          Anterior
+        </button>
+        <span>Página {cursors.length}</span>
+        <button
+          type="button"
+          disabled={!!busy || loading || !!listError || !pageInfo?.hasMore}
+          onClick={() => {
+            if (pageInfo?.nextCursor)
+              setCursors((current) => [...current, pageInfo.nextCursor]);
+          }}
+        >
+          Siguiente
+        </button>
+      </nav>
       {error && (
         <div role="alert">
           <p>{error}</p>
           <button
             type="button"
             onClick={() => {
-              setLoading(true);
               setAttempt((value) => value + 1);
             }}
           >
@@ -472,7 +604,7 @@ export default function ClientAccessPanel() {
           </button>
         </div>
       )}
-      {delivery && (
+      {delivery && !loading && (
         <div role="status" className="border rounded-xl p-4 space-y-3">
           <h2 className="font-bold">
             Invitación para{' '}

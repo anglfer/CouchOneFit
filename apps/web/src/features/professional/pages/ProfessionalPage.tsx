@@ -1,3 +1,4 @@
+import ClientRecordView from '../components/ClientRecordView';
 import type { ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import AppearanceSettings from '../../../components/AppearanceSettings';
@@ -57,7 +58,8 @@ export default function ProfessionalPage(): ReactElement {
   const pathname = rawPath.replace(/\/$/, '') || '/app';
   const isProfilePage = pathname === '/app/perfil';
   const isHome = pathname === '/app';
-  const isClientsPage = pathname === '/app/clientes';
+  const selectedClientId = pathname.match(/^\/app\/clientes\/([^/]+)$/)?.[1];
+  const isClientsPage = pathname === '/app/clientes' || !!selectedClientId;
   const isSubscriptionPage = pathname === '/app/suscripcion';
   const isRecoveryPage = pathname === '/app/recuperacion';
   const knownRoute =
@@ -261,7 +263,14 @@ export default function ProfessionalPage(): ReactElement {
               y contrata o renueva desde Mi suscripción.
             </p>
           ) : isClientsPage ? (
-            <ClientAccessPanel />
+            selectedClientId ? (
+              <ClientRecordView
+                key={selectedClientId}
+                clientId={selectedClientId}
+              />
+            ) : (
+              <ClientAccessPanel />
+            )
           ) : isRecoveryPage ? (
             <RecoveryPanel />
           ) : !knownRoute ? (

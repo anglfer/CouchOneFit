@@ -6,6 +6,21 @@ import { createServer } from 'vite';
 
 let dom, vite, root, ProfessionalPage, createRoot;
 let mode, identity, pendingSession, requests, channels, redirects;
+let portfolioResponder, recordResponder, invitationResponder;
+const page = (clients = [], hasClients = false, nextCursor = null) =>
+  json({
+    clients,
+    hasClients,
+    pageInfo: { pageSize: 20, hasMore: !!nextCursor, nextCursor },
+  });
+const sampleClient = (id, fullName) => ({
+  id,
+  fullName,
+  goal: null,
+  status: 'inactive',
+  userId: null,
+  invitationExpiresAt: null,
+});
 const values = {
   'Nombre completo': 'Ana 😀 QA conexión',
   'Fecha de nacimiento': '1990-05-20',
@@ -60,6 +75,8 @@ before(async () => {
     addEventListener() {},
     removeEventListener() {},
   });
+  globalThis.PopStateEvent = window.PopStateEvent;
+  window.scrollTo = () => {};
   globalThis.BroadcastChannel = class extends dom.window.EventTarget {
     constructor() {
       super();
@@ -110,6 +127,11 @@ beforeEach(async () => {
   requests = [];
   channels = new Set();
   pendingSession = undefined;
+  portfolioResponder = () => page();
+  recordResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+  invitationResponder = () =>
+    json({ code: 'synthetic-invitation', expiresAt: '2026-12-01T00:00:00Z' });
+  window.history.replaceState({}, '', '/app/clientes');
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url, method: options.method || 'GET' });
     if (mode === 'network') throw new TypeError('Failed to fetch');
@@ -129,14 +151,24 @@ beforeEach(async () => {
       if (mode === 'write-network') throw new TypeError('Failed to fetch');
       return json({ client: { id: 'synthetic-client' } }, 201);
     }
+    if (url.endsWith('/invitations'))
+      return invitationResponder(options.method);
     if (url === '/api/professional/profile')
       return json({ profile: { userId: identity, ...account(identity) } });
     if (url === '/api/me/subscription')
       return json({
         subscription: { status: 'active', used: 0, remaining: 10 },
       });
-    if (url === '/api/clients' && (!options.method || options.method === 'GET'))
-      return json({ clients: [] });
+    if (
+      url.startsWith('/api/clients?') &&
+      (!options.method || options.method === 'GET')
+    )
+      return portfolioResponder(new URL(url, window.location.origin));
+    if (
+      url.startsWith('/api/clients/') &&
+      (!options.method || options.method === 'GET')
+    )
+      return recordResponder(url);
     throw Error(`Unexpected request: ${options.method || 'GET'} ${url}`);
   };
   root = createRoot(document.getElementById('root'));
@@ -152,7 +184,7 @@ function field(label) {
   return (
     [...document.querySelectorAll('label')]
       .find((element) => element.textContent.trim().startsWith(label))
-      ?.querySelector('input,textarea') ?? null
+      ?.querySelector('input,textarea,select') ?? null
   );
 }
 
@@ -303,4 +335,225 @@ test('session-cleared notification defeats a pending successful check and discar
     resolve(json({ account: account(identity) }));
   });
   assert.equal(field('Nombre completo'), null);
+});
+
+async function searchFor(value) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set.call(field('Buscar por nombre'), value);
+    field('Buscar por nombre').dispatchEvent(
+      new window.Event('input', { bubbles: true })
+    );
+  });
+  await act(async () =>
+    document
+      .querySelector('form[aria-label="Buscar en mi cartera"]')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+}
+function button(text) {
+  return [...document.querySelectorAll('button')].find(
+    (element) => element.textContent === text
+  );
+}
+
+test('portfolio distinguishes empty, loading, no matches and error and ignores stale search results', async () => {
+  assert.match(document.body.textContent, /Tu cartera está vacía/);
+  let oldResolve, currentResolve;
+  portfolioResponder = (url) => {
+    if (url.searchParams.get('search') === 'old')
+      return new Promise((resolve) => {
+        oldResolve = resolve;
+      });
+    return new Promise((resolve) => {
+      currentResolve = resolve;
+    });
+  };
+  await searchFor('old');
+  assert.match(document.body.textContent, /Cargando expedientes/);
+  await searchFor('%_');
+  await act(async () =>
+    currentResolve(page([sampleClient('new', 'Literal %_')], true))
+  );
+  assert.match(document.body.textContent, /Literal %_/);
+  await act(async () =>
+    oldResolve(page([sampleClient('old', 'Outdated result')], true))
+  );
+  assert.doesNotMatch(document.body.textContent, /Outdated result/);
+  assert.ok(
+    requests.some(
+      (request) =>
+        new URL(request.url, window.location.origin).searchParams.get(
+          'search'
+        ) === '%_'
+    )
+  );
+  portfolioResponder = () => page([], true);
+  await searchFor('absent');
+  assert.match(
+    document.body.textContent,
+    /No hay resultados para estos filtros/
+  );
+  assert.doesNotMatch(document.body.textContent, /Tu cartera está vacía/);
+  portfolioResponder = () => {
+    throw new TypeError('offline');
+  };
+  await searchFor('failure');
+  assert.match(
+    document.body.textContent,
+    /No pudimos consultar los expedientes/
+  );
+  assert.doesNotMatch(
+    document.body.textContent,
+    /No hay resultados para estos filtros/
+  );
+  portfolioResponder = () =>
+    page([sampleClient('recovered', 'Recovered client')], true);
+  await act(async () => button('Reintentar consulta').click());
+  assert.match(document.body.textContent, /Recovered client/);
+});
+
+test('portfolio previous/next and status reset retain applied filters and protect the creation draft', async () => {
+  await act(async () => fillDraft());
+  portfolioResponder = (url) =>
+    url.searchParams.has('cursor')
+      ? page([sampleClient('second', 'Second page')], true)
+      : page([sampleClient('first', 'First page')], true, 'next-cursor');
+  await searchFor('literal');
+  await act(async () => button('Siguiente').click());
+  assert.match(document.body.textContent, /Second page/);
+  assert.match(document.body.textContent, /Página 2/);
+  assert.equal(button('Siguiente').disabled, true);
+  await act(async () => button('Anterior').click());
+  assert.match(document.body.textContent, /First page/);
+  assertDraft();
+  await act(async () => {
+    field('Estado').value = 'inactive';
+    field('Estado').dispatchEvent(
+      new window.Event('change', { bubbles: true })
+    );
+  });
+  const last = new URL(
+    requests.filter((request) => request.url.startsWith('/api/clients?')).at(-1)
+      .url,
+    window.location.origin
+  );
+  assert.equal(last.searchParams.get('search'), 'literal');
+  assert.equal(last.searchParams.get('status'), 'inactive');
+  assert.equal(last.searchParams.has('cursor'), false);
+  assertDraft();
+});
+
+test('selected client has a read-only base view with loading, nullable data and recoverable error', async () => {
+  let resolve;
+  portfolioResponder = () =>
+    page([sampleClient('client-id', 'Selected client')], true);
+  await searchFor('Selected');
+  recordResponder = () =>
+    new Promise((done) => {
+      resolve = done;
+    });
+  await act(async () =>
+    [...document.querySelectorAll('a')]
+      .find((element) => element.textContent === 'Selected client')
+      .click()
+  );
+  assert.match(document.body.textContent, /Cargando expediente/);
+  await act(async () =>
+    resolve(
+      json({
+        client: {
+          id: 'client-id',
+          fullName: 'Selected client',
+          status: 'inactive',
+          goal: null,
+          birthDate: null,
+          heightCm: 170.5,
+          baseWeightKg: 70.2,
+          baseBodyFatPercentage: null,
+          waistCm: null,
+          hipCm: null,
+        },
+      })
+    )
+  );
+  assert.match(document.body.textContent, /170.5 cm/);
+  assert.match(document.body.textContent, /70.2 kg/);
+  assert.match(document.body.textContent, /Sin registrar/);
+  assert.equal(document.querySelector('form'), null);
+  assert.equal(document.querySelector('input'), null);
+  recordResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+  await act(async () => {
+    window.history.pushState({}, '', '/app/clientes/foreign-id');
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+  });
+  assert.match(document.body.textContent, /No pudimos consultar el expediente/);
+  assert.doesNotMatch(document.body.textContent, /Selected client/);
+  recordResponder = () =>
+    json({
+      client: {
+        fullName: 'Recovered detail',
+        status: 'active',
+        birthDate: null,
+        heightCm: null,
+        baseWeightKg: null,
+        baseBodyFatPercentage: null,
+        waistCm: null,
+        hipCm: null,
+        goal: null,
+      },
+    });
+  await act(async () => button('Reintentar lectura').click());
+  assert.match(document.body.textContent, /Recovered detail/);
+});
+
+test('portfolio invitations keep their recipient and block pagination while issuing a code', async () => {
+  portfolioResponder = () =>
+    page(
+      [
+        {
+          ...sampleClient('invite-id', 'Invitation recipient'),
+          status: 'active',
+        },
+      ],
+      true,
+      'page-two'
+    );
+  await searchFor('Invitation');
+  let resolve;
+  invitationResponder = () =>
+    new Promise((done) => {
+      resolve = done;
+    });
+  await act(async () => button('Generar invitación').click());
+  assert.equal(button('Siguiente').disabled, true);
+  assert.equal(field('Buscar por nombre').disabled, true);
+  await act(async () =>
+    resolve(
+      json({ code: 'synthetic-invitation', expiresAt: '2026-12-01T00:00:00Z' })
+    )
+  );
+  assert.match(
+    document.body.textContent,
+    /Invitación para Invitation recipient/
+  );
+  assert.equal(
+    document.querySelector('input[readonly]').value,
+    'synthetic-invitation'
+  );
+  assert.equal(button('Siguiente').disabled, false);
+  invitationResponder = () => new Response(null, { status: 204 });
+  await act(async () => button('Revocar invitación').click());
+  assert.equal(document.querySelector('input[readonly]'), null);
+  assert.ok(
+    requests.some(
+      (request) =>
+        request.url === '/api/clients/invite-id/invitations' &&
+        request.method === 'DELETE'
+    )
+  );
 });
