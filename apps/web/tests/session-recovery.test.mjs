@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 let dom, vite, root, ProfessionalPage, createRoot;
 let mode, identity, pendingSession, requests, channels, redirects;
-let portfolioResponder, recordResponder, invitationResponder;
+let portfolioResponder, recordResponder, invitationResponder, editResponder;
 const page = (clients = [], hasClients = false, nextCursor = null) =>
   json({
     clients,
@@ -40,6 +40,210 @@ const account = (id) => ({
   status: 'active',
   subscription: null,
 });
+
+const editableRecord = {
+  id: 'edit-id',
+  version: 1,
+  fullName: 'Original client',
+  goal: null,
+  status: 'active',
+  birthDate: '1990-05-20',
+  heightCm: 170.5,
+  baseWeightKg: 70.2,
+  baseBodyFatPercentage: null,
+  waistCm: null,
+  hipCm: null,
+};
+async function openEditor() {
+  portfolioResponder = () =>
+    page([sampleClient('edit-id', 'Original client')], true);
+  recordResponder = () => json({ client: editableRecord });
+  await searchFor('Original');
+  await act(async () =>
+    [...document.querySelectorAll('a')]
+      .find((element) => element.textContent === 'Original client')
+      .click()
+  );
+  await act(async () => button('Editar datos base').click());
+}
+async function editField(label, value) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set.call(field(label), value);
+    field(label).dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+}
+async function submitEdit() {
+  await act(async () =>
+    document
+      .querySelector('form[aria-label="Editar datos base"]')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+}
+const writes = () => requests.filter((request) => request.method === 'PATCH');
+
+test('HU-017 editor sends only changed base fields, validates precision and renders server field errors', async () => {
+  await openEditor();
+  assert.equal(field('Nombre completo').value, 'Original client');
+  await editField('Peso base (kg)', '70.25');
+  await submitEdit();
+  assert.equal(writes().length, 0);
+  assert.match(document.body.textContent, /incrementos de 0.1/);
+  await editField('Peso base (kg)', '71.2');
+  editResponder = () =>
+    json(
+      {
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Revisa los campos.',
+          fields: { baseWeightKg: 'Server field rejection' },
+        },
+      },
+      400
+    );
+  await submitEdit();
+  assert.equal(field('Peso base (kg)').value, '71.2');
+  assert.match(document.body.textContent, /Server field rejection/);
+  editResponder = (body) => {
+    assert.deepEqual(body, { version: 1, baseWeightKg: 71.2 });
+    return json({
+      client: { ...editableRecord, baseWeightKg: 71.2, version: 2 },
+    });
+  };
+  await submitEdit();
+  assert.equal(field('Peso base (kg)'), null);
+  assert.match(
+    document.body.textContent,
+    /Los cambios se guardaron correctamente/
+  );
+  assert.match(document.body.textContent, /71.2 kg/);
+});
+
+test('HU-017 conflict keeps draft and requires comparison and explicit reapply without reverting untouched remote fields', async () => {
+  await openEditor();
+  await editField('Nombre completo', 'My 😀 draft');
+  editResponder = () =>
+    json(
+      {
+        error: {
+          code: 'CLIENT_RECORD_CONFLICT',
+          message: 'El expediente cambió.',
+        },
+      },
+      409
+    );
+  await submitEdit();
+  assert.equal(field('Nombre completo').value, 'My 😀 draft');
+  assert.equal(button('Guardar cambios').disabled, true);
+  recordResponder = () =>
+    json({ client: { ...editableRecord, version: 2, goal: 'Remote goal' } });
+  await act(async () => button('Consultar estado actual').click());
+  assert.equal(field('Nombre completo').value, 'My 😀 draft');
+  assert.equal(writes().length, 1);
+  await act(async () =>
+    button('Usar esta versión para reaplicar mi borrador').click()
+  );
+  assert.equal(field('Objetivo (opcional)').value, 'Remote goal');
+  assert.equal(writes().length, 1);
+  editResponder = (body) => {
+    assert.deepEqual(body, { version: 2, fullName: 'My 😀 draft' });
+    return json({
+      client: {
+        ...editableRecord,
+        version: 3,
+        goal: 'Remote goal',
+        fullName: body.fullName,
+      },
+    });
+  };
+  await submitEdit();
+  assert.equal(writes().length, 2);
+});
+
+test('HU-017 lost save response is uncertain, survives session network recovery and never retries automatically', async () => {
+  await openEditor();
+  await editField('Nombre completo', 'Uncertain draft');
+  await submitEdit();
+  assert.match(document.body.textContent, /resultado es incierto/);
+  assert.equal(writes().length, 1);
+  mode = 'network';
+  await focus();
+  mode = 'ok';
+  await act(async () => window.dispatchEvent(new window.Event('online')));
+  assert.equal(field('Nombre completo').value, 'Uncertain draft');
+  assert.equal(writes().length, 1);
+  recordResponder = () =>
+    json({
+      client: { ...editableRecord, version: 2, fullName: 'Uncertain draft' },
+    });
+  await act(async () => button('Consultar estado actual').click());
+  assert.equal(writes().length, 1);
+  await act(async () =>
+    button('Usar esta versión para reaplicar mi borrador').click()
+  );
+  await submitEdit();
+  assert.equal(writes().length, 1);
+  assert.match(document.body.textContent, /No hay cambios para guardar/);
+});
+
+test('HU-017 business 403 preserves editor and explicit session renewal never repeats PATCH', async () => {
+  await openEditor();
+  await editField('Nombre completo', 'Business draft');
+  for (const code of [
+    'SUBSCRIPTION_SUSPENDED',
+    'PLAN_REQUIRED',
+    'CSRF_INVALID',
+  ]) {
+    editResponder = () => json({ error: { code, message: code } }, 403);
+    await submitEdit();
+    assert.equal(field('Nombre completo').value, 'Business draft');
+  }
+  editResponder = () => json({ error: { code: 'SESSION_REQUIRED' } }, 401);
+  const count = writes().length;
+  await submitEdit();
+  assert.equal(writes().length, count + 1);
+  assert.equal(field('Nombre completo').value, 'Business draft');
+  assert.match(document.body.textContent, /Sesión renovada/);
+});
+
+test('HU-017 refresh revealing another account destroys the editor without replaying its write', async () => {
+  await openEditor();
+  await editField('Nombre completo', 'Previous account draft');
+  identity = 'pro-b';
+  editResponder = () => json({ error: { code: 'SESSION_REQUIRED' } }, 401);
+  await submitEdit();
+  assert.equal(writes().length, 1);
+  assert.equal(field('Nombre completo'), null);
+  assert.equal(
+    document.querySelector('form[aria-label="Editar datos base"]'),
+    null
+  );
+});
+
+for (const reason of ['unauthorized', 'forbidden', 'other-account', 'logout'])
+  test(`HU-017 ${reason} destroys the preceding session editor`, async () => {
+    await openEditor();
+    await editField('Nombre completo', 'Private edit draft');
+    if (reason === 'other-account') identity = 'pro-b';
+    else if (reason === 'logout') {
+      await act(async () => {
+        const channel = new BroadcastChannel('couchonefit-session');
+        channel.postMessage({ type: 'session-cleared' });
+        channel.close();
+      });
+    } else mode = reason;
+    if (reason !== 'logout') await focus();
+    assert.equal(field('Nombre completo'), null);
+    assert.doesNotMatch(document.body.textContent, /Private edit draft/);
+    assert.equal(
+      document.querySelector('form[aria-label="Editar datos base"]'),
+      null
+    );
+  });
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -131,9 +335,12 @@ beforeEach(async () => {
   recordResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
   invitationResponder = () =>
     json({ code: 'synthetic-invitation', expiresAt: '2026-12-01T00:00:00Z' });
+  editResponder = () => {
+    throw new TypeError('Failed to fetch');
+  };
   window.history.replaceState({}, '', '/app/clientes');
   globalThis.fetch = async (url, options = {}) => {
-    requests.push({ url, method: options.method || 'GET' });
+    requests.push({ url, method: options.method || 'GET', body: options.body });
     if (mode === 'network') throw new TypeError('Failed to fetch');
     if (url === '/api/auth/csrf')
       return json({ csrfToken: 'synthetic-test-token' });
@@ -153,6 +360,15 @@ beforeEach(async () => {
     }
     if (url.endsWith('/invitations'))
       return invitationResponder(options.method);
+    if (url.startsWith('/api/clients/') && options.method === 'PATCH')
+      return editResponder(JSON.parse(options.body));
+    if (mode === 'profile-business' && url === '/api/professional/profile')
+      return json(
+        {
+          error: { code: 'SUBSCRIPTION_SUSPENDED', message: 'Business denial' },
+        },
+        403
+      );
     if (url === '/api/professional/profile')
       return json({ profile: { userId: identity, ...account(identity) } });
     if (url === '/api/me/subscription')
@@ -577,4 +793,20 @@ test('portfolio invitations keep their recipient and block pagination while issu
         request.method === 'DELETE'
     )
   );
+});
+
+test('HU-017 business rejection during profile checking retains the hidden editor until recovery', async () => {
+  await openEditor();
+  await editField('Nombre completo', 'Business check draft');
+  const input = field('Nombre completo');
+  mode = 'profile-business';
+  await focus();
+  assert.equal(field('Nombre completo'), input);
+  assert.ok(input.closest('[hidden]'));
+  mode = 'ok';
+  await focus();
+  assert.equal(field('Nombre completo'), input);
+  assert.equal(input.value, 'Business check draft');
+  assert.equal(input.closest('[hidden]'), null);
+  assert.equal(writes().length, 0);
 });

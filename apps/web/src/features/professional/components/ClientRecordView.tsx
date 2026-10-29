@@ -2,14 +2,23 @@ import { useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
 import { sessionRequest } from '../../auth/services/session';
 import type { ClientBaseRecord } from '../types/portfolio';
+import ClientRecordEditor from './ClientRecordEditor';
 
-export default function ClientRecordView({ clientId }: { clientId: string }) {
+export default function ClientRecordView({
+  clientId,
+  accountId,
+}: {
+  clientId: string;
+  accountId: string;
+}) {
   const [result, setResult] = useState<{
     key: string;
     record: ClientBaseRecord | null;
     error: string;
   }>({ key: '', record: null, error: '' });
   const [attempt, setAttempt] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
   const requestKey = `${clientId}:${attempt}`;
   const loading = result.key !== requestKey;
   const record = loading ? null : result.record;
@@ -41,6 +50,7 @@ export default function ClientRecordView({ clientId }: { clientId: string }) {
     <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border space-y-4">
       <Link to="/app/clientes">Volver a mi cartera</Link>
       <h1 className="text-xl font-bold">Datos base del cliente</h1>
+      {saved && <p role="status">Los cambios se guardaron correctamente.</p>}
       {loading ? (
         <p role="status">Cargando expediente…</p>
       ) : error ? (
@@ -51,9 +61,30 @@ export default function ClientRecordView({ clientId }: { clientId: string }) {
           </button>
         </div>
       ) : (
-        record && (
+        record &&
+        (editing ? (
+          <ClientRecordEditor
+            accountId={accountId}
+            initial={record}
+            onCancel={() => setEditing(false)}
+            onSaved={(updated) => {
+              setResult({ key: requestKey, record: updated, error: '' });
+              setEditing(false);
+              setSaved(true);
+            }}
+          />
+        ) : (
           <>
             <h2 className="font-bold">{record.fullName}</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setSaved(false);
+                setEditing(true);
+              }}
+            >
+              Editar datos base
+            </button>
             <dl className="space-y-2">
               <dt>Estado</dt>
               <dd>{record.status === 'active' ? 'Activo' : 'Inactivo'}</dd>
@@ -73,7 +104,7 @@ export default function ClientRecordView({ clientId }: { clientId: string }) {
               <dd>{record.goal ?? 'Sin registrar'}</dd>
             </dl>
           </>
-        )
+        ))
       )}
     </section>
   );

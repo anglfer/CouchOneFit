@@ -128,7 +128,11 @@ export default function ProfessionalPage(): ReactElement {
           window.location.replace(
             `/acceso?motivo=sesion&retorno=${encodeURIComponent(next)}`
           );
-        } else if (failure instanceof ApiError && failure.status === 403) {
+        } else if (
+          failure instanceof ApiError &&
+          failure.status === 403 &&
+          ['ROLE_FORBIDDEN', 'ACCESS_DENIED'].includes(failure.code)
+        ) {
           discardSession();
           window.location.replace('/acceso');
         } else {
@@ -265,6 +269,7 @@ export default function ProfessionalPage(): ReactElement {
           ) : isClientsPage ? (
             selectedClientId ? (
               <ClientRecordView
+                accountId={account!.id}
                 key={selectedClientId}
                 clientId={selectedClientId}
               />

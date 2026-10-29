@@ -14,6 +14,7 @@ export interface PortfolioResponse {
 }
 
 export interface ClientBaseRecord {
+  version: number;
   id: string;
   fullName: string;
   goal: string | null;
