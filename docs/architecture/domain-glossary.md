@@ -89,6 +89,8 @@ Este glosario cubre el esquema y los contratos de identidad y acceso implementad
 
 ## Cartera y expediente — HU-015
 
+HU-020 añade `GET /api/me/record`, `{ record }`, proyección propia de perfil base con medidas iniciales y username/email, sin userId/professionalId ni versión de escritura. El vínculo se deriva de sesión y RLS. El endpoint anterior `/api/client/profile` conserva su contrato. DEC-009 mantiene consulta base; grasa medida base/cintura/cadera iniciales no son progreso, evaluación calculada ni eventos históricos. No existe aún una proyección de progreso HU-036; no se serializa como array vacío. [Contrato y límites](../epicas/ep-03-cartera-y-expediente/hu-020/README.md).
+
 `private.clients` es el expediente único de cada cliente dentro de la cartera de su profesional. El alta HTTP usa `fullName`, `goal`, `birthDate`, `heightCm`, `baseWeightKg`, `baseBodyFatPercentage`, `waistCm` y `hipCm`; los nombres SQL correspondientes usan `snake_case`. `birthDate`, `heightCm` y `baseWeightKg` son requeridos para una alta nueva; `goal`, `baseBodyFatPercentage`, `waistCm` y `hipCm` son opcionales. Los prefijos `base` distinguen peso y grasa capturados al alta de futuras evaluaciones o registros históricos. No existe `professionalId` en el contrato de alta: el profesional se deriva de la sesión autenticada. Las filas anteriores a HU-015 pueden conservar los nuevos campos en `NULL` y no se consideran completas por ello.
 
 Catálogo compartido: `professionals.plan_interest_id` / JSON `planInterestId` conserva el UUID del plan de interés, separado de suscripción y del antiguo `plan_interest`. `GET /api/plans` publica solo `id,name,maxClients,isUnlimited,priceMxn` de planes disponibles, sin información de cuentas o suscripciones.

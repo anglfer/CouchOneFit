@@ -29,6 +29,12 @@ Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Bas
 
 Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros y las llaves JSON; roles/estados en inglés y minúsculas. Sigue el [glosario de identidad y acceso](../../docs/architecture/domain-glossary.md). Conserva el español en los textos visibles. Login, perfil propio, activación, credenciales y recuperación consumen la API de identidad propia.
 
+## Incremento HU-020 de perfil base (29/10/2026)
+
+El perfil móvil ahora consume `GET /api/me/record`, conservando el endpoint API anterior `/api/client/profile` para compatibilidad. Presenta datos preparados y medidas iniciales de solo lectura; no recaptura ni modifica el expediente. Distingue carga, opcionales «Sin registrar», error de consulta recuperable y rechazo definitivo de sesión. El progreso todavía no está disponible: no se muestra como historial vacío ni se inventan permisos HU-036.
+
+La implementación y sus pruebas nuevas están preparadas, **sin ejecutar analyze/tests/build/formateador Flutter en esta computadora** porque el SDK no fue localizado. Android Studio/SDK/AVD existentes no equivalen a un entorno Flutter validado. El lockfile exige Dart >=3.11.0-0 aunque el mínimo declarado del manifiesto sea anterior; no actualizar dependencias/lockfile para acomodar otro SDK. [Contrato y evidencia](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/README.md), [recorrido local pendiente](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/prueba-integracion.md). HU-020 y D0 no están completos.
+
 ## Activación y seguridad HU-006–009
 
 Desde login: «Activar mi cuenta» y «Recuperar mi acceso». Desde expediente: «Cambiar mis credenciales». Confirmaciones/aviso versionado obligatorios y canje atómico en servidor; no se recapturan nombre ni datos físicos. Cambiar contraseña revoca todas las sesiones y guía al reingreso. [Contratos, tareas y evidencia](../../docs/epicas/ep-01-identidad-y-acceso/evidencia-hu-006-009.md).
