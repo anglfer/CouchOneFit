@@ -2,6 +2,7 @@ import type { Pool } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
 import { readAsSubject } from '../../auth/repositories/lifecycle.js'
 import type { PortfolioQuery } from '../validators/portfolio.js'
+import type { ClientBaseRecord } from '../types/record.js'
 
 // The server owns identity, order and projections. No query-provided owner.
 const scope = `FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
@@ -55,7 +56,7 @@ export async function portfolioRecord(
   now?: Date
 ) {
   return readAsSubject(pool, identity.id, async (client) => {
-    const { rows } = await client.query(
+    const { rows } = await client.query<ClientBaseRecord>(
       `SELECT c.id,c.full_name AS "fullName",c.goal,c.status,c.version,
       c.birth_date::text AS "birthDate",c.height_cm::float8 AS "heightCm",c.base_weight_kg::float8 AS "baseWeightKg",
       c.base_body_fat_percentage::float8 AS "baseBodyFatPercentage",c.waist_cm::float8 AS "waistCm",c.hip_cm::float8 AS "hipCm"

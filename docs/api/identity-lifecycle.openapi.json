@@ -1030,6 +1030,110 @@
           }
         }
       }
+    },
+    "/api/clients/{clientId}/record": {
+      "get": {
+        "operationId": "readProfessionalRecord",
+        "summary": "HU-019 parcial: composición profesional del expediente propio.",
+        "description": "Reutiliza la lectura base autorizada, contexto RLS y elegibilidad profesional. No integra planes, evaluaciones, progreso ni peso histórico; sus secciones son not_integrated sin datos. No acepta identidades ni filtros por query. Conserva GET /api/clients/{clientId}.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil real y disponibilidad explícita. Sin caché privada.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "record"
+                  ],
+                  "properties": {
+                    "record": {
+                      "$ref": "#/components/schemas/ProfessionalRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: UUID inválido o parámetros de consulta no permitidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol no profesional.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expediente ajeno, inexistente o no disponible; error indistinguible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fallo de consulta del perfil. No devuelve expediente parcial ni vacío.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1840,6 +1944,92 @@
           "userId",
           "professionalId"
         ]
+      },
+      "RecordSection": {
+        "description": "Disponibilidad de composición HU-019. Producción emite únicamente not_integrated. empty y error se reservan para consultas reales autorizadas futuras; no definen contratos de datos de otros módulos.",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "not_integrated"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "empty"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "code"
+            ],
+            "properties": {
+              "status": {
+                "const": "error"
+              },
+              "code": {
+                "const": "QUERY_FAILED"
+              }
+            }
+          }
+        ]
+      },
+      "ProfessionalRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile",
+          "sections"
+        ],
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/ClientBaseRecord"
+          },
+          "sections": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "nutritionPlan",
+              "trainingPlan",
+              "evaluations",
+              "progress",
+              "bodyWeightHistory"
+            ],
+            "properties": {
+              "nutritionPlan": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "trainingPlan": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "evaluations": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "progress": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "bodyWeightHistory": {
+                "$ref": "#/components/schemas/RecordSection"
+              }
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

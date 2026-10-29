@@ -76,6 +76,63 @@ async function asSubject<T>(subject: string, work: (client: PoolClient) => Promi
   }
 }
 
+test('HU-019 composition reuses the real owned base profile and never fabricates unintegrated module records', async () => {
+  const id = actors.clientA.client!
+  const read = await request(app).get(`/api/clients/${id}/record`).set('Authorization', `Bearer ${actors.proA.token}`)
+  const legacy = await request(app).get(`/api/clients/${id}`).set('Authorization', `Bearer ${actors.proA.token}`)
+  assert.equal(read.status, 200)
+  assert.equal(read.headers['cache-control'], 'no-store')
+  assert.deepEqual(read.body.record.profile, legacy.body.client)
+  assert.deepEqual(Object.keys(read.body), ['record'])
+  assert.deepEqual(Object.keys(read.body.record).sort(), ['profile', 'sections'])
+  assert.deepEqual(Object.keys(read.body.record.sections).sort(), ['bodyWeightHistory', 'evaluations', 'nutritionPlan', 'progress', 'trainingPlan'])
+  for (const section of Object.values(read.body.record.sections)) assert.deepEqual(section, {status: 'not_integrated'})
+  assert.equal(read.body.record.profile.id, id)
+  assert.equal(read.body.record.profile.baseWeightKg, 70.2)
+  assert.equal('createdAt' in read.body.record.profile, false)
+  assert.equal('measuredAt' in read.body.record.profile, false)
+  assert.equal('professionalId' in read.body.record.profile, false)
+  const nullable = (await database.query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'HU019 nullable fixture') RETURNING id", [actors.proA.professional])).rows[0].id
+  const absent = await request(app).get(`/api/clients/${nullable}/record`).set('Authorization', `Bearer ${actors.proA.token}`)
+  assert.equal(absent.status, 200)
+  assert.equal(absent.body.record.profile.goal, null)
+  assert.equal(absent.body.record.profile.baseWeightKg, null)
+  assert.deepEqual(absent.body.record.sections.bodyWeightHistory, {status: 'not_integrated'})
+  await database.query('DELETE FROM private.clients WHERE id=$1', [nullable])
+})
+
+test('HU-019 role, ownership and injected query failures return no composed record', async () => {
+  const id = actors.clientA.client!
+  assert.equal((await request(app).get(`/api/clients/${id}/record`)).status, 401)
+  for (const actor of ['clientA', 'admin']) {
+    const result = await request(app).get(`/api/clients/${id}/record`).set('Authorization', `Bearer ${actors[actor].token}`)
+    assert.equal(result.status, 403)
+    assert.equal(result.body.record, undefined)
+  }
+  const foreign = await request(app).get(`/api/clients/${id}/record`).set('Authorization', `Bearer ${actors.proB.token}`)
+  assert.equal(foreign.status, 404)
+  assert.equal(foreign.body.record, undefined)
+  for (const path of [`${id}/record?professionalId=${actors.proA.professional}`, 'invalid/record']) {
+    const invalid = await request(app).get(`/api/clients/${path}`).set('Authorization', `Bearer ${actors.proA.token}`)
+    assert.equal(invalid.status, 400)
+    assert.equal(invalid.body.record, undefined)
+  }
+})
+
+test('HU-019 failure of the available profile query is a safe error, never empty or partial success', async () => {
+  // Fault injection belongs only to this suite's temporary database.
+  await database.query('ALTER TABLE private.clients RENAME COLUMN goal TO hu019_hidden_goal')
+  try {
+    const result = await request(app).get(`/api/clients/${actors.clientA.client}/record`).set('Authorization', `Bearer ${actors.proA.token}`)
+    assert.equal(result.status, 503)
+    assert.deepEqual(result.body, {error: {code: 'SERVICE_UNAVAILABLE', message: 'No pudimos completar la solicitud.'}})
+    assert.equal(result.headers['cache-control'], 'no-store')
+  } finally {
+    await database.query('ALTER TABLE private.clients RENAME COLUMN hu019_hidden_goal TO goal')
+  }
+  assert.equal((await request(app).get(`/api/clients/${actors.clientA.client}/record`).set('Authorization', `Bearer ${actors.proA.token}`)).status, 200)
+})
+
 test('ordinary LOGIN without a valid subject cannot read clients or base measurements', async () => {
   const role = (await runtime.query('SELECT current_user,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0]
   assert.equal(role.current_user, runtimeRole)

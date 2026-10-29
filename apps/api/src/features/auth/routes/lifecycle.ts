@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
 import { lifecycleControllers } from '../controllers/lifecycle.js'
+import { professionalRecordController } from '../../professional/controllers/record.js'
 import { subscriptionController } from '../../professional/controllers/subscription.js';
 import {
   requireClient,
@@ -63,6 +64,7 @@ export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
   router.post('/auth/recovery/reset', limiter(), controller.reset)
   router.get('/clients', requireProfessional(pool, now), controller.clients)
   router.get('/clients/:clientId', requireProfessional(pool, now), controller.client)
+  router.get('/clients/:clientId/record', requireProfessional(pool, now), professionalRecordController(pool, now))
   router.get(
     '/accounts/recovery-targets',
     requireSession(pool, undefined, now),
