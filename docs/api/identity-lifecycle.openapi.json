@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "CouchOne Fit — ciclo de identidad HU-006–009",
-    "version": "2026-10-19",
-    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs."
+    "title": "CouchOne Fit — identidad, cartera y expediente",
+    "version": "2026-10-27",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales."
   },
   "servers": [
     {
@@ -96,6 +96,64 @@
           },
           "default": {
             "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createClientInitialRecord",
+        "summary": "HU-015: crea un expediente inicial completo para el profesional autenticado.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Expediente creado y cupo reservado en una sola transacción.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientInitialRecord"
+                    }
+                  },
+                  "required": [
+                    "client"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "400 validación; 401 sesión; 403 rol, CSRF o suscripción; 409 cupo; 503 persistencia.",
             "content": {
               "application/json": {
                 "schema": {
@@ -472,6 +530,13 @@
               },
               "message": {
                 "type": "string"
+              },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Errores de validación por campo; solo se devuelve para INVALID_INPUT de formularios."
               }
             },
             "required": [
@@ -781,6 +846,139 @@
           "goal",
           "status",
           "invitationExpiresAt"
+        ]
+      },
+      "CreateClientInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 150
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Persona adulta; fecha real, no futura, con año entre 0001 y 9999. La mayoría de edad se evalúa con la fecha de America/Mexico_City.",
+            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "heightCm": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "baseWeightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300,
+            "multipleOf": 0.1
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 2,
+            "maximum": 60,
+            "multipleOf": 0.1,
+            "description": "Medición base; no resultado calculado ni registro histórico."
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 40,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 50,
+            "maximum": 250,
+            "multipleOf": 0.1
+          }
+        },
+        "required": [
+          "fullName",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg"
+        ]
+      },
+      "ClientInitialRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "heightCm": {
+            "type": "number"
+          },
+          "baseWeightKg": {
+            "type": "number"
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
+          "waistCm",
+          "hipCm",
+          "status"
         ]
       },
       "RecoveryTarget": {

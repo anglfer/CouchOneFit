@@ -50,7 +50,13 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       if (error instanceof AuthError) {
         res
           .status(error.status)
-          .json({ error: { code: error.code, message: error.message } });
+          .json({
+            error: {
+              code: error.code,
+              message: error.message,
+              ...(error.fields ? { fields: error.fields } : {}),
+            },
+          });
         return;
       }
       const status =

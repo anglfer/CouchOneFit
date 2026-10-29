@@ -25,11 +25,13 @@ let db: Pool,
   basic: string,
   elite: string
 let seq = 0
+let testDatabaseUrl: string
 before(async () => {
   await owner.query(`CREATE DATABASE "${dbName}"`)
   const target = new URL(url)
   target.pathname = `/${dbName}`
-  db = new Pool({ connectionString: target.toString() })
+  testDatabaseUrl = target.toString()
+  db = new Pool({ connectionString: testDatabaseUrl })
   await db.query(
     readFileSync(
       new URL(
@@ -127,8 +129,18 @@ async function subscribed(planId = basic) {
   await fixtureSubscription(pro.professionalId, { planId })
   return pro
 }
-const create = (token: string) =>
-  mutation('post', '/api/clients', { fullName: 'Cliente prueba' }, token)
+const clientInput = {
+  fullName: 'Cliente prueba',
+  goal: null,
+  birthDate: '1990-05-20',
+  heightCm: 170.5,
+  baseWeightKg: 70.2,
+  baseBodyFatPercentage: null,
+  waistCm: null,
+  hipCm: null,
+}
+const create = (token: string, input: Record<string, unknown> = {}) =>
+  mutation('post', '/api/clients', { ...clientInput, ...input }, token)
 test('catalog rejects unauthorized writes, requires CSRF, audits edits, rejects duplicate names', async () => {
   const pro = await account(),
     body = {
@@ -202,6 +214,7 @@ test('no subscription grants zero capacity and ownership cannot be overridden', 
   const fail = await create(pro.token)
   assert.equal(fail.status, 403)
   assert.equal(fail.body.error.code, 'PLAN_REQUIRED')
+  assert.equal((await create(admin)).status, 403)
   assert.equal(
     (
       await mutation(
@@ -213,6 +226,252 @@ test('no subscription grants zero capacity and ownership cannot be overridden', 
     ).status,
     403
   )
+})
+test('creates a complete initial record and reports field validation errors', async () => {
+  const pro = await subscribed()
+  const created = await create(pro.token, {
+    fullName: '  Laura Méndez  ',
+    goal: 'Mejorar fuerza',
+    baseBodyFatPercentage: 24.6,
+    waistCm: 71.3,
+    hipCm: 98.4,
+  })
+  assert.equal(created.status, 201, JSON.stringify(created.body))
+  assert.deepEqual(created.body.client, {
+    id: created.body.client.id,
+    fullName: 'Laura Méndez',
+    goal: 'Mejorar fuerza',
+    birthDate: '1990-05-20',
+    heightCm: 170.5,
+    baseWeightKg: 70.2,
+    baseBodyFatPercentage: 24.6,
+    waistCm: 71.3,
+    hipCm: 98.4,
+    status: 'active',
+  })
+  const incomplete = await mutation(
+    'post',
+    '/api/clients',
+    { fullName: 'Cliente incompleto', goal: null },
+    pro.token
+  )
+  assert.equal(incomplete.status, 400)
+  assert.deepEqual(incomplete.body.error.fields, {
+    birthDate: 'Ingresa una fecha de nacimiento válida.',
+    heightCm: 'Este dato es obligatorio.',
+    baseWeightKg: 'Este dato es obligatorio.',
+  })
+  const invalid = await create(pro.token, {
+    birthDate: '2020-01-01',
+    heightCm: 100.05,
+    baseWeightKg: 29.9,
+    baseBodyFatPercentage: 60.1,
+    waistCm: 39.9,
+    hipCm: 250.1,
+  })
+  assert.equal(invalid.status, 400)
+  assert.deepEqual(Object.keys(invalid.body.error.fields).sort(), [
+    'baseBodyFatPercentage',
+    'baseWeightKg',
+    'birthDate',
+    'heightCm',
+    'hipCm',
+    'waistCm',
+  ])
+})
+test('invalid year and nearly valid decimals return field errors without persisting a record', async () => {
+  const pro = await subscribed()
+  const response = await create(pro.token, {
+    fullName: '😀',
+    birthDate: '0000-01-01',
+    heightCm: 170.50000000001,
+    baseWeightKg: 70.20000000001,
+    baseBodyFatPercentage: 20.20000000001,
+    waistCm: 80.20000000001,
+    hipCm: 90.20000000001,
+  })
+  assert.equal(response.status, 400)
+  assert.equal(response.body.error.code, 'INVALID_INPUT')
+  assert.deepEqual(Object.keys(response.body.error.fields).sort(), [
+    'baseBodyFatPercentage', 'baseWeightKg', 'birthDate', 'fullName', 'heightCm', 'hipCm', 'waistCm',
+  ])
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM private.clients WHERE professional_id=$1', [pro.professionalId])).rows[0].n, 0)
+})
+
+test('initial record uses the same adult calendar as SQL and restores the connection timezone', async () => {
+  const pro = await subscribed()
+  const isolatedRuntime = new Pool({
+    connectionString: testDatabaseUrl,
+    options: '-c role=couchone_authentication -c timezone=UTC',
+    max: 1,
+  })
+  await db.query(`CREATE FUNCTION private.assert_initial_record_timezone() RETURNS trigger
+    LANGUAGE plpgsql AS $$ BEGIN
+      IF current_setting('TimeZone') <> 'America/Mexico_City' THEN
+        RAISE EXCEPTION 'fixture calendar mismatch';
+      END IF;
+      RETURN NEW;
+    END; $$`)
+  await db.query(`CREATE TRIGGER assert_initial_record_timezone BEFORE INSERT ON private.clients
+    FOR EACH ROW EXECUTE FUNCTION private.assert_initial_record_timezone()`)
+  try {
+    const localApp = createApp(isolatedRuntime)
+    const csrf = await request(localApp).get('/api/auth/csrf')
+    const response = await request(localApp).post('/api/clients')
+      .set('Origin', 'http://localhost:5000')
+      .set('Cookie', [`cof_access=${pro.token}`, ...(csrf.headers['set-cookie'] as string[]).map((c) => c.split(';')[0])])
+      .set('X-CSRF-Token', csrf.body.csrfToken)
+      .send(clientInput)
+    assert.equal(response.status, 201)
+    assert.equal((await isolatedRuntime.query('SHOW TimeZone')).rows[0].TimeZone, 'UTC')
+  } finally {
+    await isolatedRuntime.end()
+    await db.query('DROP TRIGGER assert_initial_record_timezone ON private.clients')
+    await db.query('DROP FUNCTION private.assert_initial_record_timezone()')
+  }
+})
+
+test('SQL rejects excessive base-measure precision instead of rounding it', async () => {
+  const pro = await account()
+  await assert.rejects(
+    db.query(
+      `INSERT INTO private.clients(
+        professional_id,full_name,birth_date,height_cm,base_weight_kg
+      ) VALUES($1,$2,$3,$4,$5)`,
+      [pro.professionalId, 'Peso impreciso', '1990-05-20', 170, 70.25]
+    ),
+    { code: '23514' }
+  )
+  await assert.rejects(
+    db.query(
+      `INSERT INTO private.clients(
+        professional_id,full_name,birth_date,height_cm,base_weight_kg,base_body_fat_percentage
+      ) VALUES($1,$2,$3,$4,$5,$6)`,
+      [pro.professionalId, 'Grasa imprecisa', '1990-05-20', 170, 70.2, 20.25]
+    ),
+    { code: '23514' }
+  )
+  const {
+    rows: [stored],
+  } = await db.query(
+    `INSERT INTO private.clients(
+      professional_id,full_name,birth_date,height_cm,base_weight_kg,base_body_fat_percentage
+    ) VALUES($1,$2,$3,$4,$5,$6)
+    RETURNING base_weight_kg::text,base_body_fat_percentage::text`,
+    [pro.professionalId, 'Medidas exactas', '1990-05-20', 170, 70.2, 20.2]
+  )
+  assert.deepEqual(stored, {
+    base_weight_kg: '70.2',
+    base_body_fat_percentage: '20.2',
+  })
+})
+test('rejects a manipulated owner and isolates professionals through API and runtime RLS', async () => {
+  const owner = await subscribed()
+  const other = await subscribed()
+  const created = await create(owner.token)
+  assert.equal(created.status, 201)
+  const manipulated = await mutation(
+    'post',
+    '/api/clients',
+    { ...clientInput, professionalId: owner.professionalId },
+    other.token
+  )
+  assert.equal(manipulated.status, 400)
+  assert.equal(manipulated.body.error.code, 'INVALID_INPUT')
+  assert.equal(
+    (
+      await mutation(
+        'patch',
+        `/api/clients/${created.body.client.id}/status`,
+        { status: 'inactive' },
+        other.token
+      )
+    ).status,
+    404
+  )
+  await assert.rejects(
+    runtime.query(
+      `INSERT INTO private.clients(
+        professional_id,full_name,birth_date,height_cm,base_weight_kg
+      ) VALUES($1,$2,$3,$4,$5)`,
+      [owner.professionalId, 'Sin contexto', '1990-05-20', 170, 70]
+    ),
+    { code: '42501' }
+  )
+  const connection = await runtime.connect()
+  try {
+    await connection.query('BEGIN')
+    await connection.query("SELECT set_config('app.subject_id',$1,true)", [
+      other.id,
+    ])
+    await assert.rejects(
+      connection.query(
+        `INSERT INTO private.clients(
+          professional_id,full_name,birth_date,height_cm,base_weight_kg
+        ) VALUES($1,$2,$3,$4,$5)`,
+        [owner.professionalId, 'Propietario manipulado', '1990-05-20', 170, 70]
+      ),
+      { code: '42501' }
+    )
+  } finally {
+    await connection.query('ROLLBACK')
+    connection.release()
+  }
+  const updateConnection = await runtime.connect()
+  try {
+    await updateConnection.query('BEGIN')
+    await updateConnection.query("SELECT set_config('app.subject_id',$1,true)", [other.id])
+    const changed = await updateConnection.query(
+      "UPDATE private.clients SET status='inactive' WHERE id=$1 RETURNING id",
+      [created.body.client.id]
+    )
+    assert.equal(changed.rowCount, 0)
+    assert.equal((await db.query('SELECT status FROM private.clients WHERE id=$1', [created.body.client.id])).rows[0].status, 'active')
+  } finally {
+    await updateConnection.query('ROLLBACK')
+    updateConnection.release()
+  }
+  assert.equal(
+    (
+      await db.query(
+        'SELECT count(*)::int AS n FROM private.clients WHERE professional_id=$1',
+        [owner.professionalId]
+      )
+    ).rows[0].n,
+    1
+  )
+})
+test('a persistence failure rolls back the complete record and keeps capacity', async () => {
+  const plan = await mutation('post', '/api/admin/plans', {
+    name: 'Atomic client record',
+    maxClients: 1,
+    isUnlimited: false,
+    priceMxn: 299,
+  })
+  assert.equal(plan.status, 201)
+  const pro = await subscribed(plan.body.plan.id)
+  await db.query(`CREATE FUNCTION private.fail_client_record_insert() RETURNS trigger
+    LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture failure'; END; $$`)
+  await db.query(`CREATE TRIGGER fail_client_record_insert
+    AFTER INSERT ON private.clients FOR EACH ROW
+    EXECUTE FUNCTION private.fail_client_record_insert()`)
+  try {
+    const failed = await create(pro.token)
+    assert.equal(failed.status, 503)
+    assert.equal(
+      (
+        await db.query(
+          'SELECT count(*)::int AS n FROM private.clients WHERE professional_id=$1',
+          [pro.professionalId]
+        )
+      ).rows[0].n,
+      0
+    )
+  } finally {
+    await db.query('DROP TRIGGER fail_client_record_insert ON private.clients')
+    await db.query('DROP FUNCTION private.fail_client_record_insert()')
+  }
+  assert.equal((await create(pro.token)).status, 201)
 })
 test('concurrent creation and reactivation reserve exactly one last place and deactivation frees it', async () => {
   const pro = await subscribed()
@@ -348,10 +607,22 @@ test('downgrade preserves clients, permits reserved invitations and atomically r
     ).rows[0].n,
     0
   )
+  const version = Number((await db.query('SHOW server_version_num')).rows[0].server_version_num)
+  const planBefore = (await db.query('SELECT * FROM private.saas_plans WHERE id=$1', [basic])).rows
+  const subscriptionsBefore = (await db.query('SELECT * FROM private.subscriptions WHERE plan_id=$1 ORDER BY id', [basic])).rows
+  assert.ok(subscriptionsBefore.length > 0)
   await assert.rejects(
     db.query('DELETE FROM private.saas_plans WHERE id=$1', [basic]),
-    { code: '23503' }
+    {
+      // PostgreSQL 18 reports RESTRICT as restrict_violation, rather than
+      // foreign_key_violation. The specific FK and preserved rows prove the contract.
+      code: version >= 180000 ? '23001' : '23503',
+      constraint: 'subscriptions_plan_id_fkey',
+      table: 'subscriptions',
+    }
   )
+  assert.deepEqual((await db.query('SELECT * FROM private.saas_plans WHERE id=$1', [basic])).rows, planBefore)
+  assert.deepEqual((await db.query('SELECT * FROM private.subscriptions WHERE plan_id=$1 ORDER BY id', [basic])).rows, subscriptionsBefore)
 })
 test('legacy suspension preserves sessions and client reads while business is blocked', async () => {
   const pro = await subscribed(),

@@ -7,7 +7,7 @@ export function adminProfessionalsController(
 ): RequestHandler {
   return async (req, res, next) => {
     try {
-      res.json(await listProfessionals(pool, req.query, now?.()))
+      res.json(await listProfessionals(pool, req.identity!, req.query, now?.()))
     } catch (error) {
       next(error)
     }

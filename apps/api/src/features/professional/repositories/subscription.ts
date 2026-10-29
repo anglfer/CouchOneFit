@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
+import { readAsSubject } from '../../auth/repositories/lifecycle.js'
 export interface SubscriptionDetails {
   planId: string | null
   status: 'active' | 'suspended' | 'expired' | 'none'
@@ -18,13 +19,13 @@ export async function professionalSubscription(
 ): Promise<SubscriptionDetails> {
   const {
     rows: [row],
-  } = await pool.query(
+  } = await readAsSubject(pool, identity.id, (client) => client.query(
     `SELECT s.plan_id AS "planId",sp.name AS "planName",sp.max_clients AS "limit",COALESCE(sp.is_unlimited,false) AS "isUnlimited",s.expires_at AS "expiresAt",
     CASE WHEN s.id IS NULL THEN 'none' WHEN s.expires_at<=COALESCE($2::timestamptz,clock_timestamp()) THEN 'expired' ELSE s.status END AS status,
     (SELECT count(*)::int FROM private.clients c WHERE c.professional_id=p.id AND c.status='active') AS used
     FROM private.professionals p LEFT JOIN private.subscriptions s ON s.professional_id=p.id LEFT JOIN private.saas_plans sp ON sp.id=s.plan_id WHERE p.user_id=$1`,
     [identity.id, now ?? null]
-  )
+  ))
   if (!row || row.status === 'none')
     return {
       planId: null,

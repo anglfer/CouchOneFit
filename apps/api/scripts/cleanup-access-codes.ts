@@ -20,7 +20,7 @@ try {
     for (const item of invitations.rows) {
       await context(client, 'client_id', item.client_id)
       await client.query(
-        'SELECT id FROM private.clients WHERE id=$1 FOR UPDATE',
+        'SELECT private.lock_expired_invitation_client($1)',
         [item.client_id]
       )
       const result = await client.query(

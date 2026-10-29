@@ -15,6 +15,7 @@ test('migrations and the integrated schema produce the same English database', a
   const owner = new Pool({ connectionString: value });
   const created: string[] = [];
   const createdRoles: string[] = [];
+  const runtimeRole = `cof_migration_${randomBytes(6).toString('hex')}`;
   const databases: Pool[] = [];
   try {
     const urls = [];
@@ -44,6 +45,9 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610190001_english_identifiers.sql/);
     assert.match(applied, /Applied: 202610190002_client_records.sql/);
     assert.match(applied, /Applied: 202610190003_account_lifecycle.sql/);
+    assert.match(applied, /Applied: 202610270001_client_initial_record.sql/);
+    assert.match(applied, /Applied: 202610280001_client_read_isolation.sql/);
+    assert.match(applied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -65,7 +69,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '10'
+      '13'
     );
     await databases[1].query(
       readFileSync(
@@ -97,8 +101,8 @@ test('migrations and the integrated schema produce the same English database', a
         [name, createHash('sha256').update(sql).digest('hex')]
       );
     }
-    await databases[2].query('CREATE ROLE migration_runtime LOGIN');
-    createdRoles.push('migration_runtime');
+    await databases[2].query(`CREATE ROLE ${runtimeRole} LOGIN`);
+    createdRoles.push(runtimeRole);
     const {
       rows: [professional],
     } = await databases[2].query(
@@ -125,19 +129,54 @@ test('migrations and the integrated schema produce the same English database', a
     await databases[2].query(
       "INSERT INTO privado.usuarios (usuario,correo,hash_contrasena,rol) VALUES ('admin.migration','admin.migration@example.com','$argon2id$fixture','administrador')"
     );
+    const applyHistoricalMigration = async (name: string) => {
+      const sql = readFileSync(
+        new URL(`../../../docs/database/migrations/${name}`, import.meta.url),
+        'utf8'
+      )
+      await databases[2].query(sql)
+      const {
+        rows: [history],
+      } = await databases[2].query(
+        "SELECT to_regclass('migrations.history') IS NOT NULL AS current"
+      )
+      await databases[2].query(
+        history.current
+          ? 'INSERT INTO migrations.history (filename,checksum) VALUES ($1,$2)'
+          : 'INSERT INTO migraciones.historial (nombre,suma_verificacion) VALUES ($1,$2)',
+        [name, createHash('sha256').update(sql).digest('hex')]
+      )
+    }
+    for (const name of [
+      '202610190001_english_identifiers.sql',
+      '202610190002_client_records.sql',
+      '202610190003_account_lifecycle.sql',
+      '202610231730_create_saas_plans.sql',
+      '202610231745_saas_relations_history.sql',
+      '202610260001_saas_integrity.sql',
+      '202610260002_simulated_checkout.sql',
+      '202610260003_live_plan_catalog.sql',
+    ])
+      await applyHistoricalMigration(name)
+    const {
+      rows: [legacyClient],
+    } = await databases[2].query(
+      `INSERT INTO private.clients(professional_id,full_name,goal)
+       SELECT id,'Legacy client','Conservar objetivo' FROM private.professionals
+       WHERE user_id=$1 RETURNING id`,
+      [professional.id]
+    )
     const legacyApplied = migrate(urls[2]);
     await databases[2].query(
-      'GRANT couchone_authentication TO migration_runtime'
+      `GRANT couchone_authentication TO ${runtimeRole}`
     );
-    assert.match(
-      legacyApplied,
-      /Applied: 202610190001_english_identifiers.sql/
-    );
-    assert.match(legacyApplied, /Applied: 202610190002_client_records.sql/);
+    assert.match(legacyApplied, /Applied: 202610270001_client_initial_record.sql/);
+    assert.match(legacyApplied, /Applied: 202610280001_client_read_isolation.sql/);
+    assert.match(legacyApplied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '10'
+      '13'
     );
     assert.equal(
       (
@@ -169,6 +208,24 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(migrated.version, 'fixture');
     assert.equal(migrated.session_id, session.id);
     assert.equal(migrated.token_hash, 'a'.repeat(64));
+    const {
+      rows: [preservedClient],
+    } = await databases[2].query(
+      `SELECT full_name,goal,birth_date,height_cm,base_weight_kg,
+              base_body_fat_percentage,waist_cm,hip_cm
+       FROM private.clients WHERE id=$1`,
+      [legacyClient.id]
+    );
+    assert.deepEqual(preservedClient, {
+      full_name: 'Legacy client',
+      goal: 'Conservar objetivo',
+      birth_date: null,
+      height_cm: null,
+      base_weight_kg: null,
+      base_body_fat_percentage: null,
+      waist_cm: null,
+      hip_cm: null,
+    });
     assert.equal(
       (
         await databases[2].query(
@@ -180,7 +237,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (
         await databases[2].query(
-          "SELECT pg_has_role('migration_runtime','couchone_authentication','MEMBER') AS allowed"
+          "SELECT pg_has_role($1,'couchone_authentication','MEMBER') AS allowed", [runtimeRole]
         )
       ).rows[0].allowed,
       true
@@ -202,6 +259,7 @@ test('migrations and the integrated schema produce the same English database', a
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
         "SELECT nspacl::text FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
+        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client') ORDER BY p.proname",
       ];
       return Promise.all(
         queries.map(async (sql) => (await db.query(sql)).rows)

@@ -1,10 +1,11 @@
 import type { Pool } from 'pg';
 import type { SessionIdentity } from '../../auth/types/session.js';
+import { readAsSubject } from '../../auth/repositories/lifecycle.js';
 
 export async function clientProfile(pool: Pool, identity: SessionIdentity) {
   const {
     rows: [profile],
-  } = await pool.query(
+  } = await readAsSubject(pool, identity.id, (client) => client.query(
     `SELECT c.id,
             c.user_id AS "userId",
             c.professional_id AS "professionalId",
@@ -23,6 +24,6 @@ export async function clientProfile(pool: Pool, identity: SessionIdentity) {
         AND s.revoked_at IS NULL
         AND s.expires_at > clock_timestamp()`,
     [identity.id, identity.sessionId]
-  );
+  ));
   return profile;
 }
