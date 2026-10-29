@@ -1,6 +1,6 @@
 # Recorrido manual breve — HU-016
 
-Preparación y casos propuestos, **sin resultados humanos acreditados todavía**. Reutilizar la fixture sintética local existente; no ejecutar la limpieza de HU-015 ni crear duplicados. Las pruebas automatizadas usan otras bases/roles temporales locales que eliminan al finalizar, no esta fixture.
+Preparación y casos del recorrido. Resultados humanos reportados el 28/10/2026 al final de este documento; no fueron ejecutados por el agente. Reutilizar la fixture sintética local existente; no ejecutar la limpieza de HU-015 ni crear duplicados. Las pruebas automatizadas usan otras bases/roles temporales locales que eliminan al finalizar, no esta fixture.
 
 ## Preparación concreta de esta computadora — 28/10/2026
 
@@ -68,3 +68,17 @@ Abrir `http://127.0.0.1:5000/acceso`, entrar con `qa.hu015.web` y la contraseña
 5. Para revisar carga/error, aplicar limitación de red o bloquear temporalmente solo la petición de listado/ficha en DevTools. Reintentar al desbloquear; no debe mostrarse un resultado antiguo como respuesta de la nueva búsqueda. La recuperación completa de sesión Offline/Online ya tiene pruebas de regresión; no hace falta repetir todo HU-015.
 
 Registrar navegador, caso y resultado observado. No atribuir a la persona usuaria la evidencia automatizada de dos carteras, SQL/RLS o mediciones exactas. No se exige crear altas/invitaciones nuevas para revisar esta historia; sus regresiones API/Web ya están automatizadas. No limpiar datos ni cerrar la fixture al acabar salvo instrucción expresa.
+
+## Resultados reportados por la persona usuaria — 28/10/2026
+
+| Caso | Resultado reportado (R) |
+| --- | --- |
+| Sin búsqueda | 27 clientes propios, páginas 20+7. |
+| `HU016 QA`, Todos | 24 resultados, páginas 20+4. |
+| Estados | 2 activos y 22 inactivos; estos últimos en páginas 20+2. |
+| Búsqueda literal con Todos | `%`, `_`, `O'Connor`, emoji y barra invertida mostraron las coincidencias correspondientes. |
+| Búsqueda inexistente | Mensaje de cero resultados. |
+| Ficha propia | Datos y unidades esperados; cintura/cadera «Sin registrar». |
+| URL de ficha ajena | Error genérico sin mostrar datos. |
+
+El agente registra el reporte sin atribuir otras observaciones: navegador, carga/error del listado, vuelta a Anterior, ausencia de duplicados durante navegación y respuestas fuera de orden no fueron confirmados expresamente en este reporte. Las respuestas fuera de orden conservan únicamente su evidencia automática determinista. Este recorrido no repite ni amplía la evidencia de HU-015 y no cierra D0 ni la revisión independiente.
