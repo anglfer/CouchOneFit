@@ -134,3 +134,7 @@ La migración 202610280003_client_portfolio_order.sql agrega únicamente el índ
 ## Edición de datos base — HU-017
 
 `202610280004_client_record_version.sql` agrega versión positiva administrada por trigger ante cambios efectivos, incluidos estado y enlace de activación. Concede UPDATE únicamente de las ocho columnas editables, manteniendo RLS de propiedad y sin UPDATE de versión/propietario/cuenta. No elimina ni transforma datos previos; el conjunto base NULL heredado se conserva. La instantánea refleja quince migraciones y sigue teniendo catorce tablas. No ejecutar la instantánea sobre bases existentes. [Contrato, elegibilidad DEC-004 sin consumo de cupo y verificación](../epicas/ep-03-cartera-y-expediente/hu-017/README.md).
+
+## Estado operativo y auditoría — HU-018
+
+`202610290001_client_record_status_audit.sql` conserva los eventos existentes y sus siete acciones anteriores; añade `client_record_activated` y `client_record_inactivated` al CHECK. Sin tablas, índices ni grants nuevos, sin modificar datos/versiones de clientes o suscripciones. El estado actual equivale a dieciséis migraciones y catorce tablas. Las transiciones efectivas auditan dentro de la misma transacción del estado/versión; las repeticiones no escriben. [Alcance operativo, asignación original e implementación autorizada](../epicas/ep-03-cartera-y-expediente/hu-018/README.md).

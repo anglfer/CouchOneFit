@@ -46,7 +46,7 @@ Sesión privada, autorización por rol/ownership y `Cache-Control: no-store`. Mu
 | GET `/api/me/payments/:id` | profesional | `{payment}` y resolución del procesamiento ya autorizado al cumplirse el plazo. |
 | POST `/api/me/payments/:id/confirm` | profesional | `{instrument:test_approved/test_declined/test_error}`; inicia procesamiento sin tarjeta real. |
 | POST `/api/me/payments/:id/cancel` | profesional | `{}`; cancela antes de completarse. Si ya terminó, devuelve su resultado definitivo. |
-| POST `/api/clients`; PATCH `/api/clients/:id/status` | profesional dueño | Consumidores de cupo con transacción/validación de estado y límites. |
+| POST `/api/clients`; PATCH `/api/clients/:id/status` | profesional dueño | Alta/reactivación consumen cupo; inactivar libera. HU-018 exige status/version para cambiar estado, audita transiciones y reconoce repeticiones sin efectos, conservando cuenta/suscripción independientes. |
 
 Pago: `id`, `planId`, `planName`, `limit`, `isUnlimited`, `amountCents`, `currency`, `status`, `failureCode`, `instrument`, `createdAt`, `quoteExpiresAt`, `processingAfter`, `completedAt`, `periodStart`, `periodEnd`, `simulated:true`. No secretos financieros. Errores relevantes `PAYMENT_IN_PROGRESS`, `IDEMPOTENCY_CONFLICT`, `UPGRADE_REQUIRED`, `CHECKOUT_STALE`, `QUOTE_EXPIRED`, `PAYMENT_CLOSED`; resultado fallido `PAYMENT_DECLINED`/`PROCESSOR_ERROR`.
 

@@ -22,3 +22,5 @@ También integra `202610280001_client_read_isolation.sql` y `202610280002_invita
 La rama HU-016 integra además 202610280003_client_portfolio_order.sql: índice B-tree por profesional y orden de cursor. La instantánea equivale a catorce migraciones sin modificar datos ni grants/RLS. Ver [HU-016](../../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
 
 HU-017 añade `202610280004_client_record_version.sql`: versión por trigger y UPDATE limitado a datos base bajo RLS existente. El estado actual equivale a quince migraciones y catorce tablas; no modifica SQL histórico ni inventa tablas de evaluaciones o planes de cliente. [Contrato y evidencia](../../epicas/ep-03-cartera-y-expediente/hu-017/README.md).
+
+HU-018 integra `202610290001_client_record_status_audit.sql`: dos acciones nuevas de estado de expediente en el CHECK de auditoría, conservando todas las anteriores y sin grants nuevos. La instantánea vigente equivale a dieciséis migraciones y catorce tablas. Actualización probada con invitación/evento previos no vacíos, sin borrado o reescritura. [Contrato y evidencia](../../epicas/ep-03-cartera-y-expediente/hu-018/README.md).

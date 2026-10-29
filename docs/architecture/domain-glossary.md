@@ -1,5 +1,7 @@
 # Glosario de identidad y acceso
 
+HU-018 exige `status` operativo y `version` en `PATCH /api/clients/{clientId}/status`; devuelve la ficha con versión resultante. `client_record_activated`/`client_record_inactivated` son eventos de expediente, distintos de `account_activated`. No cambia cuenta/suscripción ni revoca sesiones por inactivar. Estado ya actual con versión no futura no genera otra reserva/evento; transición obsoleta devuelve `CLIENT_RECORD_CONFLICT`. [Contrato y matriz](../epicas/ep-03-cartera-y-expediente/hu-018/README.md).
+
 HU-017 agrega `version` entera administrada por BD a `private.clients` y a la ficha `ClientBaseRecord`. `PATCH /api/clients/{clientId}` recibe esa versión como precondición y solo campos base permitidos; no cambia estado/cuenta/propietario ni consume cupo. `CLIENT_RECORD_CONFLICT` indica que se necesita consultar, comparar y reaplicar explícitamente. Listado y cursor no cambian. [Contrato](../epicas/ep-03-cartera-y-expediente/hu-017/README.md).
 
 HU-016 amplía `GET /api/clients` con `search`, `status`, `pageSize`, `cursor` y respuesta `hasClients`, `pageInfo: { pageSize, hasMore, nextCursor }`, conservando `clients`. La búsqueda es literal por `fullName`; el profesional se obtiene de sesión. La ficha auxiliar `GET /api/clients/{clientId}` devuelve `client` con datos base propios, sin propietario/cuenta, edición ni expediente consolidado. `status` filtra el expediente, no el estado de la cuenta. [Contrato y límites de cursor](../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
