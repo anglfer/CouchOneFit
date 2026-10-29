@@ -44,10 +44,10 @@ class ClientProfile {
       birthDate: json['birthDate'] as String?,
       heightCm: (json['heightCm'] as num?)?.toDouble(),
       baseWeightKg: (json['baseWeightKg'] as num?)?.toDouble(),
-      baseBodyFatPercentage: (json['baseBodyFatPercentage'] as num?)?.toDouble(),
+      baseBodyFatPercentage:
+          (json['baseBodyFatPercentage'] as num?)?.toDouble(),
       waistCm: (json['waistCm'] as num?)?.toDouble(),
       hipCm: (json['hipCm'] as num?)?.toDouble(),
     );
   }
 }
-

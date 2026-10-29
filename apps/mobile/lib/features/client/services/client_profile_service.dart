@@ -13,7 +13,9 @@ class ClientProfileService {
       authenticated: true,
     );
     final rawProfile = payload['record'];
-    if (rawProfile is! Map || rawProfile['id'] is! String || rawProfile['fullName'] is! String) {
+    if (rawProfile is! Map ||
+        rawProfile['id'] is! String ||
+        rawProfile['fullName'] is! String) {
       throw const AuthApiException(
         statusCode: 503,
         code: 'INVALID_RESPONSE',
@@ -23,4 +25,3 @@ class ClientProfileService {
     return ClientProfile.fromJson(Map<String, Object?>.from(rawProfile));
   }
 }
-
