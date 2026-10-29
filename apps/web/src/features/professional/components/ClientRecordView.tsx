@@ -1,48 +1,64 @@
 import { useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
-import { sessionRequest } from '../../auth/services/session';
+import { fetchProfessionalRecord } from '../services/record';
 import type { ClientBaseRecord } from '../types/portfolio';
+import type { ProfessionalRecord } from '../types/record';
 import ClientRecordEditor from './ClientRecordEditor';
 import ClientStatusAction from './ClientStatusAction';
+import ClientBaseDetails from './ClientBaseDetails';
+import ClientRecordSections from './ClientRecordSections';
 
-export default function ClientRecordView({
-  clientId,
-  accountId,
-  onStatusChanged,
-  sessionReady,
-}: {
+type Props = {
   clientId: string;
   accountId: string;
   onStatusChanged: () => void;
   sessionReady: boolean;
-}) {
+};
+
+export default function ClientRecordView(props: Props) {
+  return (
+    <ClientRecordContent
+      key={`${props.accountId}:${props.clientId}`}
+      {...props}
+    />
+  );
+}
+
+function ClientRecordContent({
+  clientId,
+  accountId,
+  onStatusChanged,
+  sessionReady,
+}: Props) {
   const [result, setResult] = useState<{
     key: string;
     record: ClientBaseRecord | null;
+    sections: ProfessionalRecord['sections'] | null;
     error: string;
-  }>({ key: '', record: null, error: '' });
+  }>({ key: '', record: null, sections: null, error: '' });
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [statusSaved, setStatusSaved] = useState('');
   const [statusBusy, setStatusBusy] = useState(false);
-  const requestKey = `${clientId}:${attempt}`;
+  const requestKey = `${accountId}:${clientId}:${attempt}`;
   const loading = result.key !== requestKey;
   const record = loading ? null : result.record;
   const error = loading ? '' : result.error;
+  const sections = loading ? null : result.sections;
   useEffect(() => {
     let active = true;
-    void sessionRequest<{ client: ClientBaseRecord }>(
-      `/api/clients/${encodeURIComponent(clientId)}`
-    )
-      .then(({ client }) => {
-        if (active) setResult({ key: requestKey, record: client, error: '' });
+    void fetchProfessionalRecord(clientId)
+      .then(({ profile, sections }) => {
+        if (active)
+          setResult({ key: requestKey, record: profile, sections, error: '' });
       })
       .catch(() => {
         if (active)
           setResult({
             key: requestKey,
             record: null,
+            sections: null,
             error:
               'No pudimos consultar el expediente. Puede no estar disponible o haber un problema de conexión.',
           });
@@ -51,12 +67,10 @@ export default function ClientRecordView({
       active = false;
     };
   }, [clientId, attempt, requestKey]);
-  const value = (number: number | null, unit: string) =>
-    number === null ? 'Sin registrar' : `${number} ${unit}`;
   return (
     <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border space-y-4">
       <Link to="/app/clientes">Volver a mi cartera</Link>
-      <h1 className="text-xl font-bold">Datos base del cliente</h1>
+      <h1 className="text-xl font-bold">Expediente del cliente</h1>
       {saved && <p role="status">Los cambios se guardaron correctamente.</p>}
       {statusSaved && <p role="status">{statusSaved}</p>}
       {loading ? (
@@ -76,7 +90,12 @@ export default function ClientRecordView({
             initial={record}
             onCancel={() => setEditing(false)}
             onSaved={(updated) => {
-              setResult({ key: requestKey, record: updated, error: '' });
+              setResult((current) => ({
+                ...current,
+                key: requestKey,
+                record: updated,
+                error: '',
+              }));
               setEditing(false);
               setSaved(true);
             }}
@@ -84,6 +103,13 @@ export default function ClientRecordView({
         ) : (
           <>
             <h2 className="font-bold">{record.fullName}</h2>
+            <button
+              type="button"
+              disabled={statusBusy}
+              onClick={() => setAttempt((n) => n + 1)}
+            >
+              Actualizar expediente
+            </button>
             <button
               type="button"
               disabled={statusBusy}
@@ -101,7 +127,12 @@ export default function ClientRecordView({
               accountId={accountId}
               onBusyChange={setStatusBusy}
               onChanged={(updated) => {
-                setResult({ key: requestKey, record: updated, error: '' });
+                setResult((current) => ({
+                  ...current,
+                  key: requestKey,
+                  record: updated,
+                  error: '',
+                }));
                 setStatusSaved(
                   updated.status === 'active'
                     ? 'El expediente está activo.'
@@ -110,24 +141,9 @@ export default function ClientRecordView({
                 onStatusChanged();
               }}
             />
-            <dl className="space-y-2">
-              <dt>Estado</dt>
-              <dd>{record.status === 'active' ? 'Activo' : 'Inactivo'}</dd>
-              <dt>Fecha de nacimiento</dt>
-              <dd>{record.birthDate ?? 'Sin registrar'}</dd>
-              <dt>Estatura</dt>
-              <dd>{value(record.heightCm, 'cm')}</dd>
-              <dt>Peso base</dt>
-              <dd>{value(record.baseWeightKg, 'kg')}</dd>
-              <dt>Grasa base</dt>
-              <dd>{value(record.baseBodyFatPercentage, '%')}</dd>
-              <dt>Cintura</dt>
-              <dd>{value(record.waistCm, 'cm')}</dd>
-              <dt>Cadera</dt>
-              <dd>{value(record.hipCm, 'cm')}</dd>
-              <dt>Objetivo</dt>
-              <dd>{record.goal ?? 'Sin registrar'}</dd>
-            </dl>
+            <h3 className="font-bold">Perfil y medidas base</h3>
+            <ClientBaseDetails record={record} />
+            {sections && <ClientRecordSections sections={sections} />}
           </>
         ))
       )}

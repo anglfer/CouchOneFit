@@ -8,6 +8,7 @@ let dom, vite, root, ProfessionalPage, createRoot;
 let mode, identity, pendingSession, requests, channels, redirects;
 let portfolioResponder,
   recordResponder,
+  composedResponder,
   invitationResponder,
   editResponder,
   statusResponder,
@@ -59,6 +60,18 @@ const editableRecord = {
   waistCm: null,
   hipCm: null,
 };
+const unavailableSections = () =>
+  Object.fromEntries(
+    [
+      'nutritionPlan',
+      'trainingPlan',
+      'evaluations',
+      'progress',
+      'bodyWeightHistory',
+    ].map((key) => [key, { status: 'not_integrated' }])
+  );
+const composed = (profile = editableRecord, sections = unavailableSections()) =>
+  json({ record: { profile, sections } });
 async function openEditor() {
   portfolioResponder = () =>
     page([sampleClient('edit-id', 'Original client')], true);
@@ -344,6 +357,7 @@ beforeEach(async () => {
   pendingSession = undefined;
   portfolioResponder = () => page();
   recordResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+  composedResponder = null;
   invitationResponder = () =>
     json({ code: 'synthetic-invitation', expiresAt: '2026-12-01T00:00:00Z' });
   editResponder = () => {
@@ -395,6 +409,19 @@ beforeEach(async () => {
       (!options.method || options.method === 'GET')
     )
       return portfolioResponder(new URL(url, window.location.origin));
+    if (
+      url.startsWith('/api/clients/') &&
+      url.endsWith('/record') &&
+      (!options.method || options.method === 'GET')
+    ) {
+      if (composedResponder) return composedResponder(url);
+      // Legacy tests keep exercising the same profile/HTTP failures. The
+      // availability envelope is only a test double, not an application stub.
+      const response = await recordResponder(url.slice(0, -'/record'.length));
+      if (!response.ok) return response;
+      const body = await response.json();
+      return composed(body.client);
+    }
     if (
       url.startsWith('/api/clients/') &&
       (!options.method || options.method === 'GET')
@@ -720,6 +747,7 @@ test('selected client has a read-only base view with loading, nullable data and 
       json({
         client: {
           id: 'client-id',
+          version: 1,
           fullName: 'Selected client',
           status: 'inactive',
           goal: null,
@@ -748,6 +776,8 @@ test('selected client has a read-only base view with loading, nullable data and 
   recordResponder = () =>
     json({
       client: {
+        id: 'foreign-id',
+        version: 1,
         fullName: 'Recovered detail',
         status: 'active',
         birthDate: null,
@@ -1030,6 +1060,153 @@ test('HU-018 modal closes while the session is uncertain and reopens without a w
   assert.equal(document.querySelector('dialog'), null);
   assert.equal(statusWrites().length, 0);
 });
+
+async function openComposedRecord(id) {
+  await act(async () => {
+    window.history.pushState({}, '', `/app/clientes/${id}`);
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+  });
+}
+
+test('HU-019 composes the real profile once and labels all absent integrations without invented empty data or measurement dates', async () => {
+  composedResponder = () =>
+    composed({ ...editableRecord, id: 'record-a', goal: 'Actual base goal' });
+  await openComposedRecord('record-a');
+  assert.match(document.body.textContent, /Actual base goal/);
+  assert.match(document.body.textContent, /70.2 kg/);
+  assert.match(
+    document.body.textContent,
+    /No se dispone de una fecha de medición base/
+  );
+  assert.equal(
+    document.body.textContent.match(/Esta sección todavía no está disponible/g)
+      .length,
+    5
+  );
+  assert.doesNotMatch(document.body.textContent, /Sin registros\./);
+  assert.equal(
+    requests.filter((r) => r.url === '/api/clients/record-a/record').length,
+    1
+  );
+  assert.equal(
+    requests.filter((r) => r.url === '/api/clients/record-a').length,
+    0
+  );
+  assert.equal(
+    requests.some((r) => r.method !== 'GET'),
+    false
+  );
+});
+
+test('HU-019 test-only reader states distinguish confirmed empty from query failure and retry only the read', async () => {
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: 'record-a' },
+      {
+        ...unavailableSections(),
+        evaluations: { status: 'empty' },
+        progress: { status: 'error', code: 'QUERY_FAILED' },
+      }
+    );
+  await openComposedRecord('record-a');
+  assert.match(document.body.textContent, /Sin registros\./);
+  assert.match(document.body.textContent, /No pudimos consultar esta sección/);
+  assert.equal(requests.filter((r) => r.url.endsWith('/record')).length, 1);
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await act(async () => button('Actualizar expediente').click());
+  assert.doesNotMatch(
+    document.body.textContent,
+    /Sin registros\.|No pudimos consultar esta sección/
+  );
+  assert.equal(requests.filter((r) => r.url.endsWith('/record')).length, 2);
+  assert.equal(writes().length, 0);
+});
+
+test('HU-019 changing client clears the previous profile and ignores its late response', async () => {
+  composedResponder = () =>
+    composed({ ...editableRecord, id: 'record-a', goal: 'Only A goal' });
+  await openComposedRecord('record-a');
+  assert.match(document.body.textContent, /Only A goal/);
+  let resolveA, resolveB;
+  composedResponder = (url) =>
+    new Promise((resolve) => {
+      if (url.includes('/record-a/')) resolveA = resolve;
+      else resolveB = resolve;
+    });
+  await act(async () => button('Actualizar expediente').click());
+  await openComposedRecord('record-b');
+  assert.match(document.body.textContent, /Cargando expediente/);
+  assert.doesNotMatch(document.body.textContent, /Only A goal/);
+  await act(async () =>
+    resolveB(
+      composed({ ...editableRecord, id: 'record-b', goal: 'Only B goal' })
+    )
+  );
+  await act(async () =>
+    resolveA(
+      composed({ ...editableRecord, id: 'record-a', goal: 'Late A goal' })
+    )
+  );
+  assert.match(document.body.textContent, /Only B goal/);
+  assert.doesNotMatch(document.body.textContent, /Only A goal|Late A goal/);
+});
+
+test('HU-019 another professional cannot retain a preceding profile after a failed read or late response', async () => {
+  composedResponder = () =>
+    composed({ ...editableRecord, id: 'record-a', goal: 'Only A account' });
+  await openComposedRecord('record-a');
+  let resolveA;
+  composedResponder = () =>
+    new Promise((resolve) => {
+      resolveA = resolve;
+    });
+  await act(async () => button('Actualizar expediente').click());
+  composedResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+  identity = 'pro-b';
+  await focus();
+  await act(async () =>
+    resolveA(
+      composed({ ...editableRecord, id: 'record-a', goal: 'Late private goal' })
+    )
+  );
+  assert.match(document.body.textContent, /No pudimos consultar el expediente/);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /Only A account|Late private goal|Esta sección todavía/
+  );
+});
+
+for (const failure of ['server', 'foreign', 'wrong-id', 'malformed']) {
+  test(`HU-019 ${failure} never becomes an empty or partially visible record`, async () => {
+    composedResponder = () => {
+      if (failure === 'server')
+        return json({ error: { code: 'SERVICE_UNAVAILABLE' } }, 503);
+      if (failure === 'foreign')
+        return json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+      if (failure === 'wrong-id')
+        return composed({
+          ...editableRecord,
+          id: 'other',
+          goal: 'Forbidden text',
+        });
+      return json({
+        record: {
+          profile: { ...editableRecord, id: 'record-a' },
+          sections: {},
+        },
+      });
+    };
+    await openComposedRecord('record-a');
+    assert.match(
+      document.body.textContent,
+      /No pudimos consultar el expediente/
+    );
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Sin registros\.|Forbidden text|Original client|Esta sección todavía/
+    );
+  });
+}
 
 test('HU-018 stale list action keeps the clicked intent when the initial GET already has that state', async () => {
   portfolioResponder = () =>
