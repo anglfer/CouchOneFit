@@ -52,4 +52,4 @@ El editor muestra datos existentes y errores por campo. «Consultar estado actua
 
 ## Verificación y pendientes
 
-Ver [evidencia local](validacion-local.md) y [recorrido manual](prueba-web-manual.md). El trabajo no acredita observaciones humanas nuevas ni cierre de D0/TT-010 transversal. La revisión independiente y el recorrido HU-017 desde app real siguen pendientes. No hay push autorizado en esta entrega, PR nuevo, merge, despliegue ni operación en Supabase compartido.
+Ver [evidencia local](validacion-local.md) y [recorrido manual](prueba-web-manual.md). La evidencia distingue resultados humanos parciales reportados de las ejecuciones automáticas. Falta comprobar manualmente el fallo durante PATCH y su mensaje de resultado incierto; el reporte Offline → Online solo confirma la recuperación del borrador durante la comprobación de sesión. La revisión independiente y D0/TT-010 transversal permanecen pendientes. No hay push autorizado en esta entrega, PR nuevo, merge, despliegue ni operación en Supabase compartido.

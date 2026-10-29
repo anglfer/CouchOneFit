@@ -1,6 +1,6 @@
 # Evidencia local — HU-017
 
-28/10/2026, America/Mexico_City. T = ejecución de herramienta/prueba, E = revisión estática, R = reporte de la persona usuaria. No hay recorrido manual HU-017 reportado todavía. Node 24.22.0, npm 11.19.1, PostgreSQL local 18.6. Rama única `feature/api-client-portfolio`, base de esta entrega `d6e7e20`; cambios locales iniciales: ninguno.
+28/10/2026, America/Mexico_City. T = ejecución de herramienta/prueba, E = revisión estática, R = reporte de la persona usuaria. Hay resultados manuales parciales reportados por la persona usuaria; se detallan abajo sin atribuir ejecución al agente. Node 24.22.0, npm 11.19.1, PostgreSQL local 18.6. Rama única `feature/api-client-portfolio`, base de esta entrega `d6e7e20`; cambios locales iniciales: ninguno.
 
 ## Destino y conservación
 
@@ -25,9 +25,24 @@ T: no había API/Web activas. Se inició API desde el build actual con el asiste
 | Migración limpia/actualización | T: quince migraciones, checksums, datos anteriores y versión 1; paridad de columnas, restricciones, índices, permisos, RLS, función y triggers con esquema integrado. E: catorce SQL históricos intactos. | Cumple |
 | Contrato y convenciones | E/T: OpenAPI, proyecciones, nombres y referencias; capas API, textos españoles y DTO alineados. Sin tablas históricas, índices o dependencias especulativas. | Cumple |
 | Formato previo | T: format:check global conserva 53 archivos previos ajenos; antes eran 55. El archivo de sesión y el README Web, ahora modificados, se formatearon y dejaron de contribuir al conteo. No se presenta el comando global como aprobado. | Pendiente transversal |
-| Recorrido real / revisión independiente — D0.8/10 | R: solo aviso al equipo confirmado, no resultados funcionales nuevos. [Recorrido pendiente](prueba-web-manual.md). HU-015 y TT-010 transversal conservan sus puertas de aceptación. | Pendiente |
+| Recorrido real / revisión independiente — D0.8/10 | R: edición/validación/persistencia, conflicto/reaplicación, recuperación de sesión Offline → Online y descarte tras logout confirmados. Fallo durante PATCH y mensaje incierto no comprobados manualmente. [Detalle y caso pendiente](prueba-web-manual.md). HU-015 y TT-010 transversal conservan sus puertas de aceptación. | Pendiente |
 
 ## Resultados de suites
+
+### Resultados manuales reportados por la persona usuaria (R)
+
+- Edición válida, rechazo de 70.25, corrección y persistencia tras recargar: correcto.
+- Dos editores: conflicto sin sobrescribir, borrador conservado, consulta de versión actual y reaplicación explícita: correcto.
+- Offline → Online: el editor se ocultó por la comprobación de sesión y reapareció conservando el borrador.
+- Cerrar sesión y volver a abrir la ficha: borrador descartado; permanecieron los cambios guardados anteriormente.
+
+La persona usuaria no alcanzó a pulsar Guardar estando Offline. No se acredita manualmente un PATCH fallido, el mensaje de resultado incierto ni pérdida de respuesta después de COMMIT. Tampoco se infieren campos/opcionales concretos, conservación histórica SQL u otras observaciones no reportadas. No son ejecuciones del agente.
+
+### Cobertura automática del caso no realizado manualmente
+
+La prueba Web `HU-017 lost save response is uncertain, survives session network recovery and never retries automatically` ejecuta el submit real del componente; el transporte PATCH simulado lanza TypeError. Exige mensaje de resultado incierto, una sola escritura, borrador conservado tras comprobación de sesión fallida y recuperación, consulta explícita sin otro PATCH y ausencia de otro envío cuando la respuesta GET simulada ya contiene los cambios. Esa última parte representa el estado compatible con un guardado confirmado cuya respuesta no llegó; no provoca realmente una pérdida de paquetes tras COMMIT en PostgreSQL. Las pruebas API de rollback son independientes y no acreditan ese fallo de transporte extremo a extremo.
+
+El caso automatizado forma parte de la suite Web anterior 22/22; no se volvió a ejecutar por esta actualización exclusivamente documental. Para observar el mensaje desde navegador queda propuesto el [bloqueo selectivo de PATCH](prueba-web-manual.md#comprobación-adicional-aislada-de-patch), sin modificar la aplicación.
 
 T: suite API final **107/107 aprobadas**, 0 fallidas/omitidas, 87487 ms; suite Web **22/22 aprobadas**, 0 fallidas/omitidas, 10976 ms. Compilaciones API y Web, Oxlint y Prettier de todos los archivos Web modificados aprobados; git diff --check sin errores. OpenAPI parseado y 34 referencias resueltas, ficha/version y esquema PATCH comprobados. El format:check global falla en 53 archivos previos ajenos; no se presenta como verde. No se consideran aprobados intentos fallidos anteriores.
 
@@ -39,7 +54,7 @@ La revisión detectó y corrigió una normalización de campos omitidos que podr
 
 ## Límites de entrega
 
-Commits locales por bloques HU-017; sin push por instrucción actual, sin nueva rama/PR, merge, despliegue o Supabase. `feature/api-client-initial-record` y PR #22 permanecen intactos. Los asistentes/credenciales/marcadores son ignorados y no se publican. D0 y TT-010 transversal no se cierran por estos resultados; falta revisión independiente y validación desde app real de HU-017.
+Commits locales por bloques HU-017; sin push por instrucción actual, sin nueva rama/PR, merge, despliegue o Supabase. `feature/api-client-initial-record` y PR #22 permanecen intactos. Los asistentes/credenciales/marcadores son ignorados y no se publican. D0 y TT-010 transversal no se cierran por estos resultados; falta revisión independiente y completar la observación manual aislada del fallo durante PATCH. La validación real ya reportada conserva su alcance explícito.
 
 ## Commits locales
 
