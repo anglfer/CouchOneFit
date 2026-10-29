@@ -148,3 +148,29 @@ La cartera de la fixture conserva exactamente dos expedientes y dos user_id dist
 **Integración/publicación:** git fetch origin comprobó origin/main27a7df7d8d90bbed4643c5380d1201e7f0631ea7 ya contenido en la rama. No requiere ni se ejecuta merge/rebase/cherry-pick, nueva rama/PR o reescritura. HU015 local/remota y refs/pull/22/head conservan6b2c0a0473402c76ba1eff33dd184adf6c63ce24. El único destino autorizado del push es feature/api-client-portfolio; confirmar resultado remoto después de guardar esta evidencia.
 
 **Límites de cierre:** perfil base validado en el alcance declarado y apto para publicar avances tras checks. HU020 completa permanece pendiente de progreso/visibilidad real HU036/RDC0204; no se simula un módulo vacío. D0.8/revisión por otro integrante sigue pendiente antes de merge; D0 y TT010 transversal abiertos, sin declarar conservados históricos inexistentes. DEC011/015 y uso de datos reales conservan sus condiciones. HU019 y módulos ajenos no se implementan aquí. Fixtures preservadas, sin Supabase ni despliegues.
+
+### Comprobación dirigida del objetivo de A — lecturas posteriores
+
+R: la persona usuaria confirmó que, tras restablecer USB y actualizar A en el OPPO, vio **«Objetivo verificado HU020» y 71.3 kg**. No se atribuye al asistente la observación de esa pantalla. Antes había aclarado que dejó Network Offline por confusión y todavía no había realizado el guardado controlado: esa aclaración **no se registra como fallo ni prueba de desconexión**.
+
+T: instantánea inicial local ignorada por Git, 29/10/2026 19:16:41 UTC, mismo expediente A: ID `ab04ad1f-3857-4b68-a4da-e9456b97f78e`, versión3, objetivo «Objetivo base HU020», peso71.3kg. Posteriormente una lectura encontró versión4 y «Objetivo verificado HU020» sin que el asistente realizara escritura en la fixture. No se capturó una respuesta PATCH y no se identifica su autor/circunstancia a partir del contador.
+
+T: consulta posterior de **solo lectura**, 29/10/2026 19:40:11 UTC, servidor efectivo127.0.0.1:5432/CouchOneFit_test, confirma:
+
+| Dato | Valor SQL |
+| --- | --- |
+| Expediente A original | ab04ad1f-3857-4b68-a4da-e9456b97f78e |
+| Profesional original | e0abfc12-8878-4f66-aef2-3b5dcc6ae76c |
+| Cuenta cliente vinculada original | 564d404f-d624-489b-8f54-dadab209a282 |
+| Versión | 4 |
+| Objetivo | Objetivo verificado HU020 |
+| Peso base | 71.3 kg |
+| Expedientes para esa cuenta | 1 |
+
+SQL coincide con el reporte Android. API/Vite health y destino SQL local comprobados, pero **health no equivale a GET autenticado del expediente**. El intento de lectura de Chrome por herramienta se detuvo porque no pudo verificar la URL de la ventana con suficiente confianza; no se continuó el control del navegador. Se solicitó lectura Web/API tras recarga a la persona usuaria, sin Headers/cookies/tokens/HAR.
+
+R, confirmación posterior: en respuesta a esa comprobación Web/API, la persona usuaria aportó el cuerpo `{ client }` del GET con ID `ab04ad1f-3857-4b68-a4da-e9456b97f78e`, versión4, objetivo «Objetivo verificado HU020» y baseWeightKg71.3. Indicó que había **dos solicitudes y ambas devolvían lo mismo**. No se identifica el motivo de las dos solicitudes ni se afirma que fueran escrituras. No incluyó el estado HTTP, que no se deduce del cuerpo. Esta es evidencia de GET aportada por la persona usuaria, no una captura directa del asistente ni una respuesta PATCH. Tampoco se añade una comprobación visual independiente de Web más allá de lo reportado/aportado.
+
+**Comprobación dirigida cerrada por coincidencia de los valores leídos:** SQL por herramienta y GET Web/API aportado coinciden en ID/versión/objetivo/peso; reporte Android coincide en objetivo/peso para A. No hacen falta nuevas activaciones, escrituras o instrumentación. El cierre se limita a consistencia actual de lectura; no acredita un estado HTTP no informado ni reconstruye el guardado.
+
+La discrepancia anterior de «Objetivo actualizado HU020» no queda explicada por estas lecturas. No existe historial before/after de ediciones del perfil; la auditoría disponible no demuestra una operación que restableciera ese objetivo. La versión no reconstruye valores pasados. No se atribuye causa a persona/proceso, ni se acredita captura PATCH ausente. No se repiten activaciones, se crean cuentas, se restablecen valores ni se añade instrumentación/auditoría. Esta sección documenta lecturas y reporte humano, no una nueva validación completa HU020/D0. El [plan HU019](../hu-019/README.md) sigue exclusivamente documental.
