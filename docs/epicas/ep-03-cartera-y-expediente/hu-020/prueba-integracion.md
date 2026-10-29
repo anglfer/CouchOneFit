@@ -12,7 +12,20 @@ En otra copia, el preparador versionado `apps/api/scripts/prepare-client-record-
 
 ## Entorno Flutter requerido
 
-Localizar o instalar bajo control de la persona usuaria un Flutter compatible con pubspec.lock (Dart >=3.11.0-0), sin cambiar lockfile para acomodar un SDK viejo. No instalado por el agente. Usar ruta completa a flutter.bat o PATH solo de la terminal; no requiere modificar PATH global. Ejecutar `flutter --version`, `flutter doctor -v`, `flutter devices`; comprobar toolchain Android/Java, sin actualizar automáticamente dependencias ni aceptar instalaciones globales.
+SDK ya disponible: `C:\Users\mayth\dev\flutter`, **Flutter 3.47.5 estable/Dart 3.13.4**, ZIP oficial/SHA256 en evidencia, sin cambio de PATH permanente. No volver a instalar ni actualizar dependencias. Configuración solo de la terminal:
+
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = 'C:\Users\mayth\AppData\Local\Android\Sdk'
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+$env:Path = "C:\Users\mayth\dev\flutter\bin;$env:JAVA_HOME\bin;$env:Path"
+```
+
+Faltan Android SDK Command-line Tools, plataforma **36** y NDK **28.2.13676358**. Build Tools 36.0.0 ya existe. Instalar faltantes desde SDK Manager de Android Studio bajo control del usuario, revisar licencias y luego comprobar `flutter doctor --android-licenses`; no aceptar a ciegas ni cambiar AGP/KGP/Gradle. AVD API37 x86_64 existente no requiere recreación: falta aceleración Windows. Revisar Windows Hypervisor Platform/controlador compatible con el usuario/administrador y posible reinicio; no habilitado por el agente. Una alternativa es un Android físico autorizado, sin afirmar que esté conectado.
+
+Análisis, formato HU-020 y 39/39 widget/unit tests ya aprobados. APK/dispositivo no se acreditan por ello. Visual Studio C++ no se necesita para Android. `flutter doctor -v` y `flutter devices` permiten comprobar el estado una vez resueltos esos puntos.
+
+El intento real de `flutter build apk --debug --no-pub` falló con «NDK not configured… 28.2.13676358» antes de generar APK. Se deshabilitó la descarga automática con `GRADLE_OPTS=-Dorg.gradle.project.android.builder.sdkDownload=false` solo en ese proceso. No se cambian versiones ni lockfiles como solución. Completar los componentes/licencias explícitos y repetir compilación; no asumir que los widgets validaron Gradle/instalación/Keystore.
 
 Desde apps/mobile, una vez disponible:
 
