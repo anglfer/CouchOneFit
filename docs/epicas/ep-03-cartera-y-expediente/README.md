@@ -1,9 +1,15 @@
 # EP-03 — Cartera y expediente
 
-## Acuerdo de commits y revisión
+## Acuerdo de integración vigente
 
-Por acuerdo del equipo incorporado por la persona usuaria: los commits se organizan por historia de usuario y el próximo PR se abrirá cuando esté completa EP-03. No se crea un PR independiente para HU-016. El PR #22 existente de HU-015 se conserva tal como está. Los bloques API/Web/documentación de HU-016 siguen identificados como esa historia; no se reescriben commits ya creados para imponer un único commit por HU.
+Por acuerdo confirmado por la persona usuaria, `feature/api-client-portfolio` es la única rama de trabajo para toda EP-03 y sus historias restantes. Contiene íntegros los commits de HU-015 y HU-016; no hace falta un merge para consolidarlos. Los commits se mantienen separados y descriptivos por HU, con los bloques coherentes que cada historia requiera. Los avances se publican en esta misma rama tras las verificaciones correspondientes. No se crean ramas ni PR adicionales por historia; el próximo PR se abrirá al completar EP-03.
 
-La rama actual sigue dependiendo de HU-015. No se ejecutan automáticamente rebase, cherry-pick, force-push o cambios de base cuando se integre esa dependencia: primero se revisa cómo se integró y se elige cómo preservar commits y revisión. La base y rama de presentación del futuro PR de épica se resolverán en ese momento, sin inferir autorización para publicar, integrar o desplegar ahora.
+`feature/api-client-initial-record` y el PR #22 existente se conservan intactos como excepción histórica. No se reescribe el historial ni se usa force-push. Si se integra HU-015, primero se revisará cómo se integró y cómo preservar los commits y la revisión, sin rebase, cherry-pick o cambio de base automáticos. Este acuerdo no autoriza merge ni despliegues y no cierra D0, la revisión independiente ni los pendientes transversales.
 
-Esta épica conserva un único expediente por cliente dentro de la cartera de su profesional. [HU-015 — Crear el cliente y su expediente inicial](hu-015/README.md) permanece en revisión. [HU-016 — Listar y buscar la cartera propia](hu-016/README.md) incorpora búsqueda literal, estado, cursores y ficha mínima de lectura en una rama dependiente separada, sin cerrar dependencias ni D0. No incluye edición HU-017, evaluaciones, mediciones históricas, cálculo de grasa, nutrición, prescripciones ni expediente consolidado.
+## Antecedente del flujo
+
+HU-015 se publicó primero en su propia rama y PR #22. Con autorización explícita, HU-016 se desarrolló después en una rama dependiente desde HU-015; inicialmente se planteó un PR por HU. Ese plan fue sustituido por commits por historia y un PR al completar la épica. La confirmación vigente conserva la rama de HU-016 como única rama de EP-03; el antecedente no implica crear otra rama para HU-017.
+
+## Alcance implementado
+
+Esta épica conserva un único expediente por cliente dentro de la cartera de su profesional. [HU-015 — Crear el cliente y su expediente inicial](hu-015/README.md) permanece en revisión. [HU-016 — Listar y buscar la cartera propia](hu-016/README.md) incorpora búsqueda literal, estado, cursores y ficha mínima de lectura. Ambas historias están contenidas en la rama común, sin cerrar dependencias ni D0. Todavía no se implementan edición HU-017, evaluaciones, mediciones históricas, cálculo de grasa, nutrición, prescripciones ni expediente consolidado.
