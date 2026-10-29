@@ -21,7 +21,21 @@ $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 $env:Path = "C:\Users\mayth\dev\flutter\bin;$env:JAVA_HOME\bin;$env:Path"
 ```
 
-Faltan Android SDK Command-line Tools, plataforma **36** y NDK **28.2.13676358**. Build Tools 36.0.0 ya existe. Instalar faltantes desde SDK Manager de Android Studio bajo control del usuario, revisar licencias y luego comprobar `flutter doctor --android-licenses`; no aceptar a ciegas ni cambiar AGP/KGP/Gradle. AVD API37 x86_64 existente no requiere recreación: falta aceleración Windows. Revisar Windows Hypervisor Platform/controlador compatible con el usuario/administrador y posible reinicio; no habilitado por el agente. Una alternativa es un Android físico autorizado, sin afirmar que esté conectado.
+Command-line Tools **22.0** ya está instalado en el SDK existente. Faltan plataforma **36** y NDK **28.2.13676358**; Build Tools 36.0.0 ya existe. `sdkmanager` detecta **7 de 8 licencias sin aceptar**. Primero la persona usuaria debe revisarlas personalmente:
+
+```powershell
+& "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:ANDROID_HOME" --licenses
+```
+
+Leer cada acuerdo y responder y solo si se acepta; el agente no lo hace ni escribe hashes. Después comprobar aceptaciones e instalar exclusivamente:
+
+```powershell
+& "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat" --sdk_root="$env:ANDROID_HOME" 'platforms;android-36' 'ndk;28.2.13676358'
+```
+
+No usar --update ni agregar paquetes distintos. Luego repetir APK y revisar manifest resultante. AVD API37 x86_64 existente no requiere recreación: falta aceleración Windows. Revisar opciones con el usuario/administrador antes de cualquier característica/controlador/reinicio; no autorizado ni realizado en este paso. Una alternativa es un Android físico autorizado, sin afirmar que esté conectado.
+
+La API del recorrido debe permanecer en **127.0.0.1:3000** mediante el asistente local, no el launcher general de server.ts que no fija host. Debug permite HTTP; profile no lo habilita y release exige HTTPS. Solo cuando haya emulador arrancado se comprobará health en `http://10.0.2.2:3000/api/health` desde Android y las consultas de la app debug. Health desde Windows y lectura de manifest no equivalen a esa conexión real. No cambiar a 0.0.0.0 ni abrir firewall indiscriminadamente si falla.
 
 Análisis, formato HU-020 y 39/39 widget/unit tests ya aprobados. APK/dispositivo no se acreditan por ello. Visual Studio C++ no se necesita para Android. `flutter doctor -v` y `flutter devices` permiten comprobar el estado una vez resueltos esos puntos.
 
