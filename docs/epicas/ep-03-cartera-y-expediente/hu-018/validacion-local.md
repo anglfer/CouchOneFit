@@ -1,6 +1,18 @@
 # Evidencia local — HU-018
 
-29/10/2026, America/Mexico_City. Rama `feature/api-client-portfolio`, base `861398b`; árbol inicialmente limpio. T = herramienta/prueba; E = revisión estática del implementador; R = reporte de la persona usuaria. No hay recorrido humano HU-018 acreditado. La autorización de implementar API1 además de Web/integración/QA consta como R; no equivale a aviso acreditado al grupo, aprobación/revisión ni ejecución de Omar. La asignación original del plan permanece intacta.
+29/10/2026, America/Mexico_City. Rama `feature/api-client-portfolio`, base `861398b`; árbol inicialmente limpio. T = herramienta/prueba; E = revisión estática del implementador; R = reporte de la persona usuaria. El recorrido humano acreditado se limita al reporte siguiente. La autorización de implementar API1 además de Web/integración/QA consta como R; no equivale a aviso acreditado al grupo, aprobación/revisión ni ejecución de Omar. La asignación original del plan permanece intacta.
+
+## Resultados manuales reportados por la persona usuaria
+
+R, no ejecutados por el asistente:
+
+- Cancelar y Escape cierran la confirmación sin cambiar el estado.
+- Inactivación confirmada: cupo de 5 a 4.
+- Reactivación confirmada: cupo de 4 a 5.
+- Con la confirmación abierta, una edición guardada desde otra pestaña provoca conflicto al intentar inactivar.
+- Aparece «El expediente cambió. Consulta su estado actual y vuelve a confirmar», sin aplicar la transición.
+
+El reporte no acredita otras comprobaciones: foco/recorrido de teclado completo, actualización de todas las vistas, persistencia tras recargar, consulta y reconfirmación posterior al conflicto, doble envío, red, auditoría SQL o conservación de relaciones no se atribuyen a la persona usuaria. Su cobertura automática/estática se distingue en la matriz. No existen tablas de evaluaciones, planes de cliente o medidas históricas cuya conservación pueda acreditarse.
 
 ## Entorno y conservación
 
@@ -31,13 +43,13 @@ T: se identificó el proceso anterior en 3000 como el asistente que conserva la 
 | Versión y reintentos — HU-018, compatibilidad HU-017 | T: duplicados concurrentes generan un solo evento/incremento; repetición del estado actual con versión vieja no escribe; transición antigua no revierte la posterior; edición base y estado invalidan mutuamente sus versiones antiguas. E: versión futura rechazada, gestionada solo por BD. | Cumple |
 | Atomicidad/auditoría — HU-018-API1 | T: trigger de fallo en INSERT de auditoría revierte estado/versión/plaza y no deja evento; éxito posterior funciona. E: siete acciones anteriores preservadas y dos nuevas diferenciadas de activación de cuenta, sin datos físicos ni secretos. | Cumple |
 | Invitación e historial — HU-018/DEC-011 | T: invitación conservada íntegra al inactivar, emisión/prevalidación bloqueadas, elegibilidad recuperada al reactivar sin extender TTL; evento anterior conservado. Migración conserva filas previas. E: no existen tablas de evaluaciones, planes de cliente o medidas históricas; no se acredita su conservación mediante pruebas inexistentes. | Cumple con límite explícito |
-| Confirmación/cancelación — HU-018-WEB1 | T: diálogo etiquetado, foco inicial en Cancelar, cancelar/Escape sin PATCH; doble confirmación produce un solo envío y ningún éxito adelantado. E: modalidad nativa y semántica accesible; comportamiento nativo real pendiente de recorrido. | Implementado; revisión humana pendiente |
+| Confirmación/cancelación — HU-018-WEB1 | T: diálogo etiquetado, foco inicial en Cancelar, cancelar/Escape sin PATCH; doble confirmación produce un solo envío y ningún éxito adelantado. E: modalidad nativa y semántica accesible. R: Cancelar/Escape cierran sin cambiar estado; no se acredita revisión humana completa de accesibilidad. | Cumple en lo probado; accesibilidad independiente pendiente |
 | Conflicto/error/incertidumbre Web | T: error de negocio conserva diálogo; conflicto exige GET y confirmación explícita; pérdida de respuesta simulada no reenvía ni invierte intención, incluso si el GET inicial desde una lista vieja ya tiene el estado deseado. | Cumple automáticamente |
 | Integración cartera/ficha/cupo | T: actualiza tras respuesta, conserva filtros/tamaño y vuelve a primera página; ficha refleja estado. Fallo de lectura de cupo avisa y su reintento hace solo GET. E: actualizar el resumen no desmonta el componente ni descarta el borrador de alta. | Cumple según componentes/pruebas |
 | Sesión y regresiones | T: diálogo cerrado mientras la sesión es incierta, reaparece solo al recuperar misma cuenta sin PATCH, otra cuenta destruye; veintidós casos Web anteriores y regresiones API de HU-005/015/016/017 e invitación/activación/recuperación aprobados. | Cumple automáticamente |
 | Coordinación y atribución | R: autorización explícita para implementar API1 sin esperar coordinación. E: asignación Omar conservada, implementación real del asistente documentada. No consta aviso de grupo §1.3 ni revisión independiente; no se inventan. | Desfase documentado, ejecución autorizada |
 | Datos reales / privacidad — DEC-011/015 | E: baja lógica/conservación técnica preparadas; sin política legal, plazos, responsable/contacto o aprobación para datos reales inventados. Solo sintéticos locales. | Pendiente para uso real |
-| D0 y TT-010 transversal | Recorrido real HU-018 y revisión por otro integrante aún pendientes; no se cierran HU-015/TT-010 ni la épica por esta implementación. La prueba manual de cada negativo automatizado no se añade como requisito nuevo. | Pendiente |
+| D0 y TT-010 transversal | R: recorrido real limitado a cancelación, transiciones/cupo y conflicto descritos arriba. D0.5 exige negativos automatizados al nivel adecuado y D0.10 validación desde una app real; ninguno exige repetir cada negativo manualmente. D0.8 exige revisión por otro integrante antes de merge, aún pendiente. No se cierran D0, HU-015, TT-010 ni la épica. | Pendiente; sin bloqueo técnico de publicación de avances |
 
 ## Incidencias propias corregidas
 
@@ -47,4 +59,12 @@ La revisión incorporó cierre explícito del diálogo mientras la sesión no es
 
 ## Publicación y pendientes
 
-Commits locales identificados por HU-018: `82ebb2f` (API/BD/contrato/pruebas), `9737fdd` (Web/integración/regresiones) y el commit de esta documentación; sin push por instrucción actual. Sin nueva rama/PR, merge, despliegues ni cambios en Supabase. `feature/api-client-initial-record` y PR #22 intactos. [Recorrido breve](prueba-web-manual.md) preparado, sin atribuir pruebas humanas. D0.8/10, revisión independiente, deuda previa de formato y TT-010 transversal siguen visibles.
+### Revisión final posterior al reporte manual
+
+E: contraste de todo el diff HU-018 (`861398b..a84b454`) con plan §HU-018, DEC-004/005, HU-013/005, D0 §5.2, DEVELOPMENT y convenciones BD. Se conservan SQL parametrizado, validador estricto, roles persistidos, contexto RLS transaccional y orden de bloqueos. El no-op no hace UPDATE/INSERT, la transición exige versión vigente y la auditoría permanece dentro de la transacción. La nueva migración solo amplía acciones permitidas, sin grants adicionales ni modificación de las quince migraciones previas. Contrato y consumidores Web están coordinados. No se detectaron correcciones funcionales propias pendientes; esta actualización modifica exclusivamente documentación y no cambia el programa para facilitar pruebas.
+
+T, repetición sobre el código final antes de publicar: API **114/114**, 0 fallidas/omitidas, **62597 ms**, incluida migración limpia/actualización con filas anteriores; Web **28/28**, 0 fallidas/omitidas, **7607 ms**. Build API y Web aprobados, Oxlint sin avisos y Prettier de los cinco archivos Web afectados aprobado. `format:check` global falla en los mismos **53 archivos**, comprobados idénticos a `origin/main`; no se disimula ese resultado. Son verificaciones automáticas, no resultados manuales adicionales ni revisión independiente.
+
+Implementación en `82ebb2f` (API/BD/contrato/pruebas), `9737fdd` (Web/integración/regresiones) y `a84b454` (documentación inicial). La instrucción posterior autoriza publicar avances tras revisión/verificaciones, exclusivamente en `feature/api-client-portfolio`; no autoriza otro PR, merge, despliegue ni cambios en Supabase. Fetch de origin: `origin/main` en `27a7df7` ya contenido en HEAD; no requiere integración ni merge innecesario. HU-015 local/remota permanece en `6b2c0a0`, sin modificar PR #22. Se registra el resultado efectivo del push al informar al usuario, sin anticiparlo en esta evidencia.
+
+No se identifican incumplimientos funcionales propios de HU-018 que bloqueen publicar avances. D0 sigue abierto por revisión independiente y pendientes aplicables, al igual que TT-010 transversal, deuda previa de formato y condiciones de DEC-011/015 para datos reales. El aviso específico al grupo no está acreditado; consta la autorización expresa de proceder. Los commits iniciales contienen «HU-018» en mayúsculas aunque CONTRIBUTING §3 pide minúsculas: se conserva el historial sin reescritura y se utiliza `hu-018` en el commit posterior. No se declara cumplimiento literal de esa convención en los commits anteriores.

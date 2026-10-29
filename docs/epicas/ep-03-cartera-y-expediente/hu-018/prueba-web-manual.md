@@ -1,6 +1,8 @@
-# Recorrido manual pendiente — HU-018
+# Recorrido manual — HU-018
 
-No ejecutado por el agente ni reportado por la persona usuaria. Usar únicamente la fixture sintética local existente, sin borrar clientes o inventar cuentas reales. API y Web deben servir el build actual y la migración 202610290001 en `127.0.0.1:5432/CouchOneFit_test`; el estado de preparación efectivo se registra en [evidencia](validacion-local.md).
+Guion original conservado como referencia, no como lista íntegramente aprobada. La persona usuaria reportó Cancelar/Escape sin cambio, inactivación con cupo 5→4, reactivación 4→5 y conflicto sin transición tras editar en otra pestaña. Solo esos resultados están acreditados como R en la [evidencia](validacion-local.md); no se exige repetirlos. Los demás detalles del guion no se atribuyen como comprobaciones manuales.
+
+Usar únicamente la fixture sintética local existente, sin borrar clientes o inventar cuentas reales. API y Web deben servir el build actual y la migración 202610290001 en `127.0.0.1:5432/CouchOneFit_test`; el estado de preparación efectivo se registra en la evidencia.
 
 URL: `http://127.0.0.1:5000/app/clientes`. Usuario sintético existente `qa.hu015.web`, contraseña elegida localmente: no copiarla al chat. Elegir un expediente propio sintético activo y anotar su nombre/estado y el cupo mostrado en Inicio.
 
