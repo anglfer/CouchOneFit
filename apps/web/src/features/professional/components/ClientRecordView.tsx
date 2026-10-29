@@ -3,13 +3,18 @@ import { Link } from '../../../components/Link';
 import { sessionRequest } from '../../auth/services/session';
 import type { ClientBaseRecord } from '../types/portfolio';
 import ClientRecordEditor from './ClientRecordEditor';
+import ClientStatusAction from './ClientStatusAction';
 
 export default function ClientRecordView({
   clientId,
   accountId,
+  onStatusChanged,
+  sessionReady,
 }: {
   clientId: string;
   accountId: string;
+  onStatusChanged: () => void;
+  sessionReady: boolean;
 }) {
   const [result, setResult] = useState<{
     key: string;
@@ -19,6 +24,8 @@ export default function ClientRecordView({
   const [attempt, setAttempt] = useState(0);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [statusSaved, setStatusSaved] = useState('');
+  const [statusBusy, setStatusBusy] = useState(false);
   const requestKey = `${clientId}:${attempt}`;
   const loading = result.key !== requestKey;
   const record = loading ? null : result.record;
@@ -51,6 +58,7 @@ export default function ClientRecordView({
       <Link to="/app/clientes">Volver a mi cartera</Link>
       <h1 className="text-xl font-bold">Datos base del cliente</h1>
       {saved && <p role="status">Los cambios se guardaron correctamente.</p>}
+      {statusSaved && <p role="status">{statusSaved}</p>}
       {loading ? (
         <p role="status">Cargando expediente…</p>
       ) : error ? (
@@ -78,6 +86,7 @@ export default function ClientRecordView({
             <h2 className="font-bold">{record.fullName}</h2>
             <button
               type="button"
+              disabled={statusBusy}
               onClick={() => {
                 setSaved(false);
                 setEditing(true);
@@ -85,6 +94,22 @@ export default function ClientRecordView({
             >
               Editar datos base
             </button>
+            <ClientStatusAction
+              sessionReady={sessionReady}
+              clientId={clientId}
+              status={record.status}
+              accountId={accountId}
+              onBusyChange={setStatusBusy}
+              onChanged={(updated) => {
+                setResult({ key: requestKey, record: updated, error: '' });
+                setStatusSaved(
+                  updated.status === 'active'
+                    ? 'El expediente está activo.'
+                    : 'El expediente está inactivo.'
+                );
+                onStatusChanged();
+              }}
+            />
             <dl className="space-y-2">
               <dt>Estado</dt>
               <dd>{record.status === 'active' ? 'Activo' : 'Inactivo'}</dd>

@@ -43,6 +43,7 @@ export default function ProfessionalPage(): ReactElement {
   const [isLeaving, setIsLeaving] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [sessionUncertain, setSessionUncertain] = useState(false);
+  const [capacityError, setCapacityError] = useState('');
   const accountRef = useRef<Account | null>(null);
   const sessionEpoch = useRef(0);
 
@@ -53,6 +54,7 @@ export default function ProfessionalPage(): ReactElement {
     setProfile(null);
     setSubscription(null);
     setSessionUncertain(false);
+    setCapacityError('');
   }
 
   const pathname = rawPath.replace(/\/$/, '') || '/app';
@@ -182,6 +184,28 @@ export default function ProfessionalPage(): ReactElement {
     };
   }, [attempt]);
 
+  async function refreshClientUsage(): Promise<void> {
+    const subject = accountRef.current?.id;
+    const epoch = sessionEpoch.current;
+    if (!subject) return;
+    try {
+      const result = await sessionRequest<{ subscription: SubscriptionInfo }>(
+        '/api/me/subscription'
+      );
+      if (
+        accountRef.current?.id === subject &&
+        sessionEpoch.current === epoch
+      ) {
+        setSubscription(result.subscription);
+        setCapacityError('');
+      }
+    } catch {
+      if (accountRef.current?.id === subject && sessionEpoch.current === epoch)
+        setCapacityError(
+          'El estado se confirmó, pero no pudimos actualizar el cupo. El resumen puede estar desactualizado.'
+        );
+    }
+  }
   async function leave(): Promise<void> {
     if (isLeaving) return;
     sessionEpoch.current += 1;
@@ -246,6 +270,14 @@ export default function ProfessionalPage(): ReactElement {
         hidden={sessionUncertain}
         inert={sessionUncertain}
       >
+        {account && capacityError && (
+          <div role="alert">
+            <p>{capacityError}</p>
+            <button type="button" onClick={() => void refreshClientUsage()}>
+              Actualizar resumen de cupo
+            </button>
+          </div>
+        )}
         {isChecking ? (
           <div className="space-y-6" role="status" aria-busy="true">
             <div className="h-20 bg-white/60 dark:bg-slate-800/60 rounded-2xl animate-pulse" />
@@ -269,12 +301,18 @@ export default function ProfessionalPage(): ReactElement {
           ) : isClientsPage ? (
             selectedClientId ? (
               <ClientRecordView
+                sessionReady={!sessionUncertain && !isLeaving}
+                onStatusChanged={() => void refreshClientUsage()}
                 accountId={account!.id}
                 key={selectedClientId}
                 clientId={selectedClientId}
               />
             ) : (
-              <ClientAccessPanel />
+              <ClientAccessPanel
+                sessionReady={!sessionUncertain && !isLeaving}
+                accountId={account!.id}
+                onStatusChanged={() => void refreshClientUsage()}
+              />
             )
           ) : isRecoveryPage ? (
             <RecoveryPanel />

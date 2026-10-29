@@ -3,6 +3,7 @@ import { ApiError } from '../../../services/api';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 
 import { Link } from '../../../components/Link';
+import ClientStatusAction from './ClientStatusAction';
 import type { ClientRecord, PortfolioResponse } from '../types/portfolio';
 
 type ClientField =
@@ -31,7 +32,15 @@ const emptyClientForm = (): ClientForm => ({
 const numberOrNull = (value: string) =>
   value.trim() === '' ? null : Number(value);
 
-export default function ClientAccessPanel() {
+export default function ClientAccessPanel({
+  accountId,
+  onStatusChanged,
+  sessionReady,
+}: {
+  accountId: string;
+  onStatusChanged: () => void;
+  sessionReady: boolean;
+}) {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loadedKey, setLoadedKey] = useState('');
   const [busy, setBusy] = useState('');
@@ -40,6 +49,7 @@ export default function ClientAccessPanel() {
   const [form, setForm] = useState<ClientForm>(emptyClientForm);
   const [fieldErrors, setFieldErrors] = useState<Partial<ClientForm>>({});
   const [saved, setSaved] = useState('');
+  const [statusNotice, setStatusNotice] = useState('');
   const [delivery, setDelivery] = useState<{
     code: string;
     expiresAt: string;
@@ -181,31 +191,10 @@ export default function ClientAccessPanel() {
     setForm((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
-  async function toggleStatus(record: ClientRecord) {
-    if (busy) return;
-    setBusy(record.id);
-    setError('');
-    setDelivery(null);
-    try {
-      await sessionMutation(
-        `/api/clients/${record.id}/status`,
-        { status: record.status === 'active' ? 'inactive' : 'active' },
-        'PATCH'
-      );
-      setAttempt((value) => value + 1);
-    } catch (failure) {
-      setError(
-        failure instanceof ApiError
-          ? failure.message
-          : 'No pudimos cambiar el estado.'
-      );
-    } finally {
-      setBusy('');
-    }
-  }
   return (
     <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 space-y-5">
       <h1 className="text-xl font-bold">Acceso a expedientes</h1>
+      {statusNotice && <p role="status">{statusNotice}</p>}
       <p>
         Entrega una invitación privada al cliente de un expediente preparado.
         Reemplazarla invalida inmediatamente el código anterior. Se requiere
@@ -537,16 +526,25 @@ export default function ClientAccessPanel() {
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
               )}
-              <button
-                type="button"
+              <ClientStatusAction
+                sessionReady={sessionReady}
+                clientId={record.id}
+                status={record.status}
+                accountId={accountId}
                 disabled={!!busy}
-                onClick={() => void toggleStatus(record)}
-                className="px-4 py-2 border rounded-lg"
-              >
-                {record.status === 'active'
-                  ? 'Inactivar expediente'
-                  : 'Reactivar expediente'}
-              </button>
+                onBusyChange={(pending) => {
+                  setBusy(pending ? record.id : '');
+                  if (pending) setDelivery(null);
+                }}
+                onChanged={(updated) => {
+                  setStatusNotice(
+                    `El expediente de ${updated.fullName} está ${updated.status === 'active' ? 'activo' : 'inactivo'}.`
+                  );
+                  setCursors([null]);
+                  setAttempt((value) => value + 1);
+                  onStatusChanged();
+                }}
+              />
               {!record.userId && record.status === 'active' && (
                 <button
                   type="button"

@@ -6,7 +6,12 @@ import { createServer } from 'vite';
 
 let dom, vite, root, ProfessionalPage, createRoot;
 let mode, identity, pendingSession, requests, channels, redirects;
-let portfolioResponder, recordResponder, invitationResponder, editResponder;
+let portfolioResponder,
+  recordResponder,
+  invitationResponder,
+  editResponder,
+  statusResponder,
+  subscriptionResponder;
 const page = (clients = [], hasClients = false, nextCursor = null) =>
   json({
     clients,
@@ -281,6 +286,12 @@ before(async () => {
   });
   globalThis.PopStateEvent = window.PopStateEvent;
   window.scrollTo = () => {};
+  window.HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute('open', '');
+  };
+  window.HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute('open');
+  };
   globalThis.BroadcastChannel = class extends dom.window.EventTarget {
     constructor() {
       super();
@@ -338,6 +349,11 @@ beforeEach(async () => {
   editResponder = () => {
     throw new TypeError('Failed to fetch');
   };
+  statusResponder = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  subscriptionResponder = () =>
+    json({ subscription: { status: 'active', used: 0, remaining: 10 } });
   window.history.replaceState({}, '', '/app/clientes');
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url, method: options.method || 'GET', body: options.body });
@@ -360,6 +376,8 @@ beforeEach(async () => {
     }
     if (url.endsWith('/invitations'))
       return invitationResponder(options.method);
+    if (url.endsWith('/status') && options.method === 'PATCH')
+      return statusResponder(JSON.parse(options.body));
     if (url.startsWith('/api/clients/') && options.method === 'PATCH')
       return editResponder(JSON.parse(options.body));
     if (mode === 'profile-business' && url === '/api/professional/profile')
@@ -371,10 +389,7 @@ beforeEach(async () => {
       );
     if (url === '/api/professional/profile')
       return json({ profile: { userId: identity, ...account(identity) } });
-    if (url === '/api/me/subscription')
-      return json({
-        subscription: { status: 'active', used: 0, remaining: 10 },
-      });
+    if (url === '/api/me/subscription') return subscriptionResponder();
     if (
       url.startsWith('/api/clients?') &&
       (!options.method || options.method === 'GET')
@@ -809,4 +824,231 @@ test('HU-017 business rejection during profile checking retains the hidden edito
   assert.equal(input.value, 'Business check draft');
   assert.equal(input.closest('[hidden]'), null);
   assert.equal(writes().length, 0);
+});
+
+const statusWrites = () =>
+  requests.filter(
+    (request) => request.method === 'PATCH' && request.url.endsWith('/status')
+  );
+async function openStatusFixture(inDetail = false, initialStatus = 'active') {
+  portfolioResponder = () =>
+    page(
+      [
+        {
+          ...sampleClient('edit-id', 'Original client'),
+          status: initialStatus,
+        },
+      ],
+      true
+    );
+  recordResponder = () =>
+    json({ client: { ...editableRecord, status: initialStatus } });
+  await searchFor('Original');
+  if (inDetail)
+    await act(async () =>
+      [...document.querySelectorAll('a')]
+        .find((element) => element.textContent === 'Original client')
+        .click()
+    );
+  await act(async () =>
+    button(
+      initialStatus === 'active'
+        ? 'Inactivar expediente'
+        : 'Reactivar expediente'
+    ).click()
+  );
+}
+
+test('HU-018 confirmation is modal, cancellation/Escape do not send and double confirmation waits for server before list/capacity refresh', async () => {
+  await openStatusFixture();
+  assert.ok(document.querySelector('dialog[open]'));
+  assert.equal(document.activeElement, button('Cancelar cambio de estado'));
+  assert.match(
+    document.querySelector('dialog').textContent,
+    /No se da de baja la cuenta/
+  );
+  await act(async () => button('Cancelar cambio de estado').click());
+  assert.equal(statusWrites().length, 0);
+  await act(async () => button('Inactivar expediente').click());
+  await act(async () =>
+    document
+      .querySelector('dialog')
+      .dispatchEvent(new window.Event('cancel', { cancelable: true }))
+  );
+  assert.equal(statusWrites().length, 0);
+  await act(async () => button('Inactivar expediente').click());
+  let resolve;
+  statusResponder = (body) => {
+    assert.deepEqual(body, { status: 'inactive', version: 1 });
+    return new Promise((done) => {
+      resolve = done;
+    });
+  };
+  const subCount = requests.filter(
+    (r) => r.url === '/api/me/subscription'
+  ).length;
+  await act(async () => {
+    button('Confirmar inactivación').click();
+    button('Procesando…')?.click();
+  });
+  assert.equal(statusWrites().length, 1);
+  assert.equal(button('Cancelar cambio de estado').disabled, true);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /El expediente de Original client está inactivo/
+  );
+  assert.equal(
+    requests.filter((r) => r.url === '/api/me/subscription').length,
+    subCount
+  );
+  portfolioResponder = () =>
+    page(
+      [{ ...sampleClient('edit-id', 'Original client'), status: 'inactive' }],
+      true
+    );
+  subscriptionResponder = () =>
+    json({ subscription: { status: 'active', used: 0, remaining: 10 } });
+  await act(async () =>
+    resolve(
+      json({ client: { ...editableRecord, status: 'inactive', version: 2 } })
+    )
+  );
+  assert.match(
+    document.body.textContent,
+    /El expediente de Original client está inactivo/
+  );
+  assert.ok(button('Reactivar expediente'));
+  assert.equal(document.querySelector('dialog'), null);
+  assert.equal(
+    requests.filter((r) => r.url === '/api/me/subscription').length,
+    subCount + 1
+  );
+});
+
+test('HU-018 conflict requires consulting the latest version and explicit confirmation, without automatic retry', async () => {
+  await openStatusFixture();
+  statusResponder = () =>
+    json(
+      {
+        error: {
+          code: 'CLIENT_RECORD_CONFLICT',
+          message: 'El expediente cambió.',
+        },
+      },
+      409
+    );
+  await act(async () => button('Confirmar inactivación').click());
+  assert.equal(statusWrites().length, 1);
+  assert.equal(button('Confirmar inactivación').disabled, true);
+  recordResponder = () => json({ client: { ...editableRecord, version: 2 } });
+  await act(async () => button('Consultar estado actual').click());
+  assert.equal(statusWrites().length, 1);
+  statusResponder = (body) => {
+    assert.deepEqual(body, { status: 'inactive', version: 2 });
+    return json({
+      client: { ...editableRecord, status: 'inactive', version: 3 },
+    });
+  };
+  await act(async () => button('Confirmar inactivación').click());
+  assert.equal(statusWrites().length, 2);
+});
+
+test('HU-018 uncertain response never replays or flips the original intent when current state is already applied; detail and capacity refresh', async () => {
+  await openStatusFixture(true);
+  await act(async () => button('Confirmar inactivación').click());
+  assert.equal(statusWrites().length, 1);
+  assert.match(
+    document.body.textContent,
+    /No podemos confirmar si cambió el estado/
+  );
+  assert.equal(button('Confirmar inactivación').disabled, true);
+  await act(async () => window.dispatchEvent(new window.Event('online')));
+  assert.equal(statusWrites().length, 1);
+  recordResponder = () =>
+    json({ client: { ...editableRecord, status: 'inactive', version: 2 } });
+  await act(async () => button('Consultar estado actual').click());
+  assert.match(
+    document.body.textContent,
+    /El estado solicitado ya está aplicado/
+  );
+  assert.equal(button('Confirmar reactivación'), undefined);
+  const count = requests.filter((r) => r.url === '/api/me/subscription').length;
+  await act(async () => button('Actualizar vistas con este estado').click());
+  assert.equal(statusWrites().length, 1);
+  assert.match(document.body.textContent, /El expediente está inactivo/);
+  assert.equal(
+    requests.filter((r) => r.url === '/api/me/subscription').length,
+    count + 1
+  );
+});
+
+test('HU-018 business errors keep confirmation and capacity refresh failure retries only the read', async () => {
+  await openStatusFixture(false, 'inactive');
+  statusResponder = () =>
+    json(
+      { error: { code: 'CUPO_AGOTADO', message: 'Sin plazas disponibles.' } },
+      409
+    );
+  await act(async () => button('Confirmar reactivación').click());
+  assert.match(document.body.textContent, /Sin plazas disponibles/);
+  assert.ok(document.querySelector('dialog[open]'));
+  assert.equal(statusWrites().length, 1);
+  statusResponder = () =>
+    json({ client: { ...editableRecord, status: 'active', version: 2 } });
+  subscriptionResponder = () => {
+    throw new TypeError('read unavailable');
+  };
+  await act(async () => button('Confirmar reactivación').click());
+  assert.match(
+    document.body.textContent,
+    /El estado se confirmó, pero no pudimos actualizar el cupo/
+  );
+  const count = statusWrites().length;
+  subscriptionResponder = () =>
+    json({ subscription: { status: 'active', used: 0, remaining: 10 } });
+  await act(async () => button('Actualizar resumen de cupo').click());
+  assert.equal(statusWrites().length, count);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /El estado se confirmó, pero no pudimos actualizar el cupo/
+  );
+});
+
+test('HU-018 modal closes while the session is uncertain and reopens without a write only for the same recovered account', async () => {
+  await openStatusFixture();
+  assert.ok(document.querySelector('dialog[open]'));
+  mode = 'network';
+  await focus();
+  assert.equal(document.querySelector('dialog[open]'), null);
+  assert.ok(document.querySelector('dialog'));
+  mode = 'ok';
+  await focus();
+  assert.ok(document.querySelector('dialog[open]'));
+  assert.equal(statusWrites().length, 0);
+  identity = 'pro-b';
+  await focus();
+  assert.equal(document.querySelector('dialog'), null);
+  assert.equal(statusWrites().length, 0);
+});
+
+test('HU-018 stale list action keeps the clicked intent when the initial GET already has that state', async () => {
+  portfolioResponder = () =>
+    page(
+      [{ ...sampleClient('edit-id', 'Original client'), status: 'active' }],
+      true
+    );
+  recordResponder = () =>
+    json({ client: { ...editableRecord, status: 'inactive', version: 2 } });
+  await searchFor('Original');
+  await act(async () => button('Inactivar expediente').click());
+  assert.match(
+    document.querySelector('dialog').textContent,
+    /Confirmar inactivación del expediente/
+  );
+  assert.match(
+    document.body.textContent,
+    /El estado solicitado ya está aplicado/
+  );
+  assert.equal(button('Confirmar reactivación'), undefined);
+  assert.equal(statusWrites().length, 0);
 });
