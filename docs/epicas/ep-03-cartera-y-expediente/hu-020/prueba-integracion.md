@@ -1,12 +1,12 @@
-# Recorrido pendiente — Perfil base HU-020
+# Recorrido y límites — Perfil base HU-020
 
-No ejecutado por la persona usuaria ni por el asistente en Android. API vertical real aprobada según evidencia; no equivale al recorrido móvil.
+Recorrido base realizado en OPPO físico y reportado por la persona usuaria: A activado sin recaptura, actualización de objetivo/peso a 71.3 kg, cierre de A y activación de B con credenciales distintas; B muestra su objetivo base sin conservar el objetivo actualizado de A. No se acredita comprobación visual de todos los campos de B ni manipulación manual de IDs. Las instrucciones siguientes son referencia para integración y repetición, no una solicitud de repetir lo ya reportado. API vertical/IDs y permisos están automatizados; progreso HU-036, revisión independiente y D0 siguen pendientes. Véase la evidencia vigente, que sustituye los bloqueos históricos descritos durante la preparación.
 
 ## Preparación local
 
 Conservar fixtures y procesos anteriores. Desde raíz interior: `node apps/api/.env.run-local-check.cjs verify`, `npm.cmd --prefix apps/api run build`. El proceso API existente puede tener cargada la versión anterior: identificarlo por puerto/command line y reiniciar exclusivamente el asistente `.env.resume-hu015-web.cjs serve`, sin cleanup. Reutilizar Vite 5000. Nunca arrancar otro servidor sobre el puerto ocupado ni finalizar procesos desconocidos. API objetivo local 3000, PostgreSQL 127.0.0.1:5432/CouchOneFit_test verificado. No usar URL productiva del README móvil.
 
-Fixture nueva: `qa.hu020.1b16b463` y dos expedientes HU020 QA A/B; IDs en evidencia. Para elegir clave inicial antes de su primer login, ejecutar localmente `powershell -NoProfile -ExecutionPolicy Bypass -File apps/api/.env.hu020-password.ps1`: entrada oculta, solo esta fixture, valida servidor/rol/marcador y se detiene si ya hay sesiones. No muestra credenciales ni toca otras fixtures. Helpers y archivo de credenciales comprobados ignorados por Git. Después del primer uso cambiar credenciales por el flujo normal; no resetear fixtures arbitrariamente.
+Fixture `qa.hu020.1b16b463` y dos expedientes HU020 QA A/B; IDs en evidencia. **Estado actual tras el recorrido: ambas cuentas activadas y vinculadas; invitaciones consumidas. No emitir otras ni ejecutar de nuevo el preparador o el asistente de contraseña inicial.** Conservar credenciales existentes y usar login ordinario para revisar. El asistente de entrada oculta `.env.hu020-password.ps1` fue solo preparación antes del primer login y se detiene cuando ya hay sesiones; no es un mecanismo de reset. Helpers y credenciales están ignorados por Git. Para futuras repeticiones completas usar nuevas fixtures sintéticas identificables, conservando estas.
 
 En otra copia, el preparador versionado `apps/api/scripts/prepare-client-record-e2e.ts` requiere DATABASE_URL=TEST_DATABASE_URL exclusivamente locales y QA_PROFESSIONAL_USERNAME nuevo `qa.hu020.*`/QA_PROFESSIONAL_PASSWORD proporcionada localmente sin log/versionado; no ejecutar de nuevo el preparador anterior de HU-006–009, que puede restablecer su fixture existente. El preparador HU020 colisiona en lugar de sobrescribir. No reproducir contraseñas en comandos compartidos/chat.
 
@@ -54,6 +54,26 @@ flutter run -d <id-del-emulador> --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ```
 
 Si el SDK no soporta enforce-lockfile, comprobar su opción antes de ejecutar; no regenerar lockfile como solución. No se distribuye un build con HTTP ni se acredita iOS desde Windows. Configuración de prueba pública, sin URL de BD en móvil. Base local comprobada desde API, no solo por la URL Android.
+
+## Ruta vigente para el OPPO físico por USB
+
+El emulador se abandonó por lentitud sin recorrido funcional humano. Usar el OPPO CPH2695/Android16/API36/ARM64 ya autorizado; no reinstalar controladores, recrear fixtures ni usar el APK configurado para 10.0.2.2. Se compiló e instaló específicamente ARM64 con API_BASE_URL=http://127.0.0.1:3000, manteniendo la API del host en loopback.
+
+Antes de cada intento después de reconectar USB o reiniciar ADB, comprobar el dispositivo y la redirección temporal; una autorización ADB válida no implica que el mapeo siga existiendo:
+
+```powershell
+$adb = 'C:\Users\mayth\AppData\Local\Android\Sdk\platform-tools\adb.exe'
+& $adb devices -l
+# Sustituir <telefono> por el ID devuelto para el OPPO, no por un emulador.
+& $adb -s <telefono> reverse --list
+# Si falta tcp:3000, restablecer únicamente ese mapeo:
+& $adb -s <telefono> reverse tcp:3000 tcp:3000
+& $adb -s <telefono> reverse --list
+```
+
+Comprobar además respuesta health desde Android (no solo desde Windows) antes de activar. Mantener el cable conectado durante el recorrido; no activar depuración inalámbrica ni abrir firewall. El asistente puede hacer GET /api/health desde el UID de la app sin credenciales. Un POST vacío de diagnóstico produce 400/INVALID_INPUT y no comprueba la validez del formulario humano ni consume invitación.
+
+Ante un error de activación no reenviar automáticamente: comprobar vínculo del expediente, invitación, cuenta y auditoría. Una pérdida de respuesta puede ocurrir después de COMMIT; si existe vínculo, usar login ordinario. Si no hay efectos y la conexión está restablecida, comprobar primero el mismo código con «Comprobar código» y después realizar un único envío explícito. No regenerar una invitación vigente ni restablecer credenciales por un fallo de transporte. No registrar cuerpos, contraseñas, tokens ni códigos. El código HTTP de un intento anterior sin observabilidad no se inventa a partir del texto genérico de Flutter. Esta incidencia quedó seguida por activación A/B reportada; no volver a canjear esos códigos consumidos.
 
 ## Casos mínimos
 

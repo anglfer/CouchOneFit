@@ -33,7 +33,7 @@ Usa `PascalCase` en los tipos de Dart y `lowerCamelCase` en sus miembros y las l
 
 El perfil móvil ahora consume `GET /api/me/record`, conservando el endpoint API anterior `/api/client/profile` para compatibilidad. Presenta datos preparados y medidas iniciales de solo lectura; no recaptura ni modifica el expediente. Distingue carga, opcionales «Sin registrar», error de consulta recuperable y rechazo definitivo de sesión. El progreso todavía no está disponible: no se muestra como historial vacío ni se inventan permisos HU-036.
 
-Validación posterior con SDK local Flutter estable 3.47.5/Dart 3.13.4: análisis sin incidencias, formato de Dart HU-020 correcto y **39/39 pruebas** aprobadas. **APK debug compilado** tras instalar plataforma 36/NDK autorizados y aceptar licencias personalmente; manifiesto y URL local empaquetados verificados. Arranque, conectividad real desde Android y recorrido siguen pendientes: ni widgets ni APK equivalen a dispositivo real. El lockfile exige Dart >=3.11.0-0 aunque el mínimo declarado del manifiesto sea anterior; no se actualizaron dependencias/lockfile para acomodar otro SDK. [Contrato y evidencia](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/README.md), [recorrido local pendiente](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/prueba-integracion.md). HU-020 y D0 no están completos.
+Validación con SDK local Flutter estable 3.47.5/Dart 3.13.4: análisis sin incidencias, diez archivos Dart HU-020 con formato correcto y **41/41 pruebas** aprobadas. **APK debug ARM64 compilado e instalado en OPPO físico Android16**, conectado a API local mediante USB; la persona usuaria reportó activación sin recaptura, actualización de A y cambio a B sin conservar el objetivo actualizado de A. SQL confirma vínculos a los expedientes originales sin duplicarlos. No se acredita revisión visual completa de B ni manipulación manual de IDs; permisos y consultas ajenas están automatizados. El lockfile exige Dart >=3.11.0-0 aunque el mínimo declarado del manifiesto sea anterior; no se actualizaron dependencias/lockfile para acomodar otro SDK. [Contrato y evidencia](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/README.md), [recorrido local y límites](../../docs/epicas/ep-03-cartera-y-expediente/hu-020/prueba-integracion.md). Perfil base validado en este incremento; progreso HU-036 no integrado. HU-020, D0 y revisión independiente no están completos.
 
 ## Activación y seguridad HU-006–009
 
@@ -99,8 +99,11 @@ Después usa `flutter run` o el botón de ejecutar del editor. Al cambiar la URL
 detén y vuelve a ejecutar la app para incorporar el archivo actualizado.
 
 - Emulador Android: `http://10.0.2.2:3000`.
-- Teléfono físico: la IP de tu computadora en la misma red, por ejemplo
-  `http://192.168.1.100:3000`; `localhost` en el teléfono apunta al propio teléfono.
+- Teléfono físico por USB para HU-020: `adb -s <telefono> reverse tcp:3000 tcp:3000`
+  y `--dart-define=API_BASE_URL=http://127.0.0.1:3000`. Verificar el mapeo tras
+  reconectar USB o reiniciar ADB y comprobar health desde Android; mantener la
+  API del host en loopback, sin exponerla a la LAN. Sin esa redirección,
+  localhost en el teléfono apunta únicamente al propio teléfono.
 - Distribución: `https://api.ferkxo.tech`, API productiva existente en Render.
   Cambia `API_BASE_URL` en el archivo de entorno del build de distribución;
   conserva la dirección local para desarrollar. HTTP solo está permitido en
