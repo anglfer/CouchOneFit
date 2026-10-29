@@ -1,0 +1,13 @@
+# HU-019 — Guía para integrar los módulos pendientes
+
+Este documento propone puntos de integración; no aprueba contratos de otros módulos. Antes de conectarlos, el responsable debe entregar servicio real, DTO/proyección, permisos, pruebas y reglas de selección de versiones. No sustituir módulos ausentes por lectores que devuelvan [] o null.
+
+1. Mantener autorización de sesión/profesional/propiedad en readPortfolioRecord antes de consultar secciones. Un 401/403 o denegación de propiedad en cualquier lector debe abortar el expediente: nunca capturarlo como empty o error parcial.
+2. Conectar lecturas reales desde features/professional/services/record.ts mediante las interfaces públicas que acuerde cada módulo; no duplicar sus repositorios o reglas. Revisar consistencia transaccional cuando haya varias lecturas reales. Reutilizar contexto RLS, sin ampliar privilegios ni aceptar identidad del navegador.
+3. Conservar not_integrated mientras no haya lector real. empty solo tras consulta autorizada sin registros. error/QUERY_FAILED solo para fallo recuperable de una sección disponible, sin datos internos ni éxito ficticio. El perfil disponible sigue siendo obligatorio: su fallo aborta toda la respuesta.
+4. Al integrar datos, acordar una variante discriminada con payload explícito y actualizar OpenAPI, tipos, validación Web, componentes y pruebas conjuntamente. El sobre actual no define DTO de planes/evaluaciones/progreso ni habilita datos ocultos para filtrarlos en Web.
+5. HU-021/022 deben aportar fechas reales y semántica de mediciones. HU-026/030 deben resolver versión activa y preservar versiones históricas desde su propio módulo. HU-033 debe distinguir falta de registros de falta de integración de sus fuentes. HU-037 debe aportar origen, unidad, instante y calendario/zona requeridos. No inferir fecha de medición desde creación del expediente. Peso base, eventos de peso corporal, evaluaciones y cargas por serie permanecen separados.
+6. DEC-009: comprobar proyección y permisos de progreso en servidor según destinatario; no inferir autorización por existencia de columnas. La consulta profesional no reemplaza GET /api/me/record del cliente.
+7. Mantener clave cuenta/cliente y protección contra respuestas antiguas. Probar A→B con respuestas invertidas, perfil obligatorio fallido, denegación, vacío confirmado y fallo parcial real. Los dobles actuales son exclusivamente de tests y no acreditan integración real.
+
+No modificar contratos de invitación, activación, autenticación, suscripción ni cupo para conectar lecturas. Cualquier cambio de regla de otro módulo requiere acuerdo separado. Sin artefactos reales de HU-021/022/026/030/033/037 no se puede declarar HU-019 completa ni verificar el expediente consolidado integral de D0.
