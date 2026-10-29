@@ -417,6 +417,27 @@ test('portfolio distinguishes empty, loading, no matches and error and ignores s
   assert.match(document.body.textContent, /Recovered client/);
 });
 
+test('portfolio search counts Unicode code points and rejects overlong searches locally', async () => {
+  const value = '😀'.repeat(150);
+  await searchFor(value);
+  assert.equal(field('Buscar por nombre').checkValidity(), true);
+  const searches = () =>
+    requests.filter((request) => request.url.startsWith('/api/clients?'));
+  assert.equal(
+    new URL(searches().at(-1).url, window.location.origin).searchParams.get(
+      'search'
+    ),
+    value
+  );
+  const count = searches().length;
+  await searchFor(value + 'a');
+  assert.equal(field('Buscar por nombre').checkValidity(), false);
+  assert.equal(searches().length, count);
+  await searchFor('valid');
+  assert.equal(field('Buscar por nombre').checkValidity(), true);
+  assert.equal(searches().length, count + 1);
+});
+
 test('portfolio previous/next and status reset retain applied filters and protect the creation draft', async () => {
   await act(async () => fillDraft());
   portfolioResponder = (url) =>

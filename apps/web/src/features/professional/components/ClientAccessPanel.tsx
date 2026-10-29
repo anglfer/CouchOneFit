@@ -429,6 +429,7 @@ export default function ClientAccessPanel() {
         onSubmit={(event) => {
           event.preventDefault();
           if (busy) return;
+          if ([...search.trim()].length > 150) return;
           setAttempt((value) => value + 1);
           setCursors([null]);
           setFilters((current) => ({ ...current, search: search.trim() }));
@@ -439,8 +440,14 @@ export default function ClientAccessPanel() {
           <input
             className="block border rounded p-2"
             disabled={!!busy}
-            maxLength={150}
             value={search}
+            ref={(input) => {
+              input?.setCustomValidity(
+                [...search.trim()].length > 150
+                  ? 'La búsqueda admite hasta 150 caracteres.'
+                  : ''
+              );
+            }}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
