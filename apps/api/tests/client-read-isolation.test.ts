@@ -34,7 +34,7 @@ before(async () => {
   target.password = credential
   runtime = new Pool({ connectionString: target.toString(), max: 1 })
   const digest = await hash(password, { type: argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 })
-  for (const [name, role] of Object.entries({ proA: 'professional', proB: 'professional', clientA: 'client', clientB: 'client', admin: 'admin' })) {
+  for (const [name, role] of Object.entries({ proA: 'professional', proB: 'professional', proEmpty: 'professional', clientA: 'client', clientB: 'client', admin: 'admin' })) {
     const id = randomUUID()
     await database.query('INSERT INTO private.users(id,username,email,password_hash,role) VALUES($1,$2,$3,$4,$5)', [id, name.toLowerCase(), `${name.toLowerCase()}@example.com`, digest, role])
     const session = (await database.query('INSERT INTO private.sessions(user_id) VALUES($1) RETURNING id', [id])).rows[0].id
@@ -157,4 +157,128 @@ test('special functions expose no physical rows and cannot grant a professional 
     assert.equal(routine.public_denied, true)
     assert.ok(routine.proconfig.includes('search_path=pg_catalog, private'))
   }
+})
+
+const portfolioGet = (query: Record<string, string> = {}, actor = 'proA') =>
+  request(app).get('/api/clients').query(query).set('Authorization', `Bearer ${actors[actor].token}`)
+
+test('portfolio searches literal special characters and isolates active and inactive records', async () => {
+  const names = ['Literal % name', 'Literal _ name', 'Literal \\ name', "Literal O'Connor", 'Literal 😀 Ána', "Literal ' OR 1=1 --"]
+  for (const [index, name] of names.entries()) {
+    await database.query('INSERT INTO private.clients(professional_id,full_name,status) VALUES($1,$2,$3)',
+      [actors.proA.professional, name, index % 2 ? 'inactive' : 'active'])
+    await database.query('INSERT INTO private.clients(professional_id,full_name) VALUES($1,$2)', [actors.proB.professional, name])
+  }
+  for (const search of ['%', '_', '\\', "O'Connor", '😀 ána', "' OR 1=1 --"]) {
+    const result = await portfolioGet({ search })
+    assert.equal(result.status, 200)
+    assert.equal(result.body.clients.length, 1, search)
+    assert.ok(names.includes(result.body.clients[0].fullName))
+    const own = await database.query('SELECT id FROM private.clients WHERE id=$1 AND professional_id=$2', [result.body.clients[0].id, actors.proA.professional])
+    assert.equal(own.rowCount, 1)
+  }
+  for (const status of ['active', 'inactive']) {
+    const result = await portfolioGet({ search: 'literal', status })
+    assert.equal(result.body.clients.length, 3)
+    assert.ok(result.body.clients.every((row: { status: string }) => row.status === status))
+  }
+  const empty = await portfolioGet({ search: 'No coincidencias únicas' })
+  assert.equal(empty.body.hasClients, true)
+  assert.deepEqual(empty.body.clients, [])
+  assert.equal(empty.body.pageInfo.nextCursor, null)
+})
+
+test('cursor traversal preserves microseconds and UUID ties without gaps or duplicates', async () => {
+  for (let i = 0; i < 25; i++) {
+    await database.query("INSERT INTO private.clients(professional_id,full_name,created_at) VALUES($1,$2,$3::timestamptz)",
+      [actors.proA.professional, `Traversal ${i}`, `2026-01-01 12:00:00.${i % 2 ? '123456' : '123457'}+00`])
+  }
+  const expected = (await database.query('SELECT id FROM private.clients WHERE professional_id=$1 ORDER BY created_at DESC,id DESC', [actors.proA.professional])).rows.map((r) => r.id)
+  const ids: string[] = []
+  let cursor: string | null = null
+  let firstCursor = ''
+  for (let pages = 0; pages < 50; pages++) {
+    const result = await portfolioGet({ pageSize: '3', ...(cursor ? { cursor } : {}) })
+    assert.equal(result.status, 200)
+    assert.ok(result.body.clients.length <= 3)
+    ids.push(...result.body.clients.map((r: { id: string }) => r.id))
+    if (!firstCursor) {
+      firstCursor = result.body.pageInfo.nextCursor
+      // A newer insert cannot shift the remaining keyset pages.
+      await database.query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'New between pages')", [actors.proA.professional])
+    }
+    cursor = result.body.pageInfo.nextCursor
+    if (!cursor) break
+  }
+  assert.deepEqual(ids, expected)
+  assert.equal(new Set(ids).size, ids.length)
+  for (const changed of [{ search: 'Traversal' }, { status: 'inactive' }, { pageSize: '4' }]) {
+    assert.equal((await portfolioGet({ pageSize: '3', cursor: firstCursor, ...changed })).status, 400)
+  }
+  assert.equal((await portfolioGet({ pageSize: '3', cursor: firstCursor }, 'proB')).status, 400)
+  assert.equal((await portfolioGet({ pageSize: '3', cursor: firstCursor.slice(0, -3) + 'abc' })).status, 400)
+  const single = await portfolioGet({ search: 'Client A', pageSize: '1' })
+  assert.equal(single.body.clients.length, 1)
+  assert.equal(single.body.pageInfo.hasMore, false)
+  assert.equal(single.body.pageInfo.nextCursor, null)
+})
+
+test('invalid portfolio queries fail before SQL and cannot inject owner or order', async () => {
+  for (const query of [{ pageSize: '0' }, { pageSize: '101' }, { pageSize: '1.5' }, { cursor: 'broken' },
+    { status: 'ACTIVE' }, { professionalId: actors.proB.professional! }, { order: 'id; DROP TABLE clients' }, { search: 'x'.repeat(151) }, { search: '\u0000' }]) {
+    assert.equal((await portfolioGet(query)).status, 400)
+  }
+  assert.equal((await request(app).get('/api/clients?search=a&search=b').set('Cookie', `cof_access=${actors.proA.token}`)).status, 400)
+  for (const actor of ['clientB', 'admin']) assert.equal((await portfolioGet({}, actor)).status, 403)
+  assert.equal((await request(app).get('/api/clients')).status, 401)
+})
+
+test('empty portfolio and page-size boundaries have unambiguous pagination metadata', async () => {
+  const empty = await portfolioGet({}, 'proEmpty')
+  assert.equal(empty.status, 200)
+  assert.deepEqual(empty.body, { clients: [], hasClients: false, pageInfo: { pageSize: 20, hasMore: false, nextCursor: null } })
+  const first = await portfolioGet({ search: 'Traversal' })
+  assert.equal(first.body.clients.length, 20)
+  assert.equal(first.body.pageInfo.hasMore, true)
+  const max = await portfolioGet({ search: 'Traversal', pageSize: '100' })
+  assert.equal(max.body.clients.length, 25)
+  assert.equal(max.body.pageInfo.hasMore, false)
+  assert.deepEqual(Object.keys(max.body.clients[0]).sort(), ['id', 'userId', 'fullName', 'goal', 'status', 'invitationExpiresAt'].sort())
+})
+
+test('tenant cursor index supports ordered bounded reads with an ordinary runtime plan', async () => {
+  await database.query(`INSERT INTO private.clients(professional_id,full_name)
+    SELECT $1,'Index fixture '||n FROM generate_series(1,2500) n`, [actors.proA.professional])
+  await database.query(`INSERT INTO private.clients(professional_id,full_name)
+    SELECT $1,'Foreign index fixture '||n FROM generate_series(1,2500) n`, [actors.proB.professional])
+  await database.query('ANALYZE private.clients')
+  await asSubject(actors.proA.id, async (client) => {
+    const result = await client.query('EXPLAIN (FORMAT JSON) SELECT id FROM private.clients WHERE professional_id=$1 ORDER BY created_at DESC,id DESC LIMIT 21', [actors.proA.professional])
+    assert.match(JSON.stringify(result.rows), /idx_clients_portfolio_order/)
+  })
+})
+
+test('read-only base record permits only owned records and preserves nullable legacy data', async () => {
+  const detail = (id: string, actor = 'proA') => request(app).get(`/api/clients/${id}`).set('Authorization', `Bearer ${actors[actor].token}`)
+  const own = await detail(actors.clientA.client!)
+  assert.equal(own.status, 200)
+  assert.equal(own.body.client.baseWeightKg, 70.2)
+  assert.equal(own.body.client.birthDate, '1990-05-20')
+  assert.equal('professionalId' in own.body.client, false)
+  const foreign = await detail(actors.clientB.client!)
+  const missing = await detail(randomUUID())
+  assert.equal(foreign.status, 404)
+  assert.deepEqual(foreign.body, missing.body)
+  assert.equal((await detail('bad-id')).status, 400)
+  for (const actor of ['clientB', 'admin']) assert.equal((await detail(actors.clientA.client!, actor)).status, 403)
+  const legacy = (await database.query("INSERT INTO private.clients(professional_id,full_name,status) VALUES($1,'Legacy inactive','inactive') RETURNING id", [actors.proA.professional])).rows[0].id
+  const record = (await detail(legacy)).body.client
+  for (const key of ['birthDate', 'heightCm', 'baseWeightKg', 'baseBodyFatPercentage', 'waistCm', 'hipCm']) assert.equal(record[key], null)
+  assert.equal(record.status, 'inactive')
+  await database.query("UPDATE private.subscriptions SET status='suspended' WHERE professional_id=$1", [actors.proA.professional])
+  try {
+    assert.deepEqual((await portfolioGet()).body.clients, [])
+    assert.equal((await detail(legacy)).status, 404)
+  } finally { await database.query("UPDATE private.subscriptions SET status='active' WHERE professional_id=$1", [actors.proA.professional]) }
+  assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount, 0)
 })

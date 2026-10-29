@@ -472,3 +472,5 @@ REVOKE ALL ON FUNCTION private.lock_expired_invitation_client(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.invited_client_record(text,timestamptz),
   private.link_invited_client(text,uuid,timestamptz),private.admin_client_counts(),
   private.lock_expired_invitation_client(uuid) TO couchone_authentication;
+
+CREATE INDEX idx_clients_portfolio_order ON private.clients (professional_id,created_at DESC,id DESC);

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CouchOne Fit — identidad, cartera y expediente",
-    "version": "2026-10-27",
-    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales."
+    "version": "2026-10-28",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia."
   },
   "servers": [
     {
@@ -58,10 +58,13 @@
     "/api/clients": {
       "get": {
         "operationId": "listOwnClientAccess",
-        "summary": "Expedientes propios; sin códigos ni hashes; lista vacía sin suscripción activa.",
+        "summary": "HU-016: cartera propia con búsqueda literal por nombre, estado y cursor; sin suscripción activa conserva lista vacía.",
         "security": [
           {
             "webSession": []
+          },
+          {
+            "bearerSession": []
           }
         ],
         "responses": {
@@ -85,10 +88,41 @@
                       "items": {
                         "$ref": "#/components/schemas/ClientRecord"
                       }
+                    },
+                    "hasClients": {
+                      "type": "boolean",
+                      "description": "Hay al menos un expediente en el ámbito propio visible, antes de búsqueda/estado/cursor."
+                    },
+                    "pageInfo": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "pageSize",
+                        "hasMore",
+                        "nextCursor"
+                      ],
+                      "properties": {
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
                     }
                   },
                   "required": [
-                    "clients"
+                    "clients",
+                    "hasClients",
+                    "pageInfo"
                   ]
                 }
               }
@@ -104,7 +138,53 @@
               }
             }
           }
-        }
+        },
+        "description": "Orden fijo created_at DESC, id DESC. Cursor firmado y ligado a cuenta, filtros y tamaño; no sustituye autorización. Unicode case-insensitive según lower de PostgreSQL, sin eliminar acentos. %, _, comillas y barras son literales. No ofrece instantánea congelada ante cambios concurrentes. Cambiar filtros requiere omitir cursor. Parámetros desconocidos o repetidos se rechazan. No devuelve medidas base en el listado.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Subcadena literal de fullName, recortada en extremos; máximo 150 puntos de código Unicode.",
+            "schema": {
+              "type": "string",
+              "maxLength": 150,
+              "default": ""
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Estado del expediente; vacío incluye ambos.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "active",
+                "inactive"
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "nextCursor de la respuesta anterior con la misma cuenta y filtros.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ]
       },
       "post": {
         "operationId": "createClientInitialRecord",
@@ -497,6 +577,80 @@
               "Cache-Control": {
                 "schema": {
                   "const": "no-store"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}": {
+      "get": {
+        "operationId": "readOwnClientBaseRecord",
+        "summary": "HU-016: lectura mínima de datos base de un cliente propio activo o inactivo.",
+        "description": "Propiedad profesional y suscripción vigente comprobadas en servidor bajo RLS. Ajeno, inexistente o no disponible responden el mismo 404. UUID inválido: 400; sin sesión: 401; rol no profesional: 403. No implementa expediente consolidado ni edición.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Datos base propios, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "client"
+                  ],
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientBaseRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expediente no disponible, sin revelar su propietario.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1005,6 +1159,78 @@
           "username",
           "role"
         ]
+      },
+      "ClientBaseRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "const": "active"
+          },
+          "birthDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "heightCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseWeightKg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
+          "waistCm",
+          "hipCm"
+        ],
+        "description": "Vista mínima de lectura de datos base; columnas antiguas anulables, sin credenciales, historial, planes o edición."
       }
     },
     "securitySchemes": {

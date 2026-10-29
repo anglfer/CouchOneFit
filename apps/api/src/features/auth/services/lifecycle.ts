@@ -23,16 +23,8 @@ import {
 import { loginAccount } from './session.js'
 import { randomToken, tokenHash } from './tokens.js'
 import {
-  ownClientAccess,
   authorizedRecoveryTargets,
 } from '../repositories/access-records.js'
-export function listClientAccess(
-  pool: Pool,
-  identity: SessionIdentity,
-  now?: Date
-) {
-  return ownClientAccess(pool, identity, now)
-}
 export function listRecoveryTargets(pool: Pool, identity: SessionIdentity) {
   return authorizedRecoveryTargets(pool, identity)
 }

@@ -613,7 +613,7 @@ test('missing/expired subscription blocks invitation issuance and hides the prof
     .get('/api/clients')
     .set('Cookie', proAccess.cookies)
   assert.equal(listing.status, 200)
-  assert.deepEqual(listing.body, { clients: [] })
+  assert.deepEqual(listing.body, { clients: [], hasClients: false, pageInfo: { pageSize: 20, hasMore: false, nextCursor: null } })
   await database.query(
     'DELETE FROM private.subscriptions WHERE professional_id=$1',
     [proRecord]

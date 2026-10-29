@@ -62,6 +62,7 @@ export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
   )
   router.post('/auth/recovery/reset', limiter(), controller.reset)
   router.get('/clients', requireProfessional(pool, now), controller.clients)
+  router.get('/clients/:clientId', requireProfessional(pool, now), controller.client)
   router.get(
     '/accounts/recovery-targets',
     requireSession(pool, undefined, now),
