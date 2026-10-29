@@ -38,3 +38,17 @@ Sin repetir activaciones ni pruebas de alta: usar sesión profesional sintética
 4. Opcional: bloquear solo GET /api/clients/:clientId/record en DevTools, mantener sesión operativa y actualizar. Debe mostrarse error recuperable sin expediente vacío/parcial. Desbloquear y reintentar lectura. Acceso ajeno y fallo SQL están cubiertos automáticamente; no se exige manipular datos ni activar cuentas para repetirlos.
 
 Este incremento queda listo para revisión técnica tras sus verificaciones; no equivale a integración consolidada completa ni a D0 cerrado. No se publica en este paso. PR #22 intacto.
+
+## Diagnóstico del primer intento manual: proceso API anterior
+
+La persona usuaria reportó «No pudimos consultar el expediente». El recorrido no se registra como aprobado. El conector de navegador no estuvo disponible: el asistente no reprodujo el clic desde la cartera ni inspeccionó la sesión exacta de Chrome. Se reprodujo la consulta por HTTP directo y por el proxy Vite con la identidad profesional de la fixture, usando una sesión persistida vigente y credencial únicamente en memoria, sin crear sesión/cuenta ni imprimir tokens.
+
+SQL confirmó A = ab04ad1f-3857-4b68-a4da-e9456b97f78e, profesional e0abfc12-8878-4f66-aef2-3b5dcc6ae76c, cuenta profesional f18c0f69-b24c-4b8e-bbb2-c92400d2a211 (qa.hu020.1b16b463, active/professional). No se acredita con ello haber leído la identidad exacta del navegador. Versión4, objetivo «Objetivo verificado HU020» y peso71.3 permanecieron iguales antes/después.
+
+Antes del reinicio, GET /api/clients/:id devolvió200; GET /api/clients/:id/record devolvió403 CSRF_INVALID tanto en127.0.0.1:3000 como en127.0.0.1:5000. El proceso API identificado había arrancado antes de compilar HU-019 y carga dist una sola vez. Sin la ruta nueva, la consulta continuaba hasta capacityRoutes y su middleware CSRF existente. No era prueba de rechazo RLS ni fallo de conexión y no se modificó ese middleware.
+
+Se recompiló la rama y se reinició únicamente el proceso del asistente local verificado, manteniendo bind127.0.0.1:3000 y base127.0.0.1:5432/CouchOneFit_test. Después, GET base y GET compuesto devolvieron200 en ambos puertos, con la misma proyección e ID/versión/objetivo/peso; las cinco secciones devolvieron not_integrated. El montaje /api + /clients/:clientId/record, servicio readProfessionalRecord y reutilización readPortfolioRecord/readAsSubject fueron revisados. La consulta real pasó por el runtime ordinario y RLS existentes. No se cambiaron fuentes, permisos, propietarios, cuentas o fixtures; no se necesitó corregir lógica de módulos ausentes.
+
+Repetición humana pendiente: recargar Web, confirmar el profesional sintético y abrir A desde la cartera; revisar perfil y disponibilidad de secciones. Si el error persiste, comprobar únicamente HTTP/error de ese GET sin copiar encabezados o credenciales. Las consultas HTTP anteriores son evidencia ejecutada por el asistente, no aprobación del recorrido humano.
+
+Regresiones repetidas tras el diagnóstico: API build correcto, API120/120 y Web36/36. No hubo cambios de código que requirieran otra compilación Web o cambios de permisos.
