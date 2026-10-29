@@ -32,7 +32,7 @@ before(async () => {
   await owner.query(`GRANT couchone_authentication TO ${runtimeRole}`)
   target.username = runtimeRole
   target.password = credential
-  runtime = new Pool({ connectionString: target.toString(), max: 1 })
+  runtime = new Pool({ connectionString: target.toString(), max: 3 })
   const digest = await hash(password, { type: argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 })
   for (const [name, role] of Object.entries({ proA: 'professional', proB: 'professional', proEmpty: 'professional', clientA: 'client', clientB: 'client', admin: 'admin' })) {
     const id = randomUUID()
@@ -281,4 +281,153 @@ test('read-only base record permits only owned records and preserves nullable le
     assert.equal((await detail(legacy)).status, 404)
   } finally { await database.query("UPDATE private.subscriptions SET status='active' WHERE professional_id=$1", [actors.proA.professional]) }
   assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount, 0)
+})
+
+async function editRecord(id: string, body: unknown, actor = 'proA') {
+  const csrf = await request(app).get('/api/auth/csrf')
+  return request(app).patch(`/api/clients/${id}`).set('Authorization', `Bearer ${actors[actor].token}`)
+    .set('Origin', 'http://localhost:5000').set('Cookie', csrf.headers['set-cookie'])
+    .set('X-CSRF-Token', csrf.body.csrfToken).send(body)
+}
+const readRecord = async (id: string) => (await request(app).get(`/api/clients/${id}`).set('Authorization', `Bearer ${actors.proA.token}`)).body.client
+
+test('HU-017 own partial edits preserve untouched fields, metadata and runtime version ownership', async () => {
+  const id = actors.clientA.client!
+  const before = await readRecord(id)
+  const changed = await editRecord(id, { version: before.version, fullName: 'Ana 😀 editada', waistCm: null })
+  assert.equal(changed.status, 200)
+  assert.equal(changed.body.client.version, before.version + 1)
+  assert.equal(changed.body.client.fullName, 'Ana 😀 editada')
+  assert.equal(changed.body.client.waistCm, null)
+  for (const key of ['birthDate','heightCm','baseWeightKg','status','goal']) assert.equal(changed.body.client[key], before[key])
+  const noop = await editRecord(id, { version: changed.body.client.version, fullName: ' Ana 😀 editada ' })
+  assert.equal(noop.status, 200)
+  assert.equal(noop.body.client.version, changed.body.client.version)
+  await asSubject(actors.proA.id, async (client) => {
+    await assert.rejects(client.query('UPDATE private.clients SET version=1 WHERE id=$1', [id]), { code: '42501' })
+  })
+  const forced = (await database.query("INSERT INTO private.clients(professional_id,full_name,version) VALUES($1,'Version fixture',999) RETURNING version", [actors.proA.professional])).rows[0]
+  assert.equal(forced.version, 1)
+})
+
+test('HU-017 rejects invalid fields, foreign ownership, client/admin roles and missing CSRF without writes', async () => {
+  const id = actors.clientA.client!
+  const before = await readRecord(id)
+  for (const patch of [{}, {version: before.version}, {version: 0, goal: 'x'}, {version: before.version, professionalId: actors.proB.professional},
+    {version: before.version, status: 'inactive'}, {version: before.version, userId: null}, {version: before.version, fullName: ''},
+    {version: before.version, goal: ''}, {version: before.version, heightCm: null}, {version: before.version, baseWeightKg: 70.25},
+    {version: before.version, waistCm: 80.25}, {version: before.version, birthDate: '2026-02-30'}, {version: before.version, birthDate: '2020-01-01'}]) {
+    assert.equal((await editRecord(id, patch)).status, 400, JSON.stringify(patch))
+    assert.deepEqual(await readRecord(id), before)
+  }
+  for (const role of ['clientB', 'admin']) assert.equal((await editRecord(id, {version: before.version, goal: 'forbidden'}, role)).status, 403)
+  const foreign = await editRecord(actors.clientB.client!, {version: 1, goal: 'foreign'})
+  const missing = await editRecord(randomUUID(), {version: 1, goal: 'missing'})
+  assert.equal(foreign.status, 404); assert.deepEqual(foreign.body, missing.body)
+  assert.equal((await request(app).patch(`/api/clients/${id}`).set('Authorization', `Bearer ${actors.proA.token}`).send({version: before.version, goal: 'csrf'})).status, 403)
+  assert.equal((await request(app).patch(`/api/clients/${id}`).send({version: before.version, goal: 'anonymous'})).status, 401)
+  assert.deepEqual(await readRecord(id), before)
+  await asSubject(actors.clientB.id, async (client) => assert.equal((await client.query("UPDATE private.clients SET goal='forged' WHERE id=$1", [actors.clientB.client])).rowCount, 0))
+  await asSubject(actors.proA.id, async (client) => assert.equal((await client.query("UPDATE private.clients SET goal='forged' WHERE id=$1", [actors.clientB.client])).rowCount, 0))
+})
+
+test('HU-017 two editors and effective state changes cause conflicts, while no-op state updates do not', async () => {
+  const id = actors.clientA.client!, before = await readRecord(id)
+  const responses = await Promise.all(['First editor', 'Second editor'].map((goal) => editRecord(id, {version: before.version, goal})))
+  assert.deepEqual(responses.map((r) => r.status).sort(), [200,409])
+  const current = await readRecord(id)
+  await asSubject(actors.proA.id, async (client) => {
+    const row = (await client.query('UPDATE private.clients SET status=status WHERE id=$1 RETURNING version', [id])).rows[0]
+    assert.equal(row.version, current.version)
+    // asSubject rolls back: assertions also exercise the trigger with the ordinary role.
+  })
+  await database.query("UPDATE private.clients SET status='inactive' WHERE id=$1", [id])
+  const conflict = await editRecord(id, {version: current.version, goal: 'must not overwrite'})
+  assert.equal(conflict.status, 409); assert.equal(conflict.body.error.code, 'CLIENT_RECORD_CONFLICT')
+  const inactive = await readRecord(id)
+  assert.equal((await editRecord(id, {version: inactive.version, goal: 'Edit inactive record'})).status, 200)
+})
+
+test('HU-017 legacy base remains null until completed as a group and complete data cannot be cleared', async () => {
+  const id = (await database.query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'Legacy edit fixture') RETURNING id", [actors.proA.professional])).rows[0].id
+  assert.equal((await editRecord(id, {version: 1, goal: 'Only goal', baseBodyFatPercentage: 20.2})).status, 200)
+  const legacy = await readRecord(id)
+  for (const key of ['birthDate','heightCm','baseWeightKg']) assert.equal(legacy[key], null)
+  assert.equal((await editRecord(id, {version: legacy.version, heightCm: 170.5})).status, 400)
+  const complete = await editRecord(id, {version: legacy.version, birthDate: '1990-05-20', heightCm: 170.5, baseWeightKg: 70.2})
+  assert.equal(complete.status, 200)
+  assert.equal((await editRecord(id, {version: complete.body.client.version, birthDate: null, heightCm: null, baseWeightKg: null})).status, 400)
+})
+
+test('HU-017 omitted text preserves legacy whitespace rather than normalizing other fields', async () => {
+  const id = (await database.query("INSERT INTO private.clients(professional_id,full_name,goal) VALUES($1,'  Legacy name  ','  Legacy goal  ') RETURNING id", [actors.proA.professional])).rows[0].id
+  const response = await editRecord(id, {version: 1, waistCm: 81.2})
+  assert.equal(response.status, 200)
+  assert.equal(response.body.client.fullName, '  Legacy name  ')
+  assert.equal(response.body.client.goal, '  Legacy goal  ')
+})
+
+test('HU-017 editing at full capacity consumes no place, but DEC-004 blocks absent/suspended/expired subscriptions', async () => {
+  const id = actors.clientA.client!
+  const usage = async () => (await database.query("SELECT count(*)::int AS n FROM private.clients WHERE professional_id=$1 AND status='active'", [actors.proA.professional])).rows[0].n
+  await database.query("INSERT INTO private.clients(professional_id,full_name) SELECT $1,'Full edit fixture '||n FROM generate_series(1,12) n", [actors.proA.professional])
+  const before = await readRecord(id), count = await usage()
+  assert.equal((await editRecord(id, {version: before.version, goal: 'Edit above capacity'})).status, 200)
+  assert.equal(await usage(), count)
+  const snapshot = (await database.query('SELECT * FROM private.clients WHERE id=$1', [id])).rows[0]
+  for (const status of ['suspended', 'expired']) {
+    await database.query('UPDATE private.subscriptions SET status=$1 WHERE professional_id=$2', [status, actors.proA.professional])
+    const response = await editRecord(id, {version: snapshot.version, goal: 'blocked'})
+    assert.equal(response.status, 403); assert.equal(response.body.error.code, 'SUBSCRIPTION_SUSPENDED')
+  }
+  await database.query("UPDATE private.subscriptions SET status='active' WHERE professional_id=$1", [actors.proA.professional])
+  const sub = (await database.query('DELETE FROM private.subscriptions WHERE professional_id=$1 RETURNING *', [actors.proA.professional])).rows[0]
+  try {
+    const response = await editRecord(id, {version: snapshot.version, goal: 'blocked'})
+    assert.equal(response.status, 403); assert.equal(response.body.error.code, 'PLAN_REQUIRED')
+  } finally { await database.query('INSERT INTO private.subscriptions SELECT * FROM json_populate_record(NULL::private.subscriptions,$1)', [JSON.stringify(sub)]) }
+  assert.deepEqual((await database.query('SELECT * FROM private.clients WHERE id=$1', [id])).rows[0], snapshot)
+})
+
+test('HU-017 failed persistence rolls back fields and version and preserves existing linkage and access records', async () => {
+  const id = actors.clientA.client!, before = await readRecord(id)
+  const related = async () => ({ client: (await database.query('SELECT * FROM private.clients WHERE id=$1', [id])).rows,
+    invitations: (await database.query('SELECT * FROM private.invitations WHERE client_id=$1 ORDER BY id', [id])).rows,
+    events: (await database.query('SELECT * FROM private.access_events WHERE client_id=$1 ORDER BY id', [id])).rows })
+  const snapshot = await related()
+  await database.query("CREATE FUNCTION private.fail_hu017_edit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic failure'; END $$; CREATE TRIGGER fail_hu017_edit AFTER UPDATE ON private.clients FOR EACH ROW EXECUTE FUNCTION private.fail_hu017_edit()")
+  try { assert.equal((await editRecord(id, {version: before.version, goal: 'rollback'})).status, 503) }
+  finally { await database.query('DROP TRIGGER fail_hu017_edit ON private.clients; DROP FUNCTION private.fail_hu017_edit()') }
+  assert.deepEqual(await related(), snapshot)
+  assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount, 0)
+})
+
+test('HU-017 activation capability changes database version and stale editor cannot overwrite the linked record', async () => {
+  const id = (await database.query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'Activation version fixture') RETURNING id", [actors.proA.professional])).rows[0].id
+  const digest = randomBytes(32).toString('hex')
+  const user = (await database.query("INSERT INTO private.users(username,email,password_hash,role) SELECT $1,$2,password_hash,'client' FROM private.users WHERE id=$3 RETURNING id", [`activate.${run}`, `activate.${run}@example.com`, actors.clientB.id])).rows[0].id
+  await database.query("INSERT INTO private.invitations(client_id,token_hash,expires_at) VALUES($1,$2,clock_timestamp()+interval '1 day')", [id, digest])
+  const client = await runtime.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query("SELECT set_config('app.access_operation','activation',true)")
+    await client.query("SELECT set_config('app.client_id',$1,true)", [id])
+    assert.equal((await client.query('SELECT private.link_invited_client($1,$2) AS linked', [digest,user])).rows[0].linked, true)
+    await client.query('COMMIT')
+  } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
+  assert.equal((await readRecord(id)).version, 2)
+  assert.equal((await editRecord(id, {version: 1, goal: 'stale activation edit'})).status, 409)
+  assert.equal((await database.query('SELECT user_id FROM private.clients WHERE id=$1', [id])).rows[0].user_id, user)
+})
+
+test('HU-017 successful editing preserves nonempty invitations and existing access audit without fabricating historical modules', async () => {
+  const id = (await database.query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'Preserved related records') RETURNING id", [actors.proA.professional])).rows[0].id
+  await database.query("INSERT INTO private.invitations(client_id,token_hash,expires_at) VALUES($1,$2,clock_timestamp()+interval '1 day')", [id, randomBytes(32).toString('hex')])
+  await database.query("INSERT INTO private.access_events(actor_id,client_id,action) VALUES($1,$2,'invitation_issued')", [actors.proA.id, id])
+  const related = async () => ({ invitations: (await database.query('SELECT * FROM private.invitations WHERE client_id=$1', [id])).rows,
+    events: (await database.query('SELECT * FROM private.access_events WHERE client_id=$1', [id])).rows })
+  const before = await related()
+  assert.equal(before.invitations.length, 1); assert.equal(before.events.length, 1)
+  assert.equal((await editRecord(id, {version: 1, goal: 'New base goal'})).status, 200)
+  assert.deepEqual(await related(), before)
 })

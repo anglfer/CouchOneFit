@@ -49,6 +49,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610280001_client_read_isolation.sql/);
     assert.match(applied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.match(applied, /Applied: 202610280003_client_portfolio_order.sql/);
+    assert.match(applied, /Applied: 202610280004_client_record_version.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -70,7 +71,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '14'
+      '15'
     );
     await databases[1].query(
       readFileSync(
@@ -175,10 +176,11 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(legacyApplied, /Applied: 202610280001_client_read_isolation.sql/);
     assert.match(legacyApplied, /Applied: 202610280002_invitation_professional_lock.sql/);
     assert.match(legacyApplied, /Applied: 202610280003_client_portfolio_order.sql/);
+      assert.match(legacyApplied, /Applied: 202610280004_client_record_version.sql/);
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '14'
+      '15'
     );
     assert.equal(
       (
@@ -214,7 +216,7 @@ test('migrations and the integrated schema produce the same English database', a
       rows: [preservedClient],
     } = await databases[2].query(
       `SELECT full_name,goal,birth_date,height_cm,base_weight_kg,
-              base_body_fat_percentage,waist_cm,hip_cm
+              base_body_fat_percentage,waist_cm,hip_cm,version
        FROM private.clients WHERE id=$1`,
       [legacyClient.id]
     );
@@ -227,6 +229,7 @@ test('migrations and the integrated schema produce the same English database', a
       base_body_fat_percentage: null,
       waist_cm: null,
       hip_cm: null,
+      version: 1,
     });
     assert.equal(
       (
@@ -255,13 +258,14 @@ test('migrations and the integrated schema produce the same English database', a
     const catalog = async (db: Pool) => {
       const queries = [
         "SELECT table_name,column_name,data_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema='private' ORDER BY table_name,ordinal_position",
+        "SELECT c.relname,t.tgname,pg_get_triggerdef(t.oid) AS definition FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='private' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname",
         "SELECT c.relname,c.relrowsecurity,c.relacl::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='private' AND c.relkind='r' ORDER BY c.relname",
         "SELECT t.relname,c.conname,c.contype,pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='private' AND c.contype<>'n' ORDER BY t.relname,c.conname",
         "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='private' ORDER BY tablename,indexname",
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
         "SELECT nspacl::text FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
-        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client') ORDER BY p.proname",
+        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record') ORDER BY p.proname",
       ];
       return Promise.all(
         queries.map(async (sql) => (await db.query(sql)).rows)

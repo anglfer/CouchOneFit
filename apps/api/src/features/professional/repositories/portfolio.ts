@@ -56,7 +56,7 @@ export async function portfolioRecord(
 ) {
   return readAsSubject(pool, identity.id, async (client) => {
     const { rows } = await client.query(
-      `SELECT c.id,c.full_name AS "fullName",c.goal,c.status,
+      `SELECT c.id,c.full_name AS "fullName",c.goal,c.status,c.version,
       c.birth_date::text AS "birthDate",c.height_cm::float8 AS "heightCm",c.base_weight_kg::float8 AS "baseWeightKg",
       c.base_body_fat_percentage::float8 AS "baseBodyFatPercentage",c.waist_cm::float8 AS "waistCm",c.hip_cm::float8 AS "hipCm"
       ${scope} AND c.id=$3`,
