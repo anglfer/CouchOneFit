@@ -119,10 +119,14 @@ Nueva migración `202610260003_live_plan_catalog.sql` agrega `professionals.plan
 
 La migración incremental `202610270001_client_initial_record.sql` agrega a `private.clients` fecha de nacimiento y medidas base. No modifica ninguna migración aplicada ni rellena filas existentes: las nuevas columnas permanecen anulables para expedientes pre-HU-015. Para nuevas altas, API y restricciones SQL exigen el conjunto base consistente y validan rangos, unidades y precisión; `goal` y las medidas opcionales continúan anulables. No almacena selector de cálculo de grasa, evaluaciones ni mediciones históricas.
 
-El esquema integrado vigente es `schemas/identity_access.sql` y refleja las trece migraciones. Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
+El esquema integrado vigente es `schemas/identity_access.sql` y refleja las catorce migraciones en la rama HU-016. Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
 
 ### TT-010: lectura de expedientes
 
 `202610280001_client_read_isolation.sql` sustituye la lectura general de `private.clients` por RLS de cuenta activa y propiedad. `202610280002_invitation_professional_lock.sql` conserva el bloqueo de la cuenta profesional en la consulta anónima limitada por invitación. La segunda migración corrige la regresión detectada después de aplicar localmente la primera, sin editar SQL ya aplicado. No hay borrado ni transformación de datos.
 
 Los consumidores autenticados establecen contexto local a la transacción. Activación, directorio administrativo y limpieza usan funciones de capacidad limitada, sin lectura general ni privilegios elevados del login runtime. BD y API deben actualizarse de forma coordinada: una API anterior no establece todos los contextos requeridos. [Diseño, consumidores y evidencia](../epicas/ep-03-cartera-y-expediente/hu-015/tt-010-client-read-isolation.md). La revisión independiente y el cierre general de TT-010/D0 siguen pendientes.
+
+## Consulta de cartera — HU-016
+
+La migración 202610280003_client_portfolio_order.sql agrega únicamente el índice compuesto por professional_id, created_at DESC e id DESC para recorrido por propietario/cursor. No cambia datos, grants ni RLS. El repositorio profesional usa readAsSubject, parámetros y propietario además de RLS; la lectura por ID conserva NULL históricos. Ver [contrato y evidencia](../epicas/ep-03-cartera-y-expediente/hu-016/README.md).

@@ -1,5 +1,7 @@
 # Glosario de identidad y acceso
 
+HU-016 amplía `GET /api/clients` con `search`, `status`, `pageSize`, `cursor` y respuesta `hasClients`, `pageInfo: { pageSize, hasMore, nextCursor }`, conservando `clients`. La búsqueda es literal por `fullName`; el profesional se obtiene de sesión. La ficha auxiliar `GET /api/clients/{clientId}` devuelve `client` con datos base propios, sin propietario/cuenta, edición ni expediente consolidado. `status` filtra el expediente, no el estado de la cuenta. [Contrato y límites de cursor](../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
+
 Este glosario es la referencia acordada para los nombres de identidad y acceso. Los identificadores de base de datos usan `snake_case` en inglés; los campos de TypeScript, JavaScript, Dart y JSON usan `camelCase` en inglés; los tipos y componentes usan `PascalCase` en inglés. El español se conserva en los textos que ve la persona usuaria.
 
 ## Objetos y campos de base de datos
