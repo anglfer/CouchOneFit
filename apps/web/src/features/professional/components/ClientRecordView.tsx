@@ -69,10 +69,26 @@ function ClientRecordContent({
   }, [clientId, attempt, requestKey]);
   return (
     <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border space-y-4">
-      <Link to="/app/clientes">Volver a mi cartera</Link>
+      <Link
+        to="/app/clientes"
+        className="inline-block text-indigo-600! dark:text-indigo-400! font-semibold"
+      >
+        ← Volver a mi cartera
+      </Link>
       <h1 className="text-xl font-bold">Expediente del cliente</h1>
-      {saved && <p role="status">Los cambios se guardaron correctamente.</p>}
-      {statusSaved && <p role="status">{statusSaved}</p>}
+      {[saved && 'Los cambios se guardaron correctamente.', statusSaved]
+        .filter(Boolean)
+        .map((notice) => (
+          <p
+            key={notice as string}
+            role="status"
+            // The editor collapses after saving; bring the confirmation into view.
+            ref={(node) => node?.scrollIntoView?.({ block: 'center' })}
+            className="font-semibold text-emerald-700 dark:text-emerald-400"
+          >
+            ✓ {notice}
+          </p>
+        ))}
       {loading ? (
         <p role="status">Cargando expediente…</p>
       ) : error ? (
@@ -102,45 +118,49 @@ function ClientRecordContent({
           />
         ) : (
           <>
-            <h2 className="font-bold">{record.fullName}</h2>
-            <button
-              type="button"
-              disabled={statusBusy}
-              onClick={() => setAttempt((n) => n + 1)}
-            >
-              Actualizar expediente
-            </button>
-            <button
-              type="button"
-              disabled={statusBusy}
-              onClick={() => {
-                setSaved(false);
-                setEditing(true);
-              }}
-            >
-              Editar datos base
-            </button>
-            <ClientStatusAction
-              sessionReady={sessionReady}
-              clientId={clientId}
-              status={record.status}
-              accountId={accountId}
-              onBusyChange={setStatusBusy}
-              onChanged={(updated) => {
-                setResult((current) => ({
-                  ...current,
-                  key: requestKey,
-                  record: updated,
-                  error: '',
-                }));
-                setStatusSaved(
-                  updated.status === 'active'
-                    ? 'El expediente está activo.'
-                    : 'El expediente está inactivo.'
-                );
-                onStatusChanged();
-              }}
-            />
+            <h2 className="text-lg font-bold">{record.fullName}</h2>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => {
+                  setSaved(false);
+                  setEditing(true);
+                }}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                Editar datos base
+              </button>
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => setAttempt((n) => n + 1)}
+                className="px-4 py-2 border rounded-lg disabled:opacity-50"
+              >
+                Actualizar expediente
+              </button>
+              <ClientStatusAction
+                sessionReady={sessionReady}
+                clientId={clientId}
+                status={record.status}
+                accountId={accountId}
+                onBusyChange={setStatusBusy}
+                onChanged={(updated) => {
+                  setResult((current) => ({
+                    ...current,
+                    key: requestKey,
+                    record: updated,
+                    error: '',
+                  }));
+                  setStatusSaved(
+                    updated.status === 'active'
+                      ? 'El expediente está activo.'
+                      : 'El expediente está inactivo.'
+                  );
+                  onStatusChanged();
+                }}
+              />
+            </div>
             <h3 className="font-bold">Perfil y medidas base</h3>
             <ClientBaseDetails record={record} />
             {sections && <ClientRecordSections sections={sections} />}

@@ -156,9 +156,9 @@ export default function ClientStatusAction({
             event.preventDefault();
             close();
           }}
-          className="rounded-xl p-6 space-y-4 max-w-lg"
+          className="m-auto rounded-xl p-6 space-y-4 max-w-lg border bg-white text-slate-900 dark:bg-[#0c152c] dark:text-white backdrop:bg-black/60"
         >
-          <h2 id={`status-title-${clientId}`}>
+          <h2 id={`status-title-${clientId}`} className="text-lg font-bold">
             {desired === 'inactive'
               ? 'Confirmar inactivación del expediente'
               : 'Confirmar reactivación del expediente'}
@@ -177,7 +177,13 @@ export default function ClientStatusAction({
             {snapshot.status === 'active' ? 'Activo' : 'Inactivo'}.
           </p>
           {error && <p role="alert">{error}</p>}
-          <button ref={cancel} type="button" disabled={pending} onClick={close}>
+          <button
+            ref={cancel}
+            type="button"
+            disabled={pending}
+            onClick={close}
+            className="mr-2 px-4 py-2 border rounded-lg disabled:opacity-50"
+          >
             Cancelar cambio de estado
           </button>
           {snapshot.status === desired ? (
@@ -195,6 +201,7 @@ export default function ClientStatusAction({
                   notify.current?.(false);
                   onChanged(snapshot);
                 }}
+                className="mr-2 px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
               >
                 Actualizar vistas con este estado
               </button>
@@ -204,6 +211,7 @@ export default function ClientStatusAction({
               type="button"
               disabled={pending || blocked}
               onClick={() => void confirm()}
+              className="mr-2 px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
             >
               {pending
                 ? 'Procesando…'
@@ -212,7 +220,12 @@ export default function ClientStatusAction({
                   : 'Confirmar reactivación'}
             </button>
           )}
-          <button type="button" disabled={pending} onClick={() => void load()}>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => void load()}
+            className="mr-2 px-4 py-2 border rounded-lg disabled:opacity-50"
+          >
             Consultar estado actual
           </button>
         </dialog>

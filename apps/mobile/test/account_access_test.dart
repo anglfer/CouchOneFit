@@ -157,8 +157,29 @@ void main() {
     pending.complete(
         const ApiHttpResponse(statusCode: 200, body: {'valid': true}));
     await tester.pumpAndSettle();
-    expect(find.text('El código está disponible. Comprobarlo no lo consume.'),
-        findsOneWidget);
+    final result =
+        find.text('El código está disponible. Comprobarlo no lo consume.');
+    expect(result, findsOneWidget);
+    // The check result sits by its button, not below the whole form.
+    expect(tester.getTopLeft(result).dy,
+        lessThan(tester.getTopLeft(find.text('Usuario')).dy));
+    // A later submit error replaces the check result and sits by the submit button.
+    for (final key in ['username', 'email', 'emailConfirmation']) {
+      await fill(tester, key, 'cliente@example.com');
+    }
+    await fill(tester, 'username', 'cliente.fit');
+    await fill(tester, 'password', password);
+    await fill(tester, 'passwordConfirmation', password);
+    final submit = find.widgetWithText(FilledButton, 'Activar mi cuenta');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(result, findsNothing);
+    final notice = find.text('Confirma la información de registro vigente.');
+    expect(notice, findsOneWidget);
+    expect(tester.getTopLeft(notice).dy,
+        greaterThan(tester.getTopLeft(find.byType(CheckboxListTile)).dy));
+    expect(calls, 1);
   });
   testWidgets(
       'recovery presents assisted procedure and submits only code and new password confirmations',

@@ -112,9 +112,9 @@ export default function ClientAccountAction({
             event.preventDefault();
             close();
           }}
-          className="rounded-xl p-6 space-y-4 max-w-lg"
+          className="m-auto rounded-xl p-6 space-y-4 max-w-lg border bg-white text-slate-900 dark:bg-[#0c152c] dark:text-white backdrop:bg-black/60"
         >
-          <h2 id={`account-title-${clientId}`}>
+          <h2 id={`account-title-${clientId}`} className="text-lg font-bold">
             {target === 'inactive'
               ? 'Confirmar baja de la cuenta'
               : 'Confirmar reactivación de la cuenta'}
@@ -126,13 +126,20 @@ export default function ClientAccountAction({
               : 'La persona podrá volver a iniciar sesión. No se recuperan las sesiones cerradas y el expediente no se reactiva automáticamente: su estado y su plaza se administran aparte.'}
           </p>
           {error && <p role="alert">{error}</p>}
-          <button ref={cancel} type="button" disabled={pending} onClick={close}>
+          <button
+            ref={cancel}
+            type="button"
+            disabled={pending}
+            onClick={close}
+            className="mr-2 px-4 py-2 border rounded-lg disabled:opacity-50"
+          >
             Cancelar cambio de cuenta
           </button>
           <button
             type="button"
             disabled={pending}
             onClick={() => void confirm()}
+            className="mr-2 px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
           >
             {pending
               ? 'Procesando…'

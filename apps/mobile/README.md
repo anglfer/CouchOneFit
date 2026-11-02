@@ -121,3 +121,60 @@ El archivo se incluye como recurso en la app compilada usando el
 [mecanismo de assets de Flutter](https://docs.flutter.dev/ui/assets/assets-and-images).
 Solo debe contener configuración pública como la URL de la API: nunca
 `DATABASE_URL`, contraseñas ni claves privadas de Supabase. No agrega dependencias.
+
+## Gradle en Windows: conexión loopback
+
+Si `flutter build apk` falla con `java.io.IOException: Unable to establish
+loopback connection`, se comprobó localmente el 02/nov/2026 que una ruta corta
+para los sockets temporales de Java permite compilar. En esta máquina,
+`C:\pipetmp` funcionó; una carpeta bajo `%TEMP%` no evitó el error.
+
+Desde `apps/mobile`, en PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Path C:\pipetmp -Force | Out-Null
+$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
+try {
+  $env:JAVA_TOOL_OPTIONS = "$previousJavaToolOptions -Djdk.net.unixdomain.tmpdir=C:\pipetmp".Trim()
+  flutter build apk --debug --target-platform android-x64
+} finally {
+  $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
+}
+```
+
+`android-x64` corresponde al emulador x86_64; para el teléfono ARM64 usa
+`android-arm64`. La variable solo afecta a ese proceso y sus hijos; no requiere
+cambiar la configuración global de Java, Gradle ni Windows. Mantén la carpeta
+mientras haya procesos Java usándola. Compilar el APK no acredita el recorrido
+de login/perfil: esa comprobación se registra por separado en el
+[seguimiento de auditoría](../../docs/epicas/ep-03-cartera-y-expediente/seguimiento-auditoria.md).
+
+## Recorrido Android de login y expediente
+
+`integration_test/client_login_profile_test.dart` usa una cuenta sintética ya
+activada contra una API local. Requiere un dispositivo de pruebas: limpia su
+sesión móvil al empezar y cierra sesión al terminar. No restablece contraseñas,
+no edita expedientes y no crea pagos/suscripciones. La fixture A del preparador
+`apps/api/scripts/prepare-client-record-e2e.ts` debe estar activada: nacimiento
+15/06/1990, estatura 170.5 cm, peso base 70.2 kg y objetivo «Objetivo base HU020».
+
+Prepara un archivo local ignorado `.env.qa-login.json` con las claves
+`API_BASE_URL`, `QA_CLIENT_USERNAME`, `QA_CLIENT_PASSWORD`,
+`QA_CLIENT_FULL_NAME` y `QA_CLIENT_GOAL`. La prueba rechaza destinos de API fuera
+de loopback/alias del emulador; el operador debe comprobar también que la API
+apunte a `CouchOneFit_test`. Usa una cuenta nueva sin alterar fixtures anteriores.
+
+```powershell
+flutter test integration_test/client_login_profile_test.dart -d <emulador> --dart-define-from-file=.env.qa-login.json
+```
+
+En el recorrido del 02/nov se usó un AVD aislado API 37, renderizador software y
+`--no-enable-impeller` como configuración de diagnóstico; no se cambió el
+renderizador en el código o los manifiestos de la app.
+
+Comprueba login real, identidad/objetivo, medidas con unidades, actualización,
+restauración de sesión desde el almacén nativo y cierre de sesión. Captura
+`client-login-profile.png` y `client-base-measurements.png` en la caché privada
+de la app de pruebas. Los archivos de credenciales y el APK de integración son
+solo locales: no se versionan ni distribuyen. Esta prueba del asistente no
+sustituye aceptación humana ni revisión independiente.

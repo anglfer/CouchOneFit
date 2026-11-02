@@ -23,6 +23,8 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
   bool _passwordVisible = false;
   String? _error;
   String? _status;
+  // Where the latest message came from: shown next to the code check, else by submit.
+  bool _fromCodeCheck = false;
   bool get _activation => widget.mode == AccountAccessMode.activation;
   bool get _credentials => widget.mode == AccountAccessMode.credentials;
   TextEditingController _controller(String field) =>
@@ -38,13 +40,18 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
   Future<void> _submit() async {
     if (_busy || !_form.currentState!.validate()) return;
     if (_activation && !_acceptsNotice) {
-      setState(() => _error = 'Confirma la información de registro vigente.');
+      setState(() {
+        _fromCodeCheck = false;
+        _status = null;
+        _error = 'Confirma la información de registro vigente.';
+      });
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
       _status = null;
+      _fromCodeCheck = false;
     });
     final body = <String, Object?>{
       for (final entry in _fields.entries) entry.key: entry.value.text,
@@ -85,13 +92,18 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
   Future<void> _checkCode() async {
     final value = _controller('code').text;
     if (!RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(value)) {
-      setState(() => _error = 'Escribe el código completo de 43 caracteres.');
+      setState(() {
+        _fromCodeCheck = true;
+        _status = null;
+        _error = 'Escribe el código completo de 43 caracteres.';
+      });
       return;
     }
     setState(() {
       _busy = true;
       _error = null;
       _status = null;
+      _fromCodeCheck = true;
     });
     try {
       await widget.authService.prevalidate(value);
@@ -107,6 +119,31 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  List<Widget> _messages() => [
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+        if (_status != null) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _status!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ];
 
   Widget _field(String name, String label,
       {bool secret = false, String? autofill, TextInputType? keyboard}) {
@@ -290,6 +327,10 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                                       label: const Text('Comprobar código'),
                                     ),
                                   ),
+                                if (_fromCodeCheck) ...[
+                                  ..._messages(),
+                                  const SizedBox(height: 16),
+                                ],
                               ],
                               if (_activation || _credentials)
                                 _field('username', 'Usuario',
@@ -399,32 +440,7 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                                   ),
                                 ),
                               ],
-                              if (_error != null) ...[
-                                const SizedBox(height: 12),
-                                Semantics(
-                                  liveRegion: true,
-                                  child: Text(
-                                    _error!,
-                                    style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .error),
-                                  ),
-                                ),
-                              ],
-                              if (_status != null) ...[
-                                const SizedBox(height: 12),
-                                Semantics(
-                                  liveRegion: true,
-                                  child: Text(
-                                    _status!,
-                                    style: TextStyle(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              if (!_fromCodeCheck) ..._messages(),
                               const SizedBox(height: 18),
                               GradientActionButton(
                                 label: _activation

@@ -402,7 +402,14 @@ export default function ClientAccessPanel({
         >
           {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
         </button>
-        {saved && <p role="status">{saved}</p>}
+        {saved && (
+          <p
+            role="status"
+            className="font-semibold text-emerald-700 dark:text-emerald-400"
+          >
+            ✓ {saved}
+          </p>
+        )}
       </form>
       <form
         aria-label="Buscar en mi cartera"
@@ -470,7 +477,11 @@ export default function ClientAccessPanel({
             <option value={100}>100</option>
           </select>
         </label>
-        <button type="submit" disabled={!!busy} className="border rounded p-2">
+        <button
+          type="submit"
+          disabled={!!busy}
+          className="self-end border rounded-lg px-4 py-2"
+        >
           Buscar
         </button>
       </form>
@@ -499,7 +510,12 @@ export default function ClientAccessPanel({
           {clients.map((record) => (
             <li key={record.id} className="border rounded-xl p-4 space-y-3">
               <h2 className="font-bold">
-                <Link to={`/app/clientes/${record.id}`}>{record.fullName}</Link>
+                <Link
+                  to={`/app/clientes/${record.id}`}
+                  className="text-indigo-600! dark:text-indigo-400! underline underline-offset-4 hover:text-indigo-700!"
+                >
+                  {record.fullName}
+                </Link>
               </h2>
               <p>{record.goal}</p>
               <p>
@@ -520,68 +536,110 @@ export default function ClientAccessPanel({
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
               )}
-              <ClientStatusAction
-                sessionReady={sessionReady}
-                clientId={record.id}
-                status={record.status}
-                accountId={accountId}
-                disabled={!!busy}
-                onBusyChange={(pending) => {
-                  setBusy(pending ? record.id : '');
-                  if (pending) setDelivery(null);
-                }}
-                onChanged={(updated) => {
-                  setStatusNotice(
-                    `El expediente de ${updated.fullName} está ${updated.status === 'active' ? 'activo' : 'inactivo'}.`
-                  );
-                  setCursors([null]);
-                  setAttempt((value) => value + 1);
-                  onStatusChanged();
-                }}
-              />
-              {record.userId && record.accountStatus && (
-                <ClientAccountAction
+              <div className="flex flex-wrap gap-2">
+                <ClientStatusAction
                   sessionReady={sessionReady}
                   clientId={record.id}
-                  fullName={record.fullName}
-                  accountStatus={record.accountStatus}
+                  status={record.status}
                   accountId={accountId}
                   disabled={!!busy}
                   onBusyChange={(pending) => {
                     setBusy(pending ? record.id : '');
                     if (pending) setDelivery(null);
                   }}
-                  onChanged={(status) => {
+                  onChanged={(updated) => {
                     setStatusNotice(
-                      `La cuenta de ${record.fullName} está ${status === 'active' ? 'activa' : 'dada de baja'}.`
+                      `El expediente de ${updated.fullName} está ${updated.status === 'active' ? 'activo' : 'inactivo'}.`
                     );
+                    setCursors([null]);
                     setAttempt((value) => value + 1);
+                    onStatusChanged();
                   }}
                 />
-              )}
-              {!record.userId && record.status === 'active' && (
-                <button
-                  type="button"
-                  disabled={!!busy}
-                  onClick={() => void invitation(record)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                {record.userId && record.accountStatus && (
+                  <ClientAccountAction
+                    sessionReady={sessionReady}
+                    clientId={record.id}
+                    fullName={record.fullName}
+                    accountStatus={record.accountStatus}
+                    accountId={accountId}
+                    disabled={!!busy}
+                    onBusyChange={(pending) => {
+                      setBusy(pending ? record.id : '');
+                      if (pending) setDelivery(null);
+                    }}
+                    onChanged={(status) => {
+                      setStatusNotice(
+                        `La cuenta de ${record.fullName} está ${status === 'active' ? 'activa' : 'dada de baja'}.`
+                      );
+                      setAttempt((value) => value + 1);
+                    }}
+                  />
+                )}
+                {!record.userId && record.status === 'active' && (
+                  <button
+                    type="button"
+                    disabled={!!busy}
+                    onClick={() => void invitation(record)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                  >
+                    {busy === record.id
+                      ? 'Procesando…'
+                      : record.invitationExpiresAt
+                        ? 'Reemplazar invitación'
+                        : 'Generar invitación'}
+                  </button>
+                )}
+                {record.invitationExpiresAt && (
+                  <button
+                    type="button"
+                    disabled={!!busy}
+                    onClick={() => void invitation(record, true)}
+                    className="px-4 py-2 border rounded-lg"
+                  >
+                    Revocar invitación
+                  </button>
+                )}
+              </div>
+              {delivery?.clientId === record.id && (
+                <div
+                  role="status"
+                  className="border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl p-4 space-y-3"
                 >
-                  {busy === record.id
-                    ? 'Procesando…'
-                    : record.invitationExpiresAt
-                      ? 'Reemplazar invitación'
-                      : 'Generar invitación'}
-                </button>
-              )}
-              {record.invitationExpiresAt && (
-                <button
-                  type="button"
-                  disabled={!!busy}
-                  onClick={() => void invitation(record, true)}
-                  className="px-4 py-2 border rounded-lg"
-                >
-                  Revocar invitación
-                </button>
+                  <h3 className="font-bold">
+                    Invitación para {record.fullName}
+                  </h3>
+                  <p>
+                    Entrega el código de forma privada. Solo se muestra en esta
+                    entrega. Vence el{' '}
+                    {new Date(delivery.expiresAt).toLocaleString('es-MX')}
+                  </p>
+                  <label className="block">
+                    Código de invitación
+                    <input
+                      readOnly
+                      value={delivery.code}
+                      onFocus={(event) => event.currentTarget.select()}
+                      className="w-full border p-3 rounded-lg font-mono"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void copyCode()}
+                      className="px-4 py-2 border rounded-lg"
+                    >
+                      {copied ? 'Copiado' : 'Copiar código'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDelivery(null)}
+                      className="px-4 py-2 rounded-lg"
+                    >
+                      Ocultar código
+                    </button>
+                  </div>
+                </div>
               )}
             </li>
           ))}
@@ -595,12 +653,14 @@ export default function ClientAccessPanel({
           type="button"
           disabled={!!busy || loading || cursors.length <= 1}
           onClick={() => setCursors((current) => current.slice(0, -1))}
+          className="px-3 py-1.5 border rounded-lg disabled:opacity-40"
         >
           Anterior
         </button>
         <span>Página {cursors.length}</span>
         <button
           type="button"
+          className="px-3 py-1.5 border rounded-lg disabled:opacity-40"
           disabled={!!busy || loading || !!listError || !pageInfo?.hasMore}
           onClick={() => {
             if (pageInfo?.nextCursor)
@@ -620,45 +680,6 @@ export default function ClientAccessPanel({
             }}
           >
             Reintentar consulta
-          </button>
-        </div>
-      )}
-      {delivery && !loading && (
-        <div role="status" className="border rounded-xl p-4 space-y-3">
-          <h2 className="font-bold">
-            Invitación para{' '}
-            {
-              clients.find((record) => record.id === delivery.clientId)
-                ?.fullName
-            }
-          </h2>
-          <p>
-            Entrega el código de forma privada. Vence el{' '}
-            {new Date(delivery.expiresAt).toLocaleString('es-MX')}. Solo se
-            muestra en esta entrega.
-          </p>
-          <label className="block">
-            Código de invitación
-            <input
-              readOnly
-              value={delivery.code}
-              onFocus={(event) => event.currentTarget.select()}
-              className="w-full border p-3 rounded-lg font-mono"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => void copyCode()}
-            className="px-4 py-2 border rounded-lg"
-          >
-            {copied ? 'Copiado' : 'Copiar código'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDelivery(null)}
-            className="px-4 py-2"
-          >
-            Ocultar código
           </button>
         </div>
       )}

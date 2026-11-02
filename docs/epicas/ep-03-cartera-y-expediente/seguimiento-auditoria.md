@@ -85,3 +85,90 @@ Revisión por el asistente a petición de la persona usuaria (HU-015, HU-007, HU
 | Móvil `flutter analyze` / `flutter test` | Sin incidencias / **41/41** (sin cambios móviles). |
 | `git diff --check` | Limpio. |
 | Recorrido en navegador | No completado: la sesión abierta en el navegador integrado pertenecía a una cuenta QA previa (`qa.audit.pro`) y no se cerró ni se modificó su cartera. El recorrido HTTP se acredita con la prueba vertical (T), no como reporte humano. |
+
+### Recorrido visual 02/nov/2026 (asistente, no sustituye revisión humana)
+
+Web (navegador integrado, 1280 px y 375 px) y app móvil en emulador Android (Medium_Phone, API 37) contra API local y `CouchOneFit_test`, con datos sintéticos (cuenta de pruebas `qa.audit.pro`, cliente «Valeria Ñúñez QA Visual»). **T/E**, no **R**.
+
+- [x] Web: alta → cupo 0/10→1/10 sin recargar (corrección anterior) → cartera → invitación → ficha → edición (63.1 kg) → inactivar/reactivar con modal → ancho 375 px.
+- [x] Móvil: bienvenida → activar cuenta → código falso («El código no está disponible…») → código real («El código está disponible. Comprobarlo no lo consume.») → campos → aviso sin marcar. La activación vinculó la cuenta (cartera: `userId` presente, cuenta activa, sin invitación residual).
+- [ ] **No visto en este recorrido:** el perfil del cliente tras activar ni el login móvil. La app debug quedó en «no responde» (ANR); la carga del equipo se consideró una posible causa, sin diagnóstico suficiente para atribuirle ese ANR. Pendiente de recorrido humano en un teléfono físico (ver guía de HU-020).
+
+Ajustes de presentación derivados (sin cambiar contratos ni lógica):
+- Web: enlace del nombre en la cartera con color y subrayado; botones agrupados; código de invitación dentro de la tarjeta de su cliente (antes quedaba al final de la página); avisos de éxito en verde con ✓ y visibles tras guardar; ficha con datos en cuadrícula, fecha legible («14 de marzo de 1998») y secciones en tarjetas; diálogos de estado/cuenta centrados, con fondo oscurecido y botones con estilo.
+- Móvil: el resultado de «Comprobar código» aparece bajo su botón (antes al final del formulario, fuera de vista); un error posterior de envío lo reemplaza junto a «Activar mi cuenta». Prueba nueva en `account_access_test.dart`.
+
+Verificación: Web 38/38, lint y build OK, Prettier OK en los 6 archivos tocados; móvil `flutter analyze` sin incidencias y 41/41.
+
+### Continuación 02/nov/2026 — login y perfil Android (Codex)
+
+Se retoman los dos puntos que no se pudieron ver en el recorrido anterior.
+Prueba del asistente **T/E**, no aceptación humana **R** ni revisión independiente
+D0.8. Se conservan los cambios de presentación anteriores; no hizo falta cambiar
+código funcional de login/perfil.
+
+- **Entorno comprobado:** API en `127.0.0.1:3000`, conexión efectiva a
+  `CouchOneFit_test` local. Sin acceso ni escritura en producción.
+- **Diagnóstico del AVD anterior:** `Medium_Phone` API 37 registró ANR de teléfono,
+  System UI, teclado, launcher y servicios Google antes de abrir CouchOneFit. Se
+  inspeccionó en pantalla «Pixel Launcher isn't responding». `/data` estaba al
+  93 %, con 459 MB disponibles; Android registró fallos al intentar liberar
+  espacio. Esto acredita problemas del entorno, pero no establece la causa
+  exacta del ANR de la app del recorrido anterior ni descarta cualquier problema
+  de rendimiento de la app.
+- **Recorrido completado:** AVD nuevo `CouchOneFit_QA_Codex`, API 37/x86_64,
+  720×1600, disco de datos 12 GB (11 GB disponibles al iniciar), renderizador
+  software, dos núcleos solicitados y 4096 MB de RAM efectiva impuesta por el
+  emulador. Se usó `--no-enable-impeller` en la prueba, sin modificar configuración
+  de producto. El primer arranque también registró ANR de servicios Google;
+  hubo una actualización simultánea de Play Store durante la instalación. No se
+  presenta este AVD como una reparación general del emulador original.
+- **Fixture aditiva:** preparador existente `prepare-client-record-e2e.ts`,
+  profesional nuevo `qa.hu020.mvziw5uz`, expedientes sintéticos A/B; A se activó
+  mediante API como `mobile.mvziw5uz`. No se restablecieron cuentas anteriores.
+  Lectura SQL posterior confirma a Valeria con el mismo vínculo, objetivo
+  «Definición», peso 63.1 kg y cuenta activa. Credenciales solo en archivos
+  `.env.*` locales ignorados.
+- **Prueba nueva:** `apps/mobile/integration_test/client_login_profile_test.dart`
+  ejecuta la UI Flutter en Android con la API real, sin mocks: bienvenida → login
+  → expediente propio con nombre/usuario/correo/objetivo → actualizar → datos base
+  (15/06/1990, 170.5 cm, 70.2 kg) → recrear la app y restaurar desde el almacén
+  nativo → cerrar sesión → bienvenida/login, sin datos del cliente ni sesión en
+  el almacén activo o en una lectura nativa nueva. Las credenciales se introducen
+  con el tester porque la entrada de teclado mediante ADB perdió caracteres.
+- **Inspección visual:** capturas del perfil y de las medidas tomadas durante el
+  desarrollo de la prueba y revisadas por el
+  asistente; textos y acciones legibles, nombre largo en varias líneas, objetivo
+  y unidades visibles, progreso descrito como todavía no disponible. Copias
+  locales ignoradas en `apps/mobile/.env.codex-evidence/client-login-profile.png`
+  y `client-base-measurements.png`; no son capturas humanas.
+- **Ajustes de la prueba durante su desarrollo:** una ejecución esperaba login
+  directo después de cerrar una sesión restaurada, pero el comportamiento
+  existente vuelve a bienvenida; otra leía el fallback de la instancia descartada.
+  Se corrigió la prueba para comprobar la navegación real y el almacenamiento
+  de la instancia vigente, más una instancia nueva. Ambos fallos correspondían
+  a expectativas incorrectas de la prueba; la ejecución final pasó completa.
+
+| Comprobación nueva | Resultado |
+| --- | --- |
+| `flutter analyze` | Sin incidencias. |
+| Suite móvil de widgets/unidad `flutter test` | **41/41**. |
+| Análisis y formato del nuevo test de integración | Sin incidencias; formato correcto. |
+| Recorrido Android de login/perfil | **1/1**, ejecución final 36 s; login, medidas, actualización, restauración y logout aprobados. |
+| APK debug x86_64 de la app | Compilado con `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=C:\pipetmp`. |
+
+Se reprodujo el fallo Gradle «Unable to establish loopback connection» con una
+carpeta bajo `%TEMP%`; la ruta corta `C:\pipetmp` permitió compilar. Procedimiento
+y reproducción del recorrido añadidos a `apps/mobile/README.md`. No se borra esa
+carpeta mientras haya procesos Java que puedan usarla. La activación UI inmediata
+→ perfil con la cuenta Valeria no se repitió; la activación API nueva y el login
+móvil posterior sí se comprobaron. No se acredita teléfono físico, iOS, release,
+aceptación humana ni diagnóstico causal completo del ANR original. Sin
+commit/push/PR/despliegue. Web y API no se modificaron en esta continuación ni se
+atribuyen como nuevas sus suites previas.
+
+Cierre de esta continuación: APK normal de `lib/main.dart` recompilado después
+del test (debug x86_64, 33.5 s, sin defines QA de integración). API propia detenida
+tras verificar el proceso propietario del puerto; AVD `CouchOneFit_QA_Codex`
+apagado mediante su consola ADB. Se conservan fixtures, AVD aislado y capturas
+locales para reproducir. `git diff --check` sin errores de espacios.
