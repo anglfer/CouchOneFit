@@ -51,3 +51,18 @@ La redistribución posterior solo modifica documentación: se comprobaron siete 
 Solo se usan bases temporales locales en loopback. Una ejecución de la suite completa se interrumpió por `ECONNRESET`: faltaban archivos auxiliares del paquete PostgreSQL temporal (`share/timezonesets`). Se restauraron archivos locales faltantes del paquete ya disponible y se repite la suite; esa ejecución interrumpida no se acredita como regresión funcional ni como prueba aprobada.
 
 Móvil no cambia en este incremento: la auditoría previa registró 41/41 y análisis sin incidencias; no son ejecuciones nuevas. No se repite recorrido humano de navegador/Android, no se modifican datos compartidos ni se realizan commit/push/PR/merge/despliegue. La aceptación de cada HU fuente exige su conexión y pruebas futuras; la aceptación de la base EP-03 exige su propia revisión independiente, sin esperar a implementar las fuentes trasladadas.
+
+## Revisión 02/nov/2026 — recuento HU-014 y suite completa
+
+Revisión de la persona usuaria sobre la rama común, sin commit/push/PR.
+
+- [x] El plan añadió a HU-015-QA1 y HU-018-QA1 comprobar el recuento HU-014. Nueva prueba en `apps/api/tests/saas.test.ts` («admin directory counts follow record creation, inactivation and reactivation»): `/api/admin/professionals` devuelve `clientsUsed`/`inactiveClients` 0/0 → dos altas 2/0 → inactivar 1/1 → reactivar 2/0, con runtime restringido.
+- [x] Plan §8/§10: HU-019/020 pasan a `Impl local` base y se retira «HU-019/020 completo» de S5, conforme a la redistribución del 31/oct.
+
+| Comprobación | Resultado |
+| --- | --- |
+| API build | Aprobado. |
+| API suite completa (PostgreSQL 18.1 local, `CouchOneFit_test` migrada con las 18 migraciones) | **126/126** (107 s). |
+| Web tests / lint / build + PWA | 38/38, aprobado, aprobado. |
+
+Requisitos de entorno observados: `TEST_DATABASE_URL` debe exportarse en el shell (varios tests la leen antes de cargar `.env`), apuntar a `127.0.0.1` (no `localhost`, exigido por `client-read-isolation.test.ts`) y a una base `_test` local ya migrada (`DATABASE_URL=<url de prueba> npm run db:migrate`). Nunca con la `DATABASE_URL` compartida. Móvil y recorridos humanos no se repitieron. D0.8 (revisión de otro integrante) sigue sin acreditarse.

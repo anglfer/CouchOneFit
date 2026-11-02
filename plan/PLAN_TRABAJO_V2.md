@@ -1657,26 +1657,26 @@ Estas son Issues técnicos, no funcionalidades extra. Cada sub-ID también puede
 
 | ID     | Épica | Historia                          | Responsable    | API | Web | Móvil | BD/Infra | Pri. | Depende de                                             | Sprint                 | Estado   |      SP |
 | ------ | ----- | --------------------------------- | -------------- | --- | --- | ----- | -------- | ---- | ------------------------------------------------------ | ---------------------- | -------- | ------: |
-| HU-001 | EP-01 | Registro profesional              | Ferxxo         | ✓   | ✓   | —     | BD       | P1   | TT-003/004/010; DEC-001/002/005                        | S1                     | Pend     |       5 |
-| HU-002 | EP-01 | Login profesional                 | Ferxxo         | ✓   | ✓   | —     | BD       | P0   | HU-001; DEC-004                                        | S1                     | Pend     |       5 |
-| HU-003 | EP-01 | Acceso administrativo separado    | Omar           | ✓   | ✓   | —     | BD       | P0   | TT-004/010; DEC-001                                    | S1                     | Pend     |       3 |
-| HU-004 | EP-01 | Login cliente posterior           | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | TT-004/010; cuenta fixture                             | S1–S2                  | Pend     |       5 |
-| HU-005 | EP-01 | Ciclo sesión/logout/expiración    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P0   | TT-004; DEC-002/004                                    | S1                     | Pend     |       5 |
+| HU-001 | EP-01 | Registro profesional              | Ferxxo         | ✓   | ✓   | —     | BD       | P1   | TT-003/004/010; DEC-001/002/005                        | S1                     | Impl local |       5 |
+| HU-002 | EP-01 | Login profesional                 | Ferxxo         | ✓   | ✓   | —     | BD       | P0   | HU-001; DEC-004                                        | S1                     | Impl local |       5 |
+| HU-003 | EP-01 | Acceso administrativo separado    | Omar           | ✓   | ✓   | —     | BD       | P0   | TT-004/010; DEC-001                                    | S1                     | Impl local |       3 |
+| HU-004 | EP-01 | Login cliente posterior           | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | TT-004/010; cuenta fixture                             | S1–S2                  | Impl local |       5 |
+| HU-005 | EP-01 | Ciclo sesión/logout/expiración    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P0   | TT-004; DEC-002/004                                    | S1                     | Impl local |       5 |
 | HU-006 | EP-01 | Modificar credenciales cliente    | Ferxxo         | ✓   | —   | ✓     | BD       | P1   | HU-004/005                                             | S2                     | Impl local |       3 |
 | HU-007 | EP-03 | Invitación individual             | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-015/013; DEC-003                                    | S2                     | Impl local |       3 |
 | HU-008 | EP-03 | Activación atómica móvil          | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | HU-007; TT-004; DEC-002/003                            | S2                     | Impl local |       8 |
 | HU-009 | EP-01 | Recuperación asistida incluida    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P1   | HU-005; TT-004/010; DEC-002 resuelta                   | S2                     | Impl local |       3 |
-| HU-010 | EP-02 | Catálogo planes SaaS              | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-003; DEC-005                                        | S1                     | Pend     |       3 |
-| HU-011 | EP-02 | Plan/estado/capacidad propia      | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-001/010; DEC-005                                    | S1                     | Pend     |       3 |
-| HU-012 | EP-02 | Gestión suscripción               | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/010/011/005; DEC-004/005                        | S4                     | Pend     |       5 |
-| HU-013 | EP-02 | Cupo concurrente                  | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-010/011; DEC-004/005                                | S2 antes de alta       | Pend     |       5 |
-| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/013; clientes fixture                       | S4                     | Pend     |       3 |
+| HU-010 | EP-02 | Catálogo planes SaaS              | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-003; DEC-005                                        | S1                     | Impl local |       3 |
+| HU-011 | EP-02 | Plan/estado/capacidad propia      | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-001/010; DEC-005                                    | S1                     | Impl local |       3 |
+| HU-012 | EP-02 | Gestión suscripción               | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/010/011/005; DEC-004/005                        | S4                     | Impl local |       5 |
+| HU-013 | EP-02 | Cupo concurrente                  | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-010/011; DEC-004/005                                | S2 antes de alta       | Impl local |       5 |
+| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/013; clientes fixture                       | S4                     | Impl local |       3 |
 | HU-015 | EP-03 | Alta expediente inicial           | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-002/011/013; DEC-006                                | S2                     | Impl local |       5 |
 | HU-016 | EP-03 | Listado/búsqueda cartera          | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015; TT-010                                         | S2                     | Impl local |       3 |
 | HU-017 | EP-03 | Editar perfil/objetivo            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/016; DEC-006                                    | S2                     | Impl local |       3 |
 | HU-018 | EP-03 | Estado/baja lógica cliente        | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-013/015/005; DEC-004/011                            | S2                     | Impl local |       3 |
-| HU-019 | EP-03 | Expediente consolidado            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/017; secciones futuras en su HU fuente          | S5                     | Par      |       5 |
-| HU-020 | EP-03 | Perfil propio móvil               | Franela Whaite | ✓   | —   | ✓     | BD       | P1   | HU-008/004/017; DEC-009                                | S2 base/S5 progreso    | Par      |       3 |
+| HU-019 | EP-03 | Expediente base (secciones en HU fuente) | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/017; secciones futuras en su HU fuente          | S2 base; secciones EP-04–07 | Impl local |       5 |
+| HU-020 | EP-03 | Perfil propio móvil base          | Franela Whaite | ✓   | —   | ✓     | BD       | P1   | HU-008/004/017; DEC-009                                | S2 base; progreso HU-036 | Impl local |       3 |
 | HU-021 | EP-04 | Evaluaciones fechadas             | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-015/017; DEC-006                                    | S4                     | Pend     |       5 |
 | HU-022 | EP-04 | Evolución peso/medidas            | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021                                                 | S4                     | Pend     |       3 |
 | HU-023 | EP-04 | Grasa estimada incluida bloqueada | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021; entradas DEC-006; dominio/casos DEC-007        | S4, solo tras Ready    | Bloq     |       3 |
@@ -1994,7 +1994,7 @@ No existe iteración condicional C en V2 vigente: HU-009/023/041 son base, HU-02
 | Responsable    | Historias/trabajos                                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Omar           | HU-034/035/039, cierre HU-012/014 y HU-041 incluida, aviso/confirmación iniciado S1 con cuentas; TT-015-1/2 bajo Franela; TT-012/021/019.  |
-| Franela Whaite | HU-019/020 completo, HU-040; TT-015 backup/restore sin medios. HU-038 fuera V2, no trabajo activo.                                         |
+| Franela Whaite | Revisión del expediente/perfil compartido (HU-019/020 base ya entregada; conexiones en sus HU fuente, ver [seguimiento EP-03](#seguimiento-ep03)), HU-040; TT-015 backup/restore sin medios. HU-038 fuera V2, no trabajo activo.                                         |
 | Pukzil         | HU-036; HU-023 incluida solo tras gate técnico originales/fixtures; HU-025 pospuesta sin trabajo activo; seguridad independiente y TT-018. |
 | Ferxxo         | Cierre/integración HU-031/032/037/033 y sesiones/recuperación HU-009 incluida; objetivos DEC-013 TT-021 Omar, sin SaaS/métricas nuevas.    |
 

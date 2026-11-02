@@ -930,3 +930,39 @@ test('runtime cannot change account status directly nor for a client of another 
   )
   assert.equal(await accountStatus(user.id), 'active')
 })
+test('admin directory counts follow record creation, inactivation and reactivation (HU-014 via HU-015/018)', async () => {
+  // Unlimited plan: an earlier test lowers the basic plan to one place.
+  const pro = await subscribed(elite)
+  const {
+    rows: [{ email }],
+  } = await db.query(
+    'SELECT u.email FROM private.users u JOIN private.professionals p ON p.user_id=u.id WHERE p.id=$1',
+    [pro.professionalId]
+  )
+  const counts = async () => {
+    const res = await get(
+      `/api/admin/professionals?search=${encodeURIComponent(email)}`
+    )
+    assert.equal(res.status, 200)
+    const row = res.body.professionals.find(
+      (p: { id: string }) => p.id === pro.professionalId
+    )
+    return [row.clientsUsed, row.inactiveClients]
+  }
+  assert.deepEqual(await counts(), [0, 0])
+  const created = await create(pro.token)
+  assert.equal(created.status, 201)
+  assert.equal((await create(pro.token)).status, 201)
+  assert.deepEqual(await counts(), [2, 0])
+  const status = (value: string) =>
+    mutation(
+      'patch',
+      `/api/clients/${created.body.client.id}/status`,
+      { status: value },
+      pro.token
+    )
+  assert.equal((await status('inactive')).status, 200)
+  assert.deepEqual(await counts(), [1, 1])
+  assert.equal((await status('active')).status, 200)
+  assert.deepEqual(await counts(), [2, 0])
+})
