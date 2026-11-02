@@ -1,5 +1,9 @@
 # EP-03 — Estado por historia y relevo técnico
 
+**Alcance vigente — redistribución autorizada 31/oct/2026:** las integraciones de módulos futuros y sus pruebas corresponden a la HU/épica fuente según el [plan](../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03). La base de EP-03 está implementada y verificada en el alcance documentado; faltan revisión independiente/aceptación D0 aplicable, no desarrollar módulos de otras épicas. RDF0404/RDC0204 conservan sus entregas pendientes de producto en EP-04–07.
+
+**Actualización 31/oct/2026:** ver [seguimiento de auditoría](seguimiento-auditoria.md) y la [asignación a sprints/HU del plan](../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03). HU-016 incorpora corrección de comparación Unicode independiente del locale. Se aplica formato a los archivos Web de expediente y sus pruebas; la deuda global ajena queda asignada a S6. La tabla y los recuentos del 29/oct siguientes conservan su carácter histórico. La tabla histórica refleja el alcance anterior a la redistribución; para el alcance actual prevalece la nota inicial. Ninguna asignación futura equivale a implementación.
+
 29/10/2026. Única rama de trabajo: feature/api-client-portfolio. Commits por HU; próximo PR al completar la épica. PR#22 y feature/api-client-initial-record son excepción histórica y permanecen intactos. Esta síntesis no sustituye las matrices de cada historia ni declara ninguna revisión independiente realizada. T: pruebas por el asistente; R: reporte humano de la persona usuaria; E: inspección estática.
 
 | Historia | Implementado | Verificado y atribución | Pendiente |
@@ -13,6 +17,8 @@
 
 ## Relevo al siguiente compañero
 
+Por la redistribución del 31/oct/2026, los pasos 2–6 los ejecuta el responsable de cada HU fuente (EP-04–07) dentro de su propia épica; EP-03 no espera esas conexiones para aceptar su base.
+
 1. Partir de la rama común actualizada sin modificar HU-015/PR#22. Revisar fuentes vigentes y avisar previamente por archivos compartidos conforme CONTRIBUTING§1.3. Las atribuciones históricas y avisos posteriores se conservan en cada evidencia; no se presentan como coordinación previa.
 2. Para expediente profesional: integración en apps/api/src/features/professional/services/record.ts. El perfil se obtiene de readPortfolioRecord; no duplicar consultas ni usar la ruta propia del cliente como ruta profesional. Mantener sesión persistida, elegibilidad DEC-004, propiedad y contexto RLS. Ver [guía detallada HU-019](hu-019/integracion.md).
 3. Entregar contrato y lector real del módulo antes de conectar datos: HU-021 evaluaciones fechadas; HU-022 evolución; HU-026 alimentación activa/versionada; HU-030 rutina activa/versionada; HU-033 seguimiento con fuentes reales; HU-037 eventos de peso con origen/fecha/unidad. Son integraciones propuestas, no contratos aprobados de módulos ausentes.
@@ -23,4 +29,16 @@
 
 ## Pendientes transversales visibles
 
-D0§5.2.8 exige revisión de otro integrante antes de merge. EP-03 no está completa y no procede su PR final todavía. TT-010: el aislamiento de lectura private.clients fue corregido y tiene pruebas runtime; no equivale al cierre transversal de todas sus tareas. Se conserva la deuda global de formato (53 archivos previos en Web, sin reformatearlos dentro de HU-019), y DEC-011/015 condicionan el uso de datos reales. Ninguna publicación de avances autoriza merge o despliegue.
+D0§5.2.8 exige revisión de otro integrante antes de merge. La aceptación/PR de la base EP-03 se evalúa contra su alcance redistribuido y esa revisión; ya no exige implementar antes los módulos de EP-04–07. No se autoriza aquí crear PR ni merge. TT-010: el aislamiento de lectura private.clients fue corregido y tiene pruebas runtime; no equivale al cierre transversal de todas sus tareas. Se conserva la deuda global de formato (60 avisos fuera de los nueve archivos de expediente ya normalizados; ver [seguimiento](seguimiento-auditoria.md)), y DEC-011/015 condicionan el uso de datos reales. Ninguna publicación de avances autoriza merge o despliegue.
+
+## Decisiones abiertas y desfases detectados (revisión documental 30/10/2026)
+
+Los acuerdos de visión del 30/10/2026 están en [DEC-017](../../../plan/PLAN_TRABAJO_V2.md#dec-017--acuerdos-de-visión-del-30-de-octubre-de-2026). Edad mínima 16 y HU-020 solo con datos básicos están **implementadas** (30/10, con el punto 2 de la lista siguiente resuelto). Siguen **sin implementar**: correo opcional del cliente para la invitación y lectura de soporte del administrador.
+
+Estado de las decisiones señaladas en la revisión:
+
+1. ~~Baja de cuenta cliente~~ resuelta 30/10/2026: `PATCH /api/clients/:clientId/account` (migración `202610300001`), con revocación de sesiones, auditoría y botón en la cartera. [Detalle](hu-018/README.md#baja-y-reactivación-de-la-cuenta-cliente). Implementada por el asistente a petición de la persona usuaria; sin aviso previo al grupo ni revisión independiente.
+2. ~~Medidas base en HU-020~~ resuelta por DEC-017 el 30/10/2026: el cliente ya no recibe cintura, cadera ni grasa base; quedan bajo la categoría «medidas» de DEC-009, apagada por defecto, y su habilitación se entrega con HU-036 (EP-07). [Detalle](hu-020/README.md).
+3. ~~Búsqueda HU-016~~ resuelta 30/10/2026: busca por nombre u objetivo (RDF0303). Cubierta por pruebas de BD.
+
+Para unificar o documentar en un solo sitio: con profesional sin suscripción vigente, el listado responde 200 vacío, la ficha y el expediente consolidado 404 y los PATCH 403 (`PLAN_REQUIRED`/`SUBSCRIPTION_SUSPENDED`). El código 404 del cambio de estado se unificó a `CLIENT_NOT_FOUND` el 30/10/2026 (`saas/repositories/capacity.ts`), igual que ficha y edición.

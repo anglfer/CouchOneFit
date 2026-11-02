@@ -5,7 +5,10 @@ import {
   sessionRequest,
 } from '../../auth/services/session';
 import type { ClientBaseRecord } from '../types/portfolio';
+import GoalField from './GoalField';
 
+// DEC-017: keep in sync with the API validator and the SQL trigger.
+const MINIMUM_CLIENT_AGE = 16;
 const fields = [
   ['fullName', 'Nombre completo', 'text'],
   ['birthDate', 'Fecha de nacimiento', 'date'],
@@ -67,7 +70,7 @@ function validateDraft(draft: Record<Field, string>, base: ClientBaseRecord) {
     )
       errors.birthDate = 'Ingresa una fecha de nacimiento válida.';
     else {
-      date.setUTCFullYear(date.getUTCFullYear() + 18);
+      date.setUTCFullYear(date.getUTCFullYear() + MINIMUM_CLIENT_AGE);
       const parts = new Intl.DateTimeFormat('en', {
         timeZone: 'America/Mexico_City',
         year: 'numeric',
@@ -79,7 +82,7 @@ function validateDraft(draft: Record<Field, string>, base: ClientBaseRecord) {
         date >
         new Date(`${part('year')}-${part('month')}-${part('day')}T00:00:00Z`)
       )
-        errors.birthDate = 'El cliente debe tener al menos 18 años.';
+        errors.birthDate = `El cliente debe tener al menos ${MINIMUM_CLIENT_AGE} años.`;
     }
   }
   return errors;
@@ -211,30 +214,42 @@ export default function ClientRecordEditor({
           completa los tres datos.
         </p>
       )}
-      {fields.map(([key, label, type]) => (
-        <label className="block" key={key}>
-          {label}
-          <input
-            className="block border rounded p-2"
-            type={type}
-            step={type === 'number' ? '0.1' : undefined}
+      {fields.map(([key, label, type]) =>
+        key === 'goal' ? (
+          <GoalField
+            key={key}
+            value={draft.goal}
             disabled={busy}
-            value={draft[key]}
-            aria-invalid={!!errors[key]}
-            aria-describedby={errors[key] ? `edit-${key}-error` : undefined}
-            min={ranges[key]?.[0]}
-            max={ranges[key]?.[1]}
-            onChange={(event) =>
-              setDraft((value) => ({ ...value, [key]: event.target.value }))
-            }
+            onChange={(value) => setDraft((prev) => ({ ...prev, goal: value }))}
+            error={errors.goal}
+            errorId="edit-goal-error"
+            className="block border rounded p-2"
           />
-          {errors[key] && (
-            <span id={`edit-${key}-error`} role="alert">
-              {errors[key]}
-            </span>
-          )}
-        </label>
-      ))}
+        ) : (
+          <label className="block" key={key}>
+            {label}
+            <input
+              className="block border rounded p-2"
+              type={type}
+              step={type === 'number' ? '0.1' : undefined}
+              disabled={busy}
+              value={draft[key]}
+              aria-invalid={!!errors[key]}
+              aria-describedby={errors[key] ? `edit-${key}-error` : undefined}
+              min={ranges[key]?.[0]}
+              max={ranges[key]?.[1]}
+              onChange={(event) =>
+                setDraft((value) => ({ ...value, [key]: event.target.value }))
+              }
+            />
+            {errors[key] && (
+              <span id={`edit-${key}-error`} role="alert">
+                {errors[key]}
+              </span>
+            )}
+          </label>
+        )
+      )}
       {message && <p role="status">{message}</p>}
       {current && (
         <section aria-label="Comparar versión actual" className="border p-3">

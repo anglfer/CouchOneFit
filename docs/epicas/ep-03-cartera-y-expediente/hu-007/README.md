@@ -8,7 +8,7 @@ Como profesional quiero generar y entregar un código para vincular a mi cliente
 
 En `/app/clientes`, el profesional consulta su cartera preparada, estado de vinculación y expiración. Puede generar/reemplazar, copiar/seleccionar y entregar de forma privada el código, u ocultarlo. Un reemplazo invalida el anterior al confirmar la transacción. Se ofrece revocación. Estados: carga, cartera vacía, error/reintento, envío bloqueado y entrega exitosa. El código solo permanece en memoria mientras se muestra la entrega: no se guarda en navegador ni reaparece en listados. Refrescar obliga a reemplazarlo si se perdió.
 
-`GET /api/clients` devuelve únicamente expedientes propios con suscripción vigente: `id`, `userId`, `fullName`, `goal`, `status`, `invitationExpiresAt`; sin token/hash. No hay listado público. Sin plan o con suspensión, la cartera resulta vacía y no se permite invitar.
+`GET /api/clients` devuelve únicamente expedientes propios con suscripción vigente: `id`, `userId`, `accountStatus`, `fullName`, `goal`, `status`, `invitationExpiresAt`; sin token/hash. No hay listado público. Sin plan o con suspensión, la cartera resulta vacía y no se permite invitar.
 
 ## Política y transacción
 
@@ -30,4 +30,4 @@ Migración incremental `202610190003_account_lifecycle.sql`, esquema integrado y
 
 QA1: expediente ajeno/vinculado/inactivo; profesional/suscripción inactivos; reemplazo/revocación; prevalidación repetible; expiración exacta; código ausente en listado y auditoría; canje real HU-008. Limpieza operativa diaria: `npm run db:cleanup:access` elimina temporales vencidos; no elimina cuentas ni eventos de auditoría.
 
-Dependencias: HU-015 prepara expedientes y HU-013 controla altas/reactivaciones. Esta historia usa sus contratos mínimos persistidos, sin declarar completadas esas historias. Fixtures locales preparan expedientes/suscripciones reales. Estado y gates: [evidencia conjunta](../evidencia-hu-006-009.md).
+Dependencias: HU-015 prepara expedientes y HU-013 controla altas/reactivaciones. Esta historia usa sus contratos mínimos persistidos, sin declarar completadas esas historias. Fixtures locales preparan expedientes/suscripciones reales. Estado y gates: [evidencia conjunta](../../ep-01-identidad-y-acceso/evidencia-hu-006-009.md).

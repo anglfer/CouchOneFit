@@ -43,6 +43,12 @@ Los roles son globales al clúster: el SQL reutiliza roles seguros al migrar dev
 
 ## Pruebas y producción
 
+### Requisito de búsqueda de cartera HU-016
+
+PostgreSQL **17 o posterior**, base con codificación **UTF8** y collation incorporada `pg_catalog.pg_c_utf8`. La consulta aplica esa collation solo a `lower` en ambos operandos de búsqueda (nombre y objetivo); permite encontrar `Ána` al buscar `ána` aunque el locale predeterminado sea C, conservando la diferencia entre `á` y `a`. No requiere ICU, extensiones ni cambiar el locale de una base existente. Referencia: [collations de PostgreSQL 17](https://www.postgresql.org/docs/17/collation.html).
+
+Comprobación de solo lectura al preparar un entorno: `SELECT current_setting('server_version_num'), current_setting('server_encoding'), lower('ÁNA' COLLATE pg_catalog.pg_c_utf8);`. Debe indicar versión >= 170000, UTF8 y `ána`. Una versión anterior/codificación distinta queda fuera de este contrato; no cambiar datos ni crear otra base remota para sortearlo. La regresión API fuerza columna C y verifica búsqueda Unicode bajo el rol ordinario. El orden y el índice del cursor no dependen de esta conversión.
+
 Configura `TEST_DATABASE_URL` con una base **local exclusiva ya migrada** y ejecuta `npm test` en `apps/api`. La suite crea datos únicos y triggers temporales de fallo; la prueba de migraciones crea y elimina tres bases temporales propias para una migración limpia, una instantánea y una actualización desde el historial anterior. Requiere permisos locales para esos triggers, `SET ROLE` y la creación de bases. Los archivos se ejecutan en serie. Valida también API con `npm run build`, Web con compilación y lint, y el flujo en el navegador.
 
 
@@ -119,7 +125,7 @@ Nueva migración `202610260003_live_plan_catalog.sql` agrega `professionals.plan
 
 La migración incremental `202610270001_client_initial_record.sql` agrega a `private.clients` fecha de nacimiento y medidas base. No modifica ninguna migración aplicada ni rellena filas existentes: las nuevas columnas permanecen anulables para expedientes pre-HU-015. Para nuevas altas, API y restricciones SQL exigen el conjunto base consistente y validan rangos, unidades y precisión; `goal` y las medidas opcionales continúan anulables. No almacena selector de cálculo de grasa, evaluaciones ni mediciones históricas.
 
-El esquema integrado vigente es `schemas/identity_access.sql` y refleja las catorce migraciones en la rama HU-016. Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
+El esquema integrado vigente es `schemas/identity_access.sql` y refleja las dieciocho migraciones vigentes (catorce al cierre de HU-016; HU-017, HU-018, la baja de cuenta y la edad mínima añaden una cada una, ver secciones siguientes). Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
 
 ### TT-010: lectura de expedientes
 
@@ -138,3 +144,11 @@ La migración 202610280003_client_portfolio_order.sql agrega únicamente el índ
 ## Estado operativo y auditoría — HU-018
 
 `202610290001_client_record_status_audit.sql` conserva los eventos existentes y sus siete acciones anteriores; añade `client_record_activated` y `client_record_inactivated` al CHECK. Sin tablas, índices ni grants nuevos, sin modificar datos/versiones de clientes o suscripciones. El estado actual equivale a dieciséis migraciones y catorce tablas. Las transiciones efectivas auditan dentro de la misma transacción del estado/versión; las repeticiones no escriben. [Alcance operativo, asignación original e implementación autorizada](../epicas/ep-03-cartera-y-expediente/hu-018/README.md).
+
+## Baja de cuenta cliente — HU-018
+
+`202610300001_client_account_status.sql` amplía el CHECK de `access_events` con `client_account_deactivated` y `client_account_reactivated` y crea `private.set_client_account_status(uuid,text)`, `SECURITY DEFINER` con `search_path` fijo, `EXECUTE` revocado a PUBLIC y concedido al rol de aplicación. Solo actúa para el profesional activo dueño del expediente (`app.subject_id`) y una cuenta de rol cliente vinculada; el runtime no recibe `UPDATE` sobre `users.status`. Sin tablas, índices ni datos transformados. La instantánea refleja diecisiete migraciones. [Contrato](../epicas/ep-03-cartera-y-expediente/hu-018/README.md#baja-y-reactivación-de-la-cuenta-cliente).
+
+## Edad mínima del cliente — DEC-017
+
+`202610300002_client_minimum_age.sql` reemplaza `private.validate_client_birth_date()` para exigir 16 años (antes 18) con `CREATE OR REPLACE`; no reescribe filas y toda fecha anterior válida sigue siéndolo. La instantánea refleja dieciocho migraciones. Las personas de 16 y 17 años son menores de edad: falta definir el aviso de privacidad y el consentimiento (DEC-015) antes de usar datos reales.

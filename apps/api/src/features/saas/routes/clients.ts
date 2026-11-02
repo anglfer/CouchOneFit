@@ -18,5 +18,6 @@ export function capacityRoutes(pool: Pool, now?: () => Date) {
   router.post('/', controller.create)
   router.patch('/:clientId', clientEditController(pool, now))
   router.patch('/:clientId/status', controller.status)
+  router.patch('/:clientId/account', controller.account)
   return router
 }

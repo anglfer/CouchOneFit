@@ -139,12 +139,12 @@
             }
           }
         },
-        "description": "Orden fijo created_at DESC, id DESC. Cursor firmado y ligado a cuenta, filtros y tamaño; no sustituye autorización. Unicode case-insensitive según lower de PostgreSQL, sin eliminar acentos. %, _, comillas y barras son literales. No ofrece instantánea congelada ante cambios concurrentes. Cambiar filtros requiere omitir cursor. Parámetros desconocidos o repetidos se rechazan. No devuelve medidas base en el listado.",
+        "description": "Orden fijo created_at DESC, id DESC. Cursor firmado y ligado a cuenta, filtros y tamaño; no sustituye autorización. Comparación Unicode sin distinguir mayúsculas mediante lower con pg_catalog.pg_c_utf8 (PostgreSQL 17+, UTF8), independiente del locale predeterminado; conserva acentos. %, _, comillas y barras son literales. No ofrece instantánea congelada ante cambios concurrentes. Cambiar filtros requiere omitir cursor. Parámetros desconocidos o repetidos se rechazan. No devuelve medidas base en el listado.",
         "parameters": [
           {
             "name": "search",
             "in": "query",
-            "description": "Subcadena literal de fullName, recortada en extremos; máximo 150 puntos de código Unicode.",
+            "description": "Subcadena literal de fullName o goal, recortada en extremos; máximo 150 puntos de código Unicode.",
             "schema": {
               "type": "string",
               "maxLength": 150,
@@ -898,7 +898,7 @@
             }
           },
           "404": {
-            "description": "NOT_FOUND: mismo error para expediente ajeno o inexistente.",
+            "description": "CLIENT_NOT_FOUND: mismo error para expediente ajeno o inexistente.",
             "content": {
               "application/json": {
                 "schema": {
@@ -909,6 +909,166 @@
           },
           "409": {
             "description": "CUPO_AGOTADO al consumir última plaza, o CLIENT_RECORD_CONFLICT por transición con versión antigua/futura. Sin cambios ni auditoría.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: no se confirma éxito ni se repite automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}/account": {
+      "patch": {
+        "operationId": "changeOwnClientAccountStatus",
+        "summary": "DEC-004: dar de baja o reactivar la cuenta vinculada del cliente propio.",
+        "description": "Profesional dueño con suscripción vigente. Cambia únicamente el estado de la cuenta cliente: no modifica el expediente, la plaza ni la suscripción. La baja impide el login y revoca sus sesiones; la reactivación no revive sesiones ni activa el expediente. Estado ya aplicado: 200 sin efectos ni auditoría. Operación idempotente, sin versión. Cache-Control: no-store.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estado de cuenta resultante o repetición sin efectos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "account"
+                  ],
+                  "properties": {
+                    "account": {
+                      "type": "object",
+                      "required": [
+                        "clientId",
+                        "accountStatus"
+                      ],
+                      "properties": {
+                        "clientId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "accountStatus": {
+                          "enum": [
+                            "active",
+                            "inactive"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT; error.fields por campo cuando aplica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SESSION_REQUIRED: sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN, CSRF_INVALID, PLAN_REQUIRED o SUBSCRIPTION_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CLIENT_NOT_FOUND: mismo error para expediente ajeno o inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CLIENT_ACCOUNT_NOT_LINKED: el cliente aún no activa su cuenta; CLIENT_ACCOUNT_CONFLICT: la cuenta cambió durante la operación.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1444,7 +1604,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Texto libre. La Web ofrece Recomposición corporal, Definición y Ganar masa muscular, u «Otro» con texto propio; el contrato acepta cualquier texto de 1 a 500 caracteres."
           },
           "status": {
             "enum": [
@@ -1458,6 +1619,14 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "accountStatus": {
+            "enum": [
+              "active",
+              "inactive",
+              null
+            ],
+            "description": "Estado de la cuenta vinculada; null si el cliente aún no activa su cuenta."
           }
         },
         "required": [
@@ -1466,7 +1635,8 @@
           "fullName",
           "goal",
           "status",
-          "invitationExpiresAt"
+          "invitationExpiresAt",
+          "accountStatus"
         ]
       },
       "CreateClientInput": {
@@ -1852,24 +2022,6 @@
               "null"
             ]
           },
-          "baseBodyFatPercentage": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "waistCm": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "hipCm": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
           "username": {
             "type": "string"
           },
@@ -1886,13 +2038,10 @@
           "birthDate",
           "heightCm",
           "baseWeightKg",
-          "baseBodyFatPercentage",
-          "waistCm",
-          "hipCm",
           "username",
           "email"
         ],
-        "description": "HU-020: perfil base propio preparado por el profesional, medidas iniciales autorizadas según DEC-009; no progreso, historial, propietario ni permisos inventados. Columnas anteriores incompletas conservan null."
+        "description": "DEC-017: solo datos básicos. Grasa, cintura, cadera, pliegues y demás medidas se habilitan después con los permisos de DEC-009."
       },
       "ClientLegacyProfile": {
         "type": "object",

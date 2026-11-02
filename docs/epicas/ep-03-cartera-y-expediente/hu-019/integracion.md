@@ -1,6 +1,8 @@
 # HU-019 — Guía para integrar los módulos pendientes
 
-Este documento propone puntos de integración; no aprueba contratos de otros módulos. Antes de conectarlos, el responsable debe entregar servicio real, DTO/proyección, permisos, pruebas y reglas de selección de versiones. No sustituir módulos ausentes por lectores que devuelvan [] o null.
+**Responsabilidad vigente por redistribución autorizada 31/oct/2026:** cada HU fuente implementa y conecta su sección antes de cerrar su propia épica: HU-021/022 en EP-04; HU-026 en EP-05; HU-030 en EP-06; HU-033/037 y perfil móvil HU-036 en EP-07. Ver [matriz del plan](../../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03). Franela conserva consulta/revisión de archivos compartidos; no queda como ejecutora obligatoria de una integración posterior separada.
+
+Este documento fija las obligaciones técnicas de integración redistribuidas; no inventa contratos de datos de módulos aún ausentes. El responsable de cada HU entrega servicio real, DTO/proyección, permisos, selección de versiones, conexión API/UI y pruebas en el mismo incremento. No sustituir módulos ausentes por lectores que devuelvan [] o null.
 
 1. Mantener autorización de sesión/profesional/propiedad en readPortfolioRecord antes de consultar secciones. Un 401/403 o denegación de propiedad en cualquier lector debe abortar el expediente: nunca capturarlo como empty o error parcial.
 2. Conectar lecturas reales desde features/professional/services/record.ts mediante las interfaces públicas que acuerde cada módulo; no duplicar sus repositorios o reglas. Revisar consistencia transaccional cuando haya varias lecturas reales. Reutilizar contexto RLS, sin ampliar privilegios ni aceptar identidad del navegador.
@@ -10,4 +12,4 @@ Este documento propone puntos de integración; no aprueba contratos de otros mó
 6. DEC-009: comprobar proyección y permisos de progreso en servidor según destinatario; no inferir autorización por existencia de columnas. La consulta profesional no reemplaza GET /api/me/record del cliente.
 7. Mantener clave cuenta/cliente y protección contra respuestas antiguas. Probar A→B con respuestas invertidas, perfil obligatorio fallido, denegación, vacío confirmado y fallo parcial real. Los dobles actuales son exclusivamente de tests y no acreditan integración real.
 
-No modificar contratos de invitación, activación, autenticación, suscripción ni cupo para conectar lecturas. Cualquier cambio de regla de otro módulo requiere acuerdo separado. Sin artefactos reales de HU-021/022/026/030/033/037 no se puede declarar HU-019 completa ni verificar el expediente consolidado integral de D0.
+No modificar contratos de invitación, activación, autenticación, suscripción ni cupo para conectar lecturas. Cualquier cambio de regla de otro módulo requiere acuerdo separado. Sin sus artefactos y conexiones reales no se acepta la HU fuente correspondiente ni se declara el expediente integral del producto implementado. Esto ya no impide aceptar la base de HU-019 por dependencias trasladadas.

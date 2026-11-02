@@ -1,5 +1,7 @@
 # HU-017 — Editar perfil, objetivo y medidas base
 
+> **Implementado por DEC-017 (30-oct-2026):** la edad mínima de `birthDate` es **16 años** (la tabla de abajo conserva el texto «adulto ≥18» como historia).
+
 Responsable: Franela Whaite. Referencias RDF0304/0306 y RDF0401–0403; aceptación y tareas API1/WEB1/QA1 en `plan/PLAN_TRABAJO_V2.md` §HU-017. Depende de HU-015/HU-016 y DEC-006. El [acuerdo vigente de EP-03](../README.md#acuerdo-de-integración-vigente) mantiene una sola rama, `feature/api-client-portfolio`, commits por HU y próximo PR al completar la épica. HU-015 y PR #22 no cambian. R: la persona usuaria confirmó el aviso previo al equipo para los cambios compartidos de HU-017; el agente no verificó ni envió ese aviso.
 
 ## Elegibilidad, permisos y alcance

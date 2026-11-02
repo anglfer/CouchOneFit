@@ -11,9 +11,6 @@ class ClientProfile {
     this.birthDate,
     this.heightCm,
     this.baseWeightKg,
-    this.baseBodyFatPercentage,
-    this.waistCm,
-    this.hipCm,
   });
 
   final String id;
@@ -27,9 +24,6 @@ class ClientProfile {
   final String? birthDate;
   final double? heightCm;
   final double? baseWeightKg;
-  final double? baseBodyFatPercentage;
-  final double? waistCm;
-  final double? hipCm;
 
   factory ClientProfile.fromJson(Map<String, Object?> json) {
     return ClientProfile(
@@ -44,10 +38,6 @@ class ClientProfile {
       birthDate: json['birthDate'] as String?,
       heightCm: (json['heightCm'] as num?)?.toDouble(),
       baseWeightKg: (json['baseWeightKg'] as num?)?.toDouble(),
-      baseBodyFatPercentage:
-          (json['baseBodyFatPercentage'] as num?)?.toDouble(),
-      waistCm: (json['waistCm'] as num?)?.toDouble(),
-      hipCm: (json['hipCm'] as num?)?.toDouble(),
     );
   }
 }

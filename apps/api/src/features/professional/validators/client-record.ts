@@ -23,6 +23,8 @@ const clientFields = [
   'hipCm'
 ]
 
+// DEC-017: minimum client age. Mirrored by private.validate_client_birth_date().
+const MINIMUM_CLIENT_AGE = 16
 const dateAtUtcMidnight = (value: string) => new Date(`${value}T00:00:00.000Z`)
 
 function validDate(value: string) {
@@ -134,7 +136,7 @@ export function validateClientBaseFields(
     fields.birthDate = 'Ingresa una fecha de nacimiento válida.'
   } else {
     const adultDate = dateAtUtcMidnight(birthDate)
-    adultDate.setUTCFullYear(adultDate.getUTCFullYear() + 18)
+    adultDate.setUTCFullYear(adultDate.getUTCFullYear() + MINIMUM_CLIENT_AGE)
     const parts = new Intl.DateTimeFormat('en', {
       timeZone: 'America/Mexico_City',
       year: 'numeric',
@@ -147,7 +149,7 @@ export function validateClientBaseFields(
       `${part('year')}-${part('month')}-${part('day')}`
     )
     if (adultDate > today)
-      fields.birthDate = 'El cliente debe tener al menos 18 años.'
+      fields.birthDate = `El cliente debe tener al menos ${MINIMUM_CLIENT_AGE} años.`
   }
 
   const heightCm = missingBase

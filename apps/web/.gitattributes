@@ -1,0 +1,10 @@
+# Keep EP-03 files compatible with Prettier's endOfLine=lf on Windows checkouts.
+src/features/professional/components/ClientBaseDetails.tsx text eol=lf
+src/features/professional/components/ClientRecordEditor.tsx text eol=lf
+src/features/professional/components/ClientRecordSections.tsx text eol=lf
+src/features/professional/components/ClientRecordView.tsx text eol=lf
+src/features/professional/components/ClientStatusAction.tsx text eol=lf
+src/features/professional/services/record.ts text eol=lf
+src/features/professional/types/portfolio.ts text eol=lf
+src/features/professional/types/record.ts text eol=lf
+tests/session-recovery.test.mjs text eol=lf

@@ -11,6 +11,7 @@ let portfolioResponder,
   composedResponder,
   invitationResponder,
   editResponder,
+  accountResponder,
   statusResponder,
   subscriptionResponder;
 const page = (clients = [], hasClients = false, nextCursor = null) =>
@@ -35,7 +36,7 @@ const values = {
   'Grasa medida (%)': '20.2',
   'Cintura (cm)': '80.2',
   'Cadera (cm)': '90.2',
-  'Objetivo (opcional)': 'Objetivo sintético de regresión',
+  'Objetivo (opcional)': 'Recomposición corporal',
 };
 const account = (id) => ({
   id,
@@ -158,14 +159,14 @@ test('HU-017 conflict keeps draft and requires comparison and explicit reapply w
   assert.equal(field('Nombre completo').value, 'My 😀 draft');
   assert.equal(button('Guardar cambios').disabled, true);
   recordResponder = () =>
-    json({ client: { ...editableRecord, version: 2, goal: 'Remote goal' } });
+    json({ client: { ...editableRecord, version: 2, goal: 'Definición' } });
   await act(async () => button('Consultar estado actual').click());
   assert.equal(field('Nombre completo').value, 'My 😀 draft');
   assert.equal(writes().length, 1);
   await act(async () =>
     button('Usar esta versión para reaplicar mi borrador').click()
   );
-  assert.equal(field('Objetivo (opcional)').value, 'Remote goal');
+  assert.equal(field('Objetivo (opcional)').value, 'Definición');
   assert.equal(writes().length, 1);
   editResponder = (body) => {
     assert.deepEqual(body, { version: 2, fullName: 'My 😀 draft' });
@@ -173,13 +174,87 @@ test('HU-017 conflict keeps draft and requires comparison and explicit reapply w
       client: {
         ...editableRecord,
         version: 3,
-        goal: 'Remote goal',
+        goal: 'Definición',
         fullName: body.fullName,
       },
     });
   };
   await submitEdit();
   assert.equal(writes().length, 2);
+});
+
+test('goal is a dropdown with predefined options and an "Otro" free-text escape', async () => {
+  await openEditor();
+  const select = () => field('Objetivo (opcional)');
+  const choose = (value) =>
+    act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      ).set.call(select(), value);
+      select().dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  assert.equal(select().tagName, 'SELECT');
+  assert.deepEqual(
+    [...select().options].map((option) => option.textContent),
+    [
+      'Sin objetivo definido',
+      'Recomposición corporal',
+      'Definición',
+      'Ganar masa muscular',
+      'Otro',
+    ]
+  );
+  assert.equal(field('Especifica el objetivo'), null);
+  await choose('__other__');
+  assert.equal(field('Especifica el objetivo').required, true);
+  await editField('Especifica el objetivo', 'Preparar maratón');
+  assert.equal(select().value, '__other__');
+  await choose('Definición');
+  assert.equal(field('Especifica el objetivo'), null);
+  assert.equal(select().value, 'Definición');
+});
+
+test('professional deactivates a linked client account only after explicit confirmation and may retry safely', async () => {
+  const linked = (status) => ({
+    ...sampleClient('edit-id', 'Original client'),
+    status: 'active',
+    userId: 'account-1',
+    accountStatus: status,
+  });
+  portfolioResponder = () => page([linked('active')], true);
+  await searchFor('Original');
+  const accountWrites = () =>
+    requests.filter(
+      (r) => r.method === 'PATCH' && r.url.endsWith('/account')
+    );
+  await act(async () => button('Dar de baja la cuenta').click());
+  assert.ok(document.querySelector('dialog[open]'));
+  assert.equal(document.activeElement, button('Cancelar cambio de cuenta'));
+  await act(async () => button('Cancelar cambio de cuenta').click());
+  assert.equal(accountWrites().length, 0);
+  await act(async () => button('Dar de baja la cuenta').click());
+  accountResponder = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  await act(async () => button('Confirmar baja de cuenta').click());
+  assert.equal(accountWrites().length, 1);
+  assert.match(document.body.textContent, /repetir la operación no duplica/);
+  assert.ok(document.querySelector('dialog[open]'));
+  accountResponder = (body) => {
+    assert.deepEqual(body, { status: 'inactive' });
+    return json({ account: { clientId: 'edit-id', accountStatus: 'inactive' } });
+  };
+  portfolioResponder = () => page([linked('inactive')], true);
+  await act(async () => button('Confirmar baja de cuenta').click());
+  assert.equal(accountWrites().length, 2);
+  assert.equal(document.querySelector('dialog'), null);
+  assert.match(
+    document.body.textContent,
+    /La cuenta de Original client está dada de baja/
+  );
+  assert.ok(button('Reactivar cuenta'));
+  assert.match(document.body.textContent, /Cuenta vinculada dada de baja/);
 });
 
 test('HU-017 lost save response is uncertain, survives session network recovery and never retries automatically', async () => {
@@ -390,6 +465,8 @@ beforeEach(async () => {
     }
     if (url.endsWith('/invitations'))
       return invitationResponder(options.method);
+    if (url.endsWith('/account') && options.method === 'PATCH')
+      return accountResponder(JSON.parse(options.body));
     if (url.endsWith('/status') && options.method === 'PATCH')
       return statusResponder(JSON.parse(options.body));
     if (url.startsWith('/api/clients/') && options.method === 'PATCH')
@@ -454,8 +531,16 @@ function fillDraft() {
   for (const [id, value] of Object.entries(values)) {
     const input = field(id);
     assert.ok(input, `Missing field ${id}`);
-    setter.call(input, value);
-    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    if (input.tagName === 'SELECT') {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      ).set.call(input, value);
+      input.dispatchEvent(new window.Event('change', { bubbles: true }));
+    } else {
+      setter.call(input, value);
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    }
   }
 }
 function assertDraft() {

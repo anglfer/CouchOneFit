@@ -23,8 +23,10 @@ export async function portfolioPage(
       `WITH page AS (
       SELECT c.id,c.user_id AS "userId",c.full_name AS "fullName",c.goal,c.status,c.created_at,
         c.created_at::text AS "cursorCreatedAt",
+        (SELECT u.status FROM private.users u WHERE u.id=c.user_id) AS "accountStatus",
         (SELECT expires_at FROM private.invitations i WHERE i.client_id=c.id) AS "invitationExpiresAt"
-      ${scope} AND ($3='' OR position(lower($3) in lower(c.full_name))>0)
+      ${scope} AND ($3='' OR position(lower($3 COLLATE pg_catalog.pg_c_utf8) in lower(c.full_name COLLATE pg_catalog.pg_c_utf8))>0
+          OR position(lower($3 COLLATE pg_catalog.pg_c_utf8) in lower(COALESCE(c.goal,'') COLLATE pg_catalog.pg_c_utf8))>0)
         AND ($4='' OR c.status=$4)
         AND ($5::timestamptz IS NULL OR (c.created_at,c.id)<($5::timestamptz,$6::uuid))
       ORDER BY c.created_at DESC,c.id DESC LIMIT $7

@@ -1,5 +1,7 @@
 # EP-02 — SaaS, autoservicio y pago simulado (HU-010 a HU-014)
 
+> **Acuerdo de visión 30-oct-2026 ([DEC-017](../../../plan/PLAN_TRABAJO_V2.md#dec-017--acuerdos-de-visión-del-30-de-octubre-de-2026)):** la regla de abajo (solo contratar y subir, sin renovación) queda **ampliada y parcialmente sustituida**: renovación automática simulada con 7 días de gracia, cancelación al final del periodo pagado, bajar de plan eligiendo qué clientes inactivar, y soporte de lectura del administrador. **Pendiente de implementar**; hoy rige lo descrito aquí. Requiere estados de suscripción nuevos (cancelada al fin de periodo, en gracia) y un disparador de renovación (el API no tiene programador de tareas).
+
 ## Regla vigente — acuerdo explícito del usuario 25-oct-2026
 
 El profesional contrata su primer plan y sube de nivel desde `/app/suscripcion`. Paga **el precio completo del nuevo plan** mediante simulación y comienza **un nuevo mes calendario UTC desde la aprobación**, ajustando el último día al mes destino. Sin prorrateo ni devolución del periodo previo. El administrador **solo consulta suscripciones**: no cambia plan, vigencia ni estado. Conserva gestión del catálogo HU-010.

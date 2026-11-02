@@ -25,3 +25,16 @@ export function clientStatusInput(input: unknown): {
     )
   return { status: body.status, version: body.version as number }
 }
+
+export function clientAccountStatusInput(input: unknown): {
+  status: 'active' | 'inactive'
+} {
+  const body = payload(input, ['status'])
+  if (body.status !== 'active' && body.status !== 'inactive')
+    throw new AuthError(
+      400,
+      'INVALID_INPUT',
+      'El estado de la cuenta no es v\u00e1lido.'
+    )
+  return { status: body.status }
+}

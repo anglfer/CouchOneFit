@@ -239,10 +239,37 @@ test('portfolio searches literal special characters and isolates active and inac
     assert.equal(result.body.clients.length, 3)
     assert.ok(result.body.clients.every((row: { status: string }) => row.status === status))
   }
+  const goalOwn = (await database.query("INSERT INTO private.clients(professional_id,full_name,goal) VALUES($1,'Sin coincidencia de nombre','Hipertrofia Objetivo-Único') RETURNING id", [actors.proA.professional])).rows[0].id
+  await database.query("INSERT INTO private.clients(professional_id,full_name,goal) VALUES($1,'Otra cartera','Hipertrofia Objetivo-Único')", [actors.proB.professional])
+  const byGoal = await portfolioGet({ search: 'objetivo-único' })
+  assert.deepEqual(byGoal.body.clients.map((row: { id: string }) => row.id), [goalOwn])
   const empty = await portfolioGet({ search: 'No coincidencias únicas' })
   assert.equal(empty.body.hasClients, true)
   assert.deepEqual(empty.body.clients, [])
   assert.equal(empty.body.pageInfo.nextCursor, null)
+})
+
+test('portfolio Unicode case matching is independent of C-collated names and preserves accents and ownership', async () => {
+  await database.query('ALTER TABLE private.clients ALTER COLUMN full_name TYPE text COLLATE pg_catalog."C"')
+  try {
+    for (const actor of ['proA', 'proB'])
+      await database.query('INSERT INTO private.clients(professional_id,full_name) VALUES($1,$2)',
+        [actors[actor].professional, 'Unicode 😀 ÁÉÍÓÚ ÑÜ'])
+    for (const search of ['unicode 😀 áéíóú ñü', 'UNICODE 😀 ÁÉÍÓÚ ÑÜ']) {
+      const result = await portfolioGet({ search })
+      assert.equal(result.status, 200)
+      assert.equal(result.body.clients.length, 1)
+      assert.equal(result.body.clients[0].fullName, 'Unicode 😀 ÁÉÍÓÚ ÑÜ')
+      const own = await database.query('SELECT id FROM private.clients WHERE id=$1 AND professional_id=$2',
+        [result.body.clients[0].id, actors.proA.professional])
+      assert.equal(own.rowCount, 1)
+    }
+    const distinct = await portfolioGet({ search: 'unicode 😀 aeiou nu' })
+    assert.equal(distinct.status, 200)
+    assert.deepEqual(distinct.body.clients, [])
+  } finally {
+    await database.query('ALTER TABLE private.clients ALTER COLUMN full_name TYPE text COLLATE pg_catalog."default"')
+  }
 })
 
 test('cursor traversal preserves microseconds and UUID ties without gaps or duplicates', async () => {
@@ -300,7 +327,7 @@ test('empty portfolio and page-size boundaries have unambiguous pagination metad
   const max = await portfolioGet({ search: 'Traversal', pageSize: '100' })
   assert.equal(max.body.clients.length, 25)
   assert.equal(max.body.pageInfo.hasMore, false)
-  assert.deepEqual(Object.keys(max.body.clients[0]).sort(), ['id', 'userId', 'fullName', 'goal', 'status', 'invitationExpiresAt'].sort())
+  assert.deepEqual(Object.keys(max.body.clients[0]).sort(), ['id', 'userId', 'accountStatus', 'fullName', 'goal', 'status', 'invitationExpiresAt'].sort())
 })
 
 test('tenant cursor index supports ordered bounded reads with an ordinary runtime plan', async () => {
@@ -517,10 +544,10 @@ test('HU-020 own base projection excludes ownership, progress and history; query
     assert.equal(response.status,200)
     assert.equal(response.headers['cache-control'],'no-store')
     assert.equal(response.body.record.id,actor.client)
-    assert.deepEqual(Object.keys(response.body.record).sort(),['id','fullName','goal','status','username','email','birthDate','heightCm','baseWeightKg','baseBodyFatPercentage','waistCm','hipCm'].sort())
+    assert.deepEqual(Object.keys(response.body.record).sort(),['id','fullName','goal','status','username','email','birthDate','heightCm','baseWeightKg'].sort())
     const stored=await statusSnapshot(actor.client!)
-    for (const [json,sql] of [['baseBodyFatPercentage','base_body_fat_percentage'],['waistCm','waist_cm'],['hipCm','hip_cm']])
-      assert.equal(response.body.record[json],stored[sql] === null ? null : Number(stored[sql]))
+    for (const hidden of ['baseBodyFatPercentage','waistCm','hipCm']) assert.equal(hidden in response.body.record,false)
+    assert.equal(response.body.record.heightCm,Number(stored.height_cm))
     assert.equal((await request(app).get(`/api/me/record?clientId=${actors.clientA.client}`).set('Authorization',`Bearer ${actor.token}`)).status,400)
     const legacy=await request(app).get('/api/client/profile').set('Authorization',`Bearer ${actor.token}`)
     assert.equal(legacy.status,200); assert.equal(legacy.body.profile.id,actor.client)
@@ -547,7 +574,7 @@ test('HU-020 reads inactive own record without subscription or quota; revoked ac
   const token=await signAccess(user,session)
   const read=()=>request(app).get('/api/me/record').set('Authorization',`Bearer ${token}`)
   const result=await read(); assert.equal(result.status,200); assert.equal(result.body.record.id,id)
-  for (const key of ['birthDate','heightCm','baseWeightKg','baseBodyFatPercentage','waistCm','hipCm']) assert.equal(result.body.record[key],null)
+  for (const key of ['birthDate','heightCm','baseWeightKg']) assert.equal(result.body.record[key],null)
   await database.query('UPDATE private.sessions SET revoked_at=clock_timestamp() WHERE id=$1',[session])
   assert.equal((await read()).status,401)
   await database.query("UPDATE private.users SET status='inactive' WHERE id=$1",[user])
@@ -578,7 +605,9 @@ test('HU-020 vertical registration invitation activation and professional edit p
   const token=activation.body.session.accessToken
   const read=()=>request(app).get('/api/me/record').set('Authorization',`Bearer ${token}`)
   const first=await read(); assert.equal(first.status,200); assert.equal(first.body.record.id,id)
-  for(const [field,value] of Object.entries(base)) assert.deepEqual(first.body.record[field],value)
+  const basic=['fullName','goal','birthDate','heightCm','baseWeightKg']
+  for(const field of basic) assert.deepEqual(first.body.record[field],base[field as keyof typeof base])
+  for(const hidden of ['baseBodyFatPercentage','waistCm','hipCm']) assert.equal(hidden in first.body.record,false)
   const version=(await statusSnapshot(id)).version
   const edited=await web('patch',`/api/clients/${id}`,{version,goal:'Objetivo actualizado HU020',baseWeightKg:71.3}); assert.equal(edited.status,200)
   const updated=await read(); assert.equal(updated.body.record.id,id); assert.equal(updated.body.record.goal,'Objetivo actualizado HU020'); assert.equal(updated.body.record.baseWeightKg,71.3)

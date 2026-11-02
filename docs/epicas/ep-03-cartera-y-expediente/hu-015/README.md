@@ -1,10 +1,12 @@
 # HU-015 — Crear el cliente y su expediente inicial
 
+> **Implementado por DEC-017 (30-oct-2026):** la edad mínima pasó de 18 a **16 años** en API, trigger SQL (`202610300002_client_minimum_age.sql`), formulario y editor. Donde este documento diga «18 años» o «adulto», léase 16; el texto se conserva como historia. Las personas de 16 y 17 años son menores: el aviso de privacidad y el consentimiento (DEC-015) siguen sin definirse para ellas.
+
 ## Alcance implementado
 
 Un profesional autenticado con suscripción activa crea un solo expediente en `private.clients`. La propiedad se obtiene de su sesión y nunca de un campo del payload; no se crean credenciales de cliente, otra cuenta ni un segundo expediente. La creación y la reserva de cupo comparten la misma transacción y bloqueo por profesional de HU-013.
 
-El formulario Web captura nombre, fecha de nacimiento, estatura, peso base, objetivo y medidas opcionales. La confirmación se muestra solo tras recibir `201`; los errores de validación del servidor se muestran junto al campo correspondiente.
+El formulario Web captura nombre, fecha de nacimiento, estatura, peso base, objetivo y medidas opcionales. El objetivo se elige en un desplegable (Recomposición corporal, Definición, Ganar masa muscular u «Otro» con texto propio); se guarda como texto en `goal`, de modo que el contrato acepta cualquier texto de 1 a 500 caracteres y los expedientes anteriores con texto libre siguen siendo válidos (se muestran como «Otro»). El editor de HU-017 usa el mismo componente. La confirmación se muestra solo tras recibir `201`; los errores de validación del servidor se muestran junto al campo correspondiente.
 
 ## Contrato
 
@@ -31,7 +33,7 @@ Por ello, un expediente anterior puede tener los campos nuevos en `NULL`; se con
 
 ## Seguridad, transacciones y pruebas
 
-`requireProfessional`, CSRF, `lockActor`, el bloqueo de `private.professionals`, `requireCapacity` y la transacción compartida se reutilizan sin aceptar propiedad en JSON. RLS verifica que el contexto de profesional sea el dueño al insertar o actualizar. La API filtra la lectura por profesional, pero el rol técnico conserva un permiso de lectura excesivo sobre la tabla, incluidas las nuevas columnas; no se acredita mínimo privilegio de lectura.
+`requireProfessional`, CSRF, `lockActor`, el bloqueo de `private.professionals`, `requireCapacity` y la transacción compartida se reutilizan sin aceptar propiedad en JSON. RLS verifica que el contexto de profesional sea el dueño al insertar o actualizar. La API filtra la lectura por profesional. Esta frase describía el estado previo a TT-010, cuando el rol técnico leía cualquier fila de la tabla; esa exposición se corrigió con RLS por propiedad (ver el hallazgo P0 más abajo). El aislamiento depende de RLS y del contexto transaccional; no se acredita mínimo privilegio por columnas.
 
 Hallazgo transversal P0 confirmado y corregido técnicamente: el SELECT de tabla y `select_clients USING (true)` permitían leer filas ajenas, incluidas las seis columnas físicas de HU-015. Una comprobación local con rol ordinario y contexto A leyó B; se revirtió íntegramente. Incumplía TT-010-2/4 y la aceptación «profesional A nunca lee/escribe cartera B». Las migraciones nuevas sustituyen esa política por propiedad y los consumidores establecen contexto transaccional; cuatro pruebas específicas comprueban el aislamiento. No se descarta el impacto por ser heredado ni se atribuye la solución solo al filtro HTTP. [Diseño, excepciones y evidencia](tt-010-client-read-isolation.md). Quedan revisión independiente y alcance transversal restante de TT-010/D0.
 

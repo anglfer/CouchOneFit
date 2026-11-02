@@ -338,6 +338,20 @@ test('initial record uses the same adult calendar as SQL and restores the connec
   }
 })
 
+test('SQL enforces the 16-year minimum age without rejecting adults', async () => {
+  const pro = await account()
+  const insert = (birth: string) =>
+    db.query(
+      `INSERT INTO private.clients(professional_id,full_name,birth_date,height_cm,base_weight_kg)
+       VALUES($1,'Edad minima',(${birth})::date,170,70)`,
+      [pro.professionalId]
+    )
+  await assert.rejects(insert("CURRENT_DATE - INTERVAL '16 years' + INTERVAL '2 days'"), { code: '23514' })
+  await assert.rejects(insert("CURRENT_DATE - INTERVAL '10 years'"), { code: '23514' })
+  await insert("CURRENT_DATE - INTERVAL '16 years'")
+  await insert("CURRENT_DATE - INTERVAL '17 years'")
+})
+
 test('SQL rejects excessive base-measure precision instead of rounding it', async () => {
   const pro = await account()
   await assert.rejects(
@@ -782,4 +796,137 @@ test('reactivating an account cannot reactivate its record or bypass subscriptio
     ).rows[0].status,
     'inactive'
   )
+})
+
+async function linkedClient(pro: { token: string }) {
+  const user = await account('client')
+  const created = await create(pro.token)
+  assert.equal(created.status, 201)
+  await db.query('UPDATE private.clients SET user_id=$2 WHERE id=$1', [
+    created.body.client.id,
+    user.id,
+  ])
+  return { user, id: created.body.client.id as string }
+}
+const accountStatus = async (id: string) =>
+  (await db.query('SELECT status FROM private.users WHERE id=$1', [id])).rows[0].status
+const accountPatch = (id: string, status: unknown, token: string, extra = {}) =>
+  mutation('patch', `/api/clients/${id}/account`, { status, ...extra }, token)
+
+test('professional deactivates and reactivates the linked client account without touching record, quota or subscription', async () => {
+  const pro = await subscribed(elite)
+  const { user, id } = await linkedClient(pro)
+  const profile = () =>
+    request(app).get('/api/client/profile').set('Authorization', `Bearer ${user.token}`)
+  assert.equal((await profile()).status, 200)
+  const used = async () =>
+    (await db.query("SELECT count(*)::int AS n FROM private.clients WHERE professional_id=$1 AND status='active'", [pro.professionalId])).rows[0].n
+  const before = await used()
+
+  const off = await accountPatch(id, 'inactive', pro.token)
+  assert.equal(off.status, 200)
+  assert.deepEqual(off.body.account, { clientId: id, accountStatus: 'inactive' })
+  assert.equal(await accountStatus(user.id), 'inactive')
+  assert.equal((await profile()).status, 401)
+  assert.equal(
+    (await db.query('SELECT count(*)::int AS n FROM private.sessions WHERE user_id=$1 AND revoked_at IS NULL', [user.id])).rows[0].n,
+    0
+  )
+  assert.equal(
+    (await db.query('SELECT status FROM private.clients WHERE id=$1', [id])).rows[0].status,
+    'active'
+  )
+  assert.equal(await used(), before)
+
+  const again = await accountPatch(id, 'inactive', pro.token)
+  assert.equal(again.status, 200)
+  assert.equal(
+    (await db.query("SELECT count(*)::int AS n FROM private.access_events WHERE client_id=$1 AND action='client_account_deactivated'", [id])).rows[0].n,
+    1
+  )
+
+  const on = await accountPatch(id, 'active', pro.token)
+  assert.equal(on.status, 200)
+  assert.equal(await accountStatus(user.id), 'active')
+  // Reactivation never revives revoked sessions.
+  assert.equal((await profile()).status, 401)
+  assert.equal(
+    (await db.query('SELECT status FROM private.clients WHERE id=$1', [id])).rows[0].status,
+    'active'
+  )
+  assert.equal(
+    (await db.query("SELECT count(*)::int AS n FROM private.access_events WHERE client_id=$1 AND action='client_account_reactivated'", [id])).rows[0].n,
+    1
+  )
+})
+
+test('client account status rejects foreign, unlinked, malformed, ineligible and non-professional requests', async () => {
+  const pro = await subscribed(elite)
+  const other = await subscribed(elite)
+  const { user, id } = await linkedClient(pro)
+  const unlinked = (await create(pro.token)).body.client.id
+
+  const foreign = await accountPatch(id, 'inactive', other.token)
+  assert.equal(foreign.status, 404)
+  assert.equal(foreign.body.error.code, 'CLIENT_NOT_FOUND')
+  assert.equal(await accountStatus(user.id), 'active')
+
+  const notLinked = await accountPatch(unlinked, 'inactive', pro.token)
+  assert.equal(notLinked.status, 409)
+  assert.equal(notLinked.body.error.code, 'CLIENT_ACCOUNT_NOT_LINKED')
+
+  for (const [status, extra] of [
+    ['disabled', {}],
+    [undefined, {}],
+    ['inactive', { userId: user.id }],
+    ['inactive', { version: 1 }],
+  ] as const)
+    assert.equal((await accountPatch(id, status, pro.token, extra)).status, 400)
+  assert.equal(
+    (await mutation('patch', '/api/clients/not-a-uuid/account', { status: 'inactive' }, pro.token)).status,
+    400
+  )
+  assert.ok([401, 403].includes((await accountPatch(id, 'inactive', user.token)).status))
+  assert.equal(await accountStatus(user.id), 'active')
+
+  await db.query("UPDATE private.subscriptions SET status='suspended' WHERE professional_id=$1", [pro.professionalId])
+  const blocked = await accountPatch(id, 'inactive', pro.token)
+  assert.equal(blocked.status, 403)
+  assert.equal(blocked.body.error.code, 'SUBSCRIPTION_SUSPENDED')
+  assert.equal(await accountStatus(user.id), 'active')
+})
+
+test('runtime cannot change account status directly nor for a client of another professional', async () => {
+  const pro = await subscribed(elite)
+  const other = await subscribed(elite)
+  const { user, id } = await linkedClient(pro)
+  const asSubject = async (subject: string, sql: string, params: unknown[]) => {
+    const connection = await runtime.connect()
+    try {
+      await connection.query('BEGIN')
+      await connection.query("SELECT set_config('app.subject_id',$1,true)", [subject])
+      return await connection.query(sql, params).finally(() => connection.query('ROLLBACK'))
+    } finally {
+      connection.release()
+    }
+  }
+  const proUser = (await db.query('SELECT user_id FROM private.professionals WHERE id=$1', [pro.professionalId])).rows[0].user_id
+  const otherUser = (await db.query('SELECT user_id FROM private.professionals WHERE id=$1', [other.professionalId])).rows[0].user_id
+  await assert.rejects(
+    asSubject(proUser, "UPDATE private.users SET status='inactive' WHERE id=$1", [user.id]),
+    { code: '42501' }
+  )
+  assert.equal(
+    (await asSubject(otherUser, "SELECT private.set_client_account_status($1,'inactive') AS id", [id])).rows[0].id,
+    null
+  )
+  assert.equal(
+    (await asSubject('', "SELECT private.set_client_account_status($1,'inactive') AS id", [id])).rows[0].id,
+    null
+  )
+  assert.equal(
+    (await asSubject(proUser, "SELECT private.set_client_account_status($1,'bogus') AS id", [id])).rows[0].id,
+    null
+  )
+  assert.equal(await accountStatus(user.id), 'active')
 })

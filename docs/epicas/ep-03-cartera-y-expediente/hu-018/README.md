@@ -6,7 +6,7 @@ Fuente: `plan/PLAN_TRABAJO_V2.md` §HU-018. Franela Whaite conserva coordinació
 
 Se trabaja solo en `feature/api-client-portfolio`, con commits HU-018; no se crea rama/PR. La instrucción inicial fue no publicar; tras el recorrido reportado, la persona usuaria autorizó publicar avances en esa misma rama si pasan revisión/verificaciones. Se conservan HU-015 y PR #22. El próximo PR será al completar EP-03 conforme al [acuerdo vigente](../README.md#acuerdo-de-integración-vigente).
 
-El alcance es exclusivamente el estado operativo de `private.clients`. No hay DELETE físico, baja/reactivación de cuenta, revocación de sesiones por inactivar expediente, cambios de suscripción, purga de invitaciones ni reescritura de datos base/historial.
+El endpoint de estado (`/status`) cambia exclusivamente el estado operativo de `private.clients`. No hay DELETE físico, baja/reactivación de cuenta en ese endpoint (la cubre el endpoint separado de [baja de cuenta](#baja-y-reactivación-de-la-cuenta-cliente)), revocación de sesiones por inactivar expediente, cambios de suscripción, purga de invitaciones ni reescritura de datos base/historial.
 
 ## Matriz de efectos y fuentes vigentes
 
@@ -19,7 +19,7 @@ DEC-004 §3.4 distingue profesional, cuenta cliente, expediente y suscripción; 
 | Reactivar expediente | Profesional/cuenta y suscripción vigentes; consumir plaza exige `used < limit`, o plan ilimitado. No reactiva una cuenta inactiva ni revive sesiones revocadas. |
 | Sin plan, suscripción suspendida/vencida | Se rechaza la operación de negocio con 403, también una repetición, sin cambiar datos ni auditarlos. Corresponde a DEC-004; no es ausencia de cupo. |
 | Exceso por datos históricos/reducción de catálogo | No bloquea inactivar ni repetir estado actual; sí nuevos consumidores. Se reutiliza HU-013 sin duplicar la lógica de cupos. |
-| Cuenta dada de baja explícitamente por otro flujo autorizado | No login y sesiones revocadas por HU-005. Esa acción no está en el endpoint ni en la confirmación HU-018; no cambia automáticamente el expediente. |
+| Baja explícita de la cuenta cliente | Acción propia `PATCH /api/clients/:clientId/account` (sección siguiente): no login y sesiones revocadas por HU-005. No está en `/status` ni en su confirmación; no cambia el expediente. |
 | Invitaciones existentes | Se conservan. Emisión/canje requieren expediente activo, profesional/suscripción vigentes y demás controles existentes. Reactivar permite usar una invitación anterior solo si sigue vigente, no vinculada y cumple esas condiciones. No se extiende su TTL ni se inventa revocación automática. |
 
 ## Contrato y reintentos
@@ -34,7 +34,7 @@ Respuesta 200: `{ client: ClientBaseRecord }`, con estado y versión resultantes
 4. Si se necesita transición, versión distinta devuelve 409 `CLIENT_RECORD_CONFLICT`, sin efectos. Así una petición antigua no revierte una reactivación/inactivación posterior ni ignora ediciones HU-017/activación.
 5. Una reactivación consumidora sin plaza devuelve 409 `CUPO_AGOTADO`. Repeticiones no se confunden con conflictos de edición o cupo.
 
-Campos desconocidos (incluidos cuenta, propietario o suscripción), estado o versión inválidos: 400 `INVALID_INPUT`. Ajeno/inexistente: mismo 404 `NOT_FOUND`; UUID inválido 400; sin sesión 401; rol cliente/admin, CSRF o elegibilidad no válidos 403 según código. Fallo de persistencia/auditoría: 503 seguro, sin detalles SQL. No se acepta un `version` arbitrario como valor a asignar.
+Campos desconocidos (incluidos cuenta, propietario o suscripción), estado o versión inválidos: 400 `INVALID_INPUT`. Ajeno/inexistente: mismo 404 `CLIENT_NOT_FOUND`, igual que ficha y edición; UUID inválido 400; sin sesión 401; rol cliente/admin, CSRF o elegibilidad no válidos 403 según código. Fallo de persistencia/auditoría: 503 seguro, sin detalles SQL. No se acepta un `version` arbitrario como valor a asignar.
 
 ## Transacción, auditoría y versión
 
@@ -55,3 +55,23 @@ Tras respuesta satisfactoria se refrescan cartera/filtros (primera página con b
 DEC-011 fija baja lógica y conservación de relaciones/historial, no plazos legales inventados ni purgas por fecha de entrega. DEC-015 conserva el aviso informativo versionado `2026-10-15.1`, sin convertirlo en política de privacidad completa o renuncia de derechos. Responsable/contacto/finalidades/conservación y mecanismos de derechos requieren definición para datos reales. HU-018 dice expresamente que esas condiciones no bloquean toda preparación técnica de baja lógica: esta entrega usa solo fixtures locales sintéticas y no modifica aceptaciones anteriores.
 
 El esquema todavía no tiene evaluaciones, planes de cliente ni mediciones históricas. Las pruebas automáticas demuestran conservación de las filas/vínculos/invitaciones/eventos existentes y de su actualización; no se acredita una prueba sobre tablas inexistentes. Ver [evidencia](validacion-local.md) y [guion manual con alcance del reporte](prueba-web-manual.md). La persona usuaria reportó cancelación/Escape, inactivación/reactivación con cupo 5→4→5 y conflicto sin transición tras edición concurrente; no se le atribuyen pruebas adicionales. D0 y revisión independiente D0.8, así como TT-010 transversal, siguen abiertos; no se añade como requisito repetir manualmente cada negativo automatizado de D0.5/10. La publicación autorizada es únicamente avance de rama, sin merge, despliegues ni uso compartido de Supabase.
+
+## Baja y reactivación de la cuenta cliente
+
+30/10/2026. Cierra el pendiente de DEC-004 («dar de baja cuenta exige acción explícita autorizada») y la parte de aceptación/QA1 de esta historia sobre login bloqueado tras la baja de cuenta. Es una operación distinta de la del expediente: no cambia `clients.status`, plaza, versión del expediente ni suscripción.
+
+`PATCH /api/clients/:clientId/account` con `{ "status": "active" | "inactive" }` estricto, sesión profesional, Origin y CSRF, `no-store`. Respuesta 200 `{ account: { clientId, accountStatus } }`.
+
+| Condición | Resultado |
+| --- | --- |
+| Expediente propio con cuenta vinculada, `inactive` | `private.users.status='inactive'`, se revocan todas sus sesiones y refresh tokens, y se audita `client_account_deactivated` en la misma transacción. Login y acceso con tokens vigentes fallan de inmediato (HU-005). |
+| `active` sobre cuenta dada de baja | La cuenta vuelve a poder iniciar sesión; no revive sesiones revocadas, no reactiva el expediente ni consume plaza. Auditoría `client_account_reactivated`. |
+| Cuenta ya en el estado pedido | 200 sin UPDATE ni auditoría; la operación es idempotente y no usa versión. |
+| Expediente sin cuenta activada | 409 `CLIENT_ACCOUNT_NOT_LINKED`. |
+| Expediente ajeno o inexistente | 404 `CLIENT_NOT_FOUND`, sin revelar propietario. |
+| Profesional sin plan, suspendido o vencido | 403 `PLAN_REQUIRED` / `SUBSCRIPTION_SUSPENDED`: se trata como operación de negocio (DEC-004). |
+| Campos extra (`userId`, `version`…), estado inválido o UUID inválido | 400 `INVALID_INPUT`. |
+
+El runtime sigue sin permiso `UPDATE` sobre `users.status`: la migración `202610300001_client_account_status.sql` añade las dos acciones de auditoría y `private.set_client_account_status(client, status)`, función `SECURITY DEFINER` que solo actúa si `app.subject_id` es el profesional activo dueño del expediente y la cuenta vinculada es de rol cliente. Devuelve `NULL` en cualquier otro caso. La transacción bloquea actor, profesional y expediente en el orden de las demás operaciones.
+
+Web: en cada fila de la cartera con cuenta vinculada, «Dar de baja la cuenta» / «Reactivar cuenta» abre un diálogo modal con foco en Cancelar. Tras un resultado incierto se puede confirmar de nuevo porque la operación es idempotente. El listado `GET /api/clients` añade `accountStatus` (`active`, `inactive` o `null` sin cuenta). Pruebas: 3 casos en `tests/saas.test.ts` (efectos, rechazos y capacidad del runtime) y 1 en Web.

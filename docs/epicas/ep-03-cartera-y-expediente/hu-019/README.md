@@ -1,4 +1,9 @@
-# HU-019 — Expediente profesional consolidado: incremento parcial
+# HU-019 — Base del expediente profesional e integración por épica fuente
+
+**Alcance vigente tras redistribución autorizada — 31/oct/2026:** esta HU entrega la base del expediente profesional, su perfil real y estados de disponibilidad. Cada HU de EP-04/05/06/07 implementa y conecta su propia sección API/Web con contrato y pruebas. Las conexiones ya no son una etapa pendiente asignada a HU-019. RDF0404 integral sigue trazado a esas entregas futuras. El alcance base está implementado y verificado según la evidencia; revisión independiente/D0 aplicable no acreditados. Ver [plan vigente](../../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03).
+
+## Evidencia y alcance histórico del incremento, 29/oct/2026
+
 
 29/10/2026. Implementación parcial del perfil real y composición extensible. HU-019 no está completa: las dependencias de otros módulos todavía no están integradas. D0, revisión independiente y TT-010 transversal permanecen abiertos.
 

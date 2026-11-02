@@ -17,9 +17,6 @@ class ClientBaseMeasurements extends StatelessWidget {
       'Fecha de nacimiento': date,
       'Estatura': measure(profile.heightCm, 'cm'),
       'Peso base': measure(profile.baseWeightKg, 'kg'),
-      'Grasa medida inicial': measure(profile.baseBodyFatPercentage, '%'),
-      'Cintura inicial': measure(profile.waistCm, 'cm'),
-      'Cadera inicial': measure(profile.hipCm, 'cm'),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -14,10 +14,7 @@ export async function clientProfile(pool: Pool, identity: SessionIdentity, base 
             c.status,
             ${base ? `c.birth_date::text AS "birthDate",
             c.height_cm::float8 AS "heightCm",
-            c.base_weight_kg::float8 AS "baseWeightKg",
-            c.base_body_fat_percentage::float8 AS "baseBodyFatPercentage",
-            c.waist_cm::float8 AS "waistCm",
-            c.hip_cm::float8 AS "hipCm",` : ''}
+            c.base_weight_kg::float8 AS "baseWeightKg",` : ''}
             a.username,
             a.email
        FROM private.clients c
@@ -34,6 +31,7 @@ export async function clientProfile(pool: Pool, identity: SessionIdentity, base 
   return profile;
 }
 
+// DEC-017: the client sees only the basic data; body fat, waist and hip need DEC-009 permissions.
 export async function clientRecord(pool: Pool, identity: SessionIdentity) {
   const profile = await clientProfile(pool, identity, true);
   if (!profile) return undefined;

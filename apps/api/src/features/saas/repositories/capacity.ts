@@ -3,6 +3,7 @@ import { AuthError } from '../../auth/types/errors.js'
 import {
   audit,
   lockActor,
+  revokeAll,
   transaction
 } from '../../auth/repositories/lifecycle.js'
 import type { SessionIdentity } from '../../auth/types/session.js'
@@ -121,7 +122,7 @@ export async function writeClientStatus(
       [clientId, professional.id]
     )
     if (!record)
-      throw new AuthError(404, 'NOT_FOUND', 'El expediente no existe.')
+      throw new AuthError(404, 'CLIENT_NOT_FOUND', 'El expediente no existe.')
     // Revalidate eligibility even for repetitions. A no-op never allocates capacity
     // or emits another audit event, regardless of an older (well-formed) version.
     await requireCapacity(client, professional.id, false, now)
@@ -169,5 +170,70 @@ export async function writeClientStatus(
       now
     )
     return updated
+  })
+}
+
+// DEC-004: baja/reactivación explícita de la cuenta cliente. No cambia el estado del
+// expediente, la suscripción ni la plaza; la baja revoca sesiones y la reactivación no las revive.
+export async function writeClientAccountStatus(
+  pool: Pool,
+  identity: SessionIdentity,
+  clientId: string,
+  status: 'active' | 'inactive',
+  now?: Date
+) {
+  return transaction(pool, async (client) => {
+    await lockActor(client, identity, now, true)
+    const {
+      rows: [professional]
+    } = await client.query(
+      'SELECT id FROM private.professionals WHERE user_id=$1',
+      [identity.id]
+    )
+    if (!professional)
+      throw new AuthError(404, 'NOT_FOUND', 'El profesional no existe.')
+    await lockProfessional(client, professional.id)
+    const {
+      rows: [record]
+    } = await client.query<{ userId: string | null; accountStatus: string | null }>(
+      `SELECT c.user_id AS "userId",u.status AS "accountStatus"
+         FROM private.clients c LEFT JOIN private.users u ON u.id=c.user_id
+        WHERE c.id=$1 AND c.professional_id=$2 FOR UPDATE OF c`,
+      [clientId, professional.id]
+    )
+    if (!record)
+      throw new AuthError(404, 'CLIENT_NOT_FOUND', 'El expediente no existe.')
+    await requireCapacity(client, professional.id, false, now)
+    if (!record.userId)
+      throw new AuthError(
+        409,
+        'CLIENT_ACCOUNT_NOT_LINKED',
+        'El cliente todavía no activa su cuenta.'
+      )
+    if (record.accountStatus === status) return { clientId, accountStatus: status }
+    const {
+      rows: [changed]
+    } = await client.query<{ id: string | null }>(
+      'SELECT private.set_client_account_status($1,$2) AS id',
+      [clientId, status]
+    )
+    if (!changed.id)
+      throw new AuthError(
+        409,
+        'CLIENT_ACCOUNT_CONFLICT',
+        'La cuenta cambió. Actualiza la cartera y vuelve a intentarlo.'
+      )
+    if (status === 'inactive') await revokeAll(client, record.userId, now)
+    await audit(
+      client,
+      status === 'inactive'
+        ? 'client_account_deactivated'
+        : 'client_account_reactivated',
+      identity.id,
+      record.userId,
+      clientId,
+      now
+    )
+    return { clientId, accountStatus: status }
   })
 }

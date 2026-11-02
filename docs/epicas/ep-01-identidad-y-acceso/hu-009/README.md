@@ -1,5 +1,7 @@
 # HU-009 — Recuperar acceso ante pérdida de sesión/dispositivo
 
+> **Pendiente por DEC-017 (30-oct-2026):** el administrador podrá generar el reseteo también para clientes, como soporte, con registro interno. «Sin SMTP» queda sustituido por la decisión de enviar correos; la recuperación de contraseña se mantiene **asistida**.
+
 Como cliente o profesional quiero recuperar el acceso para conservar mi cuenta y expediente al perder/cambiar el dispositivo. Recuperación base P1/3 SP según DEC-002; sin SMTP, SMS o alta alternativa. Responsable del backlog: Ferxxo.
 
 ## Procedimiento aprobado

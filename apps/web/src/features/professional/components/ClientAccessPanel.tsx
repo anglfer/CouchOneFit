@@ -3,7 +3,9 @@ import { ApiError } from '../../../services/api';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 
 import { Link } from '../../../components/Link';
+import ClientAccountAction from './ClientAccountAction';
 import ClientStatusAction from './ClientStatusAction';
+import GoalField from './GoalField';
 import type { ClientRecord, PortfolioResponse } from '../types/portfolio';
 
 type ClientField =
@@ -240,7 +242,7 @@ export default function ClientAccessPanel({
             className="block border p-2 rounded-lg w-full"
           />
           <span className="text-sm">
-            Solo se registran personas de 18 años o más.
+            Solo se registran personas de 16 años o más.
           </span>
           {fieldErrors.birthDate && (
             <p
@@ -386,24 +388,13 @@ export default function ClientAccessPanel({
             </label>
           </div>
         </fieldset>
-        <label className="block">
-          Objetivo (opcional)
-          <input
-            maxLength={500}
-            value={form.goal}
-            onChange={(event) => updateField('goal', event.target.value)}
-            aria-invalid={!!fieldErrors.goal}
-            aria-describedby={
-              fieldErrors.goal ? 'client-goal-error' : undefined
-            }
-            className="block border p-2 rounded-lg w-full"
-          />
-          {fieldErrors.goal && (
-            <p id="client-goal-error" className="text-red-700" role="alert">
-              {fieldErrors.goal}
-            </p>
-          )}
-        </label>
+        <GoalField
+          value={form.goal}
+          onChange={(value) => updateField('goal', value)}
+          error={fieldErrors.goal}
+          errorId="client-goal-error"
+          className="block border p-2 rounded-lg w-full"
+        />
         <button
           disabled={!!busy}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
@@ -425,7 +416,7 @@ export default function ClientAccessPanel({
         }}
       >
         <label>
-          Buscar por nombre
+          Buscar por nombre u objetivo
           <input
             className="block border rounded p-2"
             disabled={!!busy}
@@ -515,7 +506,9 @@ export default function ClientAccessPanel({
               </p>
               <p>
                 {record.userId
-                  ? 'Cuenta vinculada'
+                  ? record.accountStatus === 'inactive'
+                    ? 'Cuenta vinculada dada de baja'
+                    : 'Cuenta vinculada'
                   : record.status !== 'active'
                     ? 'Expediente inactivo'
                     : 'Sin cuenta vinculada'}
@@ -545,6 +538,26 @@ export default function ClientAccessPanel({
                   onStatusChanged();
                 }}
               />
+              {record.userId && record.accountStatus && (
+                <ClientAccountAction
+                  sessionReady={sessionReady}
+                  clientId={record.id}
+                  fullName={record.fullName}
+                  accountStatus={record.accountStatus}
+                  accountId={accountId}
+                  disabled={!!busy}
+                  onBusyChange={(pending) => {
+                    setBusy(pending ? record.id : '');
+                    if (pending) setDelivery(null);
+                  }}
+                  onChanged={(status) => {
+                    setStatusNotice(
+                      `La cuenta de ${record.fullName} está ${status === 'active' ? 'activa' : 'dada de baja'}.`
+                    );
+                    setAttempt((value) => value + 1);
+                  }}
+                />
+              )}
               {!record.userId && record.status === 'active' && (
                 <button
                   type="button"

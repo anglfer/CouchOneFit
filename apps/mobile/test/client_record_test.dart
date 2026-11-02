@@ -26,9 +26,6 @@ const record = <String, Object?>{
   'birthDate': '1990-06-15',
   'heightCm': 170.5,
   'baseWeightKg': 70.2,
-  'baseBodyFatPercentage': 20.2,
-  'waistCm': 80.2,
-  'hipCm': null,
 };
 InMemorySessionStorage storage() => InMemorySessionStorage(
     initialSession: StoredSession(
@@ -40,7 +37,7 @@ ApiHttpResponse response(Map<String, Object?> data) =>
 
 void main() {
   testWidgets(
-      'HU-020 reads prepared base values with units and missing optional data, never edits or pretends progress is empty',
+      'HU-020 reads only the basic prepared values with units, never edits or pretends progress is empty',
       (tester) async {
     final profile = ClientProfile.fromJson(record);
     await tester.pumpWidget(MaterialApp(
@@ -52,9 +49,9 @@ void main() {
     ))));
     await tester.pumpAndSettle();
     expect(find.text('Peso base: 70.2 kg'), findsOneWidget);
-    expect(find.text('Grasa medida inicial: 20.2 %'), findsOneWidget);
-    expect(find.text('Cintura inicial: 80.2 cm'), findsOneWidget);
-    expect(find.text('Cadera inicial: Sin registrar'), findsOneWidget);
+    expect(find.textContaining('Grasa'), findsNothing);
+    expect(find.textContaining('Cintura'), findsNothing);
+    expect(find.textContaining('Cadera'), findsNothing);
     expect(find.text('Fecha de nacimiento: 15/06/1990'), findsOneWidget);
     expect(find.textContaining('todavía no está disponible'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);

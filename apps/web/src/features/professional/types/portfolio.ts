@@ -1,6 +1,7 @@
 export interface ClientRecord {
   id: string;
   userId: string | null;
+  accountStatus: 'active' | 'inactive' | null;
   fullName: string;
   goal: string | null;
   status: 'active' | 'inactive';

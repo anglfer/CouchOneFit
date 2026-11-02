@@ -58,14 +58,14 @@ test('initial record rejects coercion, zero, non-finite values and missing requi
       assert.throws(() => validateClientInitialRecord({ ...input, [field]: value }, now), invalidField(field))
 })
 
-test('initial record validates calendar dates, PostgreSQL year range and adult birthday boundaries', () => {
-  for (const birthDate of ['0000-01-01', '2007-02-29', '2026-10-29', '2008-10-29', '', '1990-13-01'])
+test('initial record validates calendar dates, PostgreSQL year range and minimum-age birthday boundaries', () => {
+  for (const birthDate of ['0000-01-01', '2007-02-29', '2026-10-29', '2010-10-29', '', '1990-13-01'])
     assert.throws(() => validateClientInitialRecord({ ...input, birthDate }, now), invalidField('birthDate'))
-  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2008-10-28' }, now))
-  assert.throws(() => validateClientInitialRecord({ ...input, birthDate: '2008-02-29' }, new Date('2026-02-28T12:00:00Z')), invalidField('birthDate'))
-  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2008-02-29' }, new Date('2026-03-01T12:00:00Z')))
-  assert.throws(() => validateClientInitialRecord({ ...input, birthDate: '2008-10-29' }, new Date('2026-10-29T00:30:00Z')), invalidField('birthDate'))
-  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2008-10-29' }, new Date('2026-10-29T06:00:00Z')))
+  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2010-10-28' }, now))
+  assert.throws(() => validateClientInitialRecord({ ...input, birthDate: '2012-02-29' }, new Date('2028-02-28T12:00:00Z')), invalidField('birthDate'))
+  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2012-02-29' }, new Date('2028-02-29T12:00:00Z')))
+  assert.throws(() => validateClientInitialRecord({ ...input, birthDate: '2010-10-29' }, new Date('2026-10-29T00:30:00Z')), invalidField('birthDate'))
+  assert.doesNotThrow(() => validateClientInitialRecord({ ...input, birthDate: '2010-10-29' }, new Date('2026-10-29T06:00:00Z')))
 })
 
 test('initial record rejects owner injection and invalid names and goals', () => {
