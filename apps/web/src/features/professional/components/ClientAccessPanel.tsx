@@ -179,6 +179,7 @@ export default function ClientAccessPanel({
       setFilters((current) => ({ ...current, search: '', status: '' }));
       setSaved('El expediente se guardó correctamente.');
       setAttempt((value) => value + 1);
+      onStatusChanged();
     } catch (failure) {
       if (failure instanceof ApiError) {
         setFieldErrors(failure.fields);

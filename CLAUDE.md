@@ -1,5 +1,17 @@
 # CouchOne Fit — instrucciones para Claude
 
+## Codebase Memory: exploración del código (obligatorio)
+
+Antes de explorar el código, usa las herramientas MCP de `codebase-memory-mcp` como primera opción:
+
+1. Comprueba con `list_projects` que este repositorio esté indexado; si no lo está, ejecuta `index_repository` para su ruta.
+2. Usa `search_graph` para localizar funciones, clases, rutas y símbolos; `trace_path` para identificar sus llamadas y dependencias; y `get_code_snippet` para leer su implementación.
+3. Usa `query_graph` para relaciones complejas y `get_architecture` para una vista general del proyecto.
+4. Recurre a `Grep`/`Glob` o búsquedas de archivos para textos literales, errores, configuración y documentación, o cuando el grafo devuelva resultados insuficientes. Verifica el código actual antes de editarlo.
+5. Si el MCP no está disponible o falla, indícalo y continúa con las herramientas de búsqueda disponibles. No afirmes haber consultado el grafo si no lo hiciste.
+
+El grafo complementa la lectura de la HU y sus decisiones; no sustituye los requisitos ni las comprobaciones del código actual.
+
 Monorepo SaaS de entrenamiento y nutrición. Tres apps + PostgreSQL:
 
 | App       | Ruta                       | Stack                                                                      | Puerto local               |

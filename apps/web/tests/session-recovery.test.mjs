@@ -644,6 +644,9 @@ test('a failed manual save keeps every field and reconnection never retries the 
     ).length,
     1
   );
+  const subscriptionReads = () =>
+    requests.filter((request) => request.url === '/api/me/subscription').length;
+  const beforeSave = subscriptionReads();
   await act(async () =>
     document
       .querySelector('form')
@@ -662,6 +665,8 @@ test('a failed manual save keeps every field and reconnection never retries the 
     /El expediente se guardó correctamente/
   );
   assert.equal(field('Nombre completo').value, '');
+  // HU-015 consumes a place: the capacity summary refreshes after the create.
+  assert.equal(subscriptionReads(), beforeSave + 1);
 });
 
 test('session-cleared notification defeats a pending successful check and discards the draft', async () => {

@@ -66,3 +66,22 @@ Revisión de la persona usuaria sobre la rama común, sin commit/push/PR.
 | Web tests / lint / build + PWA | 38/38, aprobado, aprobado. |
 
 Requisitos de entorno observados: `TEST_DATABASE_URL` debe exportarse en el shell (varios tests la leen antes de cargar `.env`), apuntar a `127.0.0.1` (no `localhost`, exigido por `client-read-isolation.test.ts`) y a una base `_test` local ya migrada (`DATABASE_URL=<url de prueba> npm run db:migrate`). Nunca con la `DATABASE_URL` compartida. Móvil y recorridos humanos no se repitieron. D0.8 (revisión de otro integrante) sigue sin acreditarse.
+
+## Revisión integral 02/nov/2026 — EP-03 de extremo a extremo
+
+Revisión por el asistente a petición de la persona usuaria (HU-015, HU-007, HU-008, HU-016–020) contra criterios, tareas, DoD, DEC-003/004/005/006/017 y OpenAPI. Sin commit/push/PR. No acredita revisión independiente (D0.8).
+
+- [x] **Defecto corregido (HU-015-WEB1 / HU-013–014):** tras un alta exitosa la Web no volvía a consultar `/api/me/subscription`, así que el resumen de cupo del inicio seguía mostrando el uso anterior hasta recargar (HU-018 sí lo refrescaba). `ClientAccessPanel.tsx` llama ahora al mismo `onStatusChanged()` que usa el cambio de estado. Prueba Web ampliada: «a failed manual save keeps every field…» exige una lectura de suscripción adicional tras el guardado; falló antes de la corrección (2≠3) y pasa después.
+- [x] **Flujo encadenado de la épica (T):** la prueba vertical «HU-020 vertical registration invitation activation…» (`apps/api/tests/client-read-isolation.test.ts`) continúa ahora sobre el mismo expediente activado: HU-016 lo lista con `userId`/`accountStatus` y sin invitación residual; HU-019 compone el perfil editado con secciones `not_integrated`; HU-018 lo inactiva (aparece en filtro inactivo, el cliente sigue leyendo), una nueva invitación se rechaza, la baja de la cuenta revoca la sesión (401) y bloquea el login; el expediente sigue existiendo (sin DELETE).
+- [x] Sin cambios: API/BD de HU-015/007/008/016–020 (cupo con bloqueo del profesional, invitación DEC-003, canje anónimo atómico, concurrencia, replay, auditoría sin token/hash, cartera con cursor, versión/conflicto, baja lógica y perfil propio DEC-017) y móvil (activación con aviso versionado y prevalidación no consumidora → perfil propio). Ya estaban cubiertos por pruebas que se volvieron a ejecutar.
+- [ ] Fuera del alcance ejecutable: invitación por correo (DEC-017) espera proveedor de correo y campo de correo del cliente, con preguntas abiertas y sin HU asignada; progreso RDC0204 (HU-036) y secciones RDF0404 (EP-04–07) siguen trasladados.
+
+| Comprobación | Resultado |
+| --- | --- |
+| API build | Aprobado. |
+| API suite completa (PostgreSQL 18 local `127.0.0.1/CouchOneFit_test`, 18 migraciones) | **127/127**. |
+| Web tests / lint / build + PWA | **38/38**, aprobado, aprobado. |
+| Prettier de los archivos tocados | `ClientAccessPanel.tsx` aprobado. `session-recovery.test.mjs` solo conserva dos avisos previos (líneas ~228/246) y CRLF del checkout; el fragmento nuevo cumple. |
+| Móvil `flutter analyze` / `flutter test` | Sin incidencias / **41/41** (sin cambios móviles). |
+| `git diff --check` | Limpio. |
+| Recorrido en navegador | No completado: la sesión abierta en el navegador integrado pertenecía a una cuenta QA previa (`qa.audit.pro`) y no se cerró ni se modificó su cartera. El recorrido HTTP se acredita con la prueba vertical (T), no como reporte humano. |
