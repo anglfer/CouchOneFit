@@ -867,13 +867,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-013-WEB1 | Mostrar agotamiento/capacidad y error de conflicto real en formularios.                                        |
 | HU-013-QA1  | Test concurrente de última plaza, alta/activación simultáneas e inactivación; comprobar filas, no solo status. |
 
-**DoD:** D0; Franela Whaite integra el servicio en HU-015/018 con Omar como ejecutor de HU-018-API1, sin duplicar la lógica de cupos de Omar. Ferxxo define estándares/revisa y aprueba alcance; no programa suscripciones ni cupos.
+**DoD:** D0; servicio de cupo probado por sí mismo con expedientes fixture. EP-03 lo integra después en HU-015/018 (Franela Whaite, con Omar como ejecutor de HU-018-API1), sin duplicar la lógica de cupos de Omar. Ferxxo define estándares/revisa y aprueba alcance; no programa suscripciones ni cupos.
 
 #### HU-014 — Consultar profesionales y clientes utilizados
 
 **Como:** administrador. **Quiero:** ver profesionales y uso por cuenta. **Para:** administrar la plataforma global.
 **Referencias:** RDF1001/1002/1004. **Responsable:** Omar. **Capas:** API, Web, BD.
-**Depende de:** HU-003/011/015/018. **Bloquea a:** cierre RF10.
+**Depende de:** HU-003/011/013 y `private.clients` de HU-004 con expedientes fixture. **Verificación posterior:** HU-015-QA1 y HU-018-QA1 (EP-03) comprueban que alta e inactivación/reactivación se reflejan en estos recuentos. **Bloquea a:** cierre RF10.
 
 **Aceptación:** lista muestra cuenta/estado/plan y recuentos correctos; filtros/paginación no mezclan ni duplican cuentas; profesional/cliente no consultan lista global; admin no recibe automáticamente datos antropométricos/nutricionales que no necesita.
 
@@ -902,7 +902,7 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-015-BD1  | Expediente, relación profesional y restricciones del diccionario aprobado.                    |
 | HU-015-API1 | `POST /api/clients`, DTO/service/repository con cupo de HU-013 y captura inicial consistente. |
 | HU-015-WEB1 | Formulario de datos personales/físicos/objetivo, validaciones y confirmación de guardado.     |
-| HU-015-QA1  | Alta válida/ inválida/sin cupo/ownership manipulado y fallo de persistencia.                  |
+| HU-015-QA1  | Alta válida/ inválida/sin cupo/ownership manipulado, fallo de persistencia y recuento HU-014 tras el alta. |
 
 **DoD:** D0; expediente utilizable por invitación sin crear credenciales del cliente a su nombre.
 
@@ -987,7 +987,7 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HU-018-API1 | Operación de estado que distingue expediente/cuenta/suscripción, aplica cupo y efectos aprobados de revocación, con auditoría y sin DELETE físico. |
 | HU-018-WEB1 | Acción confirmada de activar/inactivar y reflejo en listado/cupo/expediente.                                                                       |
-| HU-018-QA1  | Historial intacto, efectos de estado DEC-004, login bloqueado si hay baja de cuenta, reactivación sin cupo, sesión abierta y cartera ajena.        |
+| HU-018-QA1  | Historial intacto, efectos de estado DEC-004, login bloqueado si hay baja de cuenta, reactivación sin cupo, sesión abierta, cartera ajena y recuentos HU-014. |
 
 **DoD:** D0; no confundir baja con suspensión SaaS ni con borrado de invitación. Cada HU fuente de EP-04–07 prueba inactivación/reactivación sobre sus históricos al incorporarlos; no exige construir esas tablas en EP-03.
 
@@ -1062,9 +1062,9 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-022-WEB1 | Tabla/gráfico accesible con unidades, periodos y estados sin datos. Incluye evolución dentro del expediente existente. |
 | HU-022-QA1  | Orden, periodos, huecos, precisión/unidades, aislamiento y datos históricos preservados. Incluye regresión de la sección conectada al expediente. |
 
-**DoD:** D0; consumir eventos confirmados de HU-037 cuando existan, diferenciando origen/fecha/unidad sin duplicar peso ni alterar evaluaciones profesionales. HU-037 no depende de HU-022; una evolución sin eventos móviles sigue siendo válida.
+**DoD:** D0; evolución basada en evaluaciones, diferenciando origen/fecha/unidad sin alterar evaluaciones profesionales. HU-037 (EP-07) incorpora después el evento móvil a esta evolución sin duplicar peso; HU-022 no lo espera.
 
-**Entrega e integración a cargo de esta HU — 31/oct:** EP-04: HU-022-API1/WEB1 conecta evolución por periodo/origen al expediente; HU-022-QA1 prueba esa integración, fechas/unidades y conservación. Consume HU-037 solo cuando exista: su ausencia no bloquea entregar evolución basada en evaluaciones. EP-07 incorpora después el evento móvil sin reabrir EP-04. Ver [redistribución](#seguimiento-ep03).
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-04: HU-022-API1/WEB1 conecta evolución por periodo/origen al expediente; HU-022-QA1 prueba esa integración, fechas/unidades y conservación. No consume HU-037: entrega evolución basada en evaluaciones. EP-07 incorpora después el evento móvil sin reabrir EP-04. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-023 — Calcular grasa corporal estimada con fórmula aprobada
 
@@ -1203,16 +1203,16 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 **Referencias:** RDC0505, RDF0804 y acuerdos10/14-oct; DEC-006/008/010 resueltas, no ratificación pendiente.
 **Responsable:** Ferxxo. **Capas:** API, Móvil, BD; Web consulta en HU-033. **Depende de:** HU-030 y reglas finas DEC-006/008, no de volver a aprobar la inclusión. **Bloquea a:** seguimiento entrenamiento/dashboard.
 
-**Aceptación:** sesión conserva cliente/fecha local/UTC/zona/versión/día/ejercicio/serie/orden. Una sesión por cliente/fecha/slot único incluso cambio versión. Borrador no cuenta finalizada; finalizar requiere todas series explícitas. Realizada reps1–1000 y carga externa>0 o corporal0; no_realizada reps0/cargaNULL, ausencia distinta de cero. Updates versión409/idempotentes sin duplicar; corrección hoy/dos fechas anteriores auditada, sin alterar prescripción. Consulta profesional HU-033, sin offline/RPE ejecución/series extra.
+**Aceptación:** sesión conserva cliente/fecha local/UTC/zona/versión/día/ejercicio/serie/orden. Una sesión por cliente/fecha/slot único incluso cambio versión. Borrador no cuenta finalizada; finalizar requiere todas series explícitas. Realizada reps1–1000 y carga externa>0 o corporal0; no_realizada reps0/cargaNULL, ausencia distinta de cero. Updates versión409/idempotentes sin duplicar; corrección hoy/dos fechas anteriores auditada, sin alterar prescripción. Consulta profesional por API (la vista Web la conecta HU-033 en EP-07), sin offline/RPE ejecución/series extra.
 
 | Tarea       | Resultado concreto                                                                                                                                                                                     |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | HU-031-BD1  | Sesión → versión prescrita → ejercicio → serie/orden, datos reales separados; unicidad/idempotencia y actualizaciones sin duplicación, historial conservado.                                           |
 | HU-031-API1 | DTO ilustrativo y `POST /api/me/training-sessions` sugerido; contrato TT-009 aplica borrador/finalizada, estados de serie, fecha/ownership, idempotencia y versión409 DEC-006/008.                     |
 | HU-031-MOV1 | Bitácora por ejercicio/serie con campos reales diferenciados de prescripción, ausencia/cero distinguibles, guardado/reintento seguro; flujo parcial/finalizar según regla aprobada.                    |
-| HU-031-QA1  | Serie repetida/actualizada sin duplicación, concurrencia, V1 intacta, carga cero permitida frente a ausente, unidades/reps/realización y campos prohibidos; consulta profesional e integración HU-033. |
+| HU-031-QA1  | Serie repetida/actualizada sin duplicación, concurrencia, V1 intacta, carga cero permitida frente a ausente, unidades/reps/realización y campos prohibidos; consulta profesional por API. La vista Web se prueba en HU-033-QA1 (EP-07). |
 
-**DoD:** D0; detalle por serie confirmado implementado e integrado en Web, no basta cumplimiento binario. Reestimar técnicamente SP heredados antes de compromiso. No añadir timer, RPE, descansos medidos, notificaciones ni offline como funciones aprobadas.
+**DoD:** D0; detalle por serie confirmado implementado e integrado en API y móvil, no basta cumplimiento binario; HU-033 (EP-07) conecta después la consulta Web. Reestimar técnicamente SP heredados antes de compromiso. No añadir timer, RPE, descansos medidos, notificaciones ni offline como funciones aprobadas.
 
 ### EP-07 — Seguimiento integrado
 
@@ -1670,15 +1670,15 @@ Estas son Issues técnicos, no funcionalidades extra. Cada sub-ID también puede
 | HU-011 | EP-02 | Plan/estado/capacidad propia      | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-001/010; DEC-005                                    | S1                     | Pend     |       3 |
 | HU-012 | EP-02 | Gestión suscripción               | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/010/011/005; DEC-004/005                        | S4                     | Pend     |       5 |
 | HU-013 | EP-02 | Cupo concurrente                  | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-010/011; DEC-004/005                                | S2 antes de alta       | Pend     |       5 |
-| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/015/018                                     | S4                     | Pend     |       3 |
+| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/013; clientes fixture                       | S4                     | Pend     |       3 |
 | HU-015 | EP-03 | Alta expediente inicial           | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-002/011/013; DEC-006                                | S2                     | Impl local |       5 |
 | HU-016 | EP-03 | Listado/búsqueda cartera          | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015; TT-010                                         | S2                     | Impl local |       3 |
 | HU-017 | EP-03 | Editar perfil/objetivo            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/016; DEC-006                                    | S2                     | Impl local |       3 |
 | HU-018 | EP-03 | Estado/baja lógica cliente        | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-013/015/005; DEC-004/011                            | S2                     | Impl local |       3 |
-| HU-019 | EP-03 | Expediente consolidado            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-017/021/022/026/030/033                             | S5                     | Par      |       5 |
+| HU-019 | EP-03 | Expediente consolidado            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/017; secciones futuras en su HU fuente          | S5                     | Par      |       5 |
 | HU-020 | EP-03 | Perfil propio móvil               | Franela Whaite | ✓   | —   | ✓     | BD       | P1   | HU-008/004/017; DEC-009                                | S2 base/S5 progreso    | Par      |       3 |
 | HU-021 | EP-04 | Evaluaciones fechadas             | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-015/017; DEC-006                                    | S4                     | Pend     |       5 |
-| HU-022 | EP-04 | Evolución peso/medidas            | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021; consume evento HU-037 cuando existe            | S4                     | Pend     |       3 |
+| HU-022 | EP-04 | Evolución peso/medidas            | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021                                                 | S4                     | Pend     |       3 |
 | HU-023 | EP-04 | Grasa estimada incluida bloqueada | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021; entradas DEC-006; dominio/casos DEC-007        | S4, solo tras Ready    | Bloq     |       3 |
 | HU-024 | EP-05 | Editor alimentación               | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-015/017; DEC-006                                    | S3                     | Pend     |       8 |
 | HU-025 | EP-05 | Sugerencia nutricional (archivo)  | Pukzil         | —   | —   | —     | —        | —    | Excepción RDF0605/0606, DEC-007                        | Sin sprint V2          | Posp     | 5 excl. |
@@ -1845,7 +1845,8 @@ flowchart TD
   A --> C[Check-in diario y peso corporal]
   X --> P
   N --> P
-  M --> H[Evolución e historial autorizado]
+  M --> EV[Evolución antropométrica]
+  EV --> H[Historial autorizado]
   C --> H
   C --> P[Seguimiento y dashboard profesional]
   N --> Q[Inicio diario cliente]
@@ -1871,7 +1872,7 @@ flowchart TD
 | Nutrición             | Expediente/permisos; cliente para lectura                                                          | Inicio diario/adherencia            | Independiente de entrenamiento y evaluación manual.                                                                                     |
 | Entrenamiento         | Expediente/permisos; cliente para lectura                                                          | Ejecución/adherencia/inicio         | Independiente de nutrición y evaluación.                                                                                                |
 | Antropometría         | Expediente/diccionario DEC-006 resuelto                                                            | Evolución                           | Medidas manuales independientes del gate técnico de fórmula HU-023 incluida.                                                            |
-| Check-in/peso         | Identidad/expediente + reglas DEC-006/008; no nutrición/rutina ni HU-022 para capturar             | Seguimiento/evolución/historial     | Ferxxo comparte captura/evento HU-032/037; HU-022 de Pukzil consume cuando existe; atomicidad conjunta y edición diaria según contrato. |
+| Check-in/peso         | Identidad/expediente + reglas DEC-006/008; no nutrición/rutina ni HU-022 para capturar             | Seguimiento/evolución/historial     | Ferxxo comparte captura/evento HU-032/037; HU-037 conecta su evento a la evolución HU-022 ya entregada; atomicidad conjunta y edición diaria según contrato. |
 | Seguimiento/dashboard | HU-031/032/037 y cartera; planes/versiones para atribuir adherencia, capacidad SaaS para dashboard | Inicio/historial; conecta su sección al expediente existente (31/oct) | Ferxxo conserva indicadores/adherencia HU-033; Omar integra HU-034 con ese servicio y su capacidad HU-011/013, sin duplicar reglas.     |
 | PWA/portal            | Auth y al menos una vista privada; catálogo/login para CTA                                         | Web entregable                      | PWA puede avanzar antes de dashboard completo; preservar landing.                                                                       |
 | Operación/calidad     | Entornos y feature incremental                                                                     | Entrega                             | CI/staging/build móvil desde fundamentos; regresión final después de integración.                                                       |
