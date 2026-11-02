@@ -5,11 +5,12 @@ export interface SaasPlanInput {
   maxClients: number | null
   isUnlimited: boolean
   priceMxn: number
-  isActive: boolean
+  // undefined only on update: keep the stored availability instead of reactivating.
+  isActive: boolean | undefined
 }
 export function validatePlanInput(
   input: unknown,
-  _isUpdate = false
+  isUpdate = false
 ): SaasPlanInput {
   const body = payload(input, [
     'name',
@@ -35,7 +36,7 @@ export function validatePlanInput(
   if (
     typeof priceMxn !== 'number' ||
     !Number.isFinite(priceMxn) ||
-    priceMxn < 0 ||
+    priceMxn <= 0 ||
     priceMxn >= 100000000 ||
     Math.abs(priceMxn * 100 - Math.round(priceMxn * 100)) > 0.000001
   )
@@ -49,6 +50,6 @@ export function validatePlanInput(
     maxClients: maxClients as number | null,
     isUnlimited,
     priceMxn,
-    isActive: (body.isActive as boolean) ?? true,
+    isActive: (body.isActive as boolean | undefined) ?? (isUpdate ? undefined : true),
   }
 }

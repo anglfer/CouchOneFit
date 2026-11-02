@@ -196,6 +196,14 @@ test('catalog rejects unauthorized writes, requires CSRF, audits edits, rejects 
     ).rows[0].n,
     2
   )
+  // The plan is now inactive; an edit that omits isActive must not reactivate it.
+  const kept = await mutation('put', `/api/admin/plans/${r.body.plan.id}`, body)
+  assert.equal(kept.status, 200)
+  assert.equal(kept.body.plan.isActive, false)
+  assert.equal(
+    (await mutation('post', '/api/admin/plans', { ...body, name: 'Plan gratis', priceMxn: 0 })).status,
+    400
+  )
   assert.equal(
     (
       await mutation(

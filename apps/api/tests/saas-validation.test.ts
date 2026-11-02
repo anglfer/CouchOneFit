@@ -17,6 +17,7 @@ test('plan prices reject coercion, non-finite values and excess precision', () =
     Infinity,
     NaN,
     -1,
+    0,
     1.001,
     100000000,
   ]) {
@@ -24,6 +25,12 @@ test('plan prices reject coercion, non-finite values and excess precision', () =
       validatePlanInput({ name: 'Plan', maxClients: 10, priceMxn })
     )
   }
+})
+test('an update without isActive keeps availability while a create defaults to active', () => {
+  const body = { name: 'Plan', maxClients: 10, isUnlimited: false, priceMxn: 299 }
+  assert.equal(validatePlanInput(body, true).isActive, undefined)
+  assert.equal(validatePlanInput(body).isActive, true)
+  assert.equal(validatePlanInput({ ...body, isActive: false }, true).isActive, false)
 })
 test('unlimited capacity has an explicit flag consistent with its nullable limit', () => {
   assert.throws(() =>
