@@ -25,6 +25,8 @@ Esta guía establece las reglas y el flujo de trabajo con Git para el equipo de 
 
 ## 2. Nomenclatura de Ramas (Branching)
 
+Para EP-03 existe un [acuerdo específico de integración](docs/epicas/ep-03-cartera-y-expediente/README.md#acuerdo-de-integración-vigente), autorizado como excepción; el flujo general de los demás integrantes permanece vigente.
+
 Toda rama debe crearse a partir de `main` actualizado y seguir la estructura:
 
 ```text

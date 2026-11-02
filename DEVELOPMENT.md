@@ -1,37 +1,146 @@
-# Guía de programación
+# Guía de desarrollo — CouchOne Fit
 
-## Idioma y nombres
+Léela antes de crear o modificar código. Si una historia de usuario, decisión aprobada o contrato existente exige algo distinto, gana esa regla y documentas el mapeo.
 
-Usa inglés para los identificadores del código, los nombres de la base de datos, los contratos de API, los nombres de pruebas y los valores legibles por máquina. Usa español para los textos que ve la persona usuaria, como mensajes de validación, correos y textos de accesibilidad.
+## 1. Tres reglas que resumen todo
 
-Usa `snake_case` en SQL; `camelCase` en TypeScript, JavaScript, Dart y JSON; y `PascalCase` en tipos, clases y componentes. No traduzcas los campos entre capas: conserva el mismo término en inglés y aplica la convención de escritura correspondiente a cada capa. Antes de cambiar un contrato existente, consulta el [glosario de identidad y acceso](docs/architecture/domain-glossary.md).
+1. **Código nuevo en inglés, textos visibles en español.** (`loadWorkspace`, pero el botón dice "Guardar").
+2. **Lo que ya existe en contratos o BD no se renombra.** (`nombreCompleto`, `contrasena`, tablas, rutas, roles, códigos de error). Si el nombre interno es distinto, se mapea en la frontera (repositorio o consulta).
+3. **Cada cosa va en su capa.** Si dudas, mira la sección 3.
 
-## Estructura de la aplicación
+## 2. Nombres de un vistazo
 
-Mantén las responsabilidades en las capas existentes:
+| Qué                           | Convención                                                                                            | Ejemplo                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Variables y funciones (TS/JS) | `lowerCamelCase`, verbo + concepto                                                                    | `registerProfessional`                |
+| Booleanos                     | `is` / `has` / `can` / `should`                                                                       | `isLoading`, `canRetry`               |
+| Componentes, clases, tipos    | `PascalCase`                                                                                          | `WorkspaceLayout`                     |
+| Constantes de configuración   | `UPPER_SNAKE_CASE`                                                                                    | `API_BASE_URL`                        |
+| `const` locales               | `lowerCamelCase`                                                                                      | `selectedPlan`                        |
+| Handlers de eventos (Web)     | `handle` + acción                                                                                     | `handleSubmit`                        |
+| Clases y variables CSS        | `kebab-case` / `--kebab-case`                                                                         | `workspace-sidebar`                   |
+| Dart                          | Clases `PascalCase`, miembros y constantes `lowerCamelCase`, privados `_`, archivos `snake_case.dart` | `TrainingSession`, `home_screen.dart` |
 
-1. **Rutas y controladores de API** conectan las solicitudes HTTP con las operaciones.
-2. **Validadores** reciben los datos externos como `unknown` y devuelven los errores de validación ya definidos por la aplicación.
-3. **Servicios** coordinan las operaciones del dominio con tipos explícitos.
-4. **Repositorios** usan consultas SQL parametrizadas y conservan el comportamiento de transacciones, reversión y liberación de conexiones.
-5. **Web y móvil** consumen directamente el contrato de API; los textos para la persona usuaria permanecen en español.
+Evita nombres vagos: `processData`, `doAction`, `handleStuff`.
 
-No agregues una capa de traducción o alias entre filas SQL y TypeScript cuando ambos puedan usar el mismo término del dominio. Mantén valores como `professional`, `admin`, `active` y `basic` consistentes desde PostgreSQL hasta JSON y las aplicaciones cliente.
+### Archivos
 
-## Cambios de base de datos y contratos
+| Dónde                  | Convención                                                 | Ejemplo                   |
+| ---------------------- | ---------------------------------------------------------- | ------------------------- |
+| Web, componente `.tsx` | `PascalCase` igual al componente; sufijo `Page` o `Layout` | `ProfessionalPage.tsx`    |
+| Web, módulo `.ts`      | `lowerCamelCase`                                           | `useThemePreference.ts`   |
+| API, módulo `.ts`      | `kebab-case`                                               | `professional-profile.ts` |
 
-- Antes de cambiar la persistencia o los campos de API, consulta las [convenciones de PostgreSQL](docs/database/convenciones.md), la historia del módulo y el [glosario del dominio](docs/architecture/domain-glossary.md).
-- No edites una migración ya aplicada. Agrega una nueva migración que conserve los datos y actualiza el esquema integrado.
-- Actualiza API, Web, móvil, datos de prueba, pruebas y documentación del contrato en el mismo cambio.
-- Los cambios de nombres en la base de datos requieren desplegar la migración y las versiones de API, Web y móvil como un corte coordinado. No ejecutes al mismo tiempo contratos viejos y nuevos contra el esquema renombrado.
-- Basa la autorización en los roles persistidos en la base de datos, no en campos enviados por el cliente ni solo en declaraciones de un JWT.
+No traduzcas ni muevas las carpetas de la arquitectura (`features/`, `services/`, `repositories/`, etc.). En API no repitas la carpeta en el nombre: `services/registration.ts`, no `registration-service.ts`.
 
-## Formato y verificaciones
+## 3. API: ¿dónde va mi código?
 
-Usa la configuración existente en cada aplicación:
+| Capa           | Qué hace                                                                                   | Qué NO hace                               |
+| -------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| **Route**      | Declara método, ruta, middleware y controller                                              | SQL o reglas de negocio                   |
+| **Controller** | Lee `params`/`query`/`body`, llama al service, responde o propaga el error                 | Validar reglas de negocio ni tocar la BD  |
+| **Service**    | Coordina el caso de uso: llama al validator y al repository                                | Usar `req`, `res`, headers o códigos HTTP |
+| **Validator**  | Recibe `unknown`, revisa estructura y reglas, devuelve un tipo válido o el error de la app | Consultar la BD                           |
+| **Repository** | Consultas parametrizadas; mapea SQL → tipos de la app                                      | Lógica HTTP                               |
 
-- **Web:** Prettier y Oxlint; consulta el [estilo de código Web](docs/architecture/formato-codigo-web.md).
-- **API:** TypeScript y los patrones existentes del módulo.
-- **Móvil:** el formateador de Dart y la configuración del analizador en `apps/mobile`.
+Flujo de escritura:
 
-Los puntos de inicio están en el [README raíz](README.md), la [guía de base de datos](docs/database/README.md) y la [guía de despliegue](docs/architecture/despliegue.md).
+```text
+Route → Controller → Service → Validator
+                           └──→ Repository → PostgreSQL
+```
+
+El validator lo llama el **service**, no el controller.
+
+Si varios cambios en BD forman una sola operación, usa transacción: `COMMIT` al terminar, `ROLLBACK` si hay error y libera la conexión siempre (`finally`).
+
+## 4. Ejemplo completo: registrar un profesional
+
+```ts
+// routes/registration.ts
+router.post('/professionals', registrationController.registerProfessional);
+
+// controllers/registration.ts
+export async function registerProfessional(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const result = await registrationService.registerProfessional(req.body);
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// services/registration.ts
+export async function registerProfessional(input: unknown) {
+  const registration = validateRegistration(input); // validator
+  const passwordHash = await hashPassword(registration.password);
+  return registrationRepository.insertProfessional({
+    ...registration,
+    passwordHash,
+  });
+}
+
+// validators/registration.ts
+export function validateRegistration(input: unknown): Registration {
+  // revisa estructura y reglas; lanza el error de aplicación existente si falla
+}
+
+// repositories/registration.ts
+export async function insertProfessional(data: NewProfessional) {
+  const { rows } = await pool.query(
+    'INSERT INTO profesionales (nombre_completo, correo) VALUES ($1, $2) RETURNING id, nombre_completo',
+    [data.fullName, data.email]
+  );
+  return { id: rows[0].id, fullName: rows[0].nombre_completo }; // mapeo explícito SQL → app
+}
+```
+
+Nota: el JSON de entrada puede traer `nombreCompleto` y `contrasena` (contrato protegido); el validator los convierte a `fullName` y `password` para el resto del código.
+
+## 5. Web / PWA
+
+- Organiza por funcionalidad. Lo que usa una sola feature vive en ella; lo global va en las carpetas compartidas.
+- Operaciones: verbo + dominio (`readProfessionalProfile`).
+- Tipos explícitos en contratos, servicios, funciones exportadas y respuestas de API. Dentro de una función, deja que TypeScript infiera lo simple.
+- Nada de `any` para datos externos: usa `unknown` y valida.
+- Tailwind: usa sus utilidades con su nombre oficial. CSS propio solo si no existe la utilidad.
+
+## 6. Móvil (Flutter)
+
+- Sigue las convenciones de Dart (tabla de la sección 2). No uses `UPPER_SNAKE_CASE` en Dart.
+- La estructura de carpetas sale de la arquitectura y de la historia de usuario; esta guía solo fija nombres.
+
+## 7. Base de datos y cambios de contrato
+
+- Consultas parametrizadas, siempre.
+- Nunca edites una migración ya aplicada en un entorno compartido: crea una nueva.
+- No crees funciones SQL/RPC solo para mover lógica de negocio fuera de la app.
+- Si cambias un contrato, actualiza **todo junto**: esquema o consulta, repositorio, tipos, API, Web/móvil, pruebas y docs.
+
+Detalles en [Convenciones de PostgreSQL](docs/database/convenciones.md).
+
+## 8. Checklist antes de cada cambio
+
+- [ ] Leí la historia de usuario y las decisiones vigentes
+- [ ] Busqué una feature parecida ya hecha y seguí su patrón
+- [ ] Cada cosa quedó en su capa
+- [ ] No renombré contratos, columnas, rutas ni carpetas
+- [ ] Cambié solo lo necesario (sin refactors ajenos)
+- [ ] Actualicé docs si cambió una regla o contrato
+- [ ] Corrí las comprobaciones:
+  - Web: `npm --prefix apps/web run build` (incluye TypeScript), Prettier y Oxlint
+  - API: TypeScript estricto
+  - Móvil: formateador y analizador de Dart en `apps/mobile`
+
+## Documentación relacionada
+
+- [Convenciones de PostgreSQL](docs/database/convenciones.md)
+- [Modelo de identidad y acceso](docs/database/modelo-identidad-acceso.md)
+- [Arquitectura y capas](docs/architecture/README.md)
+- [Formato Web](docs/architecture/formato-codigo-web.md)
+- [Guía de Git](CONTRIBUTING.md)
+- [Plan y decisiones vigentes](plan/PLAN_TRABAJO_V2.md)

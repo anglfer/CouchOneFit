@@ -94,6 +94,48 @@ void main() {
         find.widgetWithText(FilledButton, 'Activar mi cuenta'), findsOneWidget);
   });
   testWidgets(
+      'activation transport error preserves fields without automatic retry',
+      (tester) async {
+    var calls = 0;
+    await open(tester, AccountAccessMode.activation, (request) async {
+      calls++;
+      return const ApiHttpResponse(statusCode: 503, body: {
+        'error': {
+          'code': 'SERVICE_UNAVAILABLE',
+          'message': 'No pudimos completar la solicitud.'
+        }
+      });
+    });
+    await fill(tester, 'code', code);
+    await fill(tester, 'username', 'cliente.fit');
+    await fill(tester, 'email', 'cliente@example.com');
+    await fill(tester, 'emailConfirmation', 'cliente@example.com');
+    await fill(tester, 'password', password);
+    await fill(tester, 'passwordConfirmation', password);
+    await tester.ensureVisible(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pump();
+    final submit = find.widgetWithText(FilledButton, 'Activar mi cuenta');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    expect(find.text('No pudimos completar la solicitud.'), findsOneWidget);
+    for (final entry in {
+      'code': code,
+      'username': 'cliente.fit',
+      'email': 'cliente@example.com',
+      'password': password,
+    }.entries) {
+      final field =
+          tester.widget<TextFormField>(find.byKey(Key('access-${entry.key}')));
+      expect(field.controller!.text, entry.value);
+    }
+    expect(tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+        isTrue);
+    expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+  });
+  testWidgets(
       'prevalidation does not submit activation and loading blocks duplicate requests',
       (tester) async {
     final pending = Completer<ApiHttpResponse>();
@@ -115,8 +157,29 @@ void main() {
     pending.complete(
         const ApiHttpResponse(statusCode: 200, body: {'valid': true}));
     await tester.pumpAndSettle();
-    expect(find.text('El código está disponible. Comprobarlo no lo consume.'),
-        findsOneWidget);
+    final result =
+        find.text('El código está disponible. Comprobarlo no lo consume.');
+    expect(result, findsOneWidget);
+    // The check result sits by its button, not below the whole form.
+    expect(tester.getTopLeft(result).dy,
+        lessThan(tester.getTopLeft(find.text('Usuario')).dy));
+    // A later submit error replaces the check result and sits by the submit button.
+    for (final key in ['username', 'email', 'emailConfirmation']) {
+      await fill(tester, key, 'cliente@example.com');
+    }
+    await fill(tester, 'username', 'cliente.fit');
+    await fill(tester, 'password', password);
+    await fill(tester, 'passwordConfirmation', password);
+    final submit = find.widgetWithText(FilledButton, 'Activar mi cuenta');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+    expect(result, findsNothing);
+    final notice = find.text('Confirma la información de registro vigente.');
+    expect(notice, findsOneWidget);
+    expect(tester.getTopLeft(notice).dy,
+        greaterThan(tester.getTopLeft(find.byType(CheckboxListTile)).dy));
+    expect(calls, 1);
   });
   testWidgets(
       'recovery presents assisted procedure and submits only code and new password confirmations',

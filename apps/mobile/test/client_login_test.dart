@@ -62,11 +62,11 @@ void main() {
             },
           );
         }
-        if (request.method == 'GET' && request.path == '/api/client/profile') {
+        if (request.method == 'GET' && request.path == '/api/me/record') {
           expect(request.headers['Authorization'], 'Bearer access.jwt.token1');
           return ApiHttpResponse(
             statusCode: 200,
-            body: <String, Object?>{'profile': sampleProfile()},
+            body: <String, Object?>{'record': sampleProfile()},
           );
         }
         return const ApiHttpResponse(statusCode: 404);
@@ -182,7 +182,7 @@ void main() {
                 },
               );
             }
-            if (request.path == '/api/client/profile') {
+            if (request.path == '/api/me/record') {
               if (sessionRevokedOnServer) {
                 return const ApiHttpResponse(
                   statusCode: 401,
@@ -196,7 +196,7 @@ void main() {
               }
               return ApiHttpResponse(
                 statusCode: 200,
-                body: <String, Object?>{'profile': sampleProfile()},
+                body: <String, Object?>{'record': sampleProfile()},
               );
             }
             return const ApiHttpResponse(statusCode: 404);
@@ -350,10 +350,10 @@ void main() {
             body: <String, Object?>{'account': sampleAccount()},
           );
         }
-        if (request.path == '/api/client/profile') {
+        if (request.path == '/api/me/record') {
           return ApiHttpResponse(
             statusCode: 200,
-            body: <String, Object?>{'profile': sampleProfile()},
+            body: <String, Object?>{'record': sampleProfile()},
           );
         }
         if (request.path == '/api/auth/client/logout') {
@@ -435,7 +435,7 @@ void main() {
       sessionStorage: storage,
       now: () => clock,
       httpHandler: (request) async {
-        if (request.path == '/api/client/profile') {
+        if (request.path == '/api/me/record') {
           if (request.headers['Authorization'] != 'Bearer rotated.access.2') {
             return const ApiHttpResponse(
               statusCode: 401,
@@ -449,7 +449,7 @@ void main() {
           }
           return ApiHttpResponse(
             statusCode: 200,
-            body: <String, Object?>{'profile': sampleProfile()},
+            body: <String, Object?>{'record': sampleProfile()},
           );
         }
         if (request.path == '/api/auth/client/refresh') {
@@ -471,8 +471,8 @@ void main() {
     );
 
     final results = await Future.wait(<Future<Map<String, Object?>>>[
-      apiClient.getJson('/api/client/profile', authenticated: true),
-      apiClient.getJson('/api/client/profile', authenticated: true),
+      apiClient.getJson('/api/me/record', authenticated: true),
+      apiClient.getJson('/api/me/record', authenticated: true),
     ]);
     expect(refreshCalls, 1);
     expect(results.length, 2);
@@ -481,7 +481,7 @@ void main() {
     // Advance controlled clock beyond 30-day absolute expiry
     clock = DateTime.utc(2026, 11, 18, 12, 0, 1);
     await expectLater(
-      apiClient.getJson('/api/client/profile', authenticated: true),
+      apiClient.getJson('/api/me/record', authenticated: true),
       throwsA(
         isA<AuthApiException>().having((e) => e.statusCode, 'statusCode', 401),
       ),

@@ -12,6 +12,6 @@ export const writePlan = (
   savePlan(
     pool,
     identity,
-    validatePlanInput(input),
+    validatePlanInput(input, id !== undefined),
     id === undefined ? undefined : uuid(id)
   )

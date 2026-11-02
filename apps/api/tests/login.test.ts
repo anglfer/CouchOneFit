@@ -399,7 +399,7 @@ test('runtime without DDL can authenticate but cannot create an admin', async ()
         "UPDATE private.users SET role='admin' WHERE id=$1",
         [professionalId],
       ),
-      /permission denied/,
+      { code: '42501' },
     )
   } finally {
     await restricted.end()

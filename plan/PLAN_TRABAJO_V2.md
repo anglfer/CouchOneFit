@@ -8,6 +8,8 @@
 **Fuente de alcance:** hoja **V2** del Excel proporcionado, acuerdos explícitos de `docs/requirements/README.md` y acuerdos del usuario del **10 y 14 de octubre de 2026** (§2.1). Las propuestas del equipo no equivalen a aprobaciones.
 **Naturaleza del entregable:** análisis y planificación; no implementación del producto.
 
+**Seguimiento autorizado — 31/oct/2026:** la auditoría y corrección de EP-03 en `feature/api-client-portfolio` se registran en [seguimiento de auditoría](../docs/epicas/ep-03-cartera-y-expediente/seguimiento-auditoria.md). La línea base histórica de §1/2 conserva su fecha. El estado actual y la asignación de pendientes a S3–S6 están en [§10, seguimiento EP-03](#seguimiento-ep03). No se incorporan módulos de otras épicas a esta rama para aparentar su cierre.
+
 | Nombre completo                | Etiqueta de asignación | Rol en el equipo                                                                                                                     |
 | ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Angel Fernando Oñate Reyes     | Ferxxo                 | Product Owner, líder técnico y desarrollador principal; prioridades, alcance, aceptación y coordinación técnica.                     |
@@ -220,6 +222,7 @@ No se ejecutó build APK/AAB, build iOS/macOS, instalación nativa, suite E2E de
 | DEC-014 | **RESUELTA:** producto SaaS, presupuesto incremental 0, servicios existentes condicionados a límites/accesos humanos; precios y CTA a registro (15-oct), sin pasarela/cargo real; proxy `/api`. | Ferxxo / equipo                                | TT-016–018; HU-039; sin contratación/configuración realizada    |
 | DEC-015 | **ACTUALIZADA:** información de registro versionada y confirmación atómica; política de privacidad completa por definir. | Omar / Ferxxo | HU-001/008/041 |
 | DEC-016 | **RESUELTA PARA V2:** cuatro sprints quincenales 19-oct–13-dic, incrementos S0–S7 ordenados, WIP 1 y reserva 30%; horas/fecha oficial gates externos.              | Equipo; coordina Ferxxo                        | §10/13; primer replaneamiento 1-nov; no compromiso de capacidad |
+| DEC-017 | **ACORDADA 30-oct, NO IMPLEMENTADA:** renovación automática simulada con 7 días de gracia; subir/bajar/cancelar plan; edad mínima 16; cliente ve solo datos base básicos; admin con soporte de lectura/reset; correos y push; sin reasignación. Prevalece sobre las reglas anteriores que contradice. | Ferxxo producto / equipo | EP-01/02/03; ver §3.4 DEC-017 |
 
 **Alternativas evaluadas históricamente para DEC-002:** (a) Auth administrado con mecanismo transaccional seguro y (b) credenciales/sesiones gestionadas por API con hash seguro y transacción PostgreSQL. La decisión resuelta el 2026-10-09 seleccionó la segunda opción; este registro no la reabre. Una secuencia “crear usuario remoto → insertar vínculo → borrar código” sin recuperación demostrada no satisfacía el acuerdo; no insertar manualmente en tablas internas de un proveedor para simular soporte transaccional.
 
@@ -228,6 +231,8 @@ No se requiere OAuth, MFA, login social, correo de verificación, pago integrado
 “Login avanzado” se refiere exclusivamente a la seguridad ya definida: JWT, rotación y revocación de sesiones, RBAC, aislamiento y rate limit. No significa MFA ni login social aprobados, ni nuevas métricas de negocio.
 
 ### 3.4 Resoluciones detalladas vigentes — delegación explícita del usuario, 14-oct-2026
+
+> **Aviso 30-oct-2026:** [DEC-017](#dec-017--acuerdos-de-visión-del-30-de-octubre-de-2026) prevalece sobre las reglas de DEC-004/005/006/009/014/015 en lo que las contradice (edad mínima, renovación y cambios de plan, soporte del administrador, avisos y datos base visibles al cliente). Los textos siguientes se conservan como historia.
 
 Estas reglas sustituyen las propuestas abiertas del archivo §3.5 y las redacciones anteriores de HU/TT. Son decisiones documentales, no implementación. Contratos, nombres de rutas, DTO y DDL ilustrativos deben concretarse en TT-003/009; no son endpoints ni migraciones existentes. Las validaciones siguientes son **trabajo requerido**, no pruebas ejecutadas.
 
@@ -277,7 +282,7 @@ Sin autoeliminación UI. **Razón/alternativas:** separa operación, identidad y
 
 #### DEC-006 — Diccionario de captura cerrado
 
-El alcance actual contempla población **adulta de 18 años o más**. `birth_date` requerida en SQL y `birthDate` en API, fecha válida no futura; edad en años cumplidos a la fecha de evaluación. Selector opcional exclusivo del método con valores `male`/`female`/`not_applicable`, no sexo binario obligatorio del perfil. Etiquetas visibles en español; DTO/casts BD definitivos en TT-009. Números finitos, NULL ≠ 0, sin coerción de vacío/booleano; límites son **software evolucionable, no normalidad clínica ni prescripción**.
+El alcance actual contempla población de **16 años o más** (DEC-017, 30-oct; antes 18, adultos). `birth_date` requerida en altas nuevas (API y CHECK SQL de conjunto base completo; los expedientes anteriores a HU-015 conservan NULL sin fabricar valores, ver HU-017) y `birthDate` en API, fecha válida no futura; edad en años cumplidos a la fecha de evaluación. Selector opcional exclusivo del método con valores `male`/`female`/`not_applicable`, no sexo binario obligatorio del perfil. Etiquetas visibles en español; DTO/casts BD definitivos en TT-009. Números finitos, NULL ≠ 0, sin coerción de vacío/booleano; límites son **software evolucionable, no normalidad clínica ni prescripción**.
 
 | Campo                      | Unidad, límites, precisión y obligatoriedad vigentes                                                                                                                                                                                                        |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -371,11 +376,46 @@ WIP1 por dueño; reservar 30% reuniones/PO/revisión/imprevistos; capacidad efec
 
 #### UI-001 — Diseño de panel profesional y aplicación móvil
 
-**Actualizada expresamente por el usuario el 16 de octubre de 2026.** Sustituye la paleta y la restricción a tema claro del 14 de octubre. Marca: primario `#4037F7`, azul `#3046EB`, violeta `#6344DC`; degradado 135° con paradas 0/48/100%. Seis temas exactos (marketing, profesional y móvil, cada uno claro/oscuro), semánticos compartidos y criterios completos en [DESIGN.md](DESIGN.md).
+**Actualizada expresamente por el usuario el 16 de octubre de 2026.** Sustituye la paleta y la restricción a tema claro del 14 de octubre. Marca: primario `#4037F7`, azul `#3046EB`, violeta `#6344DC`; degradado 135° con paradas 0/48/100%. Seis temas exactos (marketing, profesional y móvil, cada uno claro/oscuro), semánticos compartidos y criterios completos en [DESIGN.md](../DESIGN.md).
 
-Marketing: amplio, comercial y redondeado. Panel profesional: compacto, técnico, inspirado en Fluent, navegación izquierda y layout independiente de la landing; radios de controles 6 px y cards 8 px. Administración comparte identidad con separación de rol. Móvil: misma marca con radios de 10/12/16 px y controles táctiles. Web permite alternar claro/oscuro con un botón en la cabecera y conserva la elección local; sin elección usa la preferencia del dispositivo. Flutter inicia con el tema del dispositivo y permite alternarlo con el botón de la cabecera durante la sesión. Web incorpora tokens, modos y estructura interna en las pantallas existentes; Flutter incorpora temas a su pantalla inicial. Los módulos de negocio, gráficas y navegación móvil previstos siguen sujetos a sus HU. [Marketing DESIGN](apps/web/DESIGN.md) conserva la guía de composición pública y adopta la nueva paleta.
+Marketing: amplio, comercial y redondeado. Panel profesional: compacto, técnico, inspirado en Fluent, navegación izquierda y layout independiente de la landing; radios de controles 6 px y cards 8 px. Administración comparte identidad con separación de rol. Móvil: misma marca con radios de 10/12/16 px y controles táctiles. Web permite alternar claro/oscuro con un botón en la cabecera y conserva la elección local; sin elección usa la preferencia del dispositivo. Flutter inicia con el tema del dispositivo y permite alternarlo con el botón de la cabecera durante la sesión. Web incorpora tokens, modos y estructura interna en las pantallas existentes; Flutter incorpora temas a su pantalla inicial. Los módulos de negocio, gráficas y navegación móvil previstos siguen sujetos a sus HU. [Marketing DESIGN](../apps/web/DESIGN.md) conserva la guía de composición pública y adopta la nueva paleta.
 
 La imagen no incorpora citas/agenda, chat, notificaciones, rachas, reportes nuevos, imágenes de alimentos/ejercicios ni fotos de progreso. Toda pantalla conserva las reglas de fechas, adherencia/cobertura, permisos, cupo y estados de DEC-004/006/008/009. **Razón:** coherencia de marca Web/móvil con composición diferenciada para marketing y herramienta interna. **Validación requerida:** cada HU aplica el diseño; TT-013 comprueba responsive, contraste por combinación, foco/teclado, escalado y estados carga/vacío/error/éxito. Temas y estructura visual aplicados a las pantallas existentes; los módulos de negocio pendientes no se consideran implementados. No altera IDs DEC-001–016, HU, responsables ni SP.
+
+#### DEC-017 — Acuerdos de visión del 30 de octubre de 2026
+
+**Fuente:** cuestionario de visión respondido por el usuario en el chat el 30-oct-2026, a raíz de la revisión de coherencia de EP-01, EP-02 y EP-03. **Estado: DECIDIDO, NO IMPLEMENTADO** salvo donde se indica. Donde contradice a DEC-004, DEC-005, DEC-006, DEC-009, DEC-014, DEC-015, RDF1004/RS24, HU-009, HU-012 o HU-013, **prevalece esta decisión**; esos textos se conservan como historia y llevan aviso. No se asignan IDs de HU/TT nuevos ni SP: el trabajo se numera cuando el equipo lo planifique.
+
+| Tema | Regla vigente | Estado |
+| --- | --- | --- |
+| Suscripción vencida o sin plan | El cliente conserva login y **lee** su perfil y lo ya publicado; no registra check-in, peso ni series. El profesional queda sin operaciones de negocio. | Coincide con DEC-004; implementado. |
+| Rol profesional | Un solo rol: expedientes, nutrición y entrenamiento. Sin especialidades ni equipos/ayudantes. | Coincide; implementado. |
+| Recuperación de contraseña | Asistida y sin correo (HU-009). | Coincide; implementado. |
+| Baja de la cuenta del cliente | Solo su profesional, de forma lógica (`PATCH /api/clients/:clientId/account`). El cliente no se da de baja solo. | Implementado el 30-oct. |
+| Profesional del cliente | Uno solo, fijo. Sin transferencia entre profesionales ni reasignación por admin (descartada). | Coincide. |
+| Cupo | Cuentan los expedientes activos, aunque el cliente no haya activado la app. | Coincide; implementado. |
+| Datos base que ve el cliente | **Solo lo básico**: objetivo, estatura y peso (más los datos personales básicos). Grasa, cintura, cadera, pliegues y demás medidas se irán habilitando con los módulos posteriores y los permisos de DEC-009. | **Implementado** el 30-oct: `GET /api/me/record` y Flutter ya no muestran grasa, cintura ni cadera. |
+| Edad mínima del cliente | **16 años** (antes 18). | **Implementado** el 30-oct en API, BD (migración 202610300002), Web y pruebas. |
+| Renovación | **Automática**, mensual, **simulada** (sin pasarela real en esta entrega). | **Pendiente.** |
+| Cobro fallido | **7 días de gracia** con acceso completo y reintentos; si no se cobra, queda sin plan (clientes solo leen). | **Pendiente.** |
+| Cambio de plan | El profesional puede **subir, bajar y cancelar**. | **Pendiente** (hoy solo sube). |
+| Cancelar | Rige **hasta el final del periodo pagado**; no renueva; después queda sin plan. | **Pendiente.** |
+| Bajar a un plan con menos cupo del usado | El profesional **elige a qué clientes inactivar** al bajar. | **Pendiente.** |
+| Administrador como soporte | Puede **ver el estado de cuenta** del cliente, **generar el reseteo de contraseña** y **ver el expediente en solo lectura**, con **registro interno** (quién, cuándo, motivo) visible solo para admins. No edita expedientes ni suscripciones, no da de baja cuentas ni mueve clientes. El soporte primario al cliente lo da su profesional. | **Pendiente.** Contradice RDF1004/RS24/HU-003/HU-014/TT-010. |
+| Avisos | **Correos y notificaciones push** al celular. | **Pendiente.** Contradice «sin SMTP» (DEC-014, HU-009) y presupuesto 0; requiere proveedor de correo y de push. |
+| Invitación al cliente | Se **muestra para copiar** y además se puede **enviar por correo**. | **Pendiente.** Requiere correo del cliente en el expediente (hoy no existe). |
+| Verificación de correo | **No** se verifica por enlace. | Coincide. |
+| Pagos | Simulados en esta entrega, incluida la renovación y el cobro fallido. | Coincide. |
+| Dispositivos | Profesional en Web/PWA; cliente en app Android. | Coincide. |
+
+**Consecuencias a tener en cuenta al planificar**
+- La renovación automática necesita quien la dispare. El API no tiene programador de tareas y Render Free se duerme (DEC-013 descarta keep-alive): requiere un cron externo autorizado o renovar de forma perezosa al primer acceso del profesional.
+- Los estados de suscripción hoy son `active`, `suspended` y `expired`, y nadie puede suspender desde el 25-oct. Hacen falta al menos «cancelada al fin de periodo» y «en gracia/cobro fallido».
+- Edad 16: las personas de 16 y 17 años son menores de edad. DEC-015 no cubre ese caso; antes de usar datos reales hay que definir aviso de privacidad y consentimiento. No es una certificación legal.
+- Correos sin verificar más envíos automáticos pueden llegar a una persona distinta; el correo del expediente debería ser opcional y avisar de ello.
+- El acceso de soporte a expedientes exige un camino de lectura nuevo y auditado (hoy el admin no tiene `SELECT` sobre expedientes) y una proyección acordada de qué ve.
+
+**Preguntas abiertas (no respondidas):** qué datos exactos incluye «lo básico» del cliente (nombre, fecha de nacimiento); qué recordatorios llegan por push y a quién; si el expediente captura correo y/o teléfono del cliente; qué ve el cliente durante la gracia; cuándo aplica una bajada de plan elegida (de inmediato o al renovar) y si hay devolución; qué proveedor de correo/push se usará.
 
 ### 3.5 Archivo histórico supersedido — propuestas revisadas el 14 de octubre de 2026
 
@@ -524,9 +564,9 @@ Cuatro bloques de dos semanas en §10, **19-oct a 13-dic-2026**, sujetos a aprob
 
 | Tipo / módulo                                        | Épica | Profesional Web / administración                                                          | Cliente móvil                                                                       | HU / responsable                                                          |
 | ---------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Negocio: identidad y vinculación                     | EP-01 | Registro/login profesional y admin, invitación                                            | Activación, sesión y credenciales propias                                           | HU-001/002/004/005/006/008/009 Ferxxo; HU-003 Omar; HU-007 Franela Whaite |
+| Negocio: identidad y acceso                          | EP-01 | Registro/login profesional y admin                                                        | Sesión y credenciales propias                                                       | HU-001/002/004/005/006/009 Ferxxo; HU-003 Omar                            |
 | Negocio: SaaS y administración                       | EP-02 | Catálogo, suscripción/cupo, uso global; admin separado del profesional                    | Solo efectos comunes del estado de acceso, no panel SaaS                            | HU-010–014 Omar                                                           |
-| Negocio: cartera y expediente                        | EP-03 | Alta/listado/edición/estado y expediente consolidado                                      | Perfil propio solo lectura                                                          | HU-015–020 Franela Whaite; HU-018-API1 Omar                               |
+| Negocio: cartera, expediente y vinculación           | EP-03 | Alta/listado/edición/estado, invitación y expediente consolidado                          | Activación y perfil propio solo lectura                                             | HU-015–020 y HU-007 Franela Whaite; HU-008 Ferxxo; HU-018-API1 Omar       |
 | Negocio: antropometría                               | EP-04 | Evaluaciones/evolución y HU-023 incluida pero bloqueada por dominio                       | Evolución autorizada HU-036                                                         | HU-021–023 Pukzil                                                         |
 | Negocio: nutrición                                   | EP-05 | Prescripción manual, versiones y activación; HU-025 pospuesta                             | Consulta de alimentación activa                                                     | HU-024/026/027 Pukzil; HU-025 archivada                                   |
 | Negocio: entrenamiento                               | EP-06 | Series/reps prescritas, intensidad, instrucciones/orden; versiones y consulta de bitácora | Rutina activa y bitácora real por ejercicio/serie, carga/unidad/reps/realización    | HU-028–031 Ferxxo; consulta Web HU-033 Ferxxo                             |
@@ -628,7 +668,9 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 **Reglas vigentes de todas las HU/TT:** DEC-001–016 resueltas §3.4, no propuestas pendientes de ratificación. Auth API/PostgreSQL, Argon2id, JWT/sid/refresh absoluto rotativo, cookie proxy Web y Bearer móvil. HU-009 recuperación asistida y HU-041 aviso/confirmación son **base P1/3 SP**; sin SMTP. HU-023 gate técnico, HU-025/038 archivadas sin trabajo activo. Ready exige contratos/fixtures/revisión, no reabrir producto.
 
-### EP-01 — Identidad y vinculación
+### EP-01 — Identidad y acceso
+
+**Reubicación 02/nov/2026:** HU-007/008 pasan de EP-01 a EP-03 porque dependen del expediente HU-015 y del cupo HU-013 (EP-02); así cada épica depende solo de épicas anteriores y de sus propias HU. Conservan ID, responsables, SP, tareas y evidencia.
 
 #### HU-001 — Registrar una cuenta profesional
 
@@ -689,7 +731,7 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 **Como:** cliente activado. **Quiero:** iniciar sesión en móvil con mis credenciales. **Para:** volver a mi expediente sin reutilizar el código.
 **Descripción:** flujo posterior a activación, restauración segura de sesión y estado de cuenta.
 **Referencias:** RC01, acuerdos, RS05/07.
-**Responsable:** Ferxxo. **Capas:** API, Móvil, BD. **Depende de:** TT-004/010 y cuenta vinculada; para desarrollo se usa fixture, para DoD HU-008. **Bloquea a:** consultas/registros cliente.
+**Responsable:** Ferxxo. **Capas:** API, Móvil, BD. **Depende de:** TT-004/010 y cuenta vinculada fixture para desarrollo y DoD. **Verificación posterior:** HU-008 (EP-03) comprueba el acceso tras activación real. **Bloquea a:** consultas/registros cliente.
 
 **Aceptación:** cliente vinculado y activo entra a su perfil; nunca se vuelve a pedir código; sesión inválida/cuenta deshabilitada impiden acceso; profesional/admin no adquieren funciones cliente; reiniciar la app no recupera una sesión ya revocada.
 
@@ -698,9 +740,9 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-004-API1 | Reutilizar login y resolución de cuenta–expediente del rol cliente.                                  |
 | HU-004-MOV1 | Login, almacenamiento de sesión acordado, router/guardia y restauración segura al iniciar.           |
 | HU-004-MOV2 | Modelo de identidad y flujo de red/caducidad sin guardar contraseñas en preferencias.                |
-| HU-004-QA1  | Tests con cuenta fixture y activación real, contraseña errónea, sesión revocada y expediente propio. |
+| HU-004-QA1  | Tests con cuenta vinculada fixture, contraseña errónea, sesión revocada y expediente propio.         |
 
-**DoD:** D0; demostrar acceso posterior tras consumir invitación.
+**DoD:** D0; demostrar acceso posterior con cuenta vinculada fixture. HU-008-QA1 repite el acceso tras consumir una invitación real.
 
 #### HU-005 — Cerrar sesión, expirar y renovar de forma segura
 
@@ -737,43 +779,6 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-006-QA1  | Usuario duplicado, contraseña inválida, identidad manipulada y login con credenciales nuevas/anteriores. |
 
 **DoD:** D0; no añade edición del expediente por cliente.
-
-#### HU-007 — Generar una invitación individual para el expediente
-
-**Como:** profesional. **Quiero:** generar/entregar un código para mi cliente. **Para:** vincularlo exactamente al expediente preparado.
-**Descripción:** invitación DEC-003 resuelta: CSPRNG32bytes/base64url43/hash SHA-256/TTL7d servidor, entrega manual, reemplazo/revocación atómicos; solo expediente activo no vinculado/profesional y sub activos, sin segunda reserva.
-**Referencias:** RDF0307, RDC0101, RS08, acuerdos.
-**Responsable:** Franela Whaite. **Capas:** API, Web, BD. **Depende de:** HU-015, HU-013, TT-010, DEC-003. **Bloquea a:** HU-008.
-
-**Aceptación:** expediente propio sin cuenta vinculada genera código asociado al profesional/expediente correcto; expediente ajeno o ya vinculado no genera acceso; reemplazo invalida el anterior conforme a política; no se divulgan códigos en listado público/logs.
-
-| Tarea       | Resultado concreto                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------ |
-| HU-007-BD1  | Invitación temporal con asociación, unicidad, expiración/revocación y almacenamiento seguro acordado.  |
-| HU-007-API1 | Generar/reemplazar en `POST /api/clients/:clientId/invitations`, con propiedad y estado.               |
-| HU-007-WEB1 | Acción en expediente, mostrar/copiar/entregar código y expiración sin solicitar recaptura del cliente. |
-| HU-007-QA1  | Tests de expediente ajeno/vinculado, reemplazo, validez y ausencia de código en logs.                  |
-
-**DoD:** D0; invitación real asociada y validable en servidor sin consumirse. El canje real se integra en HU-008 después de disponer de este artefacto, no después de exigir el cierre de ambas historias entre sí.
-
-#### HU-008 — Activar la cuenta móvil y vincularla atómicamente
-
-**Como:** cliente invitado. **Quiero:** registrar credenciales y código. **Para:** acceder al expediente existente sin volver a capturar mis datos físicos.
-**Descripción:** canje ANÓNIMO sin login previo; usuario/contraseña/correo/confirmaciones/código y confirmación aviso versionado DEC-015 obligatorios; cuenta + vínculo + aceptación + DELETE temporal/hash todo-o-nada según DEC-003 resuelta. Auditoría sin token/hash; sesión tras COMMIT.
-**Referencias:** RC01, RDC0102/0103/0104/0106, RS08, acuerdos.
-**Responsable:** Ferxxo. **Colaboración:** Franela Whaite en HU-008-BD1/vínculo y ejecutora de HU-008-MOV1; Ferxxo conserva transacción, API y sesión. **Contraste crítico independiente:** Omar concurrencia/cupo y Pukzil seguridad. **Capas:** API, Móvil, BD. **Depende de:** HU-007, TT-004/010, DEC-002/003/004. **Bloquea a:** uso real del cliente, HU-020/027/030/031/032/035/036/037.
-
-**Aceptación:** datos/código válidos crean una sola cuenta vinculada y sesión de su expediente; datos inválidos, identificador ocupado o fallo intermedio no dejan cuenta huérfana ni pierden el código; prevalidación no consume; dos canjes simultáneos producen un solo éxito; después del éxito se elimina el registro temporal y cualquier replay falla; no se crea segundo expediente ni se solicita nombre/peso base.
-
-| Tarea       | Resultado concreto                                                                                                                                                                                                                           |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HU-008-BD1  | Un cliente BD para toda la transacción; bloqueo de invitación, expediente/estado y suscripción/cupo; vínculo `WHERE user_id IS NULL` exige 1 fila, DELETE de invitación/hash y rollback conjunto. SQL ilustrativo a concretar en TT-003/009. |
-| HU-008-API1 | DTO/validaciones/servicio de prevalidación mínima y `POST /api/auth/activation` sin exposición de expediente antes de autenticar.                                                                                                            |
-| HU-008-API2 | Concurrencia/fallos/replay y expiración servidor (`expires <= now` inválido); no doble reserva de cupo, revalidar estados y emitir sesión solo después de COMMIT.                                                                            |
-| HU-008-MOV1 | Pantalla de activación con todas las confirmaciones/código y loading/error/success; redirigir a expediente propio.                                                                                                                           |
-| HU-008-QA1  | Integración real con dos solicitudes concurrentes, fallo inyectado en cada etapa, duplicados y cero invitaciones residuales tras éxito.                                                                                                      |
-
-**DoD:** D0; no aceptar una vista del producto, secuencia sin atomicidad o mera invalidación en UI como cierre.
 
 #### HU-009 — Recuperar acceso ante pérdida de sesión/dispositivo
 
@@ -862,13 +867,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-013-WEB1 | Mostrar agotamiento/capacidad y error de conflicto real en formularios.                                        |
 | HU-013-QA1  | Test concurrente de última plaza, alta/activación simultáneas e inactivación; comprobar filas, no solo status. |
 
-**DoD:** D0; Franela Whaite integra el servicio en HU-015/018 con Omar como ejecutor de HU-018-API1, sin duplicar la lógica de cupos de Omar. Ferxxo define estándares/revisa y aprueba alcance; no programa suscripciones ni cupos.
+**DoD:** D0; servicio de cupo probado por sí mismo con expedientes fixture. EP-03 lo integra después en HU-015/018 (Franela Whaite, con Omar como ejecutor de HU-018-API1), sin duplicar la lógica de cupos de Omar. Ferxxo define estándares/revisa y aprueba alcance; no programa suscripciones ni cupos.
 
 #### HU-014 — Consultar profesionales y clientes utilizados
 
 **Como:** administrador. **Quiero:** ver profesionales y uso por cuenta. **Para:** administrar la plataforma global.
 **Referencias:** RDF1001/1002/1004. **Responsable:** Omar. **Capas:** API, Web, BD.
-**Depende de:** HU-003/011/015/018. **Bloquea a:** cierre RF10.
+**Depende de:** HU-003/011/013 y `private.clients` de HU-004 con expedientes fixture. **Verificación posterior:** HU-015-QA1 y HU-018-QA1 (EP-03) comprueban que alta e inactivación/reactivación se reflejan en estos recuentos. **Bloquea a:** cierre RF10.
 
 **Aceptación:** lista muestra cuenta/estado/plan y recuentos correctos; filtros/paginación no mezclan ni duplican cuentas; profesional/cliente no consultan lista global; admin no recibe automáticamente datos antropométricos/nutricionales que no necesita.
 
@@ -880,7 +885,9 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 **DoD:** D0; administración separada del expediente profesional.
 
-### EP-03 — Cartera y expediente
+### EP-03 — Cartera, expediente y vinculación
+
+**Reubicación 02/nov/2026:** HU-007/008 pasan de EP-01 a EP-03 porque dependen del expediente HU-015 y del cupo HU-013 (EP-02); así cada épica depende solo de épicas anteriores y de sus propias HU. Conservan ID, responsables, SP, tareas y evidencia. Orden interno: HU-015 → HU-007 → HU-008 → HU-016–020.
 
 #### HU-015 — Crear el cliente y su expediente inicial
 
@@ -895,9 +902,46 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-015-BD1  | Expediente, relación profesional y restricciones del diccionario aprobado.                    |
 | HU-015-API1 | `POST /api/clients`, DTO/service/repository con cupo de HU-013 y captura inicial consistente. |
 | HU-015-WEB1 | Formulario de datos personales/físicos/objetivo, validaciones y confirmación de guardado.     |
-| HU-015-QA1  | Alta válida/ inválida/sin cupo/ownership manipulado y fallo de persistencia.                  |
+| HU-015-QA1  | Alta válida/ inválida/sin cupo/ownership manipulado, fallo de persistencia y recuento HU-014 tras el alta. |
 
 **DoD:** D0; expediente utilizable por invitación sin crear credenciales del cliente a su nombre.
+
+#### HU-007 — Generar una invitación individual para el expediente
+
+**Como:** profesional. **Quiero:** generar/entregar un código para mi cliente. **Para:** vincularlo exactamente al expediente preparado.
+**Descripción:** invitación DEC-003 resuelta: CSPRNG32bytes/base64url43/hash SHA-256/TTL7d servidor, entrega manual, reemplazo/revocación atómicos; solo expediente activo no vinculado/profesional y sub activos, sin segunda reserva.
+**Referencias:** RDF0307, RDC0101, RS08, acuerdos.
+**Responsable:** Franela Whaite. **Capas:** API, Web, BD. **Depende de:** HU-015, HU-013, TT-010, DEC-003. **Bloquea a:** HU-008.
+
+**Aceptación:** expediente propio sin cuenta vinculada genera código asociado al profesional/expediente correcto; expediente ajeno o ya vinculado no genera acceso; reemplazo invalida el anterior conforme a política; no se divulgan códigos en listado público/logs.
+
+| Tarea       | Resultado concreto                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| HU-007-BD1  | Invitación temporal con asociación, unicidad, expiración/revocación y almacenamiento seguro acordado.  |
+| HU-007-API1 | Generar/reemplazar en `POST /api/clients/:clientId/invitations`, con propiedad y estado.               |
+| HU-007-WEB1 | Acción en expediente, mostrar/copiar/entregar código y expiración sin solicitar recaptura del cliente. |
+| HU-007-QA1  | Tests de expediente ajeno/vinculado, reemplazo, validez y ausencia de código en logs.                  |
+
+**DoD:** D0; invitación real asociada y validable en servidor sin consumirse. El canje real se integra en HU-008 después de disponer de este artefacto, no después de exigir el cierre de ambas historias entre sí.
+
+#### HU-008 — Activar la cuenta móvil y vincularla atómicamente
+
+**Como:** cliente invitado. **Quiero:** registrar credenciales y código. **Para:** acceder al expediente existente sin volver a capturar mis datos físicos.
+**Descripción:** canje ANÓNIMO sin login previo; usuario/contraseña/correo/confirmaciones/código y confirmación aviso versionado DEC-015 obligatorios; cuenta + vínculo + aceptación + DELETE temporal/hash todo-o-nada según DEC-003 resuelta. Auditoría sin token/hash; sesión tras COMMIT.
+**Referencias:** RC01, RDC0102/0103/0104/0106, RS08, acuerdos.
+**Responsable:** Ferxxo. **Colaboración:** Franela Whaite en HU-008-BD1/vínculo y ejecutora de HU-008-MOV1; Ferxxo conserva transacción, API y sesión. **Contraste crítico independiente:** Omar concurrencia/cupo y Pukzil seguridad. **Capas:** API, Móvil, BD. **Depende de:** HU-007, TT-004/010, DEC-002/003/004. **Bloquea a:** uso real del cliente, HU-020/027/030/031/032/035/036/037.
+
+**Aceptación:** datos/código válidos crean una sola cuenta vinculada y sesión de su expediente; datos inválidos, identificador ocupado o fallo intermedio no dejan cuenta huérfana ni pierden el código; prevalidación no consume; dos canjes simultáneos producen un solo éxito; después del éxito se elimina el registro temporal y cualquier replay falla; no se crea segundo expediente ni se solicita nombre/peso base.
+
+| Tarea       | Resultado concreto                                                                                                                                                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HU-008-BD1  | Un cliente BD para toda la transacción; bloqueo de invitación, expediente/estado y suscripción/cupo; vínculo `WHERE user_id IS NULL` exige 1 fila, DELETE de invitación/hash y rollback conjunto. SQL ilustrativo a concretar en TT-003/009. |
+| HU-008-API1 | DTO/validaciones/servicio de prevalidación mínima y `POST /api/auth/activation` sin exposición de expediente antes de autenticar.                                                                                                            |
+| HU-008-API2 | Concurrencia/fallos/replay y expiración servidor (`expires <= now` inválido); no doble reserva de cupo, revalidar estados y emitir sesión solo después de COMMIT.                                                                            |
+| HU-008-MOV1 | Pantalla de activación con todas las confirmaciones/código y loading/error/success; redirigir a expediente propio.                                                                                                                           |
+| HU-008-QA1  | Integración real con dos solicitudes concurrentes, fallo inyectado en cada etapa, duplicados, cero invitaciones residuales tras éxito y login posterior HU-004 sin código.                                                                                                      |
+
+**DoD:** D0; no aceptar una vista del producto, secuencia sin atomicidad o mera invalidación en UI como cierre.
 
 #### HU-016 — Listar y buscar la cartera propia
 
@@ -929,7 +973,7 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | HU-017-WEB1 | Editor con datos existentes, errores por campo y conflicto; objetivo/medidas diferenciados de evaluación fechada. |
 | HU-017-QA1  | Edición válida/inválida/ajena, intento móvil y conservación de registros históricos.                              |
 
-**DoD:** D0; no usar el formulario para reescribir mediciones históricas.
+**DoD:** D0; no usar el formulario para reescribir mediciones históricas. Las pruebas de conservación cubren los registros existentes en esta entrega; cada HU fuente incorpora la regresión de sus históricos reales al implementarlos en su propia épica.
 
 #### HU-018 — Activar o dar de baja lógicamente al cliente
 
@@ -943,41 +987,45 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HU-018-API1 | Operación de estado que distingue expediente/cuenta/suscripción, aplica cupo y efectos aprobados de revocación, con auditoría y sin DELETE físico. |
 | HU-018-WEB1 | Acción confirmada de activar/inactivar y reflejo en listado/cupo/expediente.                                                                       |
-| HU-018-QA1  | Historial intacto, efectos de estado DEC-004, login bloqueado si hay baja de cuenta, reactivación sin cupo, sesión abierta y cartera ajena.        |
+| HU-018-QA1  | Historial intacto, efectos de estado DEC-004, login bloqueado si hay baja de cuenta, reactivación sin cupo, sesión abierta, cartera ajena y recuentos HU-014. |
 
-**DoD:** D0; no confundir baja con suspensión SaaS ni con borrado de invitación.
+**DoD:** D0; no confundir baja con suspensión SaaS ni con borrado de invitación. Cada HU fuente de EP-04–07 prueba inactivación/reactivación sobre sus históricos al incorporarlos; no exige construir esas tablas en EP-03.
 
 #### HU-019 — Consultar expediente profesional consolidado
 
 **Como:** profesional. **Quiero:** ver perfil, planes, evaluaciones y progreso juntos. **Para:** decidir el seguimiento con contexto.
 **Referencias:** RDF0404, RNF07/13/18. **Responsable:** Franela Whaite. **Capas:** API, Web, BD.
-**Depende de:** HU-017/021/022/026/030/033. **Bloquea a:** demostración profesional integrada.
+**Depende de:** HU-015/016/017 para la base del expediente. **Entrega posterior:** cada HU de EP-04/05/06/07 incorpora su sección real al expediente como parte de su propio DoD; no bloquea la aceptación del alcance base de EP-03. RDF0404 se completa acumulativamente mediante esas entregas, no se elimina del producto.
 
-**Aceptación:** expediente propio muestra datos coherentes de módulos; sin evaluaciones/plan/check-in muestra vacío, no datos de ejemplo; fallo de una consulta no presenta información de otro cliente; versiones/historial no se pierden al activar otro plan.
+**Aceptación EP-03:** expediente propio muestra perfil/objetivo/medidas base reales y estados de carga/error; módulos aún ausentes se identifican como no integrados, sin simular registros ni vacíos consultados. Cambiar de cliente o fallar la consulta no muestra información ajena. **Aceptación trasladada:** mostrar datos, vacío real, errores por sección y versiones/históricos de cada módulo corresponde a la HU fuente en EP-04/05/06/07, incluyendo su conexión API/Web y regresiones.
 
 | Tarea       | Resultado concreto                                                                                                                                                                                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HU-019-API1 | Contrato consolidado reutilizando servicios: origen/fecha/unidad del peso corporal HU-037 separado de evaluación/base profesional y carga por serie; sin duplicar reglas ni sobrescribir registros profesionales. |
-| HU-019-WEB1 | Pestañas/secciones de expediente enlazadas a módulos existentes y manejo de carga/vacíos/errores.                                                                                                                 |
-| HU-019-QA1  | Fixture completo y vacío, cambio de cliente, versión activa e intento de acceso ajeno.                                                                                                                            |
+| HU-019-API1 | Base del contrato de expediente: perfil real propio y disponibilidad explícita de secciones. Las HU fuente amplían el contrato y conectan sus datos/origen/fecha/unidad en su propia entrega, sin duplicar reglas. |
+| HU-019-WEB1 | Vista de expediente base con perfil real y estados carga/error/no integrado. Cada HU fuente conecta y presenta su sección real al implementar el módulo. |
+| HU-019-QA1  | Perfil base, cambio de cliente, respuestas antiguas, fallo e intento ajeno. Fixture completo/vacío y versión activa del módulo pasan a su QA fuente. |
 
-**DoD:** D0; primera vista se puede construir antes con contrato mock, pero no cerrar hasta integrar todos sus módulos.
+**DoD vigente por redistribución autorizada:** D0 del alcance base anterior, sin mocks en producción. Cada HU fuente debe cerrar su integración y pruebas del expediente dentro de su propia épica. El expediente integral del producto no se declara implementado hasta esas entregas; su ausencia ya no es trabajo pendiente de implementación de EP-03.
+
+**Redistribución autorizada 31/oct:** base implementada; integración completa transferida a HU-021/022 (EP-04), HU-026 (EP-05), HU-030 (EP-06) y HU-033/037 (EP-07). El responsable de cada HU entrega lector + conexión API/Web + contrato + QA en esa misma épica. Franela puede revisar los puntos compartidos, sin quedar como ejecutora obligatoria de una integración posterior separada. Ver [matriz de entregas](#seguimiento-ep03).
 
 #### HU-020 — Consultar el perfil propio preparado por el profesional
 
 **Como:** cliente. **Quiero:** visualizar mis datos, objetivo y progreso habilitado. **Para:** conocer mi punto de partida sin recapturarlo.
 **Referencias:** RC02, RDC0201–0204. **Responsable:** Franela Whaite. **Capas:** API, Móvil, BD.
-**Depende de:** HU-008/004/017, TT-010 y DEC-009 para el perfil base; la sección de progreso se integra después de los artefactos de HU-036. **Bloquea a:** consulta cliente integrada; no bloquea construir el historial autorizado una vez existe identidad/expediente.
+**Depende de:** HU-008/004/017, TT-010 y DEC-009 para el perfil base. **Entrega trasladada:** progreso autorizado RDC0204 y su conexión al perfil móvil forman parte de HU-036 en EP-07; no bloquean el alcance base de HU-020 ni el inicio de EP-04.
 
 **Aceptación:** después de activar se muestra el mismo expediente; cliente no necesita introducir datos base; no puede leer otro perfil alterando IDs; información no autorizada no se devuelve; estados vacío/error son claros.
 
 | Tarea       | Resultado concreto                                                                            |
 | ----------- | --------------------------------------------------------------------------------------------- |
-| HU-020-API1 | `GET /api/me/record` con proyección y permisos de progreso acordados.                         |
-| HU-020-MOV1 | Pantalla/modelo de perfil solo lectura y objetivo/progreso habilitado.                        |
-| HU-020-QA1  | Registro → activación → lectura sin recaptura, filtrado de progreso y dos clientes distintos. |
+| HU-020-API1 | `GET /api/me/record` con proyección propia de datos base y sin progreso oculto. HU-036 incorpora la proyección/conexión autorizada de progreso. |
+| HU-020-MOV1 | Pantalla/modelo de perfil base y objetivo solo lectura. HU-036 incorpora progreso habilitado y navegación/actualización necesarias. |
+| HU-020-QA1  | Registro → activación → lectura base sin recaptura y dos clientes distintos. Filtrado y revocación de progreso pasan a HU-036-QA1. |
 
 **DoD:** D0; no comparte el editor profesional ni devuelve datos ocultos para filtrarlos en móvil.
+
+**Redistribución autorizada 31/oct:** perfil base implementado; HU-036-API1/WEB1/MOV1/QA1 asume toda la conexión de progreso al perfil existente, sus permisos, contratos y pruebas. RDC0204 conserva su aceptación dentro de EP-07 y no se considera cumplido por trasladarlo. D0/revisión del alcance base permanecen pendientes.
 
 ### EP-04 — Antropometría
 
@@ -992,11 +1040,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | Tarea       | Resultado concreto                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------- |
 | HU-021-BD1  | Evaluaciones/mediciones fechadas, unidades/precisión y relación no destructiva con expediente. |
-| HU-021-API1 | Alta/listado de evaluaciones con DTO, validación y fecha consistente.                          |
-| HU-021-WEB1 | Formulario por campos definidos y consulta de resultados guardados.                            |
-| HU-021-QA1  | Fecha, unidades, opcionales, valores inválidos y evaluación nueva sin sobrescritura.           |
+| HU-021-API1 | Alta/listado de evaluaciones con DTO, validación y fecha consistente. Incluye conectar la lectura al expediente profesional existente. |
+| HU-021-WEB1 | Formulario por campos definidos y consulta de resultados guardados. Incluye sección real de evaluaciones del expediente. |
+| HU-021-QA1  | Fecha, unidades, opcionales, valores inválidos y evaluación nueva sin sobrescritura. Incluye integración del expediente y conservación tras edición/inactivación. |
 
 **DoD:** D0; no reemplaza todos los registros por el último peso.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-04: HU-021-API1/WEB1 conecta evaluaciones fechadas reales a la sección del expediente existente, ampliando contrato/tipos/validador/UI juntos. HU-021-QA1 prueba lectura autorizada, datos/vacío/error y evaluaciones no vacías conservadas tras edición base/inactivación/reactivación. La HU no termina con un lector aislado. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-022 — Consultar la evolución antropométrica y peso histórico
 
@@ -1008,11 +1058,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 | Tarea       | Resultado concreto                                                                            |
 | ----------- | --------------------------------------------------------------------------------------------- |
-| HU-022-API1 | Consulta histórica paginada/por periodo de peso y medidas, identificando origen de cada dato. |
-| HU-022-WEB1 | Tabla/gráfico accesible con unidades, periodos y estados sin datos.                           |
-| HU-022-QA1  | Orden, periodos, huecos, precisión/unidades, aislamiento y datos históricos preservados.      |
+| HU-022-API1 | Consulta histórica paginada/por periodo de peso y medidas, identificando origen de cada dato. Incluye composición de evolución en expediente, sin esperar HU-037. |
+| HU-022-WEB1 | Tabla/gráfico accesible con unidades, periodos y estados sin datos. Incluye evolución dentro del expediente existente. |
+| HU-022-QA1  | Orden, periodos, huecos, precisión/unidades, aislamiento y datos históricos preservados. Incluye regresión de la sección conectada al expediente. |
 
-**DoD:** D0; consumir eventos confirmados de HU-037 cuando existan, diferenciando origen/fecha/unidad sin duplicar peso ni alterar evaluaciones profesionales. HU-037 no depende de HU-022; una evolución sin eventos móviles sigue siendo válida.
+**DoD:** D0; evolución basada en evaluaciones, diferenciando origen/fecha/unidad sin alterar evaluaciones profesionales. HU-037 (EP-07) incorpora después el evento móvil a esta evolución sin duplicar peso; HU-022 no lo espera.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-04: HU-022-API1/WEB1 conecta evolución por periodo/origen al expediente; HU-022-QA1 prueba esa integración, fechas/unidades y conservación. No consume HU-037: entrega evolución basada en evaluaciones. EP-07 incorpora después el evento móvil sin reabrir EP-04. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-023 — Calcular grasa corporal estimada con fórmula aprobada
 
@@ -1066,11 +1118,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | Tarea       | Resultado concreto                                                                                       |
 | ----------- | -------------------------------------------------------------------------------------------------------- |
 | HU-026-BD1  | Restricción de versión activa y vínculo histórico, sin actualizar destructivamente versiones publicadas. |
-| HU-026-API1 | Crear versión/activar en transacción y contratos de lectura histórica/activa.                            |
-| HU-026-WEB1 | Lista/versionado/activación confirmada, estado activa/borrador/histórica.                                |
-| HU-026-QA1  | Dos versiones, concurrencia, versión ajena/incorrecta y adherencia histórica inalterada.                 |
+| HU-026-API1 | Crear versión/activar en transacción y contratos de lectura histórica/activa. Incluye contrato y conexión del plan activo al expediente. |
+| HU-026-WEB1 | Lista/versionado/activación confirmada, estado activa/borrador/histórica. Incluye presentación del plan activo/versionado en expediente. |
+| HU-026-QA1  | Dos versiones, concurrencia, versión ajena/incorrecta y adherencia histórica inalterada. Incluye expediente conectado, vacío/error y conservación al editar/inactivar. |
 
 **DoD:** D0; HU-027 recibe versión seleccionada después de la activación real.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-05: HU-026-API1/WEB1 conecta el plan alimenticio activo/versionado a la sección del expediente; contrato, validación y UI se actualizan juntos. HU-026-QA1 prueba V1/V2, datos/vacío/error, acceso ajeno y conservación al editar/inactivar/reactivar. No queda una integración posterior asignada a EP-03. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-027 — Consultar alimentación activa desde móvil
 
@@ -1134,12 +1188,14 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | Tarea       | Resultado concreto                                                                   |
 | ----------- | ------------------------------------------------------------------------------------ |
 | HU-030-BD1  | Invariante de rutina activa y referencia a versión publicada.                        |
-| HU-030-API1 | Activación transaccional y `GET /api/me/training-plan` protegido.                    |
-| HU-030-WEB1 | Acción/estado de activación en editor profesional.                                   |
+| HU-030-API1 | Activación transaccional y `GET /api/me/training-plan` protegido. Incluye lectura profesional y conexión de rutina activa al expediente. |
+| HU-030-WEB1 | Acción/estado de activación en editor profesional. Incluye presentación de rutina activa/versionada en expediente. |
 | HU-030-MOV1 | Modelos/pantallas programación y detalle de ejercicios con descanso/empty/error.     |
-| HU-030-QA1  | Web activa → móvil consulta, cambio concurrente, parámetros/unidades y acceso ajeno. |
+| HU-030-QA1  | Web activa → móvil consulta, cambio concurrente, parámetros/unidades y acceso ajeno. Incluye expediente conectado y versiones preservadas. |
 
 **DoD:** D0; no exigir consulta histórico de rutinas al cliente fuera de permisos aprobados.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-06: HU-030-API1/WEB1 conecta rutina activa/versionada al expediente, además de la lectura móvil; contrato/validación/UI coherentes. HU-030-QA1 prueba la conexión, selección activa, datos/vacío/error y conservación de versiones. La ejecución HU-031 conserva su propio alcance. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-031 — Registrar la realización del entrenamiento por serie
 
@@ -1147,16 +1203,16 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 **Referencias:** RDC0505, RDF0804 y acuerdos10/14-oct; DEC-006/008/010 resueltas, no ratificación pendiente.
 **Responsable:** Ferxxo. **Capas:** API, Móvil, BD; Web consulta en HU-033. **Depende de:** HU-030 y reglas finas DEC-006/008, no de volver a aprobar la inclusión. **Bloquea a:** seguimiento entrenamiento/dashboard.
 
-**Aceptación:** sesión conserva cliente/fecha local/UTC/zona/versión/día/ejercicio/serie/orden. Una sesión por cliente/fecha/slot único incluso cambio versión. Borrador no cuenta finalizada; finalizar requiere todas series explícitas. Realizada reps1–1000 y carga externa>0 o corporal0; no_realizada reps0/cargaNULL, ausencia distinta de cero. Updates versión409/idempotentes sin duplicar; corrección hoy/dos fechas anteriores auditada, sin alterar prescripción. Consulta profesional HU-033, sin offline/RPE ejecución/series extra.
+**Aceptación:** sesión conserva cliente/fecha local/UTC/zona/versión/día/ejercicio/serie/orden. Una sesión por cliente/fecha/slot único incluso cambio versión. Borrador no cuenta finalizada; finalizar requiere todas series explícitas. Realizada reps1–1000 y carga externa>0 o corporal0; no_realizada reps0/cargaNULL, ausencia distinta de cero. Updates versión409/idempotentes sin duplicar; corrección hoy/dos fechas anteriores auditada, sin alterar prescripción. Consulta profesional por API (la vista Web la conecta HU-033 en EP-07), sin offline/RPE ejecución/series extra.
 
 | Tarea       | Resultado concreto                                                                                                                                                                                     |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | HU-031-BD1  | Sesión → versión prescrita → ejercicio → serie/orden, datos reales separados; unicidad/idempotencia y actualizaciones sin duplicación, historial conservado.                                           |
 | HU-031-API1 | DTO ilustrativo y `POST /api/me/training-sessions` sugerido; contrato TT-009 aplica borrador/finalizada, estados de serie, fecha/ownership, idempotencia y versión409 DEC-006/008.                     |
 | HU-031-MOV1 | Bitácora por ejercicio/serie con campos reales diferenciados de prescripción, ausencia/cero distinguibles, guardado/reintento seguro; flujo parcial/finalizar según regla aprobada.                    |
-| HU-031-QA1  | Serie repetida/actualizada sin duplicación, concurrencia, V1 intacta, carga cero permitida frente a ausente, unidades/reps/realización y campos prohibidos; consulta profesional e integración HU-033. |
+| HU-031-QA1  | Serie repetida/actualizada sin duplicación, concurrencia, V1 intacta, carga cero permitida frente a ausente, unidades/reps/realización y campos prohibidos; consulta profesional por API. La vista Web se prueba en HU-033-QA1 (EP-07). |
 
-**DoD:** D0; detalle por serie confirmado implementado e integrado en Web, no basta cumplimiento binario. Reestimar técnicamente SP heredados antes de compromiso. No añadir timer, RPE, descansos medidos, notificaciones ni offline como funciones aprobadas.
+**DoD:** D0; detalle por serie confirmado implementado e integrado en API y móvil, no basta cumplimiento binario; HU-033 (EP-07) conecta después la consulta Web. Reestimar técnicamente SP heredados antes de compromiso. No añadir timer, RPE, descansos medidos, notificaciones ni offline como funciones aprobadas.
 
 ### EP-07 — Seguimiento integrado
 
@@ -1187,11 +1243,13 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 | Tarea       | Resultado concreto                                                                                                                                                        |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HU-033-API1 | Check-ins/sesiones con detalle de cada serie, eventos de peso corporal y adherencia por cliente/periodo según DEC-008; servicio reutilizable por dashboard de Omar.       |
-| HU-033-WEB1 | Página de seguimiento cronológica con detalle ejercicio/serie/reps/carga, peso corporal separado e indicadores; gráficas/histórico reutilizados y tabla accesible.        |
-| HU-033-QA1  | Adherencia aprobada, sin datos/descanso sin penalización, cambio de versión, serie real y origen/unidad de peso, periodos/aislamiento y registros profesionales intactos. |
+| HU-033-API1 | Check-ins/sesiones con detalle de cada serie, eventos de peso corporal y adherencia por cliente/periodo según DEC-008; servicio reutilizable por dashboard de Omar. Incluye composición de seguimiento en expediente. |
+| HU-033-WEB1 | Página de seguimiento cronológica con detalle ejercicio/serie/reps/carga, peso corporal separado e indicadores; gráficas/histórico reutilizados y tabla accesible. Incluye sección de seguimiento del expediente. |
+| HU-033-QA1  | Adherencia aprobada, sin datos/descanso sin penalización, cambio de versión, serie real y origen/unidad de peso, periodos/aislamiento y registros profesionales intactos. Incluye conexión y regresión conjunta de secciones ya entregadas del expediente. |
 
 **DoD:** D0; no añade estado de “revisado” o mensajes al cliente si no se aprueban como alcance.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-07: HU-033-API1/WEB1 conecta ejecución/check-in/adherencia al expediente reutilizando fuentes HU-031/032/037; HU-033-QA1 prueba datos/vacío/error, origen/versiones, dos carteras y regresión integrada con los módulos ya entregados. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-034 — Consultar el dashboard profesional real
 
@@ -1236,14 +1294,16 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 | Tarea       | Resultado concreto                                                                                                                                                                              |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HU-036-BD1  | Configuración mínima de visibilidad aprobada y relación con expediente.                                                                                                                         |
-| HU-036-API1 | Actualizar permiso y `GET /api/me/history` con filtro servidor/periodos, origen/unidades de peso corporal HU-037 y evaluaciones profesionales separados de carga por serie; conservar historia. |
+| HU-036-API1 | Actualizar permiso y `GET /api/me/history` con filtro servidor/periodos, origen/unidades de peso corporal HU-037 y evaluaciones profesionales separados de carga por serie; conservar historia. Incluye conexión de progreso autorizado al perfil propio existente (RDC0204). |
 | HU-036-WEB1 | Control de información habilitada en expediente profesional.                                                                                                                                    |
-| HU-036-MOV1 | Historial/gráficos y datos alternativos accesibles solo con información autorizada.                                                                                                             |
-| HU-036-QA1  | Dos clientes, categorías ocultas, retirada de permiso, consulta directa y versiones históricas.                                                                                                 |
+| HU-036-MOV1 | Historial/gráficos y datos alternativos accesibles solo con información autorizada. Incluye integración en perfil propio existente, actualización y descarte por revocación. |
+| HU-036-QA1  | Dos clientes, categorías ocultas, retirada de permiso, consulta directa y versiones históricas. Incluye recorrido perfil base → progreso autorizado y revocación efectiva (antes HU-020). |
 
 **DoD:** D0; seguridad comprobada en respuesta/API, no solo ocultando pestañas.
 
 El contrato de historial consume el evento confirmado HU-037 cuando existe, con su origen/unidad y permisos, sin crear otra fuente de peso ni modificar registros profesionales.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-07: HU-036-BD1/API1/WEB1/MOV1/QA1 entrega permisos y conecta progreso/historial al perfil móvil existente, absorbiendo el tramo pendiente RDC0204 de HU-020. Incluye default off, categoría/periodo, agregado filtrado, ruta dedicada denegada, revocación próxima consulta y descarte móvil. No termina con un endpoint sin conectar. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-037 — Registrar peso corporal diario separado del perfil base — confirmado
 
@@ -1256,11 +1316,13 @@ El contrato de historial consume el evento confirmado HU-037 cuando existe, con 
 | Tarea       | Resultado concreto                                                                                                                                                                                 |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HU-037-BD1  | Propiedad funcional del evento histórico de peso corporal: fecha/origen/unidad/cliente, restricciones/idempotencia y relación con check-in sin sobrescribir base ni duplicar tabla.                |
-| HU-037-API1 | Almacenamiento y consulta histórica autorizados; servicio consumido por composición HU-032 y evolución HU-022/033/036. Contrato de unidad/origen y atomicidad conjunta; sin dependencia de HU-022. |
+| HU-037-API1 | Almacenamiento y consulta histórica autorizados; servicio consumido por composición HU-032 y evolución HU-022/033/036. Contrato de unidad/origen y atomicidad conjunta; sin dependencia de HU-022. Incluye conexión del historial de peso al expediente HU-019 y consumidores existentes. |
 | HU-037-MOV1 | Modelo/validación de peso integrado en la única captura HU-032-MOV1; no formulario/pantalla duplicados ni captura ligada a rutina/nutrición.                                                       |
-| HU-037-QA1  | Base/evaluación intactas, una fuente/evento, reintento/edición diaria aprobada, unidades/origen/ownership, sin planes y fallo conjunto con rollback; lectura histórica y gráfica integrada.        |
+| HU-037-QA1  | Base/evaluación intactas, una fuente/evento, reintento/edición diaria aprobada, unidades/origen/ownership, sin planes y fallo conjunto con rollback; lectura histórica y gráfica integrada. Incluye lecturas conectadas del expediente y evolución, sin sobrescribir datos profesionales. |
 
 **DoD:** D0; alcance base confirmado integrado, sin reclasificar como condicional. SP heredado provisional sujeto a reestimación técnica; no acredita por sí solo esfuerzo ampliado equivalente.
+
+**Entrega e integración a cargo de esta HU — 31/oct:** EP-07: HU-037-API1 conecta, ajustando los consumidores Web existentes, el evento de peso al expediente y a los consumidores HU-022/033 existentes, coordinando sus pruebas. HU-037-QA1 prueba origen/UTC/fecha local/zona/unidad, envío conjunto atómico, edición trazable y base/evaluaciones intactas, sin exigir planes. Ver [redistribución](#seguimiento-ep03).
 
 #### HU-038 — Fotografías de progreso — FUERA V2 (archivo)
 
@@ -1595,28 +1657,28 @@ Estas son Issues técnicos, no funcionalidades extra. Cada sub-ID también puede
 
 | ID     | Épica | Historia                          | Responsable    | API | Web | Móvil | BD/Infra | Pri. | Depende de                                             | Sprint                 | Estado   |      SP |
 | ------ | ----- | --------------------------------- | -------------- | --- | --- | ----- | -------- | ---- | ------------------------------------------------------ | ---------------------- | -------- | ------: |
-| HU-001 | EP-01 | Registro profesional              | Ferxxo         | ✓   | ✓   | —     | BD       | P1   | TT-003/004/010; DEC-001/002/005                        | S1                     | Pend     |       5 |
-| HU-002 | EP-01 | Login profesional                 | Ferxxo         | ✓   | ✓   | —     | BD       | P0   | HU-001; DEC-004                                        | S1                     | Pend     |       5 |
-| HU-003 | EP-01 | Acceso administrativo separado    | Omar           | ✓   | ✓   | —     | BD       | P0   | TT-004/010; DEC-001                                    | S1                     | Pend     |       3 |
-| HU-004 | EP-01 | Login cliente posterior           | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | TT-004/010; HU-008 para DoD                            | S1–S2                  | Pend     |       5 |
-| HU-005 | EP-01 | Ciclo sesión/logout/expiración    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P0   | TT-004; DEC-002/004                                    | S1                     | Pend     |       5 |
+| HU-001 | EP-01 | Registro profesional              | Ferxxo         | ✓   | ✓   | —     | BD       | P1   | TT-003/004/010; DEC-001/002/005                        | S1                     | Impl local |       5 |
+| HU-002 | EP-01 | Login profesional                 | Ferxxo         | ✓   | ✓   | —     | BD       | P0   | HU-001; DEC-004                                        | S1                     | Impl local |       5 |
+| HU-003 | EP-01 | Acceso administrativo separado    | Omar           | ✓   | ✓   | —     | BD       | P0   | TT-004/010; DEC-001                                    | S1                     | Impl local |       3 |
+| HU-004 | EP-01 | Login cliente posterior           | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | TT-004/010; cuenta fixture                             | S1–S2                  | Impl local |       5 |
+| HU-005 | EP-01 | Ciclo sesión/logout/expiración    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P0   | TT-004; DEC-002/004                                    | S1                     | Impl local |       5 |
 | HU-006 | EP-01 | Modificar credenciales cliente    | Ferxxo         | ✓   | —   | ✓     | BD       | P1   | HU-004/005                                             | S2                     | Impl local |       3 |
-| HU-007 | EP-01 | Invitación individual             | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-015/013; DEC-003                                    | S2                     | Impl local |       3 |
-| HU-008 | EP-01 | Activación atómica móvil          | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | HU-007; TT-004; DEC-002/003                            | S2                     | Impl local |       8 |
+| HU-007 | EP-03 | Invitación individual             | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-015/013; DEC-003                                    | S2                     | Impl local |       3 |
+| HU-008 | EP-03 | Activación atómica móvil          | Ferxxo         | ✓   | —   | ✓     | BD       | P0   | HU-007; TT-004; DEC-002/003                            | S2                     | Impl local |       8 |
 | HU-009 | EP-01 | Recuperación asistida incluida    | Ferxxo         | ✓   | ✓   | ✓     | BD       | P1   | HU-005; TT-004/010; DEC-002 resuelta                   | S2                     | Impl local |       3 |
-| HU-010 | EP-02 | Catálogo planes SaaS              | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-003; DEC-005                                        | S1                     | Pend     |       3 |
-| HU-011 | EP-02 | Plan/estado/capacidad propia      | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-001/010; DEC-005                                    | S1                     | Pend     |       3 |
-| HU-012 | EP-02 | Gestión suscripción               | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/010/011/005; DEC-004/005                        | S4                     | Pend     |       5 |
-| HU-013 | EP-02 | Cupo concurrente                  | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-010/011; DEC-004/005                                | S2 antes de alta       | Pend     |       5 |
-| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/015/018                                     | S4                     | Pend     |       3 |
-| HU-015 | EP-03 | Alta expediente inicial           | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-002/011/013; DEC-006                                | S2                     | Pend     |       5 |
-| HU-016 | EP-03 | Listado/búsqueda cartera          | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015; TT-010                                         | S2                     | Pend     |       3 |
-| HU-017 | EP-03 | Editar perfil/objetivo            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/016; DEC-006                                    | S2                     | Pend     |       3 |
-| HU-018 | EP-03 | Estado/baja lógica cliente        | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-013/015/005; DEC-004/011                            | S2                     | Pend     |       3 |
-| HU-019 | EP-03 | Expediente consolidado            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-017/021/022/026/030/033                             | S5                     | Pend     |       5 |
-| HU-020 | EP-03 | Perfil propio móvil               | Franela Whaite | ✓   | —   | ✓     | BD       | P1   | HU-008/004/017; DEC-009                                | S2 base/S5 progreso    | Pend     |       3 |
+| HU-010 | EP-02 | Catálogo planes SaaS              | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-003; DEC-005                                        | S1                     | Impl local |       3 |
+| HU-011 | EP-02 | Plan/estado/capacidad propia      | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-001/010; DEC-005                                    | S1                     | Impl local |       3 |
+| HU-012 | EP-02 | Gestión suscripción               | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/010/011/005; DEC-004/005                        | S4                     | Impl local |       5 |
+| HU-013 | EP-02 | Cupo concurrente                  | Omar           | ✓   | ✓   | —     | BD       | P0   | HU-010/011; DEC-004/005                                | S2 antes de alta       | Impl local |       5 |
+| HU-014 | EP-02 | Profesionales/uso global          | Omar           | ✓   | ✓   | —     | BD       | P1   | HU-003/011/013; clientes fixture                       | S4                     | Impl local |       3 |
+| HU-015 | EP-03 | Alta expediente inicial           | Franela Whaite | ✓   | ✓   | —     | BD       | P0   | HU-002/011/013; DEC-006                                | S2                     | Impl local |       5 |
+| HU-016 | EP-03 | Listado/búsqueda cartera          | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015; TT-010                                         | S2                     | Impl local |       3 |
+| HU-017 | EP-03 | Editar perfil/objetivo            | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/016; DEC-006                                    | S2                     | Impl local |       3 |
+| HU-018 | EP-03 | Estado/baja lógica cliente        | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-013/015/005; DEC-004/011                            | S2                     | Impl local |       3 |
+| HU-019 | EP-03 | Expediente base (secciones en HU fuente) | Franela Whaite | ✓   | ✓   | —     | BD       | P1   | HU-015/017; secciones futuras en su HU fuente          | S2 base; secciones EP-04–07 | Impl local |       5 |
+| HU-020 | EP-03 | Perfil propio móvil base          | Franela Whaite | ✓   | —   | ✓     | BD       | P1   | HU-008/004/017; DEC-009                                | S2 base; progreso HU-036 | Impl local |       3 |
 | HU-021 | EP-04 | Evaluaciones fechadas             | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-015/017; DEC-006                                    | S4                     | Pend     |       5 |
-| HU-022 | EP-04 | Evolución peso/medidas            | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021; consume evento HU-037 cuando existe            | S4                     | Pend     |       3 |
+| HU-022 | EP-04 | Evolución peso/medidas            | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021                                                 | S4                     | Pend     |       3 |
 | HU-023 | EP-04 | Grasa estimada incluida bloqueada | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-021; entradas DEC-006; dominio/casos DEC-007        | S4, solo tras Ready    | Bloq     |       3 |
 | HU-024 | EP-05 | Editor alimentación               | Pukzil         | ✓   | ✓   | —     | BD       | P1   | HU-015/017; DEC-006                                    | S3                     | Pend     |       8 |
 | HU-025 | EP-05 | Sugerencia nutricional (archivo)  | Pukzil         | —   | —   | —     | —        | —    | Excepción RDF0605/0606, DEC-007                        | Sin sprint V2          | Posp     | 5 excl. |
@@ -1783,7 +1845,8 @@ flowchart TD
   A --> C[Check-in diario y peso corporal]
   X --> P
   N --> P
-  M --> H[Evolución e historial autorizado]
+  M --> EV[Evolución antropométrica]
+  EV --> H[Historial autorizado]
   C --> H
   C --> P[Seguimiento y dashboard profesional]
   N --> Q[Inicio diario cliente]
@@ -1809,8 +1872,8 @@ flowchart TD
 | Nutrición             | Expediente/permisos; cliente para lectura                                                          | Inicio diario/adherencia            | Independiente de entrenamiento y evaluación manual.                                                                                     |
 | Entrenamiento         | Expediente/permisos; cliente para lectura                                                          | Ejecución/adherencia/inicio         | Independiente de nutrición y evaluación.                                                                                                |
 | Antropometría         | Expediente/diccionario DEC-006 resuelto                                                            | Evolución                           | Medidas manuales independientes del gate técnico de fórmula HU-023 incluida.                                                            |
-| Check-in/peso         | Identidad/expediente + reglas DEC-006/008; no nutrición/rutina ni HU-022 para capturar             | Seguimiento/evolución/historial     | Ferxxo comparte captura/evento HU-032/037; HU-022 de Pukzil consume cuando existe; atomicidad conjunta y edición diaria según contrato. |
-| Seguimiento/dashboard | HU-031/032/037 y cartera; planes/versiones para atribuir adherencia, capacidad SaaS para dashboard | Expediente/inicio/historial         | Ferxxo conserva indicadores/adherencia HU-033; Omar integra HU-034 con ese servicio y su capacidad HU-011/013, sin duplicar reglas.     |
+| Check-in/peso         | Identidad/expediente + reglas DEC-006/008; no nutrición/rutina ni HU-022 para capturar             | Seguimiento/evolución/historial     | Ferxxo comparte captura/evento HU-032/037; HU-037 conecta su evento a la evolución HU-022 ya entregada; atomicidad conjunta y edición diaria según contrato. |
+| Seguimiento/dashboard | HU-031/032/037 y cartera; planes/versiones para atribuir adherencia, capacidad SaaS para dashboard | Inicio/historial; conecta su sección al expediente existente (31/oct) | Ferxxo conserva indicadores/adherencia HU-033; Omar integra HU-034 con ese servicio y su capacidad HU-011/013, sin duplicar reglas.     |
 | PWA/portal            | Auth y al menos una vista privada; catálogo/login para CTA                                         | Web entregable                      | PWA puede avanzar antes de dashboard completo; preservar landing.                                                                       |
 | Operación/calidad     | Entornos y feature incremental                                                                     | Entrega                             | CI/staging/build móvil desde fundamentos; regresión final después de integración.                                                       |
 
@@ -1827,6 +1890,8 @@ flowchart TD
 ---
 
 ## 10. Sprints y revisiones
+
+**Secuencia vigente autorizada 31/oct:** después de la base EP-03 se trabaja EP-04 → EP-05 → EP-06 → EP-07 → EP-08. Cada épica incluye su conexión y pruebas sobre expediente/perfil; ver [redistribución](#seguimiento-ep03). Las tablas de incrementos S0–S7 siguientes conservan el desglose previo de trabajo, sujeto a esta secuencia y sin fechas/capacidad nuevas aprobadas.
 
 ### Regla de capacidad
 
@@ -1883,7 +1948,7 @@ No existe iteración condicional C en V2 vigente: HU-009/023/041 son base, HU-02
 
 | Responsable    | Historias/trabajos                                                                                                                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ferxxo         | HU-008 transacción/API/sesión, HU-006/009 incluida; cerrar HU-004 con activación real; no implementar cupos.                                                                                                  |
+| Ferxxo         | HU-008 transacción/API/sesión, HU-006/009 incluida; verificar en HU-008 el login HU-004 tras activación real; no implementar cupos.                                                                                                  |
 | Franela Whaite | HU-015/016/017/018, HU-007, perfil base HU-020; colabora en HU-008-BD1/vínculo y ejecuta HU-008-MOV1 bajo responsabilidad de Ferxxo.                                                                          |
 | Omar           | HU-013 antes de altas; ejecuta HU-018-API1 bajo Franela Whaite con cupo propio/revocación de Ferxxo; contrasta código de Ferxxo, su concurrencia/cupo recibe revisión independiente de Pukzil/Franela Whaite. |
 | Pukzil         | Contratos/UI de nutrición/evaluaciones de siguiente sprint, pruebas independientes de seguridad de activación/aislamiento y auditoría por feature.                                                            |
@@ -1929,13 +1994,36 @@ No existe iteración condicional C en V2 vigente: HU-009/023/041 son base, HU-02
 | Responsable    | Historias/trabajos                                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Omar           | HU-034/035/039, cierre HU-012/014 y HU-041 incluida, aviso/confirmación iniciado S1 con cuentas; TT-015-1/2 bajo Franela; TT-012/021/019.  |
-| Franela Whaite | HU-019/020 completo, HU-040; TT-015 backup/restore sin medios. HU-038 fuera V2, no trabajo activo.                                         |
+| Franela Whaite | Revisión del expediente/perfil compartido (HU-019/020 base ya entregada; conexiones en sus HU fuente, ver [seguimiento EP-03](#seguimiento-ep03)), HU-040; TT-015 backup/restore sin medios. HU-038 fuera V2, no trabajo activo.                                         |
 | Pukzil         | HU-036; HU-023 incluida solo tras gate técnico originales/fixtures; HU-025 pospuesta sin trabajo activo; seguridad independiente y TT-018. |
 | Ferxxo         | Cierre/integración HU-031/032/037/033 y sesiones/recuperación HU-009 incluida; objetivos DEC-013 TT-021 Omar, sin SaaS/métricas nuevas.    |
 
 **Dependencias previas:** fuentes de datos reales S3/S4; decisiones de privacidad/portal.
 **Resultado esperado:** dashboard e inicio diario consistentes, expediente consolidado, historial autorizado, CTA real, PWA instalada privada sin caché de datos de otro usuario.
 **Salida:** recorrido completo entre las tres capas y admin; 0 HU confirmadas escondidas detrás de un mock.
+
+<a id="seguimiento-ep03"></a>
+
+### Seguimiento EP-03 — redistribución autorizada a las épicas fuente, 31/oct/2026
+
+**Acuerdo vigente:** ejecución secuencial EP-04 → EP-05 → EP-06 → EP-07 → EP-08. Cada responsable entrega su módulo conectado al expediente/perfil existentes, con API, Web/móvil, contrato y pruebas; no entrega solo un lector para que EP-03 lo conecte después. Este acuerdo sustituye la asignación anterior de esas conexiones a Franela y el cierre de HU-019/020 por dependencias futuras en S5. Los incrementos S0–S7 de este documento son referencias de planificación previas, no una exigencia de ejecutar épicas en paralelo ni fechas confirmadas.
+
+Se redistribuyen tareas y aceptación, sin borrar requisitos V2, crear nuevas HU ni duplicar SP. Los responsables de las HU fuente se conservan; ahora también ejecutan su integración. El esfuerzo transferido debe revisarse al comprometer cada épica y no se presume gratuito ni con capacidad/fecha aprobadas. Franela conserva revisión/consulta del expediente compartido, no una etapa obligatoria posterior de implementación.
+
+| Destino | Trabajo de integración que asume | Criterio que debe cumplir antes de cerrar |
+| --- | --- | --- |
+| EP-04 / HU-021/022 — Pukzil | Evaluaciones y evolución conectadas a las secciones del expediente. | Datos reales, fechas/unidades, datos/vacío/error, permisos y conservación ante edición/inactivación/reactivación; sin esperar peso móvil de EP-07. |
+| EP-05 / HU-026 — Pukzil | Alimentación activa/versionada conectada al expediente. | API/contrato/validador/UI coherentes, V1/V2, datos/vacío/error, dos carteras e historia intacta. |
+| EP-06 / HU-030 — Ferxxo | Rutina activa/versionada conectada al expediente. | Lectura profesional autorizada además de la móvil, versión activa, descanso, aislamiento y versiones anteriores intactas. |
+| EP-07 / HU-033 — Ferxxo | Seguimiento de fuentes HU-031/032/037 conectado al expediente y prueba conjunta de las secciones ya disponibles. | Ejecución/check-in/adherencia reales, cobertura, versión/origen y peso separado de carga por serie; perfil obligatorio, fallo parcial autorizado y A→B/respuestas invertidas. |
+| EP-07 / HU-037 — Ferxxo | Peso diario conectado al historial del expediente y consumidores HU-022/033. | Evento único, origen/UTC/fecha local/zona/unidad, atomicidad y conservación de base/evaluaciones; se actualiza el consumidor de EP-04 desde esta entrega. |
+| EP-07 / HU-036 — Pukzil | Progreso autorizado conectado al perfil móvil existente; absorbe RDC0204 de HU-020. | Categorías default off, periodos, concesión/revocación próxima consulta, agregado filtrado/dedicado denegado y descarte móvil. |
+| EP-08 / HU-039/040/041 — responsables originales | Portal/PWA/privacidad sobre las pantallas reales entregadas. | Ninguna deuda de conexión de EP-04–07 se difiere a EP-08; PWA sin caché privada y recorridos reales. |
+| QA de cada HU fuente | Conservación histórica e integración antes asignadas al tramo futuro de HU-017/018/019/020. | Fixtures no vacíos del módulo, contratos/tipos/UI/tests actualizados juntos; ejecutar regresión sobre cartera/base existente. |
+| EP-03 — Franela y revisor independiente | Solo alcance base HU-015–020, corrección Unicode y revisión de su entrega. | No se identificó otro defecto funcional base en la auditoría. D0.8/revisión y aceptación de evidencia siguen pendientes; no se acreditan por redistribuir tareas. |
+| TT-013/019, TT-010 y DEC-011/015 | Deuda global de formato, verificación transversal y condiciones de uso real. | Mantener responsables originales y coordinar archivos compartidos; revisión/privacidad no se convierten en defectos de implementación futura de EP-03 ni desaparecen. |
+
+**Estado:** base funcional de EP-03 implementada y verificada en el alcance documentado; pendiente de aceptación/revisión independiente, sin certificar D0 completo. Las secciones futuras siguen sin implementar, pero su ejecución/conexión ya es obligación de las épicas fuente. RDF0404/RDC0204 se mantienen trazados a esas entregas; no se declaran satisfechos hasta probarlas. Ver [relevo vigente](../docs/epicas/ep-03-cartera-y-expediente/seguimiento-auditoria.md).
 
 ### Replaneamiento de incrementos — sin iteración C
 
@@ -2109,7 +2197,7 @@ Sin extractos literales extensos ni pruebas inventadas. Humano autorizado revali
 ### Ferxxo
 
 **Rol:** Product Owner + líder técnico + desarrollador principal. Define prioridades, aprueba alcance/producto y aceptación, coordina dependencias técnicas y DEC-016 con el equipo. No implica propiedad legal de empresa/datos ni revisión exclusiva.
-**Épicas:** EP-01 identidad/activación (invitación de Franela Whaite), EP-06 entrenamiento completo, EP-07 check-in/peso/indicadores/adherencia y TT-001/004/020.
+**Épicas:** EP-01 identidad/acceso, activación HU-008 en EP-03 (invitación HU-007 de Franela Whaite), EP-06 entrenamiento completo, EP-07 check-in/peso/indicadores/adherencia y TT-001/004/020.
 
 **Historias propias (CORE):** HU-001, HU-002, HU-004, HU-005, HU-006, HU-008, HU-009 incluida, HU-028, HU-029, HU-030, HU-031, HU-032, HU-033, HU-037.
 **Técnicas propias (CORE):** TT-001, TT-004, TT-020.
@@ -2145,7 +2233,7 @@ Sin extractos literales extensos ni pruebas inventadas. Humano autorizado revali
 
 ### Franela Whaite
 
-**Épicas:** EP-03 cartera/expediente, invitación/activación EP-01, PWA EP-08 y recuperación/despliegue API/Web EP-09; no fotos V2.
+**Épicas:** EP-03 cartera/expediente con invitación HU-007 y colaboración en activación HU-008, PWA EP-08 y recuperación/despliegue API/Web EP-09; no fotos V2.
 
 **Historias propias (CORE):** HU-007, HU-015, HU-016, HU-017, HU-018, HU-019, HU-020, HU-040. HU-038 archivo fuera V2, no carga activa.
 **Técnicas propias (CORE):** TT-003, TT-009, TT-013, TT-015, TT-016, TT-017.
@@ -2241,32 +2329,32 @@ Todos sus requisitos vigentes tienen HU cerradas según D0, integrada la capa co
 
 | Evidencia                                                                                                                    | Qué establece                                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [README raíz](README.md)                                                                                                     | Contexto SaaS, roles, flujo, alcance complementario y periodo de trabajo.                               |
-| [Acuerdos de requisitos](docs/requirements/README.md)                                                                        | Fuente V2, canje atómico/expediente, correo confirmado por campo, baja lógica y decisiones pendientes. |
-| [Sistema interno](docs/requirements/sistema-interno.md)                                                                      | RF01–RF10 y 53 RDF.                                                                                    |
-| [Cliente](docs/requirements/cliente.md)                                                                                      | RC01–RC07 y 28 RDC.                                                                                    |
-| [No funcionales](docs/requirements/no-funcionales.md)                                                                        | 20 RNF y extensibilidad futura, no funciones extra inmediatas.                                         |
-| [Seguridad](docs/requirements/seguridad.md)                                                                                  | 21 RS existentes en el catálogo.                                                                       |
-| [Arquitectura](docs/architecture/README.md)                                                                                  | Feature/layers de API y UI; tecnologías a conservar.                                                   |
-| [Despliegue](docs/architecture/despliegue.md)                                                                                | Plataformas/variables elegidas; afirmaciones operativas por corregir.                                  |
-| [BD](docs/database/README.md)                                                                                                | Diseño pendiente y exposición de secretos identificada, sin reproducir sus valores.                    |
-| [Colaboración](CONTRIBUTING.md)                                                                                              | PR, ramas/commits, aviso shared/config y prohibición de secretos.                                      |
-| [API app](apps/api/src/app.ts)                                                                                               | Parsers, health y error handler; CORS importado sin aplicar.                                           |
-| [API config](apps/api/src/config/index.ts)                                                                                   | Carga de variables, no conexión real a BD.                                                             |
-| [API package](apps/api/package.json)                                                                                         | Scripts, Express 4 y TS; sin suite de tests.                                                           |
-| [Web README](apps/web/README.md)                                                                                             | Landing completada y app privada/PWA aún pendientes.                                                   |
-| [Rutas Web](apps/web/src/routes/AppRoutes.tsx)                                                                               | `/` y 404, sin panel/guards de producto.                                                               |
-| [Preview](apps/web/src/features/marketing/components/ProductPreview.tsx)                                                     | Datos de ejemplo y estado local, no sync API/móvil real.                                                |
-| [Diálogo marketing](apps/web/src/features/marketing/components/MarketingNavigation.tsx)                                      | Aviso explícito de acceso/registro aún no disponibles.                                                 |
-| [HTTP Web](apps/web/src/services/api.ts)                                                                                     | Helper sin validación runtime y orden de headers a corregir.                                           |
-| [Web entry](apps/web/src/main.tsx) / [Vite config](apps/web/vite.config.ts)                                                  | Registro global SW, manifest scope/start URL raíz.                                                     |
-| [Web DESIGN](apps/web/DESIGN.md)                                                                                             | Guía de marketing actualizada a UI-001 del 16-oct-2026; paletas maestras en DESIGN.md raíz.                         |
-| [Flutter main](apps/mobile/lib/main.dart)                                                                                    | Pantalla de marca, no módulos RC implementados.                                                        |
-| [Flutter test](apps/mobile/test/widget_test.dart)                                                                            | Único smoke test de texto, ejecución satisfactoria.                                                    |
-| [Flutter API config](apps/mobile/lib/shared/services/api_config.dart)                                                        | URLs fijas/no utilizadas y localhost debug/profile.                                                    |
-| [Android manifest](apps/mobile/android/app/src/main/AndroidManifest.xml) / [build](apps/mobile/android/app/build.gradle.kts) | Internet release sin declarar, firma debug y toolchain pendiente de ejecución.                         |
-| [iOS project](apps/mobile/ios/Runner.xcodeproj/project.pbxproj)                                                              | Scaffold/targets/signing; no entrega iOS certificada.                                                  |
-| [Windows build](apps/mobile/windows/CMakeLists.txt)                                                                          | Target presente, no alcance de producto desktop aprobado.                                              |
+| [README raíz](../README.md)                                                                                                     | Contexto SaaS, roles, flujo, alcance complementario y periodo de trabajo.                               |
+| [Acuerdos de requisitos](../docs/requirements/README.md)                                                                        | Fuente V2, canje atómico/expediente, correo confirmado por campo, baja lógica y decisiones pendientes. |
+| [Sistema interno](../docs/requirements/sistema-interno.md)                                                                      | RF01–RF10 y 53 RDF.                                                                                    |
+| [Cliente](../docs/requirements/cliente.md)                                                                                      | RC01–RC07 y 28 RDC.                                                                                    |
+| [No funcionales](../docs/requirements/no-funcionales.md)                                                                        | 20 RNF y extensibilidad futura, no funciones extra inmediatas.                                         |
+| [Seguridad](../docs/requirements/seguridad.md)                                                                                  | 21 RS existentes en el catálogo.                                                                       |
+| [Arquitectura](../docs/architecture/README.md)                                                                                  | Feature/layers de API y UI; tecnologías a conservar.                                                   |
+| [Despliegue](../docs/architecture/despliegue.md)                                                                                | Plataformas/variables elegidas; afirmaciones operativas por corregir.                                  |
+| [BD](../docs/database/README.md)                                                                                                | Diseño pendiente y exposición de secretos identificada, sin reproducir sus valores.                    |
+| [Colaboración](../CONTRIBUTING.md)                                                                                              | PR, ramas/commits, aviso shared/config y prohibición de secretos.                                      |
+| [API app](../apps/api/src/app.ts)                                                                                               | Parsers, health y error handler; CORS importado sin aplicar.                                           |
+| [API config](../apps/api/src/config/index.ts)                                                                                   | Carga de variables, no conexión real a BD.                                                             |
+| [API package](../apps/api/package.json)                                                                                         | Scripts, Express 4 y TS; sin suite de tests.                                                           |
+| [Web README](../apps/web/README.md)                                                                                             | Landing completada y app privada/PWA aún pendientes.                                                   |
+| [Rutas Web](../apps/web/src/routes/AppRoutes.tsx)                                                                               | `/` y 404, sin panel/guards de producto.                                                               |
+| [Preview](../apps/web/src/features/marketing/components/ProductPreview.tsx)                                                     | Datos de ejemplo y estado local, no sync API/móvil real.                                                |
+| [Diálogo marketing](../apps/web/src/features/marketing/components/MarketingNavigation.tsx)                                      | Aviso explícito de acceso/registro aún no disponibles.                                                 |
+| [HTTP Web](../apps/web/src/services/api.ts)                                                                                     | Helper sin validación runtime y orden de headers a corregir.                                           |
+| [Web entry](../apps/web/src/main.tsx) / [Vite config](../apps/web/vite.config.ts)                                                  | Registro global SW, manifest scope/start URL raíz.                                                     |
+| [Web DESIGN](../apps/web/DESIGN.md)                                                                                             | Guía de marketing actualizada a UI-001 del 16-oct-2026; paletas maestras en DESIGN.md raíz.                         |
+| [Flutter main](../apps/mobile/lib/main.dart)                                                                                    | Pantalla de marca, no módulos RC implementados.                                                        |
+| [Flutter test](../apps/mobile/test/widget_test.dart)                                                                            | Único smoke test de texto, ejecución satisfactoria.                                                    |
+| [Flutter API config](../apps/mobile/lib/shared/services/api_config.dart)                                                        | URLs fijas/no utilizadas y localhost debug/profile.                                                    |
+| [Android manifest](../apps/mobile/android/app/src/main/AndroidManifest.xml) / [build](../apps/mobile/android/app/build.gradle.kts) | Internet release sin declarar, firma debug y toolchain pendiente de ejecución.                         |
+| [iOS project](../apps/mobile/ios/Runner.xcodeproj/project.pbxproj)                                                              | Scaffold/targets/signing; no entrega iOS certificada.                                                  |
+| [Windows build](../apps/mobile/windows/CMakeLists.txt)                                                                          | Target presente, no alcance de producto desktop aprobado.                                              |
 
 Las referencias a líneas en los hallazgos corresponden al snapshot auditado. Los cambios futuros pueden desplazarlas; conservar commit/ID y actualizar evidencias al cerrar Issues.
 
@@ -2297,7 +2385,7 @@ Issues/Projects/PRs e implementación/deploy quedan para siguiente trabajo autor
 
 ### Actualización HU-001 — 15-oct-2026
 
-Diseño aprobado por el usuario en chat: precios visibles 299/599/999 MXN, «Contáctanos» y «Contratar plan» → registro Web, datos esenciales ampliables después. Sustituye la regla anterior de ocultar precios y simular checkout en este recorrido, con HU-039/DEC-014 actualizadas; no añade cobros ni activación. El inventario de auditoría 8-oct permanece histórico, no describe este diff. [Contrato e implementación](docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md); [migración y evolución login](docs/database/README.md). HU-001 implementada localmente; D0/revisión independiente/despliegue por acreditar, no se marca cerrada. HU-002 conserva login/sesiones.
+Diseño aprobado por el usuario en chat: precios visibles 299/599/999 MXN, «Contáctanos» y «Contratar plan» → registro Web, datos esenciales ampliables después. Sustituye la regla anterior de ocultar precios y simular checkout en este recorrido, con HU-039/DEC-014 actualizadas; no añade cobros ni activación. El inventario de auditoría 8-oct permanece histórico, no describe este diff. [Contrato e implementación](../docs/epicas/ep-01-identidad-y-acceso/hu-001/README.md); [migración y evolución login](../docs/database/README.md). HU-001 implementada localmente; D0/revisión independiente/despliegue por acreditar, no se marca cerrada. HU-002 conserva login/sesiones.
 
 
 ### Presentación y operación del producto — 15-oct-2026
@@ -2307,16 +2395,16 @@ Por instrucción del usuario, CouchOne Fit se presenta y documenta como platafor
 
 ### Incremento HU-002 — acceso profesional (15-oct-2026)
 
-Implementación local de login por usuario/correo, comprobación rol/estado, JWT/sid y sesión revocable en PostgreSQL, refresh rotativo absoluto30d, cookies Web/CSRF, guard `/app/*` y perfil filtrado por identidad de sesión. Se conserva inventario histórico 8-oct, no se reescribe como evidencia actual. [Contrato y validación](docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md); migración nueva de sesiones/refresh sin editar HU-001. Login sustituye el aviso pendiente de `/acceso`; HU-005 conserva integración móvil y transversal. No cerrar D0 ni acreditar despliegue/revisión independiente por esta anotación.
+Implementación local de login por usuario/correo, comprobación rol/estado, JWT/sid y sesión revocable en PostgreSQL, refresh rotativo absoluto30d, cookies Web/CSRF, guard `/app/*` y perfil filtrado por identidad de sesión. Se conserva inventario histórico 8-oct, no se reescribe como evidencia actual. [Contrato y validación](../docs/epicas/ep-01-identidad-y-acceso/hu-002/README.md); migración nueva de sesiones/refresh sin editar HU-001. Login sustituye el aviso pendiente de `/acceso`; HU-005 conserva integración móvil y transversal. No cerrar D0 ni acreditar despliegue/revisión independiente por esta anotación.
 
 
 ### Convenciones de datos y documentación por épica
 
-Acuerdo inicial: PostgreSQL en español `snake_case`, código/JSON `camelCase` y tipos/componentes `PascalCase`. La regla vigente usa identificadores y valores del dominio en inglés según `DEVELOPMENT.md` y el glosario. Las migraciones históricas conservan sus nombres; la migración posterior lleva los identificadores del esquema a inglés. [schemas](docs/database/schemas/README.md) conserva la estructura integrada. Documentación funcional en [docs/epicas](docs/epicas/README.md), agrupada por épica/HU sin carpetas por sprint. [Modelo de tablas y funciones](docs/database/modelo-identidad-acceso.md), [convenciones](docs/database/convenciones.md). Los hallazgos del corte histórico no prueban el estado actual.
+Acuerdo inicial: PostgreSQL en español `snake_case`, código/JSON `camelCase` y tipos/componentes `PascalCase`. La regla vigente usa identificadores y valores del dominio en inglés según `DEVELOPMENT.md` y el glosario. Las migraciones históricas conservan sus nombres; la migración posterior lleva los identificadores del esquema a inglés. [schemas](../docs/database/schemas/README.md) conserva la estructura integrada. Documentación funcional en [docs/epicas](../docs/epicas/README.md), agrupada por épica/HU sin carpetas por sprint. [Modelo de tablas y funciones](../docs/database/modelo-identidad-acceso.md), [convenciones](../docs/database/convenciones.md). Los hallazgos del corte histórico no prueban el estado actual.
 
 ### Incremento de implementación HU-003 — 16-oct-2026
 
-Autenticación común profesional/admin con autorización por rol persistido, rutas excluyentes `/app/*` y `/admin/*`, permisos/RLS de provisión y seed controlada. Migración incremental aplicada y administrador real creado en CouchOneFit sin perfil profesional ni contraseña versionada. Matriz y seed probadas localmente, login/refresh/logout y rechazo operativo contra Supabase, recorrido de navegador local verificado. [Contrato y evidencia](docs/epicas/ep-01-identidad-y-acceso/hu-003/README.md). HU-010/012/014 conservan sus operaciones; D0/revisión independiente/despliegue API-Web pendientes, no se marca cerrada por esta anotación.
+Autenticación común profesional/admin con autorización por rol persistido, rutas excluyentes `/app/*` y `/admin/*`, permisos/RLS de provisión y seed controlada. Migración incremental aplicada y administrador real creado en CouchOneFit sin perfil profesional ni contraseña versionada. Matriz y seed probadas localmente, login/refresh/logout y rechazo operativo contra Supabase, recorrido de navegador local verificado. [Contrato y evidencia](../docs/epicas/ep-01-identidad-y-acceso/hu-003/README.md). HU-010/012/014 conservan sus operaciones; D0/revisión independiente/despliegue API-Web pendientes, no se marca cerrada por esta anotación.
 
 ### Cambio de alcance — autoservicio y pagos simulados (25-oct-2026)
 
@@ -2325,3 +2413,7 @@ Por instrucción explícita del usuario se sustituyen las reglas anteriores que 
 ### Presentación y fuente del catálogo — acuerdo posterior 25-oct-2026
 
 La GUI omite etiquetas/advertencias de prueba y simulación por petición expresa; presenta pago, procesamiento, comprobante e historial con lenguaje normal. El motor conserva la simulación sin proveedor/cobro real ni datos bancarios reales. Esta regla sustituye el aviso visible definido al diseñar el checkout. HU-010/011/012/039 comparten catálogo persistido: cambios de nombre/precio/cupo/disponibilidad se reflejan en portada, registro, checkout y administración al consultar, recuperar foco o refrescar cada 60s visible. `planInterestId` conserva la selección de cualquier plan vigente al registrarse; no concede cupo. Historial de pagos preserva snapshots; cotización obsoleta requiere nueva confirmación.
+
+### Incremento EP-03 — cartera y expediente (29/30-oct-2026)
+
+HU-015 a HU-018 implementadas localmente; HU-019 (composición con perfil real; secciones de otros módulos `not_integrated`) y HU-020 (perfil base propio; progreso pendiente de HU-036) parciales. Única rama `feature/api-client-portfolio`, próximo PR al completar la épica; D0.8 (revisión independiente) y TT-010 transversal siguen abiertos. Recortes frente a la redacción de las HU: (1) resuelto 30-oct: la baja/reactivación explícita de la cuenta cliente (DEC-004; aceptación y QA1 de HU-018) se expone en `PATCH /api/clients/:clientId/account`; (2) HU-020 trata cintura/cadera/grasa base como perfil base visible por defecto, interpretación de DEC-009 sin aprobación de producto; (3) resuelto 30-oct: HU-016 busca por nombre u objetivo (RDF0303). [Estado y relevo](../docs/epicas/ep-03-cartera-y-expediente/estado-e-integracion.md).

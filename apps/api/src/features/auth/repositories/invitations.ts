@@ -17,6 +17,7 @@ export async function replaceInvitation(
   now?: Date
 ) {
   return transaction(pool, async (client) => {
+    await context(client, 'subject_id', identity.id)
     const record = await lockInvitationRecord(client, clientId, now)
     if (record.professionalUserId !== identity.id) throw invalidInvitation()
     await lockActor(client, identity, now, true)
@@ -41,6 +42,7 @@ export async function deleteInvitation(
   now?: Date
 ) {
   return transaction(pool, async (client) => {
+    await context(client, 'subject_id', identity.id)
     await context(client, 'client_id', clientId)
     const {
       rows: [record],
@@ -64,6 +66,7 @@ export async function validateInvitationHash(
   now?: Date
 ) {
   return transaction(pool, async (client) => {
+    await context(client, 'subject_id', '')
     const {
       rows: [candidate],
     } = await client.query<{ client_id: string }>(
@@ -71,7 +74,7 @@ export async function validateInvitationHash(
       [digest]
     )
     if (!candidate) throw invalidInvitation()
-    await lockInvitationRecord(client, candidate.client_id, now)
+    await lockInvitationRecord(client, candidate.client_id, now, digest)
     const { rowCount } = await client.query(
       'SELECT id FROM private.invitations WHERE client_id=$1 AND token_hash=$2 AND expires_at>COALESCE($3::timestamptz,clock_timestamp()) FOR UPDATE',
       [candidate.client_id, digest, now ?? null]
@@ -93,6 +96,7 @@ export async function insertActivatedAccount(
   now?: Date
 ) {
   await transaction(pool, async (client) => {
+    await context(client, 'subject_id', '')
     const {
       rows: [candidate],
     } = await client.query<{ client_id: string }>(
@@ -100,7 +104,7 @@ export async function insertActivatedAccount(
       [data.codeHash]
     )
     if (!candidate) throw invalidInvitation()
-    await lockInvitationRecord(client, candidate.client_id, now)
+    await lockInvitationRecord(client, candidate.client_id, now, data.codeHash)
     const {
       rows: [invitation],
     } = await client.query<{ id: string }>(
@@ -115,11 +119,11 @@ export async function insertActivatedAccount(
       "INSERT INTO private.users (username,email,password_hash,role) VALUES ($1,$2,$3,'client') RETURNING id",
       [data.username, data.email, digest]
     )
-    const { rowCount } = await client.query(
-      'UPDATE private.clients SET user_id=$2 WHERE id=$1 AND user_id IS NULL',
-      [candidate.client_id, account.id]
+    const { rows: [link] } = await client.query<{ linked: boolean }>(
+      'SELECT private.link_invited_client($1,$2,$3) AS linked',
+      [data.codeHash, account.id, now ?? null]
     )
-    if (rowCount !== 1) throw invalidInvitation()
+    if (!link.linked) throw invalidInvitation()
     await client.query(
       'INSERT INTO private.notice_acceptances (user_id,version,accepted_at) VALUES ($1,$2,COALESCE($3::timestamptz,clock_timestamp()))',
       [account.id, data.noticeVersion, now ?? null]

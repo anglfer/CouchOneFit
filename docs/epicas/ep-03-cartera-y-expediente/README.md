@@ -1,0 +1,37 @@
+# EP-03 — Cartera, expediente y vinculación
+
+**Reubicación 02/nov/2026:** se incorporan [HU-007 — Invitación individual](hu-007/README.md) y [HU-008 — Activación atómica móvil](hu-008/README.md), antes en EP-01, porque dependen de HU-015 y del cupo HU-013 (EP-02). Orden: HU-015 → HU-007 → HU-008 → HU-016–020. Se implementaron antes de esta reubicación; conservan ID, responsables (Franela Whaite y Ferxxo), commits y [evidencia](../ep-01-identidad-y-acceso/evidencia-hu-006-009.md). El acuerdo de rama única de abajo aplica a las HU originales de EP-03, no reescribe la historia de HU-007/008.
+
+> **Acuerdo de visión 30-oct-2026 ([DEC-017](../../../plan/PLAN_TRABAJO_V2.md#dec-017--acuerdos-de-visión-del-30-de-octubre-de-2026)):** edad mínima **16** en HU-015/HU-017 y HU-020 con **solo lo básico** para el cliente **ya implementadas** (30-oct); pendientes: correo opcional del cliente en el expediente para enviar la invitación HU-007 por correo y vista de solo lectura para soporte del administrador. Se descartó la reasignación de clientes. Hasta entonces rige lo descrito abajo.
+
+## Acuerdo de integración vigente
+
+Por acuerdo confirmado por la persona usuaria, `feature/api-client-portfolio` es la única rama de trabajo para toda EP-03 y sus historias restantes. Contiene íntegros los commits de HU-015 y HU-016; no hace falta un merge para consolidarlos. Los commits se mantienen separados y descriptivos por HU, con los bloques coherentes que cada historia requiera. Los avances se publican en esta misma rama tras las verificaciones correspondientes. No se crean ramas ni PR adicionales por historia; el próximo PR se abrirá al completar EP-03.
+
+`feature/api-client-initial-record` y el PR #22 existente se conservan intactos como excepción histórica. No se reescribe el historial ni se usa force-push. Si se integra HU-015, primero se revisará cómo se integró y cómo preservar los commits y la revisión, sin rebase, cherry-pick o cambio de base automáticos. Este acuerdo no autoriza merge ni despliegues y no cierra D0, la revisión independiente ni los pendientes transversales.
+
+## Alcance vigente tras redistribución autorizada, 31/oct/2026
+
+**Alcance vigente — redistribución autorizada 31/oct/2026:** las integraciones de módulos futuros y sus pruebas corresponden a la HU/épica fuente según el [plan](../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03). La base de EP-03 está implementada y verificada en el alcance documentado; faltan revisión independiente/aceptación D0 aplicable, no desarrollar módulos de otras épicas. RDF0404/RDC0204 conservan sus entregas pendientes de producto en EP-04–07.
+
+Cada épica siguiente implementa **y conecta** su módulo al expediente/perfil antes de cerrarse: EP-04 evaluaciones/evolución; EP-05 alimentación; EP-06 entrenamiento; EP-07 seguimiento/peso/progreso autorizado. No hay una etapa posterior obligatoria de integración asignada a EP-03. Se conserva el acuerdo de rama para el alcance actual; los cambios futuros se realizan dentro de la entrega de la épica fuente con coordinación de archivos compartidos.
+
+## Antecedente del flujo — evidencia anterior a la redistribución
+
+El incremento posterior [HU-020 — Perfil base propio](hu-020/README.md) incorpora API propia de lectura y Flutter de datos/objetivo/medidas iniciales. API verificada; Flutter con análisis/formato correctos, 41/41 pruebas y APK ARM64 ejecutado en OPPO físico por USB. La persona usuaria reportó activación A sin recaptura, actualización de objetivo/peso y paso a B sin conservar el objetivo actualizado de A; SQL confirma mismos expedientes originales y dos cuentas distintas sin duplicados. La evidencia distingue ese recorrido de la cobertura automatizada de permisos/IDs y no atribuye revisión visual completa de B. Progreso permanece sin integrar hasta HU-036; no equivale a módulo sin registros ni a HU-020 completa. Publicación de avances autorizada tras verificaciones, conservando pendientes D0/revisión independiente/TT-010 y las reglas de coordinación. HU-019 consolidado sigue pendiente de artefactos de los otros módulos; no se implementan dentro de HU-020.
+
+HU-015 se publicó primero en su propia rama y PR #22. Con autorización explícita, HU-016 se desarrolló después en una rama dependiente desde HU-015; inicialmente se planteó un PR por HU. Ese plan fue sustituido por commits por historia y un PR al completar la épica. La confirmación vigente conserva la rama de HU-016 como única rama de EP-03; el antecedente no implica crear otra rama para HU-017.
+
+## Alcance implementado
+
+[HU-019 — Base del expediente](hu-019/README.md): composición API/Web con perfil real y disponibilidad explícita de secciones. Las conexiones de alimentación/rutinas/evaluaciones/seguimiento/peso se trasladan a sus HU fuente; esos módulos siguen sin existir en la rama. Su entrega futura incluye ampliar contrato, UI y pruebas, sin dejar una integración adicional a EP-03.
+
+Esta épica conserva un único expediente por cliente dentro de la cartera de su profesional. [HU-015 — Crear el cliente y su expediente inicial](hu-015/README.md) permanece en revisión. [HU-016 — Listar y buscar la cartera propia](hu-016/README.md) incorpora búsqueda literal, estado, cursores y ficha mínima. [HU-017 — Editar datos base y objetivo](hu-017/README.md) añade edición propia con versión BD, conflicto explícito y borrador en memoria. Las historias están contenidas en la rama común, sin cerrar dependencias ni D0. HU-017 tiene recorrido manual parcial reportado y conserva pendiente la revisión independiente; el caso manual de fallo durante PATCH queda opcional con cobertura automática existente y no bloquea publicar avances; su implementación local no acredita cierre. Todavía no se implementan evaluaciones, mediciones históricas, cálculo de grasa, nutrición, prescripciones ni expediente consolidado integral.
+
+[HU-018 — Estado operativo del expediente](hu-018/README.md) añade confirmación, control de versión/reintentos y auditoría transaccional sin cambiar cuentas/suscripciones ni revocar sesiones por inactivación. La baja/reactivación explícita de la cuenta cliente es una operación aparte, `PATCH /api/clients/:clientId/account` ([detalle](hu-018/README.md#baja-y-reactivación-de-la-cuenta-cliente)). Se conserva la asignación de Omar como ejecutor API1 en el plan; esta implementación técnica fue realizada por el asistente por autorización explícita de la persona usuaria, sin acreditar revisión o aprobación de Omar ni aviso al grupo. La persona usuaria reportó cancelación/Escape sin cambio, inactivación/reactivación con cupo 5→4→5 y conflicto sin transición tras editar en otra pestaña; no se acreditan otros resultados manuales. Autoriza publicar avances tras verificaciones en la rama común. D0 y revisión independiente permanecen abiertos.
+
+## Estado y relevo
+
+**Seguimiento 31/oct/2026:** [correcciones y planificación posterior a la auditoría](seguimiento-auditoria.md). El fallo Unicode de HU-016 se corrige en esta rama. Las fuentes y sus conexiones quedan en las HU de EP-04–07, con contrato, ejecutor y pruebas definidos en el plan. La base EP-03 conserva pendientes de revisión/aceptación; las evidencias históricas mantienen su fecha.
+
+Consultar el [resumen por historia y guía de integración](estado-e-integracion.md), con evidencia automática/reportada y dependencias pendientes. El alcance base HU-019/020 queda implementado; las conexiones futuras se ejecutan dentro de las épicas fuente. D0/revisión independiente de la base siguen sin acreditarse.

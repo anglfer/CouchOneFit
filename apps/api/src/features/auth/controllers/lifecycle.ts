@@ -1,3 +1,4 @@
+import { listPortfolio, readPortfolioRecord } from '../../professional/services/portfolio.js'
 import type { RequestHandler } from 'express'
 import type { Pool } from 'pg'
 import {
@@ -8,7 +9,6 @@ import {
   prevalidateInvitation,
   resetPassword,
   revokeInvitation,
-  listClientAccess,
   listRecoveryTargets,
 } from '../services/lifecycle.js'
 import { uuid } from '../validators/lifecycle.js'
@@ -26,9 +26,10 @@ export function lifecycleControllers(pool: Pool, now?: () => Date) {
     }
   return {
     clients: handle(async (req, res) => {
-      res.json({
-        clients: await listClientAccess(pool, req.identity!, now?.()),
-      })
+      res.json(await listPortfolio(pool, req.identity!, req.query, now?.()))
+    }),
+    client: handle(async (req, res) => {
+      res.json(await readPortfolioRecord(pool, req.identity!, req.params.clientId, now?.()))
     }),
     recoveryTargets: handle(async (req, res) => {
       res.json({ accounts: await listRecoveryTargets(pool, req.identity!) })

@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "CouchOne Fit — ciclo de identidad HU-006–009",
-    "version": "2026-10-19",
-    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs."
+    "title": "CouchOne Fit — identidad, cartera y expediente",
+    "version": "2026-10-29",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación."
   },
   "servers": [
     {
@@ -58,10 +58,13 @@
     "/api/clients": {
       "get": {
         "operationId": "listOwnClientAccess",
-        "summary": "Expedientes propios; sin códigos ni hashes; lista vacía sin suscripción activa.",
+        "summary": "HU-016: cartera propia con búsqueda literal por nombre, estado y cursor; sin suscripción activa conserva lista vacía.",
         "security": [
           {
             "webSession": []
+          },
+          {
+            "bearerSession": []
           }
         ],
         "responses": {
@@ -85,10 +88,41 @@
                       "items": {
                         "$ref": "#/components/schemas/ClientRecord"
                       }
+                    },
+                    "hasClients": {
+                      "type": "boolean",
+                      "description": "Hay al menos un expediente en el ámbito propio visible, antes de búsqueda/estado/cursor."
+                    },
+                    "pageInfo": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "pageSize",
+                        "hasMore",
+                        "nextCursor"
+                      ],
+                      "properties": {
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
                     }
                   },
                   "required": [
-                    "clients"
+                    "clients",
+                    "hasClients",
+                    "pageInfo"
                   ]
                 }
               }
@@ -96,6 +130,110 @@
           },
           "default": {
             "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Orden fijo created_at DESC, id DESC. Cursor firmado y ligado a cuenta, filtros y tamaño; no sustituye autorización. Comparación Unicode sin distinguir mayúsculas mediante lower con pg_catalog.pg_c_utf8 (PostgreSQL 17+, UTF8), independiente del locale predeterminado; conserva acentos. %, _, comillas y barras son literales. No ofrece instantánea congelada ante cambios concurrentes. Cambiar filtros requiere omitir cursor. Parámetros desconocidos o repetidos se rechazan. No devuelve medidas base en el listado.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Subcadena literal de fullName o goal, recortada en extremos; máximo 150 puntos de código Unicode.",
+            "schema": {
+              "type": "string",
+              "maxLength": 150,
+              "default": ""
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Estado del expediente; vacío incluye ambos.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "active",
+                "inactive"
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "nextCursor de la respuesta anterior con la misma cuenta y filtros.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createClientInitialRecord",
+        "summary": "HU-015: crea un expediente inicial completo para el profesional autenticado.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Expediente creado y cupo reservado en una sola transacción.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientInitialRecord"
+                    }
+                  },
+                  "required": [
+                    "client"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "400 validación; 401 sesión; 403 rol, CSRF o suscripción; 409 cupo; 503 persistencia.",
             "content": {
               "application/json": {
                 "schema": {
@@ -455,6 +593,707 @@
           }
         }
       }
+    },
+    "/api/clients/{clientId}": {
+      "get": {
+        "operationId": "readOwnClientBaseRecord",
+        "summary": "HU-016: lectura mínima de datos base de un cliente propio activo o inactivo.",
+        "description": "Propiedad profesional y suscripción vigente comprobadas en servidor bajo RLS. Ajeno, inexistente o no disponible responden el mismo 404. UUID inválido: 400; sin sesión: 401; rol no profesional: 403. No implementa expediente consolidado ni edición.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Datos base propios, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "client"
+                  ],
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientBaseRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expediente no disponible, sin revelar su propietario.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error seguro. 400 datos/código no disponible; 401 sesión; 403 rol/CSRF/reautenticación; 409 identificador ocupado; 429 límite; 503 servicio.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "editOwnClientBaseRecord",
+        "summary": "HU-017: edición parcial de datos base propios con control de versión.",
+        "description": "Profesional activo, suscripción vigente y propiedad comprobados en transacción/RLS. No consume cupo. No permite modificar estado, cuenta, propietario, historial o versión. Campos base completos no se vacían. Un 409 no guarda. Ante pérdida de respuesta el resultado es incierto: consultar GET y decidir explícitamente, sin repetición automática. Errores por campo en error.fields. Cache-Control: no-store.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientRecordPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sin cambios o actualización confirmada; versión resultante.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "client"
+                  ],
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientBaseRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT; error.fields por campo cuando aplica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SESSION_REQUIRED: sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN, CSRF_INVALID, PLAN_REQUIRED o SUBSCRIPTION_SUSPENDED; un error de negocio no equivale a sesión revocada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CLIENT_NOT_FOUND: mismo error para ajeno/inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CLIENT_RECORD_CONFLICT: consultar versión actual y reaplicar mediante acción explícita.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: no se confirma éxito ni se repite automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}/status": {
+      "patch": {
+        "operationId": "changeOwnClientRecordStatus",
+        "summary": "HU-018: inactivar/reactivar expediente propio con versión y auditoría atómicas.",
+        "description": "Profesional y suscripción vigentes, propiedad y RLS. No cambia cuenta/suscripción, no revoca sesiones ni borra invitaciones/historial. Transición efectiva requiere versión exacta; reactivar consume una plaza, inactivar libera. Estado ya actual y versión no futura: 200 sin UPDATE, nueva reserva ni evento, incluso con versión antigua. Versión futura o distinta para una transición: 409 CLIENT_RECORD_CONFLICT. Se revalida elegibilidad también al repetir. Auditoría y versión se confirman en la misma transacción; fallo revierte todo. No reenvío automático ante respuesta incierta: consultar GET y confirmar explícitamente. Cache-Control: no-store.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientRecordStatusPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estado resultante confirmado o repetición sin efectos; ClientBaseRecord.version administrada por BD.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "client"
+                  ],
+                  "properties": {
+                    "client": {
+                      "$ref": "#/components/schemas/ClientBaseRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT; error.fields por campo cuando aplica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SESSION_REQUIRED: sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN, CSRF_INVALID, PLAN_REQUIRED o SUBSCRIPTION_SUSPENDED; un error de negocio no equivale a sesión revocada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CLIENT_NOT_FOUND: mismo error para expediente ajeno o inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CUPO_AGOTADO al consumir última plaza, o CLIENT_RECORD_CONFLICT por transición con versión antigua/futura. Sin cambios ni auditoría.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: no se confirma éxito ni se repite automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}/account": {
+      "patch": {
+        "operationId": "changeOwnClientAccountStatus",
+        "summary": "DEC-004: dar de baja o reactivar la cuenta vinculada del cliente propio.",
+        "description": "Profesional dueño con suscripción vigente. Cambia únicamente el estado de la cuenta cliente: no modifica el expediente, la plaza ni la suscripción. La baja impide el login y revoca sus sesiones; la reactivación no revive sesiones ni activa el expediente. Estado ya aplicado: 200 sin efectos ni auditoría. Operación idempotente, sin versión. Cache-Control: no-store.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estado de cuenta resultante o repetición sin efectos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "account"
+                  ],
+                  "properties": {
+                    "account": {
+                      "type": "object",
+                      "required": [
+                        "clientId",
+                        "accountStatus"
+                      ],
+                      "properties": {
+                        "clientId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "accountStatus": {
+                          "enum": [
+                            "active",
+                            "inactive"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT; error.fields por campo cuando aplica.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "SESSION_REQUIRED: sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN, CSRF_INVALID, PLAN_REQUIRED o SUBSCRIPTION_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CLIENT_NOT_FOUND: mismo error para expediente ajeno o inexistente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CLIENT_ACCOUNT_NOT_LINKED: el cliente aún no activa su cuenta; CLIENT_ACCOUNT_CONFLICT: la cuenta cambió durante la operación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: no se confirma éxito ni se repite automáticamente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/record": {
+      "get": {
+        "operationId": "readOwnClientRecord",
+        "summary": "Consultar el perfil base del cliente vinculado a la sesión",
+        "description": "Solo cliente activo con sesión vigente y expediente vinculado. Sin parámetros: identidad derivada del servidor y RLS. Expediente inactivo/profesional inactivo/suscripción ausente o suspendida no bloquean lectura propia (DEC-004). Perfil base/peso inicial y medidas base no son progreso (DEC-009). No se incluyen categorías ni históricos todavía no integrados. Sin caché privada. El endpoint /api/client/profile conserva íntegramente su contrato anterior.",
+        "security": [
+          {
+            "bearerSession": []
+          },
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mismo expediente preparado, sin recaptura",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "record"
+                  ],
+                  "properties": {
+                    "record": {
+                      "$ref": "#/components/schemas/ClientOwnRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No acepta query parameters/IDs/filtros"
+          },
+          "401": {
+            "description": "Sesión inválida, revocada, cuenta inactiva o sin vínculo"
+          },
+          "403": {
+            "description": "Rol distinto de cliente"
+          },
+          "503": {
+            "description": "Consulta no disponible; no equivale a rechazo definitivo de sesión"
+          }
+        }
+      }
+    },
+    "/api/client/profile": {
+      "get": {
+        "operationId": "readLegacyClientProfile",
+        "summary": "Perfil de identidad del cliente conservado por compatibilidad",
+        "description": "Contrato anterior conservado: no añade medidas base ni progreso. Identidad derivada de sesión, no seleccionable por ID del consumidor. Preferir /api/me/record para perfil base HU-020.",
+        "security": [
+          {
+            "bearerSession": []
+          },
+          {
+            "webSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil propio anterior, no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "profile"
+                  ],
+                  "properties": {
+                    "profile": {
+                      "$ref": "#/components/schemas/ClientLegacyProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida"
+          },
+          "403": {
+            "description": "Rol incorrecto"
+          },
+          "503": {
+            "description": "Consulta no disponible"
+          }
+        }
+      }
+    },
+    "/api/clients/{clientId}/record": {
+      "get": {
+        "operationId": "readProfessionalRecord",
+        "summary": "HU-019 parcial: composición profesional del expediente propio.",
+        "description": "Reutiliza la lectura base autorizada, contexto RLS y elegibilidad profesional. No integra planes, evaluaciones, progreso ni peso histórico; sus secciones son not_integrated sin datos. No acepta identidades ni filtros por query. Conserva GET /api/clients/{clientId}.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil real y disponibilidad explícita. Sin caché privada.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "record"
+                  ],
+                  "properties": {
+                    "record": {
+                      "$ref": "#/components/schemas/ProfessionalRecord"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: UUID inválido o parámetros de consulta no permitidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol no profesional.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Expediente ajeno, inexistente o no disponible; error indistinguible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fallo de consulta del perfil. No devuelve expediente parcial ni vacío.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -472,6 +1311,13 @@
               },
               "message": {
                 "type": "string"
+              },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Errores de validación por campo; solo se devuelve para INVALID_INPUT de formularios."
               }
             },
             "required": [
@@ -758,7 +1604,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Texto libre. La Web ofrece Recomposición corporal, Definición y Ganar masa muscular, u «Otro» con texto propio; el contrato acepta cualquier texto de 1 a 500 caracteres."
           },
           "status": {
             "enum": [
@@ -772,6 +1619,14 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "accountStatus": {
+            "enum": [
+              "active",
+              "inactive",
+              null
+            ],
+            "description": "Estado de la cuenta vinculada; null si el cliente aún no activa su cuenta."
           }
         },
         "required": [
@@ -780,7 +1635,141 @@
           "fullName",
           "goal",
           "status",
-          "invitationExpiresAt"
+          "invitationExpiresAt",
+          "accountStatus"
+        ]
+      },
+      "CreateClientInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 150
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Persona adulta; fecha real, no futura, con año entre 0001 y 9999. La mayoría de edad se evalúa con la fecha de America/Mexico_City.",
+            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "heightCm": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "baseWeightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300,
+            "multipleOf": 0.1
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 2,
+            "maximum": 60,
+            "multipleOf": 0.1,
+            "description": "Medición base; no resultado calculado ni registro histórico."
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 40,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 50,
+            "maximum": 250,
+            "multipleOf": 0.1
+          }
+        },
+        "required": [
+          "fullName",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg"
+        ]
+      },
+      "ClientInitialRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "heightCm": {
+            "type": "number"
+          },
+          "baseWeightKg": {
+            "type": "number"
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
+          "waistCm",
+          "hipCm",
+          "status"
         ]
       },
       "RecoveryTarget": {
@@ -807,6 +1796,389 @@
           "username",
           "role"
         ]
+      },
+      "ClientBaseRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "birthDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "heightCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseWeightKg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Versión administrada por BD ante cambios efectivos, incluidos estado y vínculo de cuenta."
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "baseBodyFatPercentage",
+          "waistCm",
+          "hipCm",
+          "version"
+        ],
+        "description": "Vista mínima de lectura de datos base; columnas antiguas anulables, sin credenciales, historial, planes o edición."
+      },
+      "ClientRecordPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "minProperties": 2,
+        "description": "PATCH parcial. Omitido conserva; null solo en opcionales. Vacíos, tipos incorrectos y campos desconocidos: 400. Conjunto base NULL heredado solo se completa como grupo. Sin cambios efectivos: 200, misma versión. La versión es precondición, no valor asignable.",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Versión administrada por BD ante cambios efectivos, incluidos estado y vínculo de cuenta."
+          },
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 150,
+            "description": "Texto recortado; puntos de código Unicode."
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Calendario 0001–9999, adulto según America/Mexico_City. NULL solo puede permanecer omitido en un expediente anterior."
+          },
+          "heightCm": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "baseWeightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300,
+            "multipleOf": 0.1
+          },
+          "baseBodyFatPercentage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 2,
+            "maximum": 60,
+            "multipleOf": 0.1
+          },
+          "waistCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 40,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "hipCm": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 50,
+            "maximum": 250,
+            "multipleOf": 0.1
+          }
+        }
+      },
+      "ClientRecordStatusPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "description": "Estado operativo del expediente, nunca de cuenta o suscripción."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Precondición obtenida de GET /api/clients/{clientId}; no es valor asignable."
+          }
+        }
+      },
+      "ClientOwnRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "birthDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "heightCm": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "baseWeightKg": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "birthDate",
+          "heightCm",
+          "baseWeightKg",
+          "username",
+          "email"
+        ],
+        "description": "DEC-017: solo datos básicos. Grasa, cintura, cadera, pliegues y demás medidas se habilitan después con los permisos de DEC-009."
+      },
+      "ClientLegacyProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "goal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "professionalId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "goal",
+          "status",
+          "username",
+          "email",
+          "userId",
+          "professionalId"
+        ]
+      },
+      "RecordSection": {
+        "description": "Disponibilidad de composición HU-019. Producción emite únicamente not_integrated. empty y error se reservan para consultas reales autorizadas futuras; no definen contratos de datos de otros módulos.",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "not_integrated"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "empty"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "code"
+            ],
+            "properties": {
+              "status": {
+                "const": "error"
+              },
+              "code": {
+                "const": "QUERY_FAILED"
+              }
+            }
+          }
+        ]
+      },
+      "ProfessionalRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile",
+          "sections"
+        ],
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/ClientBaseRecord"
+          },
+          "sections": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "nutritionPlan",
+              "trainingPlan",
+              "evaluations",
+              "progress",
+              "bodyWeightHistory"
+            ],
+            "properties": {
+              "nutritionPlan": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "trainingPlan": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "evaluations": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "progress": {
+                "$ref": "#/components/schemas/RecordSection"
+              },
+              "bodyWeightHistory": {
+                "$ref": "#/components/schemas/RecordSection"
+              }
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

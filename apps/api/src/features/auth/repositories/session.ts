@@ -1,6 +1,7 @@
 import type { Pool } from 'pg'
 import { AuthError, invalidLogin, invalidSession } from '../types/errors.js'
 import type { SignAccessOptions } from '../services/tokens.js'
+import { readAsSubject, context } from './lifecycle.js'
 import type {
   LoginAccount,
   ProfessionalIdentity,
@@ -29,7 +30,7 @@ export async function currentSession(
 ): Promise<SessionIdentity | undefined> {
   const {
     rows: [row],
-  } = await pool.query<SessionIdentity>(
+  } = await readAsSubject(pool, id, (client) => client.query<SessionIdentity>(
     `SELECT a.id,a.username,a.email,
             COALESCE(p.full_name,c.full_name,a.username) AS "fullName",
             a.role,c.id AS "clientId",c.status AS "clientStatus",
@@ -47,7 +48,7 @@ export async function currentSession(
        AND s.revoked_at IS NULL
        AND s.expires_at>COALESCE($4::timestamptz,clock_timestamp())`,
     [sid, id, surface, now ?? null],
-  )
+  ))
   return row
 }
 export async function insertSession(
@@ -132,6 +133,11 @@ export async function rotateSession(
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+    const { rows: [candidate] } = await client.query<{ user_id: string }>(
+      'SELECT s.user_id FROM private.refresh_tokens t JOIN private.sessions s ON s.id=t.session_id WHERE t.token_hash=$1',
+      [refreshHash]
+    )
+    await context(client, 'subject_id', candidate?.user_id ?? '')
     const {
       rows: [row],
     } = await client.query<

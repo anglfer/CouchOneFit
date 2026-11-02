@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/animations/reveal_in.dart';
 import '../models/client_profile.dart';
 import '../widgets/client_profile_card.dart';
+import '../widgets/client_base_measurements.dart';
 
 class ClientProfileScreen extends StatelessWidget {
   const ClientProfileScreen({
@@ -105,6 +106,7 @@ class ClientProfileScreen extends StatelessWidget {
                     onLogout: onLogout,
                     onCredentials: onCredentials,
                   ),
+                  ClientBaseMeasurements(profile: profile),
                 ],
               ),
             ),

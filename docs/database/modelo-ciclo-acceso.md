@@ -11,7 +11,7 @@ PK UUID con `gen_random_uuid()`; instantes `timestamptz`; FKs `ON DELETE RESTRIC
 | `subscriptions` | `id`, `professional_id UNIQUE`, `plan` (`basic/pro/elite`), `status` (`active/suspended/expired`), `expires_at`, `created_at`. | Una suscripción actual por profesional. Contrato mínimo para invitar/canjear; sin contratación automática/cobros. |
 | `invitations` | `id`, `client_id UNIQUE`, `token_hash UNIQUE` SHA-256 hexadecimal64, `created_at`, `expires_at > created_at`. | Temporal por expediente, que determina al profesional. TTL7d; DELETE al revocar/canjear/limpiar. |
 | `password_resets` | `id`, `user_id UNIQUE`, `issued_by`, `token_hash UNIQUE` hexadecimal64, `created_at`, `expires_at > created_at`. | Temporal independiente de invitaciones; emisor autorizado, una vigencia por cuenta. TTL30min; DELETE al canjear. |
-| `access_events` | `id`, `actor_id`, `subject_id`, `client_id` opcionales, `action`, `created_at`. | `credentials_changed`, `invitation_issued`, `invitation_revoked`, `account_activated`, `reset_issued`, `password_reset`, `emergency_reset_issued`. Sin texto libre, token, contraseña ni hash. |
+| `access_events` | `id`, `actor_id`, `subject_id`, `client_id` opcionales, `action`, `created_at`. | `credentials_changed`, `invitation_issued`, `invitation_revoked`, `account_activated`, `reset_issued`, `password_reset`, `emergency_reset_issued`; HU-018 añade `client_record_activated`/`client_record_inactivated`. Sin texto libre, token, contraseña ni hash. |
 
 `users.username/password_hash` cambian en HU-006; solo `password_hash` en HU-009. `clients.user_id` pasa de NULL a la cuenta nueva en HU-008; unicidad/FK de rol impiden doble vínculo. `notice_acceptances` guarda versión/fecha en la transacción. Sesiones/refresh conservan la revocación existente.
 
@@ -25,7 +25,7 @@ El cupo se reserva al activar/crear el expediente, no al invitar/canjear. Un dow
 
 ## Grants y RLS
 
-`couchone_authentication` hereda registro. Recibe SELECT de suscripciones y UPDATE únicamente de `subscriptions.id` para lock de fila, sin cambiar plan/estado/vencimiento; SELECT/INSERT/UPDATE/DELETE de temporales; INSERT de eventos sin lectura efectiva bajo RLS; UPDATE solo de `users.username/password_hash` y `clients.user_id`. No recibe DDL, borrado de cuentas ni cambios de rol/estado/datos físicos. No hay grants a `anon`, `authenticated` ni PUBLIC.
+`couchone_authentication` hereda registro. Recibe SELECT de suscripciones y UPDATE únicamente de `subscriptions.id` para lock de fila, sin cambiar plan/estado/vencimiento; SELECT/INSERT/UPDATE/DELETE de temporales; INSERT de eventos sin lectura efectiva bajo RLS; En el incremento original, UPDATE de `users.username/password_hash` y `clients.user_id`; posteriormente TT-010 revocó el UPDATE directo de user_id y lo restringió a la función de activación. HU-017 añade únicamente UPDATE de datos base propios bajo RLS y versión administrada por trigger; estado conserva su permiso separado. No recibe DDL, borrado de cuentas ni cambios de rol o propietario. Estado operativo conserva el permiso específico de SaaS, independiente de los datos base. No hay grants a `anon`, `authenticated` ni PUBLIC.
 
 El backend establece contexto con `set_config(..., true)` dentro de la transacción (SET LOCAL), nunca desde claims arbitrarios, headers o campos del formulario:
 

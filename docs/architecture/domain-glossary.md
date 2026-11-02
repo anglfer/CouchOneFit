@@ -1,5 +1,13 @@
 # Glosario de identidad y acceso
 
+Baja de cuenta cliente: `PATCH /api/clients/{clientId}/account` con `{ status }` devuelve `{ account: { clientId, accountStatus } }`; las acciones de auditoría `client_account_deactivated`/`client_account_reactivated` son distintas de las del expediente y de `account_activated`, y `GET /api/clients` añade `accountStatus` a cada elemento. [Detalle](../epicas/ep-03-cartera-y-expediente/hu-018/README.md#baja-y-reactivación-de-la-cuenta-cliente).
+
+HU-018 exige `status` operativo y `version` en `PATCH /api/clients/{clientId}/status`; devuelve la ficha con versión resultante. `client_record_activated`/`client_record_inactivated` son eventos de expediente, distintos de `account_activated`. No cambia cuenta/suscripción ni revoca sesiones por inactivar. Estado ya actual con versión no futura no genera otra reserva/evento; transición obsoleta devuelve `CLIENT_RECORD_CONFLICT`. [Contrato y matriz](../epicas/ep-03-cartera-y-expediente/hu-018/README.md).
+
+HU-017 agrega `version` entera administrada por BD a `private.clients` y a la ficha `ClientBaseRecord`. `PATCH /api/clients/{clientId}` recibe esa versión como precondición y solo campos base permitidos; no cambia estado/cuenta/propietario ni consume cupo. `CLIENT_RECORD_CONFLICT` indica que se necesita consultar, comparar y reaplicar explícitamente. Listado y cursor no cambian. [Contrato](../epicas/ep-03-cartera-y-expediente/hu-017/README.md).
+
+HU-016 amplía `GET /api/clients` con `search`, `status`, `pageSize`, `cursor` y respuesta `hasClients`, `pageInfo: { pageSize, hasMore, nextCursor }`, conservando `clients`. La búsqueda es literal por `fullName` u objetivo (`goal`); el profesional se obtiene de sesión. La ficha auxiliar `GET /api/clients/{clientId}` devuelve `client` con datos base propios, sin propietario/cuenta, edición ni expediente consolidado. `status` filtra el expediente, no el estado de la cuenta. [Contrato y límites de cursor](../epicas/ep-03-cartera-y-expediente/hu-016/README.md).
+
 Este glosario es la referencia acordada para los nombres de identidad y acceso. Los identificadores de base de datos usan `snake_case` en inglés; los campos de TypeScript, JavaScript, Dart y JSON usan `camelCase` en inglés; los tipos y componentes usan `PascalCase` en inglés. El español se conserva en los textos que ve la persona usuaria.
 
 ## Objetos y campos de base de datos
@@ -64,7 +72,7 @@ El rol público `admin` coincide con el contrato de autorización que ya usa API
 | `avisoVersion`           | `noticeVersion`        | Versión del aviso aceptado                         |
 | `aceptaAviso`            | `acceptsNotice`        | Casilla de aceptación del aviso                    |
 
-Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `clientId`, `professionalId`, `username`, `email`, `fullName`, `goal`, `role`, `status`, `clientStatus`, `sessionId`, `accessToken`, `refreshToken` y `expiresAt`. En PostgreSQL, el expediente del cliente vive en `private.clients` con `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `status` y `created_at`. Los roles en JSON son `professional`, `client` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
+Las respuestas de sesión y perfil usan los campos en inglés: `id`, `userId`, `clientId`, `professionalId`, `username`, `email`, `fullName`, `goal`, `role`, `status`, `clientStatus`, `sessionId`, `accessToken`, `refreshToken` y `expiresAt`. En PostgreSQL, el expediente del cliente vive en `private.clients` con `professional_id`, `user_id`, `user_role`, `full_name`, `goal`, `birth_date`, `height_cm`, `base_weight_kg`, `base_body_fat_percentage`, `waist_cm`, `hip_cm`, `status` y `created_at`. Los roles en JSON son `professional`, `client` y `admin`. Después del despliegue coordinado no se aceptan ni se envían alias en español.
 El registro acepta los campos en inglés de esta tabla y `planInterest`/`plan` usan `basic`, `pro` o `elite`. Web devuelve `account` con `id`, `username`, `email`, `fullName`, `role`, `status` y `subscription: null`; la sesión viaja en cookies, no en JSON. Móvil devuelve la cuenta cliente con `clientId` y `clientStatus`, más `session: { accessToken, refreshToken, expiresAt }` al emitir o renovar sesión. `sessionId` es interno (`sid`), no un campo público de `account`. Los perfiles usan los mismos nombres en inglés de cada superficie y los roles `professional`, `client` y `admin`; no se traducen identificadores entre capas.
 
 ## Alcance
@@ -80,5 +88,11 @@ Este glosario cubre el esquema y los contratos de identidad y acceso implementad
 ## Checkout simulado — 25-oct-2026
 
 `simulated_payments`: `professional_id`, `actor_id`, `plan_id`, `idempotency_key`, `plan_snapshot`, `expected_subscription`, `amount_cents`, `status`, `instrument`, `failure_code`, `quote_expires_at`, `processing_after`, `completed_at`, `period_start`, `period_end`. Estados `pending/processing/succeeded/failed/cancelled`. JSON camelCase; `simulated:true` y moneda `MXN`. Se cobra precio completo simulado y se activa mes nuevo; admin solo consulta suscripciones. [Contrato](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Cartera y expediente — HU-015
+
+HU-020 añade `GET /api/me/record`, `{ record }`, proyección propia de perfil base **solo con datos básicos** (DEC-017: sin grasa, cintura ni cadera) y username/email, sin userId/professionalId ni versión de escritura. El vínculo se deriva de sesión y RLS. El endpoint anterior `/api/client/profile` conserva su contrato. DEC-009 mantiene consulta base; grasa medida base/cintura/cadera iniciales siguen en el expediente profesional, no son progreso, evaluación calculada ni eventos históricos. No existe aún una proyección de progreso HU-036; no se serializa como array vacío. [Contrato y límites](../epicas/ep-03-cartera-y-expediente/hu-020/README.md).
+
+`private.clients` es el expediente único de cada cliente dentro de la cartera de su profesional. El alta HTTP usa `fullName`, `goal`, `birthDate`, `heightCm`, `baseWeightKg`, `baseBodyFatPercentage`, `waistCm` y `hipCm`; los nombres SQL correspondientes usan `snake_case`. `birthDate`, `heightCm` y `baseWeightKg` son requeridos para una alta nueva; `goal`, `baseBodyFatPercentage`, `waistCm` y `hipCm` son opcionales. Los prefijos `base` distinguen peso y grasa capturados al alta de futuras evaluaciones o registros históricos. No existe `professionalId` en el contrato de alta: el profesional se deriva de la sesión autenticada. Las filas anteriores a HU-015 pueden conservar los nuevos campos en `NULL` y no se consideran completas por ello.
 
 Catálogo compartido: `professionals.plan_interest_id` / JSON `planInterestId` conserva el UUID del plan de interés, separado de suscripción y del antiguo `plan_interest`. `GET /api/plans` publica solo `id,name,maxClients,isUnlimited,priceMxn` de planes disponibles, sin información de cuentas o suscripciones.

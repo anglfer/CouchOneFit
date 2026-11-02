@@ -44,11 +44,11 @@ export async function savePlan(
         rows: [plan],
       } = id
         ? await client.query(
-            `UPDATE private.saas_plans SET name=$1,max_clients=$2,is_unlimited=$3,price_mxn=$4,is_active=$5,updated_at=clock_timestamp() WHERE id=$6 RETURNING ${projection}`,
+            `UPDATE private.saas_plans SET name=$1,max_clients=$2,is_unlimited=$3,price_mxn=$4,is_active=COALESCE($5,is_active),updated_at=clock_timestamp() WHERE id=$6 RETURNING ${projection}`,
             [...values, id]
           )
         : await client.query(
-            `INSERT INTO private.saas_plans (name,max_clients,is_unlimited,price_mxn,is_active) VALUES ($1,$2,$3,$4,$5) RETURNING ${projection}`,
+            `INSERT INTO private.saas_plans (name,max_clients,is_unlimited,price_mxn,is_active) VALUES ($1,$2,$3,$4,COALESCE($5,true)) RETURNING ${projection}`,
             values
           )
       await client.query(

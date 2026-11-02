@@ -1,28 +1,31 @@
 import type { Pool } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
-import { invalidInput, payload, uuid } from '../../auth/validators/lifecycle.js'
-import { writeClientStatus } from '../repositories/capacity.js'
+import { uuid } from '../../auth/validators/lifecycle.js'
+import {
+  clientAccountStatusInput,
+  clientStatusInput
+} from '../validators/client-status.js'
+import {
+  writeClientAccountStatus,
+  writeClientStatus
+} from '../repositories/capacity.js'
+import { validateClientInitialRecord } from '../../professional/validators/client-record.js'
+export { validateClientInitialRecord } from '../../professional/validators/client-record.js'
+export type { ClientInitialRecordInput } from '../../professional/validators/client-record.js'
+
 export function createClient(
   pool: Pool,
   identity: SessionIdentity,
   input: unknown,
   now?: Date
 ) {
-  const body = payload(input, ['fullName', 'goal'])
-  const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : ''
-  const goal =
-    body.goal === undefined || body.goal === null
-      ? null
-      : typeof body.goal === 'string'
-        ? body.goal.trim()
-        : invalidInput()
-  if (
-    fullName.length < 2 ||
-    fullName.length > 150 ||
-    (goal !== null && (goal.length < 1 || goal.length > 500))
+  return writeClientStatus(
+    pool,
+    identity,
+    validateClientInitialRecord(input, now),
+    undefined,
+    now
   )
-    return invalidInput()
-  return writeClientStatus(pool, identity, { fullName, goal }, undefined, now)
 }
 export function setClientStatus(
   pool: Pool,
@@ -31,14 +34,22 @@ export function setClientStatus(
   input: unknown,
   now?: Date
 ) {
-  const body = payload(input, ['status'])
-  if (body.status !== 'active' && body.status !== 'inactive')
-    return invalidInput()
+  const body = clientStatusInput(input)
   return writeClientStatus(
     pool,
     identity,
-    { status: body.status },
+    body,
     uuid(id),
     now
   )
+}
+export function setClientAccountStatus(
+  pool: Pool,
+  identity: SessionIdentity,
+  id: string,
+  input: unknown,
+  now?: Date
+) {
+  const { status } = clientAccountStatusInput(input)
+  return writeClientAccountStatus(pool, identity, uuid(id), status, now)
 }

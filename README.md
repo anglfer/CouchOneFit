@@ -4,7 +4,7 @@
 
 > **Nombre oficial:** CouchOne Fit
 > **Tipo de producto:** Plataforma SaaS de entrenamiento, nutrición y seguimiento
-> **Estado:** producto SaaS en desarrollo incremental. Registro y acceso profesional Web/API/PostgreSQL disponibles localmente; cartera y demás módulos se integran por funcionalidad. Ver documentación y evidencia HU-001.
+> **Estado:** producto SaaS en desarrollo incremental. Registro y acceso profesional Web/API/PostgreSQL disponibles localmente; cartera y expediente base (EP-03, HU-015 a HU-020) implementados localmente, con HU-019 y HU-020 parciales y sin revisión independiente; demás módulos se integran por funcionalidad. Ver documentación y evidencia HU-001 y [EP-03](docs/epicas/ep-03-cartera-y-expediente/README.md).
 
 ---
 

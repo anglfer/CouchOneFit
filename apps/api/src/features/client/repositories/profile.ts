@@ -1,16 +1,20 @@
 import type { Pool } from 'pg';
 import type { SessionIdentity } from '../../auth/types/session.js';
+import { readAsSubject } from '../../auth/repositories/lifecycle.js';
 
-export async function clientProfile(pool: Pool, identity: SessionIdentity) {
+export async function clientProfile(pool: Pool, identity: SessionIdentity, base = false) {
   const {
     rows: [profile],
-  } = await pool.query(
+  } = await readAsSubject(pool, identity.id, (client) => client.query(
     `SELECT c.id,
             c.user_id AS "userId",
             c.professional_id AS "professionalId",
             c.full_name AS "fullName",
             c.goal,
             c.status,
+            ${base ? `c.birth_date::text AS "birthDate",
+            c.height_cm::float8 AS "heightCm",
+            c.base_weight_kg::float8 AS "baseWeightKg",` : ''}
             a.username,
             a.email
        FROM private.clients c
@@ -23,6 +27,15 @@ export async function clientProfile(pool: Pool, identity: SessionIdentity) {
         AND s.revoked_at IS NULL
         AND s.expires_at > clock_timestamp()`,
     [identity.id, identity.sessionId]
-  );
+  ));
   return profile;
+}
+
+// DEC-017: the client sees only the basic data; body fat, waist and hip need DEC-009 permissions.
+export async function clientRecord(pool: Pool, identity: SessionIdentity) {
+  const profile = await clientProfile(pool, identity, true);
+  if (!profile) return undefined;
+  // The account and professional identifiers are not needed by this read model.
+  const { userId: _userId, professionalId: _professionalId, ...record } = profile;
+  return record;
 }

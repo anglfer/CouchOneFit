@@ -7,7 +7,7 @@
 - **Estado:** fuente oficial vigente del catálogo de requerimientos. No se conservan copias Excel en este repositorio.
 - **Última actualización documental:**14 de octubre de 2026; decisiones adoptadas por **delegación explícita usuario**, no ratificación/revisión equipo inferida ni implementación/certificación médica/legal. Acuerdo28-sept conservado como antecedente.
 
-Esta carpeta conserva catálogo histórico V2 (139IDs) y acuerdos complementarios. Reglas actuales: [plan §3.3/3.4](../../PLAN_TRABAJO_V2.md); DEC-001–016 resueltas para producto SaaS. No se reescriben IDs ni se afirma revisión remota del Sheets en esta edición.
+Esta carpeta conserva catálogo histórico V2 (139IDs) y acuerdos complementarios. Reglas actuales: [plan §3.3/3.4](../../plan/PLAN_TRABAJO_V2.md); DEC-001–016 resueltas para producto SaaS. No se reescriben IDs ni se afirma revisión remota del Sheets en esta edición.
 
 ---
 
@@ -127,3 +127,14 @@ Acceso por usuario/correo, sesión revocable con JWT/sid y refresh rotativo, coo
 ## Acuerdo vigente — autoservicio y checkout simulado (25-oct-2026)
 
 El usuario sustituye la asignación y gestión administrativa de la suscripción: el profesional con cuenta contrata y sube de nivel mediante pago simulado. Se cobra el precio completo del nuevo plan y comienza un mes calendario desde aprobación, sin prorrateo. Administrador solo consulta suscripciones; no cambia plan, estado o vigencia. El catálogo HU-010 conserva administración. Checkout con tarjetas ficticias, procesamiento/resultado persistidos, aprobación/rechazo/error/cancelación, comprobante e historial. Solo una aprobación activa o mejora el plan; reintento/recarga no duplica. Sin dinero ni datos bancarios reales. Esta instrucción sustituye las reglas anteriores DEC-005/014, HU-012 y el acceso posterior al registro de HU-039; el registro solo no activa una suscripción. Los IDs históricos RF/RDF se conservan. [Contrato vigente de EP-02](../epicas/ep-02-saas-y-administracion/README.md).
+
+## Acuerdos de visión — 30 de octubre de 2026
+
+Respondidos por el usuario en el chat; detalle, estado y preguntas abiertas en [DEC-017](../../plan/PLAN_TRABAJO_V2.md#dec-017--acuerdos-de-visión-del-30-de-octubre-de-2026). Los IDs RF/RDF/RC/RDC/RS se conservan; estas reglas prevalecen sobre los textos anteriores que contradicen. **Decididas, aún no implementadas** salvo indicación.
+
+- **Edad mínima del cliente: 16 años** (antes 18). Afecta `RDF0401` y la captura de HU-015/HU-017. **Implementada el 30-oct.**
+- **Datos base visibles al cliente (`RDC0201`–`RDC0204`):** solo lo básico (objetivo, estatura, peso y datos personales básicos). Grasa, cintura, cadera, pliegues y demás se habilitan después con los permisos de DEC-009. **Implementado el 30-oct en HU-020.**
+- **Suscripción (`RDF0901`–`RDF0903`, `RDF1003`):** renovación automática mensual **simulada**, 7 días de gracia ante cobro fallido, y el profesional puede **subir, bajar y cancelar**; cancelar rige hasta el final del periodo pagado y bajar a un plan con menos cupo del usado obliga a elegir qué clientes inactivar. Sustituye «sin downgrade propio ni facturación recurrente» (HU-012, 25-oct).
+- **Administrador (`RDF1004`, `RS24`):** además de catálogo y directorio, ofrece **soporte** sobre clientes: ver estado de cuenta, generar el reseteo de contraseña y ver el expediente en solo lectura, con registro interno visible solo para admins. No edita expedientes ni suscripciones, no da de baja cuentas ni reasigna clientes (la reasignación se descartó).
+- **Avisos:** correos y notificaciones push al celular; la invitación del cliente se muestra para copiar y también se puede enviar por correo. El correo **no** se verifica por enlace. Sustituye «sin SMTP» (DEC-014, HU-009).
+- **Se mantiene:** un solo rol de profesional, un profesional fijo por cliente, cupo por expediente activo, recuperación asistida, baja de cuenta solo por el profesional, pagos simulados, profesional en Web y cliente en app Android.

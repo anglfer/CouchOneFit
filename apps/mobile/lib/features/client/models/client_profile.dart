@@ -8,6 +8,9 @@ class ClientProfile {
     required this.status,
     required this.username,
     required this.email,
+    this.birthDate,
+    this.heightCm,
+    this.baseWeightKg,
   });
 
   final String id;
@@ -18,6 +21,9 @@ class ClientProfile {
   final String status;
   final String username;
   final String email;
+  final String? birthDate;
+  final double? heightCm;
+  final double? baseWeightKg;
 
   factory ClientProfile.fromJson(Map<String, Object?> json) {
     return ClientProfile(
@@ -29,7 +35,9 @@ class ClientProfile {
       status: (json['status'] as String?) ?? 'active',
       username: (json['username'] as String?) ?? '',
       email: (json['email'] as String?) ?? '',
+      birthDate: json['birthDate'] as String?,
+      heightCm: (json['heightCm'] as num?)?.toDouble(),
+      baseWeightKg: (json['baseWeightKg'] as num?)?.toDouble(),
     );
   }
 }
-

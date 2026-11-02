@@ -7,8 +7,8 @@ Corte: 19 de octubre de 2026. Rama de trabajo `codex/hu-006-009-identidad`. Se l
 | HU | Entrega | Aceptación verificable |
 | --- | --- | --- |
 | [006](hu-006/README.md) | PATCH propio, reautenticación, formulario móvil, cambio transaccional y revocación total. | Usuario/clave nuevos funcionan; los anteriores fallan; duplicado/confirmación/identidad manipulada no cambian nada; expediente preservado. |
-| [007](hu-007/README.md) | Invitación privada por expediente, reemplazo/revocación, entrega/copiar en Web y prevalidación. | Propiedad/estados/TTL; código anterior inválido; sin código/hash en listado o auditoría. |
-| [008](hu-008/README.md) | Activación anónima, aviso versionado, cuenta+vínculo+aceptación+DELETE en una conexión/transacción y sesión tras commit. | Un éxito concurrente, rollback por etapa, sin huérfanos/segundo expediente ni hash residual; acceso al expediente preparado. |
+| [007](../ep-03-cartera-y-expediente/hu-007/README.md) | Invitación privada por expediente, reemplazo/revocación, entrega/copiar en Web y prevalidación. | Propiedad/estados/TTL; código anterior inválido; sin código/hash en listado o auditoría. |
+| [008](../ep-03-cartera-y-expediente/hu-008/README.md) | Activación anónima, aviso versionado, cuenta+vínculo+aceptación+DELETE en una conexión/transacción y sesión tras commit. | Un éxito concurrente, rollback por etapa, sin huérfanos/segundo expediente ni hash residual; acceso al expediente preparado. |
 | [009](hu-009/README.md) | Recuperación asistida, permisos/reautenticación, reset separado, Web/móvil y comando de custodia. | Corroboración obligatoria, rechazo ajeno, TTL/replay/consumo, revocación total y misma cuenta/expediente. |
 
 Las carpetas de cada HU contienen contrato y plan de implementación por tarea. [OpenAPI incremental](../../api/identity-lifecycle.openapi.json), [diccionario/RLS/operación](../../database/modelo-ciclo-acceso.md).

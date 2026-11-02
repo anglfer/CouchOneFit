@@ -12,6 +12,7 @@ import { sessionRoutes } from './features/auth/routes/session.js';
 import { lifecycleRoutes } from './features/auth/routes/lifecycle.js';
 import { AuthError } from './features/auth/types/errors.js';
 import { clientRoutes } from './features/client/routes/client.js';
+import { clientRecordRoutes } from './features/client/routes/record.js';
 import { professionalRoutes } from './features/professional/routes/professional.js';
 
 export interface AppOptions {
@@ -34,6 +35,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
   app.use('/api/auth', registrationRoutes(database));
   app.use('/api/auth', sessionRoutes(database, now));
   app.use('/api', lifecycleRoutes(database, now));
+  app.use('/api/me', clientRecordRoutes(database, now));
   app.use('/api/me', checkoutRoutes(database, now));
   app.use('/api/clients', capacityRoutes(database, now));
   app.use('/api/admin', adminRoutes(database, now));
@@ -50,7 +52,13 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       if (error instanceof AuthError) {
         res
           .status(error.status)
-          .json({ error: { code: error.code, message: error.message } });
+          .json({
+            error: {
+              code: error.code,
+              message: error.message,
+              ...(error.fields ? { fields: error.fields } : {}),
+            },
+          });
         return;
       }
       const status =

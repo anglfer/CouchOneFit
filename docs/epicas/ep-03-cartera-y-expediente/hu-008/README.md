@@ -31,4 +31,4 @@ Login → «Activar mi cuenta». Código, usuario, correo/confirmación, clave/c
 
 `apps/api/tests/account-lifecycle.test.ts`: dos solicitudes concurrentes reales, duplicados, expiración exacta, estados, última plaza reservada, replay, aceptación persistida, comparación de expediente, cero temporales tras éxito y fallos inyectados en INSERT usuario, UPDATE vínculo, INSERT aceptación, DELETE invitación e INSERT auditoría. Se ejecutan consultas HTTP contra PostgreSQL con rol runtime restringido. Flutter verifica DTO completo, confirmaciones, aviso, prevalidación, bloqueo de envío y reintento.
 
-[Modelo de datos](../../../database/modelo-ciclo-acceso.md), [OpenAPI](../../../api/identity-lifecycle.openapi.json), [estado y evidencia D0](../evidencia-hu-006-009.md). No se acredita revisión de otros integrantes, publicación ni aprobación legal con las pruebas locales.
+[Modelo de datos](../../../database/modelo-ciclo-acceso.md), [OpenAPI](../../../api/identity-lifecycle.openapi.json), [estado y evidencia D0](../../ep-01-identidad-y-acceso/evidencia-hu-006-009.md). No se acredita revisión de otros integrantes, publicación ni aprobación legal con las pruebas locales.

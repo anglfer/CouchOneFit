@@ -230,6 +230,8 @@ test('registration role works while row-level security blocks admin inserts', as
     options: '-c role=couchone_registration',
   })
   try {
+    assert.equal((await restricted.query("SELECT has_column_privilege(current_user,'private.users','role','INSERT') AS allowed")).rows[0].allowed, true)
+    assert.equal((await pool.query("SELECT relrowsecurity FROM pg_class WHERE oid='private.users'::regclass")).rows[0].relrowsecurity, true)
     const response = await request(createApp(restricted))
       .post('/api/auth/professionals')
       .send(payload())
@@ -239,11 +241,12 @@ test('registration role works while row-level security blocks admin inserts', as
         "INSERT INTO private.users (username,email,password_hash,role) VALUES ($1,$2,'$argon2id$fake','admin')",
         [`admin.${runId}`, `admin.${runId}@example.com`],
       ),
-      /row-level security/,
+      { code: '42501' },
     )
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM private.users WHERE username=$1', [`admin.${runId}`])).rows[0].n, 0)
     await assert.rejects(
       restricted.query('DELETE FROM private.users'),
-      /permission denied/,
+      { code: '42501' },
     )
   } finally {
     await restricted.end()

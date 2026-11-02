@@ -3,10 +3,17 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 export class ApiError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string, message: string) {
+  fields: Record<string, string>;
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fields: Record<string, string> = {}
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -30,7 +37,10 @@ export async function apiClient<T>(
       response.status,
       body?.error?.code ?? 'REQUEST_FAILED',
       body?.error?.message ??
-        'No pudimos completar la solicitud. Inténtalo más tarde.'
+        'No pudimos completar la solicitud. Inténtalo más tarde.',
+      body?.error?.fields && typeof body.error.fields === 'object'
+        ? body.error.fields
+        : {}
     );
   }
   return body as T;

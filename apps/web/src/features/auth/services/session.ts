@@ -143,7 +143,11 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
     return await apiClient<T>(endpoint);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) {
-      if (error instanceof ApiError && error.status === 403) {
+      if (
+        error instanceof ApiError &&
+        error.status === 403 &&
+        ['ROLE_FORBIDDEN', 'ACCESS_DENIED'].includes(error.code)
+      ) {
         await clearSessionState(false);
       }
       throw error;
@@ -154,7 +158,9 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
     } catch (retryError) {
       if (
         retryError instanceof ApiError &&
-        [401, 403].includes(retryError.status)
+        (retryError.status === 401 ||
+          (retryError.status === 403 &&
+            ['ROLE_FORBIDDEN', 'ACCESS_DENIED'].includes(retryError.code)))
       ) {
         await clearSessionState();
       }
@@ -164,6 +170,41 @@ export async function sessionRequest<T>(endpoint: string): Promise<T> {
 }
 export const readSession = () =>
   sessionRequest<SessionResponse>('/api/auth/session');
+
+// One explicit write only. Refresh may recover authentication, never replay the write.
+export async function sessionMutationOnce<T>(
+  endpoint: string,
+  body: unknown,
+  method: string,
+  expectedAccountId: string
+): Promise<T> {
+  try {
+    return await mutate<T>(endpoint, body, method);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      const renewed = await refresh();
+      if (
+        renewed.account.id !== expectedAccountId ||
+        renewed.account.role !== 'professional'
+      ) {
+        await clearSessionState();
+        throw new ApiError(
+          401,
+          'SESSION_REQUIRED',
+          'La cuenta cambió. Inicia de nuevo la consulta.'
+        );
+      }
+      throw new ApiError(
+        401,
+        'SESSION_RENEWED',
+        'Sesión renovada. Revisa tus cambios y vuelve a pulsar Guardar.'
+      );
+    }
+    if (error instanceof ApiError && error.code === 'ROLE_FORBIDDEN')
+      await clearSessionState();
+    throw error;
+  }
+}
 export async function sessionMutation<T>(
   endpoint: string,
   body: unknown = {},

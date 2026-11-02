@@ -132,22 +132,28 @@ test('manual seed reveals its password once and runtime cannot provision account
   assert.throws(() => seed('', ''))
   const provision = new Pool({ connectionString: value, options: '-c role=couchone_provision' })
   try {
-    await assert.rejects(provision.query('SELECT password_hash FROM private.users'), /permission denied/)
-    await assert.rejects(provision.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','professional')"), /row-level security/)
+    assert.equal((await provision.query("SELECT has_column_privilege(current_user,'private.users','role','INSERT') AS allowed")).rows[0].allowed, true)
+    assert.equal((await pool.query("SELECT relrowsecurity FROM pg_class WHERE oid='private.users'::regclass")).rows[0].relrowsecurity, true)
+    await assert.rejects(provision.query('SELECT password_hash FROM private.users'), { code: '42501' })
+    await assert.rejects(provision.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','professional')"), { code: '42501' })
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM private.users WHERE username='ilegal'")).rows[0].n, 0)
   } finally { await provision.end() }
   const runtime = `hu003_runtime_${run}`
-  await pool.query(`CREATE ROLE ${runtime} LOGIN`)
+  const runtimePassword = randomBytes(32).toString('hex')
+  await pool.query(`CREATE ROLE ${runtime} LOGIN PASSWORD '${runtimePassword}'`)
   try {
     await pool.query(`GRANT couchone_authentication TO ${runtime}`)
     const url = new URL(value!)
     url.username = runtime
-    url.password = ''
+    url.password = runtimePassword
     assert.throws(() => seed(undefined, undefined, { DATABASE_URL: url.toString() }), /Could not provision/)
     const ordinary = new Pool({ connectionString: url.toString() })
     try {
       assert.equal((await ordinary.query("SELECT pg_has_role(current_user,'couchone_provision','MEMBER') AS allowed")).rows[0].allowed, false)
-      await assert.rejects(ordinary.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','admin')"), /row-level security/)
-      await assert.rejects(ordinary.query('UPDATE private.users SET role=\'admin\''), /permission denied/)
+      assert.equal((await ordinary.query("SELECT has_column_privilege(current_user,'private.users','role','INSERT') AS allowed")).rows[0].allowed, true)
+      await assert.rejects(ordinary.query("INSERT INTO private.users (username,email,password_hash,role) VALUES ('ilegal','ilegal@example.com','$argon2id$fake','admin')"), { code: '42501' })
+      assert.equal((await pool.query("SELECT count(*)::int AS n FROM private.users WHERE username='ilegal'")).rows[0].n, 0)
+      await assert.rejects(ordinary.query('UPDATE private.users SET role=\'admin\''), { code: '42501' })
     } finally { await ordinary.end() }
   } finally { await pool.query(`DROP ROLE ${runtime}`) }
 })
