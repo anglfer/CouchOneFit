@@ -542,6 +542,7 @@ export default function ProfessionalPage(): ReactElement {
                             {
                               {
                                 active: 'Activa',
+                                grace: 'En gracia (cobro pendiente)',
                                 suspended: 'Suspendida',
                                 expired: 'Vencida',
                                 none: 'Sin suscripción',

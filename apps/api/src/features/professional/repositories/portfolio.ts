@@ -7,7 +7,7 @@ import type { ClientBaseRecord } from '../types/record.js'
 // The server owns identity, order and projections. No query-provided owner.
 const scope = `FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
   JOIN private.subscriptions s ON s.professional_id=p.id AND s.status='active'
-    AND s.expires_at>COALESCE($2::timestamptz,clock_timestamp())
+    AND COALESCE(s.grace_until,s.expires_at)>COALESCE($2::timestamptz,clock_timestamp())
   WHERE p.user_id=$1`
 
 export async function portfolioPage(
@@ -17,6 +17,7 @@ export async function portfolioPage(
   now?: Date
 ) {
   return readAsSubject(pool, identity.id, async (client) => {
+    await client.query('SELECT private.renew_subscription($1)', [now ?? null])
     const {
       rows: [result]
     } = await client.query(
@@ -58,6 +59,7 @@ export async function portfolioRecord(
   now?: Date
 ) {
   return readAsSubject(pool, identity.id, async (client) => {
+    await client.query('SELECT private.renew_subscription($1)', [now ?? null])
     const { rows } = await client.query<ClientBaseRecord>(
       `SELECT c.id,c.full_name AS "fullName",c.goal,c.status,c.version,
       c.birth_date::text AS "birthDate",c.height_cm::float8 AS "heightCm",c.base_weight_kg::float8 AS "baseWeightKg",

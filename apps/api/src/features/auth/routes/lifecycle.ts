@@ -3,7 +3,10 @@ import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
 import { lifecycleControllers } from '../controllers/lifecycle.js'
 import { professionalRecordController } from '../../professional/controllers/record.js'
-import { subscriptionController } from '../../professional/controllers/subscription.js';
+import {
+  subscriptionChangeController,
+  subscriptionController,
+} from '../../professional/controllers/subscription.js'
 import {
   requireClient,
   requireProfessional,
@@ -74,6 +77,18 @@ export function lifecycleRoutes(pool: Pool, now?: () => Date): Router {
   '/me/subscription',
   requireProfessional(pool, now),
   subscriptionController(pool, now)
-);
+)
+  router.patch(
+    '/me/subscription',
+    requireProfessional(pool, now),
+    requireCsrf,
+    subscriptionChangeController(pool, 'preferences', now)
+  )
+  router.post(
+    '/me/subscription/downgrade',
+    requireProfessional(pool, now),
+    requireCsrf,
+    subscriptionChangeController(pool, 'downgrade', now)
+  )
   return router
 }

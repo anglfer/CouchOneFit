@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CouchOne Fit — identidad, cartera y expediente",
-    "version": "2026-10-29",
+    "version": "2026-11-02",
     "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación."
   },
   "servers": [
@@ -552,7 +552,8 @@
               }
             }
           }
-        }
+        },
+        "description": "DEC-017: un administrador también puede autorizar el restablecimiento de un cliente vinculado y activo, solo con `reason`."
       }
     },
     "/api/auth/recovery/reset": {
@@ -1294,6 +1295,520 @@
           }
         }
       }
+    },
+    "/api/me/subscription": {
+      "get": {
+        "operationId": "readOwnSubscription",
+        "summary": "Suscripción propia; ejecuta la renovación simulada pendiente.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suscripción resultante.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subscription"
+                  ],
+                  "properties": {
+                    "subscription": {
+                      "$ref": "#/components/schemas/ProfessionalSubscription"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "changeSubscriptionPreferences",
+        "summary": "DEC-017: cancelar al final del periodo y/o elegir el método de renovación simulado.",
+        "description": "Requiere plan vigente (o en gracia). cancelAtPeriodEnd=true: el plan rige hasta el fin del periodo pagado y no renueva; false lo revierte. Un método rechazado/erróneo provoca cobro fallido y 7 días de gracia.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "cancelAtPeriodEnd": {
+                    "type": "boolean"
+                  },
+                  "renewalMethod": {
+                    "enum": [
+                      "test_approved",
+                      "test_declined",
+                      "test_error"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suscripción resultante.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subscription"
+                  ],
+                  "properties": {
+                    "subscription": {
+                      "$ref": "#/components/schemas/ProfessionalSubscription"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/subscription/downgrade": {
+      "post": {
+        "operationId": "downgradeSubscription",
+        "summary": "DEC-017: bajar a un plan de menor capacidad inactivando los expedientes elegidos.",
+        "description": "Atómico: inactiva (con versión y auditoría) los expedientes activos indicados y cambia el plan, o no hace nada. Conserva el periodo pagado, sin devolución; el precio menor aplica desde la siguiente renovación. Errores: DOWNGRADE_NOT_LOWER, DOWNGRADE_EXCESS (sigue habiendo más activos que el nuevo límite), CLIENT_NOT_ACTIVE, PLAN_UNAVAILABLE, PLAN_REQUIRED.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "planId"
+                ],
+                "properties": {
+                  "planId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "inactivateClientIds": {
+                    "type": "array",
+                    "maxItems": 1000,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suscripción resultante.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subscription"
+                  ],
+                  "properties": {
+                    "subscription": {
+                      "$ref": "#/components/schemas/ProfessionalSubscription"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/support/clients": {
+      "get": {
+        "operationId": "supportListClients",
+        "summary": "DEC-017: directorio de cuentas cliente para soporte (solo administrador, sin datos físicos).",
+        "security": [
+          {
+            "webSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "maxLength": 150
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{total,page,pageSize,clients:[{clientId,userId,fullName,username,accountStatus,recordStatus,professionalName}]}"
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/support/clients/{clientId}/view": {
+      "post": {
+        "operationId": "supportViewClient",
+        "summary": "DEC-017: consulta de solo lectura de un expediente con motivo; queda registrada.",
+        "description": "Devuelve datos básicos (objetivo, nacimiento, estatura, peso base), estados de cuenta/expediente/suscripción y profesional. No incluye grasa, cintura ni cadera. Escribe una entrada en la bitácora (admin, fecha, motivo).",
+        "security": [
+          {
+            "webSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{record}"
+          },
+          "400": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/support/log": {
+      "get": {
+        "operationId": "supportLog",
+        "summary": "DEC-017: bitácora de soporte (solo administradores).",
+        "security": [
+          {
+            "webSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{total,page,pageSize,entries:[{id,action:view_record|reset_issued,reason,createdAt,adminUsername,clientId,clientName}]}"
+          },
+          "401": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error {error:{code,message}}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1444,6 +1959,12 @@
           "currentPassword": {
             "type": "string",
             "writeOnly": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "DEC-017: obligatorio cuando un administrador restablece a un cliente (soporte); queda en la bitácora."
           }
         },
         "required": [
@@ -2177,6 +2698,85 @@
                 "$ref": "#/components/schemas/RecordSection"
               }
             }
+          }
+        }
+      },
+      "ProfessionalSubscription": {
+        "type": "object",
+        "description": "DEC-017. status: active | grace (cobro de renovación fallido, acceso completo hasta graceUntil) | expired | none. La renovación es simulada y perezosa: se evalúa al consultar o escribir.",
+        "required": [
+          "status",
+          "planId",
+          "used"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "active",
+              "grace",
+              "suspended",
+              "expired",
+              "none"
+            ]
+          },
+          "planId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "planName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "isUnlimited": {
+            "type": "boolean"
+          },
+          "used": {
+            "type": "integer"
+          },
+          "remaining": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "excess": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "graceUntil": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "renewalMethod": {
+            "enum": [
+              "test_approved",
+              "test_declined",
+              "test_error",
+              null
+            ]
           }
         }
       }

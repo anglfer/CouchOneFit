@@ -120,7 +120,8 @@ export async function issueReset(
     targetId,
     tokenHash(secret),
     (digest) => verify(digest, data.currentPassword),
-    now
+    now,
+    data.reason
   )
   return { code: secret, expiresAt }
 }

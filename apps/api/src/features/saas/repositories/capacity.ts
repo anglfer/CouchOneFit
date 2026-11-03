@@ -26,10 +26,12 @@ export async function requireCapacity(
   consume: boolean,
   now?: Date
 ) {
+  // DEC-017: lazy simulated renewal; the API has no scheduler.
+  await client.query('SELECT private.renew_subscription($1)', [now ?? null])
   const {
     rows: [subscription]
   } = await client.query(
-    `SELECT s.status,s.expires_at,p.max_clients FROM private.subscriptions s JOIN private.saas_plans p ON p.id=s.plan_id WHERE s.professional_id=$1`,
+    `SELECT s.status,COALESCE(s.grace_until,s.expires_at) AS expires_at,p.max_clients FROM private.subscriptions s JOIN private.saas_plans p ON p.id=s.plan_id WHERE s.professional_id=$1`,
     [professionalId]
   )
   if (!subscription)

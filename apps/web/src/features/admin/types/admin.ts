@@ -11,7 +11,7 @@ export interface ProfessionalRecord {
   fullName: string;
   email: string;
   accountStatus: 'active' | 'inactive';
-  subscriptionStatus: 'active' | 'suspended' | 'expired' | 'none';
+  subscriptionStatus: 'active' | 'grace' | 'suspended' | 'expired' | 'none';
   planId: string | null;
   planName: string | null;
   clientsUsed: number;

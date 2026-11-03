@@ -106,7 +106,7 @@ export async function createQuote(
     )
     if (
       subscription?.status === 'active' &&
-      subscription.expires_at > new Date()
+      (subscription.grace_until ?? subscription.expires_at) > new Date()
     ) {
       const {
         rows: [current],

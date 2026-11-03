@@ -601,7 +601,7 @@ test('reserved clients remain invitable after downgrade over capacity and concur
 
 test('missing/expired subscription blocks invitation issuance and hides the professional portfolio', async () => {
   await database.query(
-    'UPDATE private.subscriptions SET expires_at=$2 WHERE professional_id=$1',
+    'UPDATE private.subscriptions SET cancel_at_period_end=true,expires_at=$2 WHERE professional_id=$1',
     [proRecord, clock]
   )
   assert.equal(

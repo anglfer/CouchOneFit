@@ -62,7 +62,8 @@ export async function replacePasswordReset(
   targetId: string,
   digest: string,
   verifyCurrent: (digest: string) => Promise<boolean>,
-  now?: Date
+  now?: Date,
+  supportReason?: string
 ) {
   return transaction(pool, async (client) => {
     // Stable order also serializes two administrators resetting each other.
@@ -96,6 +97,26 @@ export async function replacePasswordReset(
       targetId !== identity.id
     ) {
       permitted = true
+    } else if (
+      identity.role === 'admin' &&
+      target?.role === 'client' &&
+      supportReason
+    ) {
+      // DEC-017 support: only a linked, active client account, always with a logged reason.
+      const {
+        rows: [found],
+      } = await client.query<{ id: string | null }>(
+        'SELECT private.support_client_of_account($1) AS id',
+        [targetId]
+      )
+      if (found.id) {
+        await client.query('SELECT private.log_support($1,$2,$3)', [
+          found.id,
+          'reset_issued',
+          supportReason,
+        ])
+        permitted = true
+      }
     }
     if (!permitted)
       throw new AuthError(

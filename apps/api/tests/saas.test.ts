@@ -704,7 +704,7 @@ test('expiry, unlimited capacity, immediate catalog edits and minimal paginated 
   assert.equal(sub.isUnlimited, true)
   assert.equal(sub.remaining, null)
   await db.query(
-    "UPDATE private.subscriptions SET expires_at=clock_timestamp()-interval '1 second' WHERE professional_id=$1",
+    "UPDATE private.subscriptions SET cancel_at_period_end=true,expires_at=clock_timestamp()-interval '1 second' WHERE professional_id=$1",
     [pro.professionalId]
   )
   assert.equal(

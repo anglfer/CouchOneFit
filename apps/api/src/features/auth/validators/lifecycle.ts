@@ -97,6 +97,7 @@ export function validateVerification(input: unknown) {
     'identityVerified',
     'verificationMethod',
     'currentPassword',
+    'reason',
   ])
   if (
     body.identityVerified !== true ||
@@ -110,5 +111,13 @@ export function validateVerification(input: unknown) {
     return invalidInput(
       'Confirma tu contraseña actual para autorizar la entrega.'
     )
-  return { currentPassword }
+  // DEC-017: an administrator resetting a client states why (3-200 characters, logged).
+  const reason =
+    typeof body.reason === 'string' ? body.reason.trim() : undefined
+  if (
+    body.reason !== undefined &&
+    (reason === undefined || reason.length < 3 || reason.length > 200)
+  )
+    return invalidInput('El motivo debe tener entre 3 y 200 caracteres.')
+  return { currentPassword, reason }
 }

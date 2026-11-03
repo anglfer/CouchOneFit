@@ -5,6 +5,7 @@ import { sessionController } from '../../auth/controllers/session.js'
 import { requireAdmin } from '../../auth/middleware/session.js'
 import { requireCsrf } from '../../auth/middleware/session-http.js'
 import { plansController } from '../controllers/plans.js'
+import { supportControllers } from '../controllers/support.js'
 import { adminProfessionalsController } from '../controllers/professionals.js'
 export function adminRoutes(pool: Pool, now?: () => Date): Router {
   const router = Router()
@@ -21,6 +22,10 @@ export function adminRoutes(pool: Pool, now?: () => Date): Router {
   router.post('/plans', requireCsrf, plans.create)
   router.put('/plans/:id', requireCsrf, plans.update)
   router.get('/professionals', adminProfessionalsController(pool, now))
+  const support = supportControllers(pool)
+  router.get('/support/clients', support.clients)
+  router.post('/support/clients/:clientId/view', requireCsrf, support.view)
+  router.get('/support/log', support.log)
   router.all('/professionals/:id/subscription', (_req, _res, next) =>
     next(
       new AuthError(

@@ -396,12 +396,12 @@ La imagen no incorpora citas/agenda, chat, notificaciones, rachas, reportes nuev
 | Cupo | Cuentan los expedientes activos, aunque el cliente no haya activado la app. | Coincide; implementado. |
 | Datos base que ve el cliente | **Solo lo básico**: objetivo, estatura y peso (más los datos personales básicos). Grasa, cintura, cadera, pliegues y demás medidas se irán habilitando con los módulos posteriores y los permisos de DEC-009. | **Implementado** el 30-oct: `GET /api/me/record` y Flutter ya no muestran grasa, cintura ni cadera. |
 | Edad mínima del cliente | **16 años** (antes 18). | **Implementado** el 30-oct en API, BD (migración 202610300002), Web y pruebas. |
-| Renovación | **Automática**, mensual, **simulada** (sin pasarela real en esta entrega). | **Pendiente.** |
-| Cobro fallido | **7 días de gracia** con acceso completo y reintentos; si no se cobra, queda sin plan (clientes solo leen). | **Pendiente.** |
-| Cambio de plan | El profesional puede **subir, bajar y cancelar**. | **Pendiente** (hoy solo sube). |
-| Cancelar | Rige **hasta el final del periodo pagado**; no renueva; después queda sin plan. | **Pendiente.** |
-| Bajar a un plan con menos cupo del usado | El profesional **elige a qué clientes inactivar** al bajar. | **Pendiente.** |
-| Administrador como soporte | Puede **ver el estado de cuenta** del cliente, **generar el reseteo de contraseña** y **ver el expediente en solo lectura**, con **registro interno** (quién, cuándo, motivo) visible solo para admins. No edita expedientes ni suscripciones, no da de baja cuentas ni mueve clientes. El soporte primario al cliente lo da su profesional. | **Pendiente.** Contradice RDF1004/RS24/HU-003/HU-014/TT-010. |
+| Renovación | **Automática**, mensual, **simulada** (sin pasarela real en esta entrega). | **Implementado** el 02-nov (renovación perezosa; ver EP-02). |
+| Cobro fallido | **7 días de gracia** con acceso completo y reintentos; si no se cobra, queda sin plan (clientes solo leen). | **Implementado** el 02-nov. |
+| Cambio de plan | El profesional puede **subir, bajar y cancelar**. | **Implementado** el 02-nov. |
+| Cancelar | Rige **hasta el final del periodo pagado**; no renueva; después queda sin plan. | **Implementado** el 02-nov. |
+| Bajar a un plan con menos cupo del usado | El profesional **elige a qué clientes inactivar** al bajar. | **Implementado** el 02-nov: inmediato, sin devolución, precio menor desde la siguiente renovación (decisión del asistente, a ratificar). |
+| Administrador como soporte | Puede **ver el estado de cuenta** del cliente, **generar el reseteo de contraseña** y **ver el expediente en solo lectura**, con **registro interno** (quién, cuándo, motivo) visible solo para admins. No edita expedientes ni suscripciones, no da de baja cuentas ni mueve clientes. El soporte primario al cliente lo da su profesional. | **Implementado** el 02-nov (consulta de datos básicos con motivo, reset de cliente y bitácora). Contradice RDF1004/RS24/HU-003/HU-014/TT-010. |
 | Avisos | **Correos y notificaciones push** al celular. | **Pendiente.** Contradice «sin SMTP» (DEC-014, HU-009) y presupuesto 0; requiere proveedor de correo y de push. |
 | Invitación al cliente | Se **muestra para copiar** y además se puede **enviar por correo**. | **Pendiente.** Requiere correo del cliente en el expediente (hoy no existe). |
 | Verificación de correo | **No** se verifica por enlace. | Coincide. |

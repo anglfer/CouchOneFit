@@ -23,6 +23,7 @@ export interface PaymentRow {
   completed_at: Date | null
   period_start: Date | null
   period_end: Date | null
+  kind: 'checkout' | 'renewal'
 }
 export function paymentDto(payment: PaymentRow) {
   return {
@@ -42,6 +43,7 @@ export function paymentDto(payment: PaymentRow) {
     completedAt: payment.completed_at,
     periodStart: payment.period_start,
     periodEnd: payment.period_end,
+    kind: payment.kind,
     simulated: true,
   }
 }

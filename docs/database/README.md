@@ -125,7 +125,7 @@ Nueva migración `202610260003_live_plan_catalog.sql` agrega `professionals.plan
 
 La migración incremental `202610270001_client_initial_record.sql` agrega a `private.clients` fecha de nacimiento y medidas base. No modifica ninguna migración aplicada ni rellena filas existentes: las nuevas columnas permanecen anulables para expedientes pre-HU-015. Para nuevas altas, API y restricciones SQL exigen el conjunto base consistente y validan rangos, unidades y precisión; `goal` y las medidas opcionales continúan anulables. No almacena selector de cálculo de grasa, evaluaciones ni mediciones históricas.
 
-El esquema integrado vigente es `schemas/identity_access.sql` y refleja las dieciocho migraciones vigentes (catorce al cierre de HU-016; HU-017, HU-018, la baja de cuenta y la edad mínima añaden una cada una, ver secciones siguientes). Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
+El esquema integrado vigente es `schemas/identity_access.sql` y refleja las veintiuna migraciones vigentes (catorce al cierre de HU-016; HU-017, HU-018, la baja de cuenta y la edad mínima añaden una cada una, ver secciones siguientes). Valida instalación limpia y actualización con expedientes existentes únicamente contra `TEST_DATABASE_URL` local; nunca ejecutes las migraciones ni la suite contra el proyecto Supabase compartido.
 
 ### TT-010: lectura de expedientes
 
@@ -151,4 +151,11 @@ La migración 202610280003_client_portfolio_order.sql agrega únicamente el índ
 
 ## Edad mínima del cliente — DEC-017
 
-`202610300002_client_minimum_age.sql` reemplaza `private.validate_client_birth_date()` para exigir 16 años (antes 18) con `CREATE OR REPLACE`; no reescribe filas y toda fecha anterior válida sigue siéndolo. La instantánea refleja dieciocho migraciones. Las personas de 16 y 17 años son menores de edad: falta definir el aviso de privacidad y el consentimiento (DEC-015) antes de usar datos reales.
+`202610300002_client_minimum_age.sql` reemplaza `private.validate_client_birth_date()` para exigir 16 años (antes 18) con `CREATE OR REPLACE`; no reescribe filas y toda fecha anterior válida sigue siéndolo. La instantánea refleja dieciocho migraciones a esa fecha (veintiuna con las tres siguientes). Las personas de 16 y 17 años son menores de edad: falta definir el aviso de privacidad y el consentimiento (DEC-015) antes de usar datos reales.
+
+### DEC-017 — ciclo de vida de la suscripción y soporte del administrador (02-nov-2026)
+
+- `202611020001_subscription_lifecycle.sql`: `subscriptions.cancel_at_period_end`, `renewal_method` (`test_approved|test_declined|test_error`), `grace_until` (> `expires_at`); `simulated_payments.kind` (`checkout|renewal`). Funciones `SECURITY DEFINER` (sujeto = profesional activo, bloqueo del profesional primero): `renew_subscription`, `set_subscription_preferences`, `apply_plan_downgrade`; `apply_simulated_payment` se reemplaza para limpiar cancelación y gracia. Acceso vigente = `COALESCE(grace_until, expires_at) > now`.
+- `202611020002_admin_support.sql`: `private.support_log` (admin, expediente, `view_record|reset_issued`, motivo 3–200, RLS solo admin) y funciones `is_active_admin`, `log_support`, `support_clients`, `support_client_view`, `support_client_of_account`. El runtime sigue sin `SELECT` sobre expedientes para el administrador.
+- `202611020003_support_log_read.sql`: `support_log_page` (la bitácora se une a nombres de cliente mediante función definer).
+- La prueba de migraciones espera 21 migraciones y 15 tablas.

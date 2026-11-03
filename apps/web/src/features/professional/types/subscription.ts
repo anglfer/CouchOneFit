@@ -1,5 +1,8 @@
 export interface SubscriptionInfo {
-  status: 'active' | 'suspended' | 'expired' | 'none';
+  status: 'active' | 'grace' | 'suspended' | 'expired' | 'none';
+  cancelAtPeriodEnd?: boolean;
+  graceUntil?: string | null;
+  renewalMethod?: 'test_approved' | 'test_declined' | 'test_error' | null;
   planId: string | null;
   planName: string | null;
   limit: number | null;
@@ -33,5 +36,6 @@ export interface SimulatedPayment {
   completedAt: string | null;
   periodStart: string | null;
   periodEnd: string | null;
+  kind?: 'checkout' | 'renewal';
   simulated: true;
 }

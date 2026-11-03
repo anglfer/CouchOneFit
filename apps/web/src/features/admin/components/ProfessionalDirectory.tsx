@@ -5,6 +5,7 @@ import type { ProfessionalRecord } from '../types/admin';
 const labels = {
   active: 'Activa',
   suspended: 'Suspendida',
+  grace: 'En gracia',
   expired: 'Vencida',
   none: 'Sin suscripción',
 };

@@ -172,3 +172,21 @@ del test (debug x86_64, 33.5 s, sin defines QA de integración). API propia dete
 tras verificar el proceso propietario del puerto; AVD `CouchOneFit_QA_Codex`
 apagado mediante su consola ADB. Se conservan fixtures, AVD aislado y capturas
 locales para reproducir. `git diff --check` sin errores de espacios.
+
+## Implementación DEC-017 pendiente de EP-01/02/03 — 02/nov/2026
+
+A petición de la persona usuaria («haz lo que falta»), el asistente implementó lo pendiente de DEC-017 que no depende de un proveedor externo. **T/E**, sin revisión independiente (D0.8) ni recorrido humano **R**. Detalle de contratos y decisiones en [EP-02](../ep-02-saas-y-administracion/README.md#ciclo-de-vida-dec-017) y en la [guía de BD](../../database/README.md).
+
+- [x] Renovación automática simulada (perezosa), 7 días de gracia, cancelar al final del periodo, bajar de plan eligiendo clientes a inactivar (migración `202611020001`; API `PATCH /api/me/subscription`, `POST /api/me/subscription/downgrade`; Web `SubscriptionLifecycle`).
+- [x] Soporte del administrador: directorio, consulta de datos básicos con motivo, reset de cliente con motivo y bitácora admin (migraciones `202611020002`–`3`; API `/api/admin/support/*`; Web `SupportPanel`).
+- [x] OpenAPI (`/api/me/subscription*`, `/api/admin/support/*`, `reason` en la recuperación) y plan DEC-017 actualizados.
+- [ ] **Sigue pendiente y no implementable sin decisión/proveedor:** envío real de correos y push, invitación por correo (falta correo del cliente en el expediente y proveedor), aviso de privacidad/consentimiento para 16–17 años (DEC-015).
+- [ ] Decisión a ratificar por el equipo: la bajada de plan aplica de inmediato, sin devolución, y el precio menor rige desde la siguiente renovación.
+- Limitación conocida: la renovación solo se evalúa cuando el profesional (o su cartera) se consulta; sin un cron externo, un cliente de un profesional ausente ve el plan vencido hasta que este vuelva a entrar.
+
+| Comprobación | Resultado |
+| --- | --- |
+| API build | Aprobado. |
+| API suite completa (PostgreSQL 18 local `127.0.0.1/CouchOneFit_test`, 21 migraciones) | **132/132** (incluye 5 pruebas nuevas). |
+| Web build + PWA / lint | Aprobado / sin avisos. |
+| Web tests | 38/38. |

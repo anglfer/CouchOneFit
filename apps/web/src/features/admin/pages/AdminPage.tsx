@@ -18,6 +18,7 @@ import type { Account } from '../../auth/types/session';
 import RecoveryPanel from '../../auth/components/RecoveryPanel';
 import PlanCatalog from '../components/PlanCatalog';
 import ProfessionalDirectory from '../components/ProfessionalDirectory';
+import SupportPanel from '../components/SupportPanel';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/admin/', label: 'Inicio', icon: 'home' },
@@ -183,7 +184,10 @@ export default function AdminPage(): ReactElement {
         ) : isPlanesPage ? (
           <PlanCatalog />
         ) : isProfesionalesPage ? (
-          <ProfessionalDirectory />
+          <>
+            <ProfessionalDirectory />
+            <SupportPanel />
+          </>
         ) : !knownRoute ? (
           <section className="p-8 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 text-center space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">

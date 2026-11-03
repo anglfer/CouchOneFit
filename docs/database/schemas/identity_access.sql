@@ -554,3 +554,238 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- DEC-017: simulated automatic renewal, 7-day grace, cancel at period end and plan downgrade.
+-- No real payment provider: the renewal outcome is driven by a stored simulated method.
+ALTER TABLE private.subscriptions
+  ADD COLUMN cancel_at_period_end boolean NOT NULL DEFAULT false,
+  ADD COLUMN renewal_method text NOT NULL DEFAULT 'test_approved'
+    CONSTRAINT ck_subscriptions_renewal_method CHECK (renewal_method IN ('test_approved','test_declined','test_error')),
+  ADD COLUMN grace_until timestamptz,
+  ADD CONSTRAINT ck_subscriptions_grace CHECK (grace_until IS NULL OR grace_until > expires_at);
+ALTER TABLE private.simulated_payments
+  ADD COLUMN kind text NOT NULL DEFAULT 'checkout' CONSTRAINT ck_simulated_payments_kind CHECK (kind IN ('checkout','renewal'));
+
+-- A paid checkout starts a clean period: it clears cancellation and grace.
+CREATE OR REPLACE FUNCTION private.apply_simulated_payment(payment_id uuid) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE payment private.simulated_payments%ROWTYPE; previous private.subscriptions%ROWTYPE;
+ target_plan private.saas_plans%ROWTYPE; professional uuid; started timestamptz;
+BEGIN
+ SELECT professional_id INTO professional FROM private.simulated_payments WHERE id=payment_id AND actor_id::text=current_setting('app.subject_id',true);
+ IF professional IS NULL THEN RAISE EXCEPTION 'PAYMENT_NOT_FOUND'; END IF;
+ PERFORM id FROM private.professionals WHERE id=professional FOR UPDATE;
+ SELECT * INTO payment FROM private.simulated_payments WHERE id=payment_id FOR UPDATE;
+ IF NOT EXISTS(SELECT 1 FROM private.users u JOIN private.professionals p ON p.user_id=u.id WHERE p.id=professional AND u.id=payment.actor_id AND u.role='professional' AND u.status='active') THEN RAISE EXCEPTION 'PAYMENT_FORBIDDEN'; END IF;
+ IF payment.status='succeeded' THEN RETURN; END IF;
+ IF payment.status<>'processing' OR payment.instrument IS DISTINCT FROM 'test_approved' OR payment.processing_after>clock_timestamp() OR payment.processing_after IS NULL THEN RAISE EXCEPTION 'PAYMENT_NOT_READY'; END IF;
+ SELECT * INTO target_plan FROM private.saas_plans WHERE id=payment.plan_id FOR SHARE;
+ SELECT * INTO previous FROM private.subscriptions WHERE professional_id=professional FOR UPDATE;
+ IF to_jsonb(target_plan) IS DISTINCT FROM payment.plan_snapshot OR NOT target_plan.is_active OR
+    (CASE WHEN previous.id IS NULL THEN NULL ELSE to_jsonb(previous) END) IS DISTINCT FROM payment.expected_subscription OR
+    payment.amount_cents<>round(target_plan.price_mxn*100)::bigint THEN RAISE EXCEPTION 'CHECKOUT_STALE'; END IF;
+ started:=clock_timestamp();
+ UPDATE private.simulated_payments SET status='succeeded',completed_at=started,period_start=started,
+   period_end=((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC' WHERE id=payment_id;
+ INSERT INTO private.subscriptions(professional_id,plan_id,status,expires_at) VALUES(professional,payment.plan_id,'active',((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC')
+ ON CONFLICT(professional_id) DO UPDATE SET plan_id=EXCLUDED.plan_id,status='active',expires_at=EXCLUDED.expires_at,
+   cancel_at_period_end=false,grace_until=NULL,renewal_method='test_approved';
+ INSERT INTO private.subscription_history(professional_id,actor_id,previous_plan_id,new_plan_id,previous_status,new_status,previous_expires_at,new_expires_at)
+ VALUES(professional,payment.actor_id,previous.plan_id,payment.plan_id,previous.status,'active',previous.expires_at,((started AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC');
+END $$;
+
+-- Lazy renewal for the caller's own subscription. The API has no scheduler, so each
+-- professional-facing read/write calls it. Returns none | renewed | grace | lapsed.
+CREATE FUNCTION private.renew_subscription(checked_at timestamptz DEFAULT NULL) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE t timestamptz:=COALESCE(checked_at,clock_timestamp()); prof private.professionals%ROWTYPE;
+ sub private.subscriptions%ROWTYPE; pl private.saas_plans%ROWTYPE; newend timestamptz;
+ renewed boolean:=false; guard int:=0; code text;
+BEGIN
+ SELECT p.* INTO prof FROM private.professionals p JOIN private.users u ON u.id=p.user_id
+  WHERE u.id::text=current_setting('app.subject_id',true) AND u.role='professional' AND u.status='active';
+ IF prof.id IS NULL THEN RETURN 'none'; END IF;
+ PERFORM id FROM private.professionals WHERE id=prof.id FOR UPDATE;
+ SELECT * INTO sub FROM private.subscriptions WHERE professional_id=prof.id FOR UPDATE;
+ IF sub.id IS NULL OR sub.status<>'active' OR sub.cancel_at_period_end OR sub.expires_at>t THEN RETURN 'none'; END IF;
+ SELECT * INTO pl FROM private.saas_plans WHERE id=sub.plan_id;
+ IF sub.renewal_method='test_approved' THEN
+  WHILE sub.expires_at<=t AND guard<24 LOOP
+   guard:=guard+1;
+   newend:=((sub.expires_at AT TIME ZONE 'UTC')+interval '1 month') AT TIME ZONE 'UTC';
+   INSERT INTO private.simulated_payments(professional_id,actor_id,plan_id,idempotency_key,plan_snapshot,expected_subscription,
+     amount_cents,status,instrument,created_at,quote_expires_at,completed_at,period_start,period_end,kind)
+   VALUES(prof.id,prof.user_id,pl.id,gen_random_uuid(),to_jsonb(pl),to_jsonb(sub),round(pl.price_mxn*100)::bigint,
+     'succeeded','test_approved',t,t,t,sub.expires_at,newend,'renewal');
+   INSERT INTO private.subscription_history(professional_id,actor_id,previous_plan_id,new_plan_id,previous_status,new_status,previous_expires_at,new_expires_at)
+   VALUES(prof.id,prof.user_id,sub.plan_id,sub.plan_id,sub.status,'active',sub.expires_at,newend);
+   UPDATE private.subscriptions SET expires_at=newend,grace_until=NULL WHERE id=sub.id RETURNING * INTO sub;
+   renewed:=true;
+  END LOOP;
+  RETURN CASE WHEN renewed THEN 'renewed' ELSE 'none' END;
+ END IF;
+ -- Failed charge: full access until expires_at + 7 days, then the plan lapses.
+ IF sub.grace_until IS NULL THEN
+  code:=CASE sub.renewal_method WHEN 'test_error' THEN 'PROCESSOR_ERROR' ELSE 'PAYMENT_DECLINED' END;
+  INSERT INTO private.simulated_payments(professional_id,actor_id,plan_id,idempotency_key,plan_snapshot,expected_subscription,
+    amount_cents,status,instrument,failure_code,created_at,quote_expires_at,completed_at,kind)
+  VALUES(prof.id,prof.user_id,pl.id,gen_random_uuid(),to_jsonb(pl),to_jsonb(sub),round(pl.price_mxn*100)::bigint,
+    'failed',sub.renewal_method,code,t,t,t,'renewal');
+  UPDATE private.subscriptions SET grace_until=sub.expires_at+interval '7 days' WHERE id=sub.id RETURNING * INTO sub;
+ END IF;
+ RETURN CASE WHEN sub.grace_until>t THEN 'grace' ELSE 'lapsed' END;
+END $$;
+REVOKE ALL ON FUNCTION private.renew_subscription(timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.renew_subscription(timestamptz) TO couchone_authentication;
+
+-- Cancel at period end / choose the simulated renewal method. NULL leaves a value as is.
+CREATE FUNCTION private.set_subscription_preferences(cancel boolean, method text, checked_at timestamptz DEFAULT NULL) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE t timestamptz:=COALESCE(checked_at,clock_timestamp()); prof uuid; sub private.subscriptions%ROWTYPE;
+BEGIN
+ SELECT p.id INTO prof FROM private.professionals p JOIN private.users u ON u.id=p.user_id
+  WHERE u.id::text=current_setting('app.subject_id',true) AND u.role='professional' AND u.status='active';
+ IF prof IS NULL THEN RAISE EXCEPTION 'SUBSCRIPTION_FORBIDDEN'; END IF;
+ PERFORM id FROM private.professionals WHERE id=prof FOR UPDATE;
+ SELECT * INTO sub FROM private.subscriptions WHERE professional_id=prof FOR UPDATE;
+ IF sub.id IS NULL OR sub.status<>'active' OR COALESCE(sub.grace_until,sub.expires_at)<=t THEN RAISE EXCEPTION 'PLAN_REQUIRED'; END IF;
+ IF method IS NOT NULL AND method NOT IN ('test_approved','test_declined','test_error') THEN RAISE EXCEPTION 'INVALID_METHOD'; END IF;
+ UPDATE private.subscriptions SET cancel_at_period_end=COALESCE(cancel,cancel_at_period_end),renewal_method=COALESCE(method,renewal_method)
+  WHERE id=sub.id;
+END $$;
+REVOKE ALL ON FUNCTION private.set_subscription_preferences(boolean,text,timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.set_subscription_preferences(boolean,text,timestamptz) TO couchone_authentication;
+
+-- Downgrade to a plan with lower capacity. The caller inactivates the chosen records first
+-- in the same transaction; the function refuses if active records still exceed the new limit.
+-- The current period is kept, nothing is refunded and the lower price applies from the next renewal.
+CREATE FUNCTION private.apply_plan_downgrade(target_plan_id uuid, checked_at timestamptz DEFAULT NULL) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE t timestamptz:=COALESCE(checked_at,clock_timestamp()); prof private.professionals%ROWTYPE;
+ sub private.subscriptions%ROWTYPE; cur private.saas_plans%ROWTYPE; tgt private.saas_plans%ROWTYPE; used int;
+BEGIN
+ SELECT p.* INTO prof FROM private.professionals p JOIN private.users u ON u.id=p.user_id
+  WHERE u.id::text=current_setting('app.subject_id',true) AND u.role='professional' AND u.status='active';
+ IF prof.id IS NULL THEN RAISE EXCEPTION 'SUBSCRIPTION_FORBIDDEN'; END IF;
+ PERFORM id FROM private.professionals WHERE id=prof.id FOR UPDATE;
+ SELECT * INTO sub FROM private.subscriptions WHERE professional_id=prof.id FOR UPDATE;
+ IF sub.id IS NULL OR sub.status<>'active' OR COALESCE(sub.grace_until,sub.expires_at)<=t THEN RAISE EXCEPTION 'PLAN_REQUIRED'; END IF;
+ SELECT * INTO cur FROM private.saas_plans WHERE id=sub.plan_id;
+ SELECT * INTO tgt FROM private.saas_plans WHERE id=target_plan_id AND is_active;
+ IF tgt.id IS NULL THEN RAISE EXCEPTION 'PLAN_UNAVAILABLE'; END IF;
+ IF tgt.is_unlimited OR (NOT cur.is_unlimited AND tgt.max_clients>=cur.max_clients) THEN RAISE EXCEPTION 'DOWNGRADE_NOT_LOWER'; END IF;
+ SELECT count(*)::int INTO used FROM private.clients WHERE professional_id=prof.id AND status='active';
+ IF used>tgt.max_clients THEN RAISE EXCEPTION 'DOWNGRADE_EXCESS'; END IF;
+ UPDATE private.subscriptions SET plan_id=tgt.id WHERE id=sub.id;
+ INSERT INTO private.subscription_history(professional_id,actor_id,previous_plan_id,new_plan_id,previous_status,new_status,previous_expires_at,new_expires_at)
+ VALUES(prof.id,prof.user_id,sub.plan_id,tgt.id,sub.status,sub.status,sub.expires_at,sub.expires_at);
+END $$;
+REVOKE ALL ON FUNCTION private.apply_plan_downgrade(uuid,timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.apply_plan_downgrade(uuid,timestamptz) TO couchone_authentication;
+
+-- DEC-017: the administrator is read-only support. It can list client accounts, view a client
+-- record (base data only) and issue a password reset, always leaving an admin-only log with
+-- who, when and why. It still cannot edit records or subscriptions, deactivate accounts or move clients.
+CREATE TABLE private.support_log (
+  id uuid CONSTRAINT pk_support_log PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id uuid NOT NULL REFERENCES private.users(id) ON DELETE RESTRICT,
+  client_id uuid NOT NULL REFERENCES private.clients(id) ON DELETE RESTRICT,
+  action text NOT NULL CONSTRAINT ck_support_log_action CHECK (action IN ('view_record','reset_issued')),
+  reason text NOT NULL CONSTRAINT ck_support_log_reason CHECK (char_length(reason) BETWEEN 3 AND 200),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE INDEX ix_support_log_created ON private.support_log(created_at DESC, id DESC);
+ALTER TABLE private.support_log ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON private.support_log FROM PUBLIC;
+GRANT SELECT ON private.support_log TO couchone_authentication;
+CREATE POLICY admin_reads_support_log ON private.support_log FOR SELECT TO couchone_authentication
+  USING (EXISTS (SELECT 1 FROM private.users u WHERE u.id::text=current_setting('app.subject_id',true) AND u.role='admin' AND u.status='active'));
+
+CREATE FUNCTION private.is_active_admin() RETURNS uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+  SELECT u.id FROM private.users u
+  WHERE u.id::text=current_setting('app.subject_id',true) AND u.role='admin' AND u.status='active'
+$$;
+REVOKE ALL ON FUNCTION private.is_active_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.is_active_admin() TO couchone_authentication;
+
+CREATE FUNCTION private.log_support(target_client uuid, log_action text, log_reason text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE admin uuid:=private.is_active_admin();
+BEGIN
+  IF admin IS NULL THEN RAISE EXCEPTION 'SUPPORT_FORBIDDEN'; END IF;
+  INSERT INTO private.support_log(admin_id,client_id,action,reason) VALUES(admin,target_client,log_action,btrim(log_reason));
+END $$;
+REVOKE ALL ON FUNCTION private.log_support(uuid,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.log_support(uuid,text,text) TO couchone_authentication;
+
+-- Directory of client accounts: identifiers and states only, no physical data.
+CREATE FUNCTION private.support_clients(search_text text, page_limit int, page_offset int)
+RETURNS TABLE(total bigint, client_id uuid, user_id uuid, full_name text, username text, account_status text, record_status text, professional_name text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+BEGIN
+  IF private.is_active_admin() IS NULL THEN RAISE EXCEPTION 'SUPPORT_FORBIDDEN'; END IF;
+  RETURN QUERY
+  WITH f AS (
+    SELECT c.id,c.user_id,c.full_name,u.username,u.status AS account_status,c.status AS record_status,p.full_name AS professional_name
+    FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id LEFT JOIN private.users u ON u.id=c.user_id
+    WHERE search_text='' OR position(lower(search_text COLLATE pg_catalog.pg_c_utf8) in lower((c.full_name||' '||COALESCE(u.username,'')) COLLATE pg_catalog.pg_c_utf8))>0
+  )
+  SELECT (SELECT count(*) FROM f),f.id,f.user_id,f.full_name,f.username,f.account_status,f.record_status,f.professional_name
+  FROM f ORDER BY f.full_name,f.id LIMIT page_limit OFFSET page_offset;
+END $$;
+REVOKE ALL ON FUNCTION private.support_clients(text,int,int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.support_clients(text,int,int) TO couchone_authentication;
+
+-- Read-only view of one record (the base data of DEC-017) plus account and subscription state; logs the access.
+CREATE FUNCTION private.support_client_view(target_client uuid, view_reason text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE result jsonb;
+BEGIN
+  IF private.is_active_admin() IS NULL THEN RAISE EXCEPTION 'SUPPORT_FORBIDDEN'; END IF;
+  SELECT jsonb_build_object(
+      'clientId',c.id,'userId',c.user_id,'fullName',c.full_name,'goal',c.goal,'birthDate',c.birth_date::text,
+      'heightCm',c.height_cm::float8,'baseWeightKg',c.base_weight_kg::float8,'recordStatus',c.status,
+      'accountStatus',u.status,'username',u.username,'email',u.email,
+      'professionalName',p.full_name,'subscriptionStatus',
+        CASE WHEN s.id IS NULL THEN 'none' WHEN COALESCE(s.grace_until,s.expires_at)<=clock_timestamp() THEN 'expired'
+             WHEN s.expires_at<=clock_timestamp() THEN 'grace' ELSE s.status END,
+      'subscriptionExpiresAt',s.expires_at)
+    INTO result
+  FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
+    LEFT JOIN private.users u ON u.id=c.user_id LEFT JOIN private.subscriptions s ON s.professional_id=p.id
+  WHERE c.id=target_client;
+  IF result IS NULL THEN RETURN NULL; END IF;
+  PERFORM private.log_support(target_client,'view_record',view_reason);
+  RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION private.support_client_view(uuid,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.support_client_view(uuid,text) TO couchone_authentication;
+
+-- Client record behind a linked account, for the reset flow (admin only).
+CREATE FUNCTION private.support_client_of_account(account uuid) RETURNS uuid
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+DECLARE found uuid;
+BEGIN
+  IF private.is_active_admin() IS NULL THEN RAISE EXCEPTION 'SUPPORT_FORBIDDEN'; END IF;
+  SELECT c.id INTO found FROM private.clients c JOIN private.users u ON u.id=c.user_id
+   WHERE c.user_id=account AND u.role='client' AND u.status='active';
+  RETURN found;
+END $$;
+REVOKE ALL ON FUNCTION private.support_client_of_account(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.support_client_of_account(uuid) TO couchone_authentication;
+
+-- DEC-017: the admin-only support log is read through a definer function because the runtime
+-- has no SELECT on client records (needed to show the client name next to each entry).
+CREATE FUNCTION private.support_log_page(page_limit int, page_offset int)
+RETURNS TABLE(total bigint, id uuid, action text, reason text, created_at timestamptz, admin_username text, client_id uuid, client_name text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,private AS $$
+BEGIN
+  IF private.is_active_admin() IS NULL THEN RAISE EXCEPTION 'SUPPORT_FORBIDDEN'; END IF;
+  RETURN QUERY
+  SELECT count(*) OVER(),l.id,l.action,l.reason,l.created_at,a.username,l.client_id,c.full_name
+    FROM private.support_log l JOIN private.users a ON a.id=l.admin_id JOIN private.clients c ON c.id=l.client_id
+   ORDER BY l.created_at DESC,l.id DESC LIMIT page_limit OFFSET page_offset;
+END $$;
+REVOKE ALL ON FUNCTION private.support_log_page(int,int) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.support_log_page(int,int) TO couchone_authentication;

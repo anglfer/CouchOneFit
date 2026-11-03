@@ -15,7 +15,8 @@ export async function professionalDirectory(
     `WITH directory AS (
     SELECT p.id,p.full_name AS "fullName",u.email,u.status AS "accountStatus",s.plan_id AS "planId",sp.name AS "planName",
       sp.max_clients AS "limit",COALESCE(sp.is_unlimited,false) AS "isUnlimited",
-      CASE WHEN s.id IS NULL THEN 'none' WHEN s.expires_at<=COALESCE($1::timestamptz,clock_timestamp()) THEN 'expired' ELSE s.status END AS "subscriptionStatus",
+      CASE WHEN s.id IS NULL THEN 'none' WHEN COALESCE(s.grace_until,s.expires_at)<=COALESCE($1::timestamptz,clock_timestamp()) THEN 'expired'
+        WHEN s.expires_at<=COALESCE($1::timestamptz,clock_timestamp()) THEN 'grace' ELSE s.status END AS "subscriptionStatus",
       s.expires_at AS "expiresAt",COALESCE(cc.active_count,0) AS "clientsUsed",
       COALESCE(cc.inactive_count,0) AS "inactiveClients"
     FROM private.professionals p JOIN private.users u ON u.id=p.user_id LEFT JOIN private.subscriptions s ON s.professional_id=p.id LEFT JOIN private.saas_plans sp ON sp.id=s.plan_id

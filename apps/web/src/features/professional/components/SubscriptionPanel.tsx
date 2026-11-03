@@ -3,6 +3,7 @@ import { sessionRequest, sessionMutation } from '../../auth/services/session';
 import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
 import { ApiError } from '../../../services/api';
 import type { SimulatedPayment, SubscriptionInfo } from '../types/subscription';
+import SubscriptionLifecycle from './SubscriptionLifecycle';
 const money = (cents: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
     cents / 100
@@ -285,7 +286,7 @@ export default function SubscriptionPanel({
     payment?.status === 'pending' || payment?.status === 'processing';
   const eligible = plans.filter(
     (plan) =>
-      subscription.status !== 'active' ||
+      (subscription.status !== 'active' && subscription.status !== 'grace') ||
       (!subscription.isUnlimited &&
         (plan.isUnlimited ||
           (plan.maxClients ?? 0) > (subscription.limit ?? 0)))
@@ -321,6 +322,11 @@ export default function SubscriptionPanel({
           un nuevo mes. No se aplica prorrateo ni saldo del periodo anterior.
         </p>
       </div>
+      <SubscriptionLifecycle
+        subscription={subscription}
+        plans={plans}
+        onChange={onSubscriptionChange}
+      />
       {(error || catalogError) && (
         <div role="alert" className="rounded-xl border border-red-300 p-4">
           <p>{error || catalogError}</p>
