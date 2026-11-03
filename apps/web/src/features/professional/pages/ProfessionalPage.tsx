@@ -22,6 +22,8 @@ import type { SubscriptionInfo } from '../types/subscription';
 import ClientAccessPanel from '../components/ClientAccessPanel';
 import RecoveryPanel from '../../auth/components/RecoveryPanel';
 import ProfessionalHome from '../components/ProfessionalHome';
+import PendingOperations from '../components/PendingOperations';
+import { confirmLeaveWithPending } from '../../../services/offline/leave';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
@@ -31,6 +33,7 @@ const navigation: WorkspaceNavItem[] = [
 const accountMenu: WorkspaceNavItem[] = [
   { href: '/app/perfil', label: 'Mi perfil', icon: 'user' },
   { href: '/app/suscripcion', label: 'Mi suscripción', icon: 'card' },
+  { href: '/app/pendientes', label: 'Pendientes de enviar', icon: 'refresh' },
 ];
 
 export default function ProfessionalPage(): ReactElement {
@@ -66,8 +69,10 @@ export default function ProfessionalPage(): ReactElement {
   const isClientsPage = pathname === '/app/clientes' || !!selectedClientId;
   const isSubscriptionPage = pathname === '/app/suscripcion';
   const isRecoveryPage = pathname === '/app/recuperacion';
+  const isPendingPage = pathname === '/app/pendientes';
   const knownRoute =
     isHome ||
+    isPendingPage ||
     isProfilePage ||
     isClientsPage ||
     isRecoveryPage ||
@@ -214,6 +219,10 @@ export default function ProfessionalPage(): ReactElement {
     setIsLeaving(true);
     setError('');
     try {
+      if (!(await confirmLeaveWithPending())) {
+        setIsLeaving(false);
+        return;
+      }
       await logout();
       discardSession();
       window.location.replace('/acceso?motivo=salida');
@@ -225,15 +234,17 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = isSubscriptionPage
-    ? 'Mi suscripción'
-    : isClientsPage
-      ? 'Clientes'
-      : isRecoveryPage
-        ? 'Recuperación asistida'
-        : isProfilePage
-          ? 'Mi perfil'
-          : 'Inicio';
+  const pageTitle = isPendingPage
+    ? 'Pendientes de enviar'
+    : isSubscriptionPage
+      ? 'Mi suscripción'
+      : isClientsPage
+        ? 'Clientes'
+        : isRecoveryPage
+          ? 'Recuperación asistida'
+          : isProfilePage
+            ? 'Mi perfil'
+            : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -246,6 +257,7 @@ export default function ProfessionalPage(): ReactElement {
       pageTitle={pageTitle}
       navigation={account ? navigation : []}
       accountMenu={account ? accountMenu : []}
+      pendingHref={account ? '/app/pendientes' : undefined}
       user={user}
       onLogout={account ? leave : undefined}
       isLeaving={isLeaving}
@@ -285,7 +297,9 @@ export default function ProfessionalPage(): ReactElement {
         {isChecking ? (
           <LoadingScreen label="Cargando tu espacio…" />
         ) : account && profile ? (
-          isSubscriptionPage && subscription ? (
+          isPendingPage ? (
+            <PendingOperations />
+          ) : isSubscriptionPage && subscription ? (
             <SubscriptionPanel
               subscription={subscription}
               onSubscriptionChange={setSubscription}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../../services/api';
+import { submitWrite } from '../../../services/offline/writes';
 import {
   sessionMutationOnce,
   sessionRequest,
@@ -92,11 +93,14 @@ export default function ClientRecordEditor({
   initial,
   accountId,
   onSaved,
+  onQueued,
   onCancel,
 }: {
   initial: ClientBaseRecord;
   accountId: string;
   onSaved: (record: ClientBaseRecord) => void;
+  /** El cambio quedó guardado sin conexión y se enviará solo. */
+  onQueued?: () => void;
   onCancel: () => void;
 }) {
   const [base, setBase] = useState(initial);
@@ -167,13 +171,30 @@ export default function ClientRecordEditor({
     setErrors({});
     setMessage('');
     try {
-      const result = await sessionMutationOnce<{ client: ClientBaseRecord }>(
-        url,
-        { ...changes, version: base.version },
-        'PATCH',
-        accountId
+      const body = { ...changes, version: base.version };
+      const outcome = await submitWrite(
+        {
+          kind: 'client.edit',
+          method: 'PATCH',
+          endpoint: url,
+          body,
+          label: `Editar datos de ${base.fullName}`,
+          clientId: base.id,
+          clientName: base.fullName,
+        },
+        (headers) =>
+          sessionMutationOnce<{ client: ClientBaseRecord }>(
+            url,
+            body,
+            'PATCH',
+            accountId,
+            headers
+          )
       );
-      if (mounted.current) onSaved(result.client);
+      if (mounted.current) {
+        if (outcome.status === 'queued') onQueued?.();
+        else onSaved(outcome.result.client);
+      }
     } catch (error) {
       if (!mounted.current) return;
       if (error instanceof ApiError) {

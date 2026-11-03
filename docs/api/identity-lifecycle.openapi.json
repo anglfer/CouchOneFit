@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CouchOne Fit — identidad, cartera y expediente",
-    "version": "2026-11-02",
-    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación."
+    "version": "2026-11-03",
+    "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación. DEC-018 (3-nov-2026): crear, editar y cambiar de estado un expediente admiten el encabezado `Idempotency-Key` (uuid) para repetir sin duplicar las escrituras hechas sin conexión; la misma clave y cuerpo devuelve la respuesta original (`Idempotent-Replayed: true`), la misma clave con otro cuerpo responde 422 `IDEMPOTENCY_KEY_REUSED` y una operación aún en curso responde 409 `IDEMPOTENCY_IN_PROGRESS`. Las claves se conservan 35 días."
   },
   "servers": [
     {
@@ -241,8 +241,39 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "La misma Idempotency-Key ya se usó con otra solicitud (IDEMPOTENCY_KEY_REUSED).",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicto de versión o capacidad; con Idempotency-Key también IDEMPOTENCY_IN_PROGRESS (otra solicitud igual sigue en curso; reintentar en unos segundos).",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Solo con IDEMPOTENCY_IN_PROGRESS."
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ]
       }
     },
     "/api/clients/{clientId}/invitations": {
@@ -705,6 +736,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -795,6 +829,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "La misma Idempotency-Key ya se usó con otra solicitud (IDEMPOTENCY_KEY_REUSED).",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              }
+            }
           }
         }
       }
@@ -837,6 +881,9 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -924,6 +971,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "La misma Idempotency-Key ya se usó con otra solicitud (IDEMPOTENCY_KEY_REUSED).",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
                 }
               }
             }
@@ -2796,6 +2853,18 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "description": "DEC-018. uuid generado por el cliente por cada cambio. Repetir la solicitud con la misma clave y el mismo cuerpo devuelve la respuesta original sin volver a escribir. Solo se conservan respuestas 2xx; un fallo libera la clave.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       }
     }
   }

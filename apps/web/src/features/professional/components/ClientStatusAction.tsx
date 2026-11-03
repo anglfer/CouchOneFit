@@ -4,6 +4,7 @@ import {
   sessionMutationOnce,
   sessionRequest,
 } from '../../auth/services/session';
+import { submitWrite } from '../../../services/offline/writes';
 import type { ClientBaseRecord } from '../types/portfolio';
 
 export default function ClientStatusAction({
@@ -12,6 +13,7 @@ export default function ClientStatusAction({
   accountId,
   disabled = false,
   onChanged,
+  onQueued,
   onBusyChange,
   sessionReady,
 }: {
@@ -20,6 +22,8 @@ export default function ClientStatusAction({
   accountId: string;
   disabled?: boolean;
   onChanged: (client: ClientBaseRecord) => void;
+  /** El cambio quedó guardado sin conexión y se enviará solo. */
+  onQueued?: () => void;
   onBusyChange?: (busy: boolean) => void;
   sessionReady: boolean;
 }) {
@@ -103,12 +107,37 @@ export default function ClientStatusAction({
     setError('');
     const target = desired;
     try {
-      const result = await sessionMutationOnce<{ client: ClientBaseRecord }>(
-        `${url}/status`,
-        { status: target, version: snapshot.version },
-        'PATCH',
-        accountId
+      const body = { status: target, version: snapshot.version };
+      const outcome = await submitWrite(
+        {
+          kind: 'client.status',
+          method: 'PATCH',
+          endpoint: `${url}/status`,
+          body,
+          label: `${target === 'inactive' ? 'Inactivar' : 'Reactivar'} el expediente de ${snapshot.fullName}`,
+          clientId,
+          clientName: snapshot.fullName,
+        },
+        (headers) =>
+          sessionMutationOnce<{ client: ClientBaseRecord }>(
+            `${url}/status`,
+            body,
+            'PATCH',
+            accountId,
+            headers
+          )
       );
+      if (outcome.status === 'queued') {
+        if (mounted.current) {
+          dialog.current?.close();
+          setSnapshot(null);
+          setDesired(null);
+          notify.current?.(false);
+          onQueued?.();
+        }
+        return;
+      }
+      const result = outcome.result;
       if (mounted.current) {
         dialog.current?.close();
         setSnapshot(null);

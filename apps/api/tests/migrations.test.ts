@@ -51,6 +51,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610280003_client_portfolio_order.sql/);
     assert.match(applied, /Applied: 202610280004_client_record_version.sql/);
     assert.match(applied, /Applied: 202610290001_client_record_status_audit.sql/);
+    assert.match(applied, /Applied: 202611030001_idempotency_keys.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -72,7 +73,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '21'
+      '22'
     );
     await databases[1].query(
       readFileSync(
@@ -190,7 +191,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '21'
+      '22'
     );
     assert.equal(
       (
@@ -282,7 +283,7 @@ test('migrations and the integrated schema produce the same English database', a
       );
     };
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 15);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 16);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

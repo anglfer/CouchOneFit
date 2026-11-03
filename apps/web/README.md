@@ -18,6 +18,7 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 | **Autenticación profesional**        | **Implementada localmente** | Registro y login por API/PostgreSQL; cookies protegidas, renovación serializada, revocación y perfil propio. Ver contrato HU-002.                                                                     |
 | **Sistema interno / Dashboard**      | **Pendiente**               | HU-015/016/017 implementan localmente alta, cartera y edición de datos base con versión; recorrido HU-017 y revisión pendientes. Evaluaciones e integración completa del dashboard siguen pendientes. |
 | **Planes de alimentación y rutinas** | **Pendiente**               | No existe el configurador ni la activación de planes.                                                                                                                                                 |
+| **PWA: uso sin conexión (DEC-018)**   | **Fases 1–2 locales; 3 pendiente** | Lectura sin conexión con caché cifrada por cuenta y escritura en cola con sincronización, conflictos y pantalla de pendientes (`src/services/offline/`). Ver [diseño](../../docs/architecture/pwa-offline.md). |
 | **PWA acotada a la app privada**     | **Pendiente**               | El manifiesto y service worker deben delimitarse a `/app/` para no registrar PWA en la landing comercial.                                                                                             |
 
 ---

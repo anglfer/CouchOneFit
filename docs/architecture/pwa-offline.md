@@ -1,6 +1,6 @@
 # PWA con uso sin conexión
 
-**Estado:** decidido en [DEC-018](../../plan/PLAN_TRABAJO_V2.md) y aceptado por la persona responsable del producto el 3 de noviembre de 2026 (respuestas en §8). No hay código de esta funcionalidad todavía.
+**Estado:** decidido en [DEC-018](../../plan/PLAN_TRABAJO_V2.md) y aceptado por la persona responsable del producto el 3 de noviembre de 2026 (respuestas en §8). **Fases 1 (lectura) y 2 (escritura y sincronización) implementadas localmente el 3-nov; fase 3 pendiente** (ver §11).
 **Origen:** instrucción de la persona responsable del producto en chat: la PWA debe poder usarse sin internet en **casi toda** la aplicación, no solo en lo que ya existe. Alcance elegido: **leer y escribir sin conexión, con sincronización**.
 **Sustituye** la regla transversal 9 de V2 (_no cachear respuestas privadas; instalable no significa offline_) y las frases «sin escrituras offline». Esos textos ya se corrigieron en el plan.
 
@@ -166,6 +166,55 @@ Reglas:
 - **No** hay escrituras sin conexión en móvil por ahora: registrar peso, series o check-in sigue exigiendo conexión y nunca muestra falso éxito (regla vigente de HU-032).
 - No se guardan localmente tokens ni contraseñas; el almacenamiento seguro nativo ya existente (`session_storage.dart`) no se toca.
 - Cada HU móvil de esos módulos declara su contrato de lectura sin conexión (§2.3).
+
+## 11. Estado de implementación
+
+### Fase 1 — lectura sin conexión (implementada localmente, 3-nov-2026)
+
+| Pieza | Dónde |
+| ----- | ----- |
+| Almacén IndexedDB (o memoria en pruebas); sin IndexedDB queda desactivado, nunca guarda en claro | `apps/web/src/services/offline/store.ts` |
+| Cifrado AES-GCM por cuenta con clave no extraíble; nombres de entrada con huella SHA-256 | `services/offline/crypto.ts` |
+| Caché de lectura: lista permitida, caducidad de 30 días, aislamiento por cuenta, borrado al cambiar de cuenta, búsqueda y filtro de la cartera con lo guardado | `services/offline/readCache.ts` |
+| Precarga en segundo plano de los primeros 25 expedientes de la cartera | `services/offline/prefetch.ts` |
+| Integración: `sessionRequest` sirve lo guardado solo ante fallo de red o 502/503/504 (nunca ante 401, 403 ni 500); `clearSessionState` borra todo | `features/auth/services/session.ts` |
+| Aviso «Sin conexión… datos guardados hace X» | `layouts/WorkspaceLayout.tsx`, `hooks/useOfflineData.ts` |
+| Carcasa y enlaces directos sin conexión | Ya existía: precache de Workbox y `NavigationRoute` a `index.html` (verificado en `dist/sw.js`) |
+
+Lecturas guardadas: sesión (identidad), perfil, suscripción, cartera, ficha y expediente de cada cliente, y —en administración— sesión, planes y directorio. **No** se guardan soporte de administración, recuperación asistida, pagos ni invitaciones (§2.2).
+
+Evidencia (convención del repositorio: **T** prueba/herramienta, **R** reporte humano, **E** inspección estática):
+
+- **T** `apps/web/tests/offline-read.test.mjs` (9 pruebas): cifrado, lista permitida, aislamiento y cambio de cuenta, caducidad, búsqueda local, cierre de sesión, servir solo ante fallo de red, marca de dato guardado. Suite web completa 47/47, `build` y `lint` limpios.
+- **T** Recorrido en navegador (Chrome integrado, API local de pruebas): con la API respondiendo, la caché se llena (6 entradas cifradas) y los expedientes se precargan; al hacer fallar toda llamada de red, Inicio, Cartera y Expediente se muestran desde lo guardado con el aviso y, al volver la conexión, el aviso desaparece.
+- **No verificado:** recarga completa sin conexión con el service worker activo (el modo desarrollo no lo registra; falta probar con `build` + `preview` y red real apagada), teléfonos reales, Safari/iPhone y la expiración real de 30 días en un dispositivo.
+
+Atajos conocidos de la fase 1: la búsqueda sin conexión usa la primera página guardada de la cartera (si había más páginas no las ve).
+
+### Fase 2 — escritura y sincronización (implementada localmente, 3-nov-2026)
+
+| Pieza | Dónde |
+| ----- | ----- |
+| Migración `private.idempotency_keys` (RLS por cuenta, retención 35 días) y esquema integrado | `docs/database/migrations/202611030001_idempotency_keys.sql`, `schemas/identity_access.sql` |
+| Middleware `Idempotency-Key`: reclamo, respuesta guardada antes de contestar, 422 si se reutiliza con otro cuerpo, 409 si sigue en curso, reclamo abandonado a los 2 min, solo se conservan 2xx | `apps/api/src/features/idempotency/` |
+| Aplicado a crear, editar y cambiar de estado un expediente (no a invitaciones, cuentas ni pagos) | `apps/api/src/features/saas/routes/clients.ts` |
+| Bandeja de salida cifrada por cuenta, con caducidad de 30 días; el `id` del cambio es su clave de idempotencia | `apps/web/src/services/offline/outbox.ts` |
+| Escritura «primero en línea»: se envía de inmediato y, si no hay conexión, queda en cola con **la misma clave** | `services/offline/writes.ts` |
+| Motor de sincronización: orden FIFO, una pestaña a la vez, para al caer la red, conflicto, posible duplicado, fallido, reintento, descarte | `services/offline/sync.ts` |
+| Cierre de sesión con pendientes: intenta enviar; si no puede, avisa y solo descarta si se confirma | `services/offline/leave.ts` |
+| Pantalla **Pendientes de enviar** (`/app/pendientes`), contador en la barra superior, etiqueta «Pendiente de enviar» en la cartera, aviso en el expediente | `features/professional/components/PendingOperations.tsx`, `ClientAccessPanel.tsx`, `ClientRecordView.tsx`, `layouts/WorkspaceLayout.tsx` |
+| Contrato OpenAPI | `docs/api/identity-lifecycle.openapi.json` (parámetro `IdempotencyKey`) |
+
+Reglas aplicadas: cerrar sesión **conserva** la cola cifrada (borra solo las lecturas); otra cuenta no ve ni envía la cola ajena; un 401, un 5xx o un «en curso» conservan el cambio y se reintenta; un rechazo del servidor deja el cambio «fallido» con su mensaje; un conflicto de versión muestra lo capturado frente a lo del servidor.
+
+Evidencia:
+
+- **T** API: `apps/api/tests/idempotency.test.ts` (9 pruebas contra la base local de pruebas): repetición sin duplicar, sin encabezado igual que antes, misma clave con otro cuerpo, clave inválida, fallo que no consume la clave, aislamiento entre profesionales, edición y estado, reclamo abandonado frente a en curso, purga de 35 días. `migrations.test.ts` actualizado (22 migraciones, 16 tablas, esquema = migraciones). Suite API 109/109 (la prueba `client-read-isolation` exige `TEST_DATABASE_URL` con `127.0.0.1` y se ejecutó así).
+- **T** Web: `apps/web/tests/offline-write.test.mjs` (15 pruebas): clave idéntica en el primer intento y en la cola, cifrado, orden, corte de red a la mitad, conflicto (aplicar lo mío / conservar el servidor), posible duplicado sin acentos ni mayúsculas, cupo agotado y reintento, 401/5xx, aislamiento por cuenta, confirmación al cerrar sesión, caducidad. Suite web 62/62, `build` y `lint` limpios.
+- **T** Recorrido en navegador con la API local: sin red se creó un expediente, quedó «Por enviar» con contador y etiqueta; al volver la red se envió solo y el servidor tiene exactamente un expediente (sin duplicado). Se repitió con un segundo.
+- **No verificado:** pruebas con dos computadoras reales; teléfonos reales y Safari/iPhone; Background Sync del navegador (no se usa; se sincroniza al volver la conexión, al enfocar y cada 30 s); la API en un despliegue distinto del local.
+
+Atajos conocidos de la fase 2: no se puede **editar** un expediente creado sin conexión que aún no se envió (se descarta y se vuelve a crear); un expediente con cambios pendientes no admite otra edición hasta enviarse o descartarse (evita conflictos con uno mismo); el aviso de posible duplicado compara solo el nombre (la lista del servidor no incluye fecha de nacimiento); el detalle del cambio pendiente muestra los campos, no una vista previa completa del expediente.
 
 ## 9. Referencias
 

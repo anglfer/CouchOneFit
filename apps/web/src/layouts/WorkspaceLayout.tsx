@@ -4,10 +4,14 @@ import { Link } from '../components/Link';
 import { useLocation } from '../hooks/useLocation';
 import { applyAppUpdate, installApp } from '../services/pwa';
 import { usePwa } from '../hooks/usePwa';
+import { useOfflineData } from '../hooks/useOfflineData';
+import { useOperations } from '../hooks/useOperations';
+import { startOutboxSync } from '../services/offline/sync';
 import { useThemePreference } from '../hooks/useThemePreference';
 import type { ThemePreference } from '../services/theme';
 import { Icon, type IconName } from '../components/Icon';
 import { initials } from '../utils/personName';
+import { timeAgo } from '../utils/timeAgo';
 
 export interface WorkspaceNavItem {
   href: string;
@@ -29,6 +33,8 @@ interface Props {
   navigation: WorkspaceNavItem[];
   /** Destinos de cuenta y configuración: viven en el menú de la cuenta. */
   accountMenu?: WorkspaceNavItem[];
+  /** Si existe, el panel envía solo los cambios hechos sin conexión y muestra el contador. */
+  pendingHref?: string;
   user: WorkspaceUser | null;
   onLogout?: () => void;
   isLeaving?: boolean;
@@ -258,6 +264,7 @@ export default function WorkspaceLayout({
   pageTitle,
   navigation,
   accountMenu = [],
+  pendingHref,
   user,
   onLogout,
   isLeaving = false,
@@ -265,6 +272,10 @@ export default function WorkspaceLayout({
 }: Props): ReactElement {
   const { pathname } = useLocation();
   const { needsRefresh, isOnline } = usePwa();
+  const { staleSince } = useOfflineData();
+  const pending = useOperations();
+  useEffect(() => (pendingHref ? startOutboxSync() : undefined), [pendingHref]);
+  const showingSaved = !isOnline || staleSince !== null;
   const homeHref = navigation[0]?.href ?? '/';
 
   return (
@@ -353,6 +364,21 @@ export default function WorkspaceLayout({
               {pageTitle}
             </strong>
           </p>
+          {pendingHref && pending.length > 0 && (
+            <Link
+              to={pendingHref}
+              className="ws-badge ml-auto no-underline"
+              data-tone={
+                pending.some((item) =>
+                  ['failed', 'conflict', 'duplicate'].includes(item.state)
+                )
+                  ? 'warn'
+                  : 'info'
+              }
+            >
+              {pending.length} por enviar
+            </Link>
+          )}
           {user && (
             <div className="md:hidden">
               <AccountMenu
@@ -367,17 +393,21 @@ export default function WorkspaceLayout({
           )}
         </header>
 
-        {(!isOnline || needsRefresh) && (
+        {(showingSaved || needsRefresh) && (
           <div className="space-y-2 px-4 pt-4 sm:px-8">
-            {!isOnline && (
+            {showingSaved && (
               <p
                 className="ws-alert flex items-center gap-2"
                 data-tone="warn"
                 role="status"
               >
-                <Icon name="wifi-off" size={16} />
-                Sin conexión. Los datos se actualizarán cuando vuelvas a
-                conectarte.
+                <Icon name="wifi-off" size={16} className="mt-0.5 shrink-0" />
+                <span>
+                  Sin conexión. Puedes seguir consultando y registrando
+                  {staleSince !== null &&
+                    ` (datos guardados ${timeAgo(staleSince)})`}
+                  ; los cambios se enviarán al volver la conexión.
+                </span>
               </p>
             )}
             {needsRefresh && (

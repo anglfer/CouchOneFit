@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
+import { useOnSynced, useOperations } from '../../../hooks/useOperations';
+import type { Operation } from '../../../services/offline/outbox';
 import { fetchProfessionalRecord } from '../services/record';
 import type { ClientBaseRecord } from '../types/portfolio';
 import type { ProfessionalRecord } from '../types/record';
@@ -7,6 +9,20 @@ import ClientRecordEditor from './ClientRecordEditor';
 import ClientStatusAction from './ClientStatusAction';
 import ClientBaseDetails from './ClientBaseDetails';
 import ClientRecordSections from './ClientRecordSections';
+
+/** Muestra el expediente con los cambios hechos sin conexión que aún no se envían. */
+function applyPending(
+  record: ClientBaseRecord,
+  operations: Operation[]
+): ClientBaseRecord {
+  return operations.reduce((merged, operation) => {
+    const { version: _version, ...changes } = operation.body;
+    return operation.kind === 'client.edit' ||
+      operation.kind === 'client.status'
+      ? ({ ...merged, ...changes } as ClientBaseRecord)
+      : merged;
+  }, record);
+}
 
 type Props = {
   clientId: string;
@@ -43,7 +59,14 @@ function ClientRecordContent({
   const [statusBusy, setStatusBusy] = useState(false);
   const requestKey = `${accountId}:${clientId}:${attempt}`;
   const loading = result.key !== requestKey;
-  const record = loading ? null : result.record;
+  const stored = loading ? null : result.record;
+  const pendingHere = useOperations().filter(
+    (operation) => operation.clientId === clientId
+  );
+  const hasPending = pendingHere.length > 0;
+  const record =
+    stored && hasPending ? applyPending(stored, pendingHere) : stored;
+  useOnSynced(useCallback(() => setAttempt((value) => value + 1), []));
   const error = loading ? '' : result.error;
   const sections = loading ? null : result.sections;
   useEffect(() => {
@@ -110,6 +133,13 @@ function ClientRecordContent({
             accountId={accountId}
             initial={record}
             onCancel={() => setEditing(false)}
+            onQueued={() => {
+              setEditing(false);
+              setSaved(false);
+              setStatusSaved(
+                'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+              );
+            }}
             onSaved={(updated) => {
               setResult((current) => ({
                 ...current,
@@ -123,12 +153,21 @@ function ClientRecordContent({
           />
         ) : (
           <>
+            {hasPending && (
+              <p className="ws-alert" data-tone="warn" role="status">
+                Este expediente tiene cambios pendientes de enviar. Se muestran
+                aquí tal como los capturaste.{' '}
+                <Link to="/app/pendientes" className="font-semibold underline">
+                  Ver pendientes
+                </Link>
+              </p>
+            )}
             <div className="ws-card flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-xl font-semibold">{record.fullName}</h2>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={statusBusy}
+                  disabled={statusBusy || hasPending}
                   onClick={() => {
                     setSaved(false);
                     setEditing(true);
@@ -150,6 +189,12 @@ function ClientRecordContent({
                   clientId={clientId}
                   status={record.status}
                   accountId={accountId}
+                  disabled={hasPending}
+                  onQueued={() =>
+                    setStatusSaved(
+                      'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+                    )
+                  }
                   onBusyChange={setStatusBusy}
                   onChanged={(updated) => {
                     setResult((current) => ({

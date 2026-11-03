@@ -1,4 +1,17 @@
 import { apiClient, ApiError } from '../../../services/api';
+import { prefetchClientRecords } from '../../../services/offline/prefetch';
+import {
+  clearOfflineData,
+  isBaseClientList,
+  noteAccount,
+  recallRead,
+  rememberRead,
+} from '../../../services/offline/readCache';
+import { isConnectionFailure } from '../../../services/offline/connection';
+import {
+  reportFresh,
+  reportServedFromCache,
+} from '../../../services/offline/status';
 
 import type { Account, SessionResponse } from '../types/session';
 
@@ -15,6 +28,8 @@ export async function clearSessionState(broadcast = true): Promise<void> {
   csrfPromise = undefined;
   refreshPromise = undefined;
   if (typeof window === 'undefined') return;
+  // Los datos guardados para uso sin conexión no sobreviven a la sesión (RNF23).
+  await clearOfflineData();
   try {
     window.sessionStorage.clear();
   } catch (error) {
@@ -98,13 +113,14 @@ function csrf(): Promise<string> {
 export async function mutate<T>(
   endpoint: string,
   body: unknown = {},
-  method = 'POST'
+  method = 'POST',
+  headers: Record<string, string> = {}
 ): Promise<T> {
   const token = await csrf();
   try {
     return await apiClient<T>(endpoint, {
       method,
-      headers: { 'X-CSRF-Token': token },
+      headers: { 'X-CSRF-Token': token, ...headers },
       body: JSON.stringify(body),
     });
   } catch (error) {
@@ -141,7 +157,48 @@ function refresh(): Promise<SessionResponse> {
   }
   return refreshPromise;
 }
+async function loadAndRemember(endpoint: string): Promise<void> {
+  await rememberRead(endpoint, await requestWithRefresh<unknown>(endpoint));
+}
+
+async function afterOnlineRead(endpoint: string, result: unknown) {
+  if (endpoint === '/api/auth/session')
+    await noteAccount((result as SessionResponse).account.id);
+  await rememberRead(endpoint, result);
+  reportFresh();
+  if (isBaseClientList(endpoint)) {
+    const clients = (result as { clients?: { id?: unknown }[] }).clients ?? [];
+    prefetchClientRecords(
+      clients.map((client) => String(client.id)),
+      loadAndRemember
+    );
+  }
+}
+
 export async function sessionRequest<T>(endpoint: string): Promise<T> {
+  try {
+    const result = await requestWithRefresh<T>(endpoint);
+    const saving = afterOnlineRead(endpoint, result).catch(console.error);
+    // La identidad se asienta antes de seguir: las demás lecturas se guardan a su nombre.
+    if (endpoint === '/api/auth/session') await saving;
+    return result;
+  } catch (error) {
+    if (isConnectionFailure(error)) {
+      const saved = await recallRead<T>(endpoint);
+      if (saved) {
+        reportServedFromCache(saved.fetchedAt);
+        return saved.data;
+      }
+    }
+    throw error;
+  }
+}
+
+/** Lectura siempre fresca (sin caer a lo guardado): para el motor de sincronización. */
+export const freshRequest = <T>(endpoint: string): Promise<T> =>
+  requestWithRefresh<T>(endpoint);
+
+async function requestWithRefresh<T>(endpoint: string): Promise<T> {
   try {
     return await apiClient<T>(endpoint);
   } catch (error) {
@@ -179,10 +236,11 @@ export async function sessionMutationOnce<T>(
   endpoint: string,
   body: unknown,
   method: string,
-  expectedAccountId: string
+  expectedAccountId: string,
+  headers: Record<string, string> = {}
 ): Promise<T> {
   try {
-    return await mutate<T>(endpoint, body, method);
+    return await mutate<T>(endpoint, body, method, headers);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       const renewed = await refresh();
@@ -211,15 +269,16 @@ export async function sessionMutationOnce<T>(
 export async function sessionMutation<T>(
   endpoint: string,
   body: unknown = {},
-  method = 'POST'
+  method = 'POST',
+  headers: Record<string, string> = {}
 ): Promise<T> {
   try {
-    return await mutate<T>(endpoint, body, method);
+    return await mutate<T>(endpoint, body, method, headers);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
     await refresh();
     try {
-      return await mutate<T>(endpoint, body, method);
+      return await mutate<T>(endpoint, body, method, headers);
     } catch (retryError) {
       if (retryError instanceof ApiError && retryError.status === 401)
         await clearSessionState();

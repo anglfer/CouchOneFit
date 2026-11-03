@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../../services/api';
+import { useOnSynced, useOperations } from '../../../hooks/useOperations';
+import { submitWrite } from '../../../services/offline/writes';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 
 import { Icon } from '../../../components/Icon';
@@ -72,6 +74,16 @@ export default function ClientAccessPanel({
   >(null);
   const [hasClients, setHasClients] = useState(false);
   const [listError, setListError] = useState('');
+  const operations = useOperations();
+  const queuedCreates = operations.filter(
+    (operation) => operation.kind === 'client.create'
+  );
+  useOnSynced(
+    useCallback(() => {
+      setAttempt((value) => value + 1);
+      onStatusChanged();
+    }, [onStatusChanged])
+  );
   const [formToggled, setFormToggled] = useState<boolean | null>(null);
   const requestKey = JSON.stringify([attempt, filters, cursors]);
   const loading = loadedKey !== requestKey;
@@ -167,7 +179,7 @@ export default function ClientAccessPanel({
     setFieldErrors({});
     setSaved('');
     try {
-      await sessionMutation('/api/clients', {
+      const body = {
         fullName: form.fullName,
         goal: form.goal.trim() || null,
         birthDate: form.birthDate,
@@ -176,13 +188,31 @@ export default function ClientAccessPanel({
         baseBodyFatPercentage: numberOrNull(form.baseBodyFatPercentage),
         waistCm: numberOrNull(form.waistCm),
         hipCm: numberOrNull(form.hipCm),
-      });
+      };
+      const outcome = await submitWrite(
+        {
+          kind: 'client.create',
+          method: 'POST',
+          endpoint: '/api/clients',
+          body,
+          label: `Crear expediente de ${form.fullName.trim()}`,
+          clientId: null,
+          clientName: form.fullName.trim(),
+        },
+        (headers) => sessionMutation('/api/clients', body, 'POST', headers)
+      );
       setForm(emptyClientForm());
       setCursors([null]);
       setSearch('');
       setFilters((current) => ({ ...current, search: '', status: '' }));
-      setSaved('El expediente se guardó correctamente.');
       setFormToggled(false);
+      if (outcome.status === 'queued') {
+        setSaved(
+          'El expediente se guardó en este dispositivo y se enviará cuando haya conexión.'
+        );
+        return;
+      }
+      setSaved('El expediente se guardó correctamente.');
       setAttempt((value) => value + 1);
       onStatusChanged();
     } catch (failure) {
@@ -522,6 +552,48 @@ export default function ClientAccessPanel({
           Buscar
         </button>
       </form>
+      {queuedCreates.length > 0 && (
+        <ul
+          className="m-0 list-none space-y-3 p-0"
+          aria-label="Expedientes pendientes de enviar"
+        >
+          {queuedCreates.map((operation) => (
+            <li
+              key={operation.id}
+              className="ws-card flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold">
+                  {operation.clientName ?? String(operation.body.fullName)}
+                </h3>
+                <p className="mt-0.5 text-sm text-(--ws-muted)">
+                  Capturado sin conexión; todavía no está en el servidor.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge
+                  tone={
+                    operation.state === 'failed'
+                      ? 'bad'
+                      : operation.state === 'pending' ||
+                          operation.state === 'syncing'
+                        ? 'info'
+                        : 'warn'
+                  }
+                >
+                  Pendiente de enviar
+                </Badge>
+                <Link
+                  to="/app/pendientes"
+                  className="text-sm font-semibold text-(--ws-primary-fg) underline"
+                >
+                  Ver pendientes
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       {loading ? (
         <div className="space-y-3" role="status" aria-busy="true">
           <span className="sr-only">Cargando expedientes…</span>
@@ -601,7 +673,17 @@ export default function ClientAccessPanel({
                   clientId={record.id}
                   status={record.status}
                   accountId={accountId}
-                  disabled={!!busy}
+                  disabled={
+                    !!busy ||
+                    operations.some(
+                      (operation) => operation.clientId === record.id
+                    )
+                  }
+                  onQueued={() =>
+                    setStatusNotice(
+                      'El cambio se guardó en este dispositivo y se enviará cuando haya conexión.'
+                    )
+                  }
                   onBusyChange={(pending) => {
                     setBusy(pending ? record.id : '');
                     if (pending) setDelivery(null);
