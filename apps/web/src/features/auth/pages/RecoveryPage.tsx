@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { Brand } from '../../../components/Brand';
 import { Link } from '../../../components/Link';
+import AuthShell from '../components/AuthShell';
 import { apiClient, ApiError } from '../../../services/api';
 import { clearSessionState } from '../services/session';
 
@@ -43,10 +43,11 @@ export default function RecoveryPage() {
     }
   }
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-6 gap-6">
-      <Brand />
-      <section className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-8 space-y-5">
-        <h1 className="text-2xl font-bold">Recupera tu acceso</h1>
+    <AuthShell>
+      <section className="space-y-5 text-slate-700">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          Recupera tu acceso
+        </h1>
         <p>
           Si perdiste tu sesión o dispositivo, primero intenta entrar con tus
           credenciales habituales. Conservarás la misma cuenta y expediente.
@@ -58,7 +59,10 @@ export default function RecoveryPage() {
           30 minutos. No basta con indicar un correo o usuario.
         </p>
         {complete ? (
-          <p role="status">
+          <p
+            role="status"
+            className="rounded-[10px] border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900"
+          >
             Contraseña actualizada. Todas tus sesiones anteriores se cerraron.
             Inicia sesión con tu nueva contraseña.
           </p>
@@ -66,7 +70,7 @@ export default function RecoveryPage() {
           <form onSubmit={submit}>
             <fieldset disabled={busy} className="space-y-4">
               <legend className="sr-only">Establecer contraseña</legend>
-              <label className="block">
+              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                 Código de recuperación
                 <input
                   name="code"
@@ -75,36 +79,36 @@ export default function RecoveryPage() {
                   autoCapitalize="none"
                   autoComplete="off"
                   spellCheck={false}
-                  className="block w-full border rounded-lg p-3"
+                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                 />
               </label>
-              <label className="block">
+              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                 Nueva contraseña
                 <input
                   name="password"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="block w-full border rounded-lg p-3"
+                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                   aria-describedby="password-rule"
                 />
               </label>
-              <p id="password-rule">
+              <p id="password-rule" className="text-xs text-slate-500">
                 De 15 a 128 caracteres. Los espacios cuentan.
               </p>
-              <label className="block">
+              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                 Confirmar contraseña
                 <input
                   name="passwordConfirmation"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="block w-full border rounded-lg p-3"
+                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                 />
               </label>
               <button
                 type="submit"
-                className="w-full bg-indigo-600 text-white p-3 rounded-xl disabled:opacity-50"
+                className="w-full min-h-12 rounded-[10px] bg-indigo-600 p-3 text-base font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 {busy ? 'Guardando…' : 'Guardar nueva contraseña'}
               </button>
@@ -112,14 +116,20 @@ export default function RecoveryPage() {
           </form>
         )}
         {error && (
-          <p role="alert" className="text-red-700">
+          <p
+            role="alert"
+            className="rounded-[10px] border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          >
             {error}
           </p>
         )}
-        <Link to="/acceso" className="block text-indigo-600">
+        <Link
+          to="/acceso"
+          className="block text-sm font-semibold text-indigo-700 hover:underline"
+        >
           Volver al acceso
         </Link>
       </section>
-    </main>
+    </AuthShell>
   );
 }

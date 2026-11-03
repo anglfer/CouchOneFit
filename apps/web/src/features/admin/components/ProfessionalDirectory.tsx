@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { sessionRequest } from '../../auth/services/session';
 
+import { Badge, type Tone } from '../../../components/ui';
 import type { ProfessionalRecord } from '../types/admin';
 const labels = {
   active: 'Activa',
@@ -8,6 +9,13 @@ const labels = {
   grace: 'En gracia',
   expired: 'Vencida',
   none: 'Sin suscripción',
+};
+const tones: Record<ProfessionalRecord['subscriptionStatus'], Tone> = {
+  active: 'ok',
+  grace: 'warn',
+  suspended: 'bad',
+  expired: 'bad',
+  none: 'neutral',
 };
 interface Directory {
   professionals: ProfessionalRecord[];
@@ -63,16 +71,21 @@ export default function ProfessionalDirectory() {
     };
   }, [page, search, status, attempt]);
   return (
-    <section className="space-y-6">
-      <h2 className="text-xl font-bold">Profesionales y suscripciones</h2>
+    <section className="space-y-4">
+      <div className="ws-page-header">
+        <div>
+          <span className="ws-eyebrow">Directorio</span>
+          <h1 className="ws-title">Profesionales y suscripciones</h1>
+        </div>
+      </div>
       {error && (
         <div role="alert">
           <p>{error}</p>
           <button onClick={() => setAttempt((n) => n + 1)}>Reintentar</button>
         </div>
       )}
-      <div className="flex flex-wrap gap-4">
-        <label>
+      <div className="ws-card flex flex-wrap items-end gap-4 p-4!">
+        <label className="min-w-56 flex-1">
           Buscar por nombre o correo
           <input
             className="block border rounded-lg p-2"
@@ -103,10 +116,15 @@ export default function ProfessionalDirectory() {
         </label>
       </div>
       {loading ? (
-        <p role="status">Cargando profesionales…</p>
+        <div className="space-y-3" role="status" aria-busy="true">
+          <span className="sr-only">Cargando profesionales…</span>
+          <div className="ws-skeleton h-14" />
+          <div className="ws-skeleton h-14" />
+          <div className="ws-skeleton h-14" />
+        </div>
       ) : (
         <>
-          <div className="overflow-x-auto border rounded-2xl">
+          <div className="ws-card overflow-x-auto p-0!">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr>
@@ -129,13 +147,21 @@ export default function ProfessionalDirectory() {
                 {directory.professionals.map((pro) => (
                   <tr key={pro.id} className="border-t">
                     <td className="p-4">
-                      {pro.fullName}
-                      <p>{pro.email}</p>
+                      <span className="font-semibold">{pro.fullName}</span>
+                      <p className="text-xs text-(--ws-muted)">{pro.email}</p>
                     </td>
                     <td className="p-4">
-                      {pro.accountStatus === 'active' ? 'Activa' : 'Inactiva'}
+                      <Badge
+                        tone={pro.accountStatus === 'active' ? 'ok' : 'neutral'}
+                      >
+                        {pro.accountStatus === 'active' ? 'Activa' : 'Inactiva'}
+                      </Badge>
                     </td>
-                    <td className="p-4">{labels[pro.subscriptionStatus]}</td>
+                    <td className="p-4">
+                      <Badge tone={tones[pro.subscriptionStatus]}>
+                        {labels[pro.subscriptionStatus]}
+                      </Badge>
+                    </td>
                     <td className="p-4">{pro.planName ?? 'Sin plan'}</td>
                     <td className="p-4">
                       {pro.clientsUsed} /{' '}
@@ -153,9 +179,11 @@ export default function ProfessionalDirectory() {
             </table>
           </div>
           {!directory.professionals.length && (
-            <p>No hay profesionales con estos filtros.</p>
+            <p className="ws-card ws-empty">
+              No hay profesionales con estos filtros.
+            </p>
           )}
-          <div className="flex gap-4 items-center">
+          <div className="flex items-center justify-end gap-4 text-sm text-(--ws-muted)">
             <button
               disabled={page === 1}
               onClick={() => {

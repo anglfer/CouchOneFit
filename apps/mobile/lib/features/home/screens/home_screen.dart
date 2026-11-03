@@ -32,8 +32,8 @@ class HomeScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Image.asset(
-                  'assets/logo.png',
-                  width: 300,
+                  'assets/brand/logomark.png',
+                  width: 140,
                   semanticLabel: 'CouchOne Fit',
                 ),
                 const SizedBox(height: 24),

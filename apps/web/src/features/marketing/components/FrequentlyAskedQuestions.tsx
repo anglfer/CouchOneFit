@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react';
+import { Icon } from '../../../components/Icon';
+import { SectionHeading } from './SectionHeading';
 
 const questions = [
   {
@@ -31,42 +33,33 @@ const questions = [
 export function FrequentlyAskedQuestions(): ReactElement {
   return (
     <section
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28"
+      className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8"
       id="preguntas"
       aria-labelledby="faq-title"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        <div className="lg:col-span-5">
-          <h2
-            id="faq-title"
-            className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-[1.12]"
-          >
-            Antes de
-            <span className="text-slate-400 font-bold block mt-1">
-              dar el siguiente paso.
-            </span>
-          </h2>
-          <p className="text-base text-slate-500 mt-4">
-            Lo esencial sobre CouchOne Fit.
-          </p>
-        </div>
-
-        <div className="lg:col-span-7 space-y-4">
+      <div className="grid gap-12 lg:grid-cols-[2fr_3fr]">
+        <SectionHeading
+          id="faq-title"
+          eyebrow="Preguntas frecuentes"
+          title="Antes de dar el siguiente paso"
+        >
+          Lo esencial sobre CouchOne Fit.
+        </SectionHeading>
+        <div className="flex flex-col gap-3">
           {questions.map((item) => (
             <details
               key={item.question}
-              className="group p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs open:border-indigo-200 transition-all"
+              className="group rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm open:border-indigo-300"
             >
-              <summary className="flex items-center justify-between text-base font-bold text-slate-900 cursor-pointer list-none select-none gap-4">
+              <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-4 text-base font-semibold text-slate-900">
                 <span>{item.question}</span>
-                <span
-                  className="w-7 h-7 rounded-full bg-slate-100 group-open:bg-indigo-50 text-slate-500 group-open:text-indigo-600 flex items-center justify-center font-bold text-base shrink-0 group-open:rotate-45 transition-transform"
-                  aria-hidden="true"
-                >
-                  +
-                </span>
+                <Icon
+                  name="chevron"
+                  size={20}
+                  className="shrink-0 text-slate-500 transition-transform group-open:rotate-180"
+                />
               </summary>
-              <p className="text-sm text-slate-600 mt-3 leading-relaxed">
+              <p className="mt-3 leading-relaxed text-slate-600">
                 {item.answer}
               </p>
             </details>

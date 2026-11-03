@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { sessionRequest, sessionMutation } from '../../auth/services/session';
 import type { PlanSaaS } from '../types/admin';
 import { ApiError } from '../../../services/api';
+import { PageHeader } from '../../../components/ui';
 
 export default function PlanCatalog() {
   const [plans, setPlans] = useState<PlanSaaS[]>([]);
@@ -116,15 +117,17 @@ export default function PlanCatalog() {
 
   return (
     <div className="space-y-6">
-      <section className="p-6 bg-white dark:bg-[#0c152c] rounded-2xl border border-slate-200 dark:border-slate-800">
-        <h2 className="text-xl font-bold mb-4">
+      <PageHeader
+        eyebrow="Catálogo"
+        title="Planes"
+        lead="Precios y límites de clientes de cada plan SaaS."
+      />
+      <section className="ws-card">
+        <h2 className="ws-card-title mb-4 text-lg!">
           {isEditing ? 'Editar Plan' : 'Crear Nuevo Plan'}
         </h2>
         {error && (
-          <p
-            role="alert"
-            className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded-xl"
-          >
+          <p role="alert" className="ws-alert mb-4" data-tone="bad">
             {error}
           </p>
         )}
@@ -161,7 +164,7 @@ export default function PlanCatalog() {
             />
           </label>
 
-          <div className="col-span-1 md:col-span-2 p-4 border rounded-xl bg-slate-50 dark:bg-slate-900/50">
+          <div className="col-span-1 rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) p-4 md:col-span-2">
             <label className="flex items-center gap-2 mb-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -189,8 +192,8 @@ export default function PlanCatalog() {
             )}
           </div>
 
-          <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
-            <label className="block">
+          <div className="col-span-1 mt-2 flex flex-wrap items-center gap-3 md:col-span-2">
+            <label className="mr-auto block">
               <input
                 type="checkbox"
                 checked={isActive}
@@ -218,9 +221,11 @@ export default function PlanCatalog() {
         </form>
       </section>
 
-      <section className="bg-white dark:bg-[#0c152c] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <section className="ws-card overflow-x-auto p-0!">
         {loading ? (
-          <p className="p-6">Cargando catálogo...</p>
+          <p className="p-6" role="status">
+            Cargando catálogo...
+          </p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">

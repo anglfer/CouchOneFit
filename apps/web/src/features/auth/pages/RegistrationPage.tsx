@@ -96,7 +96,7 @@ export default function RegistrationPage(): ReactElement {
           </span>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Tu experiencia.
-            <span className="block text-slate-400">Un nuevo espacio.</span>
+            <span className="block text-indigo-600">Un nuevo espacio.</span>
           </h1>
           <p className="text-base text-slate-600 leading-relaxed">
             Prepara tu cuenta para organizar tus planes y acompañar el progreso
@@ -123,13 +123,13 @@ export default function RegistrationPage(): ReactElement {
               </a>
             </div>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-600">
             Crear tu cuenta no realiza un cobro ni activa un plan.
           </p>
         </aside>
 
         <section
-          className="lg:col-span-7 p-8 sm:p-10 rounded-3xl bg-white border border-slate-200/80 shadow-xs"
+          className="lg:col-span-7 p-6 sm:p-10 rounded-2xl bg-white border border-slate-200/80 shadow-xs"
           aria-labelledby="registration-title"
         >
           {isComplete ? (
@@ -163,7 +163,7 @@ export default function RegistrationPage(): ReactElement {
                   Ir al acceso <span aria-hidden="true">→</span>
                 </Link>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-sm text-slate-600">
                 Inicia sesión para entrar a tu espacio.
               </p>
             </div>
@@ -175,14 +175,14 @@ export default function RegistrationPage(): ReactElement {
               >
                 Hagamos equipo.
               </h2>
-              <p className="text-sm text-slate-500 mb-6">
+              <p className="text-base text-slate-600 mb-6">
                 Cuéntanos lo esencial para empezar. Todos los campos son
                 obligatorios, excepto donde se indica.
               </p>
               <form onSubmit={submit} className="space-y-4">
                 <fieldset disabled={isSubmitting} className="space-y-4">
                   <legend className="sr-only">Datos de registro</legend>
-                  <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                     <span>Nombre completo</span>
                     <input
                       name="fullName"
@@ -191,11 +191,11 @@ export default function RegistrationPage(): ReactElement {
                       minLength={3}
                       maxLength={240}
                       placeholder="Tu nombre completo"
-                      className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                     />
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                       <span>Usuario</span>
                       <input
                         name="username"
@@ -203,10 +203,10 @@ export default function RegistrationPage(): ReactElement {
                         required
                         maxLength={60}
                         aria-describedby="username-help"
-                        className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                       <span>Teléfono (opcional)</span>
                       <input
                         name="phone"
@@ -216,11 +216,11 @@ export default function RegistrationPage(): ReactElement {
                         pattern="[0-9]{10,15}"
                         maxLength={15}
                         aria-describedby="phone-help"
-                        className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                       />
                     </label>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-400">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500">
                     <p id="username-help">
                       3–30 letras, números, puntos o guion bajo.
                     </p>
@@ -228,7 +228,7 @@ export default function RegistrationPage(): ReactElement {
                       10–15 dígitos, sin espacios ni prefijo +.
                     </p>
                   </div>
-                  <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                     <span>Correo electrónico</span>
                     <input
                       name="email"
@@ -237,10 +237,10 @@ export default function RegistrationPage(): ReactElement {
                       required
                       maxLength={254}
                       placeholder="nombre@correo.com"
-                      className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                     />
                   </label>
-                  <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                     <span>Confirma tu correo</span>
                     <input
                       name="emailConfirmation"
@@ -248,11 +248,11 @@ export default function RegistrationPage(): ReactElement {
                       autoComplete="off"
                       required
                       maxLength={254}
-                      className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                     />
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                       <span>Contraseña</span>
                       <input
                         name="password"
@@ -260,25 +260,25 @@ export default function RegistrationPage(): ReactElement {
                         autoComplete="new-password"
                         required
                         aria-describedby="password-help"
-                        className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                       <span>Confirma tu contraseña</span>
                       <input
                         name="passwordConfirmation"
                         type="password"
                         autoComplete="new-password"
                         required
-                        className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                       />
                     </label>
                   </div>
-                  <p className="text-[11px] text-slate-400" id="password-help">
+                  <p className="text-xs text-slate-500" id="password-help">
                     15–128 caracteres. Puedes usar una frase; no necesitas
                     combinar mayúsculas, números y símbolos.
                   </p>
-                  <label className="block text-xs font-semibold text-slate-700 space-y-1.5">
+                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
                     <span>Plan que te interesa (opcional)</span>
                     <select
                       name="planInterestId"
@@ -287,7 +287,7 @@ export default function RegistrationPage(): ReactElement {
                       onChange={(event) =>
                         setSelectedPlanId(event.target.value)
                       }
-                      className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:outline-2 focus:outline-indigo-600 transition-all"
+                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
                     >
                       <option value="">Lo elegiré después</option>
                       {plans.map((plan) => (
@@ -305,7 +305,7 @@ export default function RegistrationPage(): ReactElement {
                       </button>
                     </p>
                   )}
-                  <details className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
+                  <details className="p-4 rounded-[10px] bg-slate-50 border border-slate-200/80 text-sm text-slate-700">
                     <summary className="font-semibold text-slate-800 cursor-pointer">
                       Sobre tu registro
                     </summary>
@@ -313,25 +313,25 @@ export default function RegistrationPage(): ReactElement {
                       {REGISTRATION_NOTICE}
                     </p>
                   </details>
-                  <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer pt-1">
+                  <label className="flex items-start gap-2.5 text-sm text-slate-800 cursor-pointer pt-1">
                     <input
                       name="acceptsNotice"
                       type="checkbox"
                       required
-                      className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                      className="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                     />
                     <span>He leído la información sobre mi registro.</span>
                   </label>
                   {error && (
                     <p
                       role="alert"
-                      className="p-3 rounded-xl text-xs font-medium text-red-700 bg-red-50 border border-red-200"
+                      className="p-3 rounded-[10px] text-sm font-medium text-red-700 bg-red-50 border border-red-200"
                     >
                       {error}
                     </p>
                   )}
                   <button
-                    className="w-full py-3.5 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
+                    className="w-full min-h-12 py-3 px-4 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
                     type="submit"
                   >
                     {isSubmitting
@@ -339,7 +339,7 @@ export default function RegistrationPage(): ReactElement {
                       : 'Crear mi cuenta →'}
                   </button>
                 </fieldset>
-                <p className="pt-4 text-center text-xs text-slate-500">
+                <p className="pt-4 text-center text-sm text-slate-600">
                   ¿Ya tienes una cuenta?{' '}
                   <Link
                     to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}

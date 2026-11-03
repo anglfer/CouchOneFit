@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="280 230 680 540" role="img" aria-label="Cargando CouchOne Fit">
+  <defs>
+    <linearGradient id="c" gradientUnits="userSpaceOnUse" x1="640" y1="262" x2="560" y2="745">
+      <stop offset="0" stop-color="#6e48ff"/>
+      <stop offset="0.45" stop-color="#1a1a58"/>
+      <stop offset="1" stop-color="#2f50ff"/>
+    </linearGradient>
+    <linearGradient id="s" gradientUnits="userSpaceOnUse" x1="880" y1="300" x2="880" y2="760">
+      <stop offset="0" stop-color="#7a4dff"/>
+      <stop offset="1" stop-color="#1a3cff"/>
+    </linearGradient>
+    <clipPath id="one">
+      <path d="M840 243H930Q948 243 948 262V655Q948 695 910 712L828 757Q806 762 806 740V410Q806 400 796 400H690Q676 396 686 385L825 250Q832 243 840 243Z"/>
+    </clipPath>
+  </defs>
+  <style>
+    .c { animation: slide-c 1.4s ease-in-out infinite; }
+    .o { animation: slide-o 1.4s ease-in-out infinite; }
+    @keyframes slide-c { 0%,100% { transform: translateX(-26px); opacity: .35 } 50% { transform: none; opacity: 1 } }
+    @keyframes slide-o { 0%,100% { transform: translateX(26px); opacity: .35 } 50% { transform: none; opacity: 1 } }
+    @media (prefers-reduced-motion: reduce) { .c, .o { animation: none } }
+  </style>
+  <path class="c" fill="url(#c)" d="M740 262H535C400 262 295 380 295 512C295 640 395 742 520 742H630Q645 742 655 732L746 635Q752 626 740 618H535C475 618 432 570 432 512C432 455 475 400 535 400H612Q622 400 630 392L746 280Q752 264 740 262Z"/>
+  <g class="o" clip-path="url(#one)">
+    <rect x="680" y="230" width="290" height="540" fill="url(#s)"/>
+    <path fill="#14143f" d="M670 403 840 225H960V292L806 446V403Z"/>
+  </g>
+</svg>

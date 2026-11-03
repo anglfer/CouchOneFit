@@ -32,15 +32,13 @@ export default function ClientBaseDetails({
     <>
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map(([label, text]) => (
-          <div key={label} className="border rounded-lg px-4 py-3">
-            <dt className="text-sm text-slate-500 dark:text-slate-400">
-              {label}
-            </dt>
+          <div key={label} className="rounded-lg bg-(--ws-surface-2) px-4 py-3">
+            <dt className="text-xs font-semibold text-(--ws-muted)">{label}</dt>
             <dd className="font-semibold">{text}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-sm text-slate-500 dark:text-slate-400">
+      <p className="text-sm text-(--ws-muted)">
         Datos base preparados por el profesional. El peso base está expresado en
         kg; no es un evento histórico ni una carga de entrenamiento. No se
         dispone de una fecha de medición base.

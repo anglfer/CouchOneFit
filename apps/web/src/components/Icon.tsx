@@ -16,7 +16,25 @@ export type IconName =
   | 'sparkle'
   | 'mail'
   | 'phone'
-  | 'at';
+  | 'at'
+  | 'users'
+  | 'card'
+  | 'settings'
+  | 'chevron'
+  | 'key'
+  | 'layers'
+  | 'arrow-right'
+  | 'plus'
+  | 'arrow-up-right'
+  | 'arrow-down'
+  | 'clipboard'
+  | 'dumbbell'
+  | 'bowl'
+  | 'chart'
+  | 'link'
+  | 'smartphone'
+  | 'menu'
+  | 'close';
 
 const paths: Record<IconName, ReactElement> = {
   home: (
@@ -101,6 +119,70 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.5 6.9" />
     </>
   ),
+  users: (
+    <>
+      <circle cx="9" cy="8.5" r="3.25" />
+      <path d="M2.75 19.5c.7-3.3 3-5 6.25-5s5.55 1.7 6.25 5" />
+      <path d="M16 5.5a3.25 3.25 0 0 1 0 6m1.75 3.4c1.9.5 3.1 2 3.5 4.6" />
+    </>
+  ),
+  card: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="M3 10h18M7 15h3" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3.5v2.2m0 12.6v2.2M3.5 12h2.2m12.6 0h2.2M6 6l1.6 1.6m8.8 8.8L18 18M6 18l1.6-1.6m8.8-8.8L18 6" />
+    </>
+  ),
+  chevron: <path d="m7 9.5 5 5 5-5" />,
+  key: (
+    <>
+      <circle cx="8" cy="15" r="3.5" />
+      <path d="m10.5 12.5 8-8m-3 3 2.5 2.5M13.5 9.5 16 12" />
+    </>
+  ),
+  layers: (
+    <>
+      <path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8 12 3.5Z" />
+      <path d="m3.5 12.2 8.5 4.5 8.5-4.5M3.5 16.2l8.5 4.3 8.5-4.3" />
+    </>
+  ),
+  'arrow-right': <path d="M5 12h14m-5-5 5 5-5 5" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  'arrow-up-right': <path d="M7 17 17 7M8 7h9v9" />,
+  'arrow-down': <path d="M12 5v14m-5-5 5 5 5-5" />,
+  clipboard: (
+    <>
+      <rect x="5" y="4.5" width="14" height="16" rx="2" />
+      <path d="M9 4.5h6V7H9zM8.5 12h7M8.5 16H13" />
+    </>
+  ),
+  dumbbell: <path d="M6.5 8v8M3.5 10v4M17.5 8v8M20.5 10v4M6.5 12h11" />,
+  bowl: (
+    <>
+      <path d="M4 11h16a8 8 0 0 1-16 0Z" />
+      <path d="M9 7.5c0-1.5 1-1.5 1-3.5M14 7.5c0-1.5 1-1.5 1-3.5" />
+    </>
+  ),
+  chart: <path d="M4.5 19.5V5m0 14.5h15M8 15l3.5-4 3 2.5 4-6" />,
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  smartphone: (
+    <>
+      <rect x="7" y="3" width="10" height="18" rx="2.5" />
+      <path d="M11 18h2" />
+    </>
+  ),
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  close: <path d="m6 6 12 12M18 6 6 18" />,
 };
 
 interface IconProps extends SVGProps<SVGSVGElement> {

@@ -112,11 +112,11 @@ export default function SupportPanel() {
     });
 
   return (
-    <section className="space-y-4" aria-labelledby="support-heading">
-      <h2 id="support-heading" className="text-xl font-bold">
+    <section className="ws-card space-y-4" aria-labelledby="support-heading">
+      <h2 id="support-heading" className="ws-card-title text-lg!">
         Soporte a clientes
       </h2>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-(--ws-muted)">
         Solo lectura. Cada consulta o restablecimiento queda registrado con tu
         usuario, la fecha y el motivo.
       </p>
@@ -135,13 +135,13 @@ export default function SupportPanel() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Nombre o usuario"
         />
-        <button className="underline">Buscar</button>
+        <button>Buscar</button>
       </form>
-      <ul className="space-y-1">
+      <ul className="m-0 list-none divide-y divide-(--ws-border-subtle) p-0">
         {clients.map((item) => (
-          <li key={item.clientId}>
+          <li key={item.clientId} className="py-2.5 text-sm text-(--ws-muted)">
             <button
-              className="underline text-left"
+              className="underline text-left font-semibold text-(--ws-primary-fg)"
               onClick={() => {
                 setSelected(item);
                 setRecord(null);
@@ -155,7 +155,9 @@ export default function SupportPanel() {
             {item.accountStatus ?? 'sin activar'}
           </li>
         ))}
-        {!clients.length && <li>Sin resultados.</li>}
+        {!clients.length && (
+          <li className="py-6 text-center">Sin resultados.</li>
+        )}
       </ul>
       {selected && (
         <div className="rounded-2xl border p-4 space-y-3">
@@ -170,7 +172,6 @@ export default function SupportPanel() {
             />
           </label>
           <button
-            className="underline"
             disabled={busy || reason.trim().length < 3}
             onClick={() => void view()}
           >
@@ -189,13 +190,12 @@ export default function SupportPanel() {
                 />
               </label>
               <button
-                className="underline"
                 disabled={busy || reason.trim().length < 3 || !password}
                 onClick={() => void reset()}
               >
                 Generar código de restablecimiento
               </button>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-(--ws-muted)">
                 Confirma la identidad de la persona por la relación conocida
                 antes de entregar el código.
               </p>
@@ -208,7 +208,7 @@ export default function SupportPanel() {
             </p>
           )}
           {record && (
-            <dl className="grid grid-cols-2 gap-2">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm [&_dd]:m-0 [&_dd]:font-medium [&_dt]:text-(--ws-muted)">
               <dt>Profesional</dt>
               <dd>{record.professionalName}</dd>
               <dt>Suscripción</dt>
@@ -231,17 +231,21 @@ export default function SupportPanel() {
       )}
       {error && <p role="alert">{error}</p>}
       <div>
-        <h3 className="font-bold">Registro de soporte</h3>
-        <ul>
+        <h3 className="ws-card-title mb-2">Registro de soporte</h3>
+        <ul className="m-0 list-none divide-y divide-(--ws-border-subtle) p-0 text-sm">
           {log.map((entry) => (
-            <li key={entry.id}>
+            <li key={entry.id} className="py-2.5">
               {new Date(entry.createdAt).toLocaleString('es-MX')} ·{' '}
               {entry.adminUsername} ·{' '}
               {entry.action === 'view_record' ? 'consultó' : 'restableció'} a{' '}
               {entry.clientName} · «{entry.reason}»
             </li>
           ))}
-          {!log.length && <li>Aún no hay consultas.</li>}
+          {!log.length && (
+            <li className="py-6 text-center text-(--ws-muted)">
+              Aún no hay consultas.
+            </li>
+          )}
         </ul>
       </div>
     </section>

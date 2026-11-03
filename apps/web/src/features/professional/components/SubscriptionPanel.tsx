@@ -4,6 +4,7 @@ import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
 import { ApiError } from '../../../services/api';
 import type { SimulatedPayment, SubscriptionInfo } from '../types/subscription';
 import SubscriptionLifecycle from './SubscriptionLifecycle';
+import { Badge, PageHeader } from '../../../components/ui';
 const money = (cents: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
     cents / 100
@@ -293,31 +294,40 @@ export default function SubscriptionPanel({
   );
   const card = cards.find((item) => item.id === instrument)!;
   return (
-    <section className="space-y-6" aria-labelledby="subscription-heading">
-      <div>
-        <h1 id="subscription-heading" className="text-2xl font-bold">
-          Mi suscripción
-        </h1>
-        <p className="mt-2 text-slate-500">
-          Contrata o sube de nivel desde tu cuenta.
-        </p>
-      </div>
-      <div className="rounded-2xl border p-5">
-        <h2 className="font-bold">
-          {subscription.planName ?? 'Sin plan contratado'}
-        </h2>
-        <p>
+    <section className="space-y-6" aria-label="Mi suscripción">
+      <PageHeader
+        eyebrow="Cuenta"
+        title="Mi suscripción"
+        lead="Contrata o sube de nivel desde tu cuenta."
+      />
+      <div className="ws-card">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="ws-stat-label">Plan actual</p>
+            <h2 className="ws-stat-value">
+              {subscription.planName ?? 'Sin plan contratado'}
+            </h2>
+          </div>
+          <Badge tone={subscription.status === 'active' ? 'ok' : 'warn'}>
+            {subscription.status === 'active'
+              ? 'Activa'
+              : subscription.status === 'grace'
+                ? 'En gracia'
+                : 'Sin suscripción vigente'}
+          </Badge>
+        </div>
+        <p className="mt-4 text-sm">
           {subscription.used} clientes activos ·{' '}
           {subscription.isUnlimited
             ? 'Cupo ilimitado'
             : `Límite: ${subscription.limit ?? 0}`}
         </p>
-        <p>
+        <p className="mt-1 text-sm text-(--ws-muted)">
           {subscription.expiresAt
             ? `Vigencia hasta ${new Date(subscription.expiresAt).toLocaleString('es-MX')}`
             : 'Contrata un plan para habilitar tu cartera.'}
         </p>
-        <p>
+        <p className="ws-alert mt-4 text-[13px]!">
           Una contratación o mejora aprobada cobra el precio completo e inicia
           un nuevo mes. No se aplica prorrateo ni saldo del periodo anterior.
         </p>
@@ -328,7 +338,7 @@ export default function SubscriptionPanel({
         onChange={onSubscriptionChange}
       />
       {(error || catalogError) && (
-        <div role="alert" className="rounded-xl border border-red-300 p-4">
+        <div role="alert" className="ws-alert" data-tone="bad">
           <p>{error || catalogError}</p>
           <button
             className="underline mt-2"
@@ -344,15 +354,17 @@ export default function SubscriptionPanel({
       {loading || catalogLoading ? (
         <p role="status">Cargando planes y operaciones…</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
           {eligible.map((plan) => (
-            <article key={plan.id} className="border rounded-2xl p-5 space-y-3">
-              <h2 className="font-bold text-lg">{plan.name}</h2>
-              <p className="text-2xl font-bold">
+            <article key={plan.id} className="ws-card space-y-3">
+              <h2 className="ws-card-title text-lg!">{plan.name}</h2>
+              <p className="ws-stat-value">
                 {money(Math.round(Number(plan.priceMxn) * 100))}{' '}
-                <span className="text-sm font-normal">MXN / mes</span>
+                <span className="text-sm font-normal text-(--ws-muted)">
+                  MXN / mes
+                </span>
               </p>
-              <p>
+              <p className="text-sm text-(--ws-muted)">
                 {plan.isUnlimited
                   ? 'Clientes ilimitados'
                   : `${plan.maxClients} clientes activos`}
@@ -360,7 +372,7 @@ export default function SubscriptionPanel({
               <button
                 disabled={busy || open}
                 onClick={() => void start(plan)}
-                className="bg-indigo-600 text-white rounded-xl px-4 py-3 disabled:opacity-50"
+                className="w-full bg-indigo-600"
               >
                 {busy
                   ? 'Preparando…'
@@ -377,13 +389,13 @@ export default function SubscriptionPanel({
       )}
       {payment && (
         <section
-          className="rounded-2xl border p-6 space-y-4"
+          className="ws-card space-y-4"
           aria-labelledby="checkout-heading"
         >
-          <h2 id="checkout-heading" className="text-xl font-bold">
+          <h2 id="checkout-heading" className="ws-card-title text-lg!">
             {payment.status === 'succeeded' ? 'Pago aprobado' : 'Pago'}
           </h2>
-          <dl className="grid gap-2 sm:grid-cols-2">
+          <dl className="grid gap-4 sm:grid-cols-2 [&_dt]:text-xs [&_dt]:font-semibold [&_dt]:text-(--ws-muted)">
             <div>
               <dt>Plan</dt>
               <dd className="font-bold">{payment.planName}</dd>
@@ -415,7 +427,7 @@ export default function SubscriptionPanel({
                 {cards.map((item) => (
                   <label
                     key={item.id}
-                    className="flex gap-3 items-start border rounded-xl p-3"
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-(--ws-border) bg-(--ws-surface-2) p-3 has-[:checked]:border-(--ws-primary) has-[:checked]:bg-(--ws-selected)"
                   >
                     <input
                       type="radio"
@@ -431,7 +443,7 @@ export default function SubscriptionPanel({
                   </label>
                 ))}
               </fieldset>
-              <div className="rounded-xl bg-slate-100 dark:bg-slate-800 p-4">
+              <div className="rounded-lg bg-(--ws-surface-2) p-4 text-sm">
                 <p>
                   {card.name} · •••• •••• •••• {card.last}
                 </p>
@@ -440,7 +452,7 @@ export default function SubscriptionPanel({
               <button
                 disabled={busy}
                 onClick={() => void operate('confirm')}
-                className="bg-indigo-600 text-white rounded-xl px-5 py-3 disabled:opacity-50"
+                className="bg-indigo-600"
               >
                 {busy
                   ? 'Confirmando…'
@@ -449,11 +461,7 @@ export default function SubscriptionPanel({
             </>
           )}
           {payment.status === 'processing' && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="border rounded-xl p-5"
-            >
+            <div role="status" aria-live="polite" className="ws-alert">
               <p className="font-bold animate-pulse">Procesando tu pago…</p>
               <p>
                 Validando la autorización. Puedes volver a esta pantalla si
@@ -465,16 +473,13 @@ export default function SubscriptionPanel({
             <button
               disabled={busy}
               onClick={() => void operate('cancel')}
-              className="border rounded-xl px-4 py-3 ml-2"
+              className="ml-2"
             >
               Cancelar operación
             </button>
           )}
           {payment.status === 'succeeded' && (
-            <div
-              role="status"
-              className="border border-emerald-300 rounded-xl p-5"
-            >
+            <div role="status" className="ws-alert space-y-1" data-tone="ok">
               <h3 className="font-bold">Comprobante de pago</h3>
               <p>Tu pago fue aprobado y tu plan está activo.</p>
               <p>Importe: {money(payment.amountCents)} MXN</p>
@@ -500,7 +505,7 @@ export default function SubscriptionPanel({
             </p>
           )}
           {!open && (
-            <button onClick={close} className="border rounded-xl px-4 py-3">
+            <button onClick={close}>
               {payment.status === 'succeeded'
                 ? 'Volver a los planes'
                 : 'Iniciar un nuevo intento'}
@@ -509,19 +514,19 @@ export default function SubscriptionPanel({
         </section>
       )}
       <section className="space-y-3">
-        <h2 className="text-xl font-bold">Historial de pagos</h2>
+        <h2 className="ws-card-title text-lg!">Historial de pagos</h2>
         {!history.length ? (
-          <p>Aún no tienes operaciones.</p>
+          <p className="ws-card ws-empty">Aún no tienes operaciones.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="m-0 list-none space-y-2 p-0">
             {history.map((item) => (
               <li
                 key={item.id}
-                className="border rounded-xl p-4 flex flex-wrap items-center justify-between gap-3"
+                className="ws-card flex flex-wrap items-center justify-between gap-3 p-4!"
               >
                 <div>
                   <strong>{item.planName}</strong>
-                  <p>
+                  <p className="text-sm text-(--ws-muted)">
                     {money(item.amountCents)} MXN · {statusLabels[item.status]}{' '}
                     · {new Date(item.createdAt).toLocaleString('es-MX')}
                   </p>

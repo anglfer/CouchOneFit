@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactElement } from 'react';
 import { Brand } from '../../../components/Brand';
+import { Icon } from '../../../components/Icon';
 import { Link } from '../../../components/Link';
 
 const navigation = [
@@ -19,67 +20,56 @@ export function MarketingNavigation(): ReactElement {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-[#f8f9fd]/85 backdrop-blur-md border-b border-indigo-100/80 transition-colors">
-      <div className="w-[min(1200px,calc(100%-48px))] mx-auto flex items-center justify-between min-h-[72px] gap-6">
+    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-5 sm:px-8">
         <Brand />
 
         <nav
-          className="hidden md:flex items-center gap-1.5"
+          className="hidden items-center gap-1 lg:flex"
           aria-label="Navegación principal"
         >
           {navigation.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-indigo-50/80 transition-colors"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
               {item.label}
             </a>
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden items-center gap-2 lg:flex">
           <Link
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-800 bg-white border border-indigo-200/80 rounded-xl shadow-xs hover:border-indigo-500 hover:text-indigo-600 hover:bg-slate-50 transition-all"
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
             to="/acceso"
           >
-            Acceso profesional <span aria-hidden="true">↗</span>
+            Iniciar sesión
           </Link>
           <Link
-            className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 hover:shadow-md hover:shadow-indigo-600/35 transition-all"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
             to="/registro"
           >
-            Contáctanos <span aria-hidden="true">→</span>
+            Crear cuenta
           </Link>
         </div>
 
         <button
           ref={menuButtonRef}
-          className="md:hidden inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl shadow-xs hover:bg-slate-50"
+          className="inline-flex size-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 lg:hidden"
           type="button"
           aria-expanded={isMenuOpen}
           aria-controls="marketing-navigation"
           aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           onClick={() => setIsMenuOpen((prev) => !prev)}
         >
-          <span>{isMenuOpen ? 'Cerrar' : 'Menú'}</span>
-          <span className="flex flex-col gap-1 w-4" aria-hidden="true">
-            <span
-              className={`block h-0.5 bg-current rounded-full transition-transform ${isMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}
-            />
-            <span
-              className={`block h-0.5 bg-current rounded-full transition-opacity ${isMenuOpen ? 'opacity-0' : ''}`}
-            />
-            <span
-              className={`block h-0.5 bg-current rounded-full transition-transform ${isMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}
-            />
-          </span>
+          <Icon name={isMenuOpen ? 'close' : 'menu'} size={22} />
         </button>
 
         {isMenuOpen && (
           <nav
             id="marketing-navigation"
-            className="md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl p-5 flex flex-col gap-4 z-50 animate-in fade-in duration-150"
+            className="absolute left-0 top-full z-50 flex w-full flex-col gap-4 border-b border-slate-200 bg-white p-5 shadow-xl lg:hidden"
             aria-label="Navegación móvil"
             onKeyDown={(event) => {
               if (event.key === 'Escape' && isMenuOpen) {
@@ -92,27 +82,27 @@ export function MarketingNavigation(): ReactElement {
                 <a
                   key={item.href}
                   href={item.href}
-                  className="px-3.5 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition-colors"
+                  className="rounded-lg px-3.5 py-3 text-base font-medium text-slate-700 hover:bg-slate-100"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               ))}
             </div>
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-4">
               <Link
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-4 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50"
                 to="/acceso"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Acceso profesional <span aria-hidden="true">↗</span>
+                Iniciar sesión
               </Link>
               <Link
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs shadow-indigo-600/30"
+                className="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white hover:bg-indigo-700"
                 to="/registro"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Contáctanos <span aria-hidden="true">→</span>
+                Crear cuenta
               </Link>
             </div>
           </nav>

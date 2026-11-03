@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useLocation } from '../hooks/useLocation';
 import { Link } from '../components/Link';
+import { LogoMark } from '../components/LogoMark';
 import MarketingPage from '../features/marketing/pages/MarketingPage';
 import RegistrationPage from '../features/auth/pages/RegistrationPage';
 import AccessPage from '../features/auth/pages/AccessPage';
@@ -24,13 +25,7 @@ export default function AppRoutes(): ReactElement {
 
   return (
     <main className="min-h-screen bg-[#f8f9fd] text-slate-900 flex flex-col items-center justify-center p-6 text-center">
-      <img
-        src="/logo.png"
-        alt="CouchOne Fit"
-        width="140"
-        height="140"
-        className="rounded-3xl shadow-xl shadow-indigo-600/15 mb-6"
-      />
+      <LogoMark size={120} title="CouchOne Fit" className="mb-8" />
       <span className="px-3.5 py-1 rounded-full text-xs font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 uppercase mb-3">
         404
       </span>

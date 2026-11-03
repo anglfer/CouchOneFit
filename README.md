@@ -1,5 +1,9 @@
 # CouchOne Fit
 
+**¿Vas a trabajar con un agente?** Empieza por [AGENTS.md](AGENTS.md): mapa del
+proyecto, documentos que leer, reglas de implementación y validaciones por app.
+Claude carga esa misma guía desde [CLAUDE.md](CLAUDE.md).
+
 <p align="center"><img src="apps/web/public/logo.png" alt="Logo de CouchOne Fit" width="360"></p>
 
 > **Nombre oficial:** CouchOne Fit

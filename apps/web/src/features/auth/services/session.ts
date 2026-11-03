@@ -3,7 +3,10 @@ import { apiClient, ApiError } from '../../../services/api';
 import type { Account, SessionResponse } from '../types/session';
 
 const SESSION_CHANNEL = 'couchonefit-session';
-const PRESERVED_LOCAL_STORAGE_KEYS = new Set(['cof-theme']);
+const PRESERVED_LOCAL_STORAGE_KEYS = new Set([
+  'cof-theme',
+  'couchonefit-theme',
+]);
 
 let csrfPromise: Promise<string> | undefined;
 let refreshPromise: Promise<SessionResponse> | undefined;

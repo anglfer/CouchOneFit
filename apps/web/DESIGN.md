@@ -89,7 +89,7 @@ Botones de 12px, tarjetas de 20–24px e indicadores circulares. El panel profes
 
 ## Components
 
-Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Contratar plan» abre `/registro` con plan de interés; «Contáctanos» abre registro sin plan. Registro conectado a API/PostgreSQL; acceso profesional disponible en `/acceso`; pagos se integran en su módulo correspondiente.
+Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Elegir plan» abre `/registro` con plan de interés; «Crear cuenta» y «Crear mi cuenta» abren registro sin plan; «Iniciar sesión» abre `/acceso`. La navegación pasa a menú móvil por debajo de 1024px. Registro conectado a API/PostgreSQL; acceso profesional disponible en `/acceso`; pagos se integran en su módulo correspondiente.
 
 ## Do's and Don'ts
 

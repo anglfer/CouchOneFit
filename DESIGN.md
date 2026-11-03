@@ -21,9 +21,13 @@ background: linear-gradient(135deg, #3046EB 0%, #4037F7 48%, #6344DC 100%);
 
 El degradado identifica marca y énfasis comercial. La acción principal conserva su color sólido. Rosa y naranja son semánticos, nunca colores principales de CouchOne Fit.
 
+## Logotipo y piezas de marca
+
+El isotipo C1 está vectorizado a partir del logo principal. Fuentes en `apps/web/public/brand/`: `logomark.svg` (color), `logomark-white.svg` (una tinta, para fondos de marca u oscuros), `app-icon.svg` (cuadrado con degradado de marca y favicon), `loader.svg` (animado, sin movimiento con `prefers-reduced-motion`). En React: `components/LogoMark.tsx` (variantes `color`, `white`, `ink`, y `animated`) y `components/LoadingScreen.tsx`; `index.html` muestra el loader antes de que cargue la app. No se usan emojis ni flechas tipográficas como iconos: los iconos son SVG de `components/Icon.tsx`.
+
 ## Temas por superficie
 
-Los seis conjuntos son exactos. Web incluye un botón de sol/luna en las cabeceras de marketing, acceso, registro, panel y administración. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente y ofrece un botón de sol/luna en la cabecera para alternar el tema durante la sesión; al volver a abrir la app usa de nuevo la preferencia del dispositivo. Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
+Los seis conjuntos son exactos. Web ofrece el selector claro/oscuro/sistema en el menú de cuenta del panel y de administración (sin botón suelto en la cabecera) y el botón de sol/luna en marketing, acceso y registro. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente y ofrece un botón de sol/luna en la cabecera para alternar el tema durante la sesión; al volver a abrir la app usa de nuevo la preferencia del dispositivo. Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
 
 ### marketing-light
 
@@ -179,7 +183,7 @@ Marcos de dispositivos son excepciones ilustrativas. Espaciado base 4/8/16/24/32
 
 **Marketing:** claro, amplio, comercial y más redondeado. Navegación superior, hero asimétrico, contenido orientado al producto y vistas conceptuales identificadas como ejemplo. Su modo oscuro usa azul nocturno, nunca negro absoluto.
 
-**Panel profesional:** herramienta de trabajo visualmente distinta del sitio público. Navegación izquierda con marca, cabecera contextual y contenido compacto; fondos, sidebar y topbar separados. Inspiración Fluent mediante jerarquía, espaciado y radios; la implementación usa React/CSS existente, no la biblioteca oficial Fluent UI. En anchos estrechos la navegación se reordena arriba y permanece accesible sin desbordar.
+**Panel profesional:** herramienta de trabajo visualmente distinta del sitio público. Navegación izquierda con marca, cabecera contextual y contenido compacto; fondos, sidebar y topbar separados. Inspiración Fluent mediante jerarquía, espaciado y radios; la implementación usa React/CSS existente, no la biblioteca oficial Fluent UI. En anchos estrechos la navegación se reordena arriba y permanece accesible sin desbordar. **Navegación (ajuste de noviembre de 2026):** la barra lateral solo lleva destinos de uso diario (profesional: Inicio y Clientes; administración: Inicio, Profesionales y Planes). Mi perfil, Mi suscripción, Apariencia, Instalar app, Sitio público y Cerrar sesión viven en un menú de cuenta sobre el nombre de la persona; la Recuperación asistida se abre desde Clientes (profesional) o desde el menú de cuenta (administración). En móvil la barra inferior muestra los mismos destinos diarios y el menú de cuenta se abre desde el avatar de la cabecera.
 
 Destinos previstos por las HU: Inicio, Clientes, Planes (Entrenamiento/Alimentación), Seguimiento y Configuración (cuenta/suscripción). Mostrar solo destinos con implementación funcional. El panel actual ofrece Inicio y Mi perfil, datos de cuenta y estado sin plan asignado. Administración comparte estructura y tokens, con navegación y permisos propios. No fabricar métricas, gráficas ni accesos a módulos pendientes.
 
@@ -194,7 +198,7 @@ Validar contraste por combinación y tamaño; los HEX por sí solos no certifica
 ## Alcance implementado y fuentes
 
 - Web: marca y estados en `apps/web/src/index.css`; marketing claro/oscuro en `apps/web/src/features/marketing/marketing.css`; acceso/registro en `apps/web/src/features/auth/registration.css`.
-- Panel y administración: estructura compartida `apps/web/src/layouts/WorkspaceLayout.tsx`, componentes en `apps/web/src/components/` y tokens globales en `apps/web/src/index.css`, sin dependencia visual del marketing.
+- Panel y administración: estructura compartida `apps/web/src/layouts/WorkspaceLayout.tsx`, componentes en `apps/web/src/components/` (incluido `ui.tsx`: PageHeader, Card, Badge, Meter), tokens `--ws-*` y clases `ws-*` en `apps/web/src/workspace.css` y tokens globales en `apps/web/src/index.css`, sin dependencia visual del marketing.
 - Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas.
 - Las vistas conceptuales de marketing conservan su contenido de ejemplo. Las pantallas reales usan la API y conservan comprobación de sesión, redirección por rol, reintento y cierre de sesión.
 - Esta decisión no añade agenda, chat, notificaciones, rachas, fotografías, reportes, bibliotecas multimedia ni reglas comerciales. Permisos y suscripciones siguen las HU/DEC y la API.

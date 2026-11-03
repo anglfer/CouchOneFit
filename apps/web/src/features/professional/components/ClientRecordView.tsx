@@ -68,14 +68,14 @@ function ClientRecordContent({
     };
   }, [clientId, attempt, requestKey]);
   return (
-    <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border space-y-4">
+    <section className="space-y-5">
       <Link
         to="/app/clientes"
-        className="inline-block text-indigo-600! dark:text-indigo-400! font-semibold"
+        className="inline-block text-sm font-semibold text-(--ws-primary-fg) hover:underline"
       >
         ← Volver a mi cartera
       </Link>
-      <h1 className="text-xl font-bold">Expediente del cliente</h1>
+      <h1 className="ws-title mt-0!">Expediente del cliente</h1>
       {[saved && 'Los cambios se guardaron correctamente.', statusSaved]
         .filter(Boolean)
         .map((notice) => (
@@ -84,13 +84,18 @@ function ClientRecordContent({
             role="status"
             // The editor collapses after saving; bring the confirmation into view.
             ref={(node) => node?.scrollIntoView?.({ block: 'center' })}
-            className="font-semibold text-emerald-700 dark:text-emerald-400"
+            className="ws-alert"
+            data-tone="ok"
           >
             ✓ {notice}
           </p>
         ))}
       {loading ? (
-        <p role="status">Cargando expediente…</p>
+        <div className="space-y-3" role="status" aria-busy="true">
+          <span className="sr-only">Cargando expediente…</span>
+          <div className="ws-skeleton h-24" />
+          <div className="ws-skeleton h-40" />
+        </div>
       ) : error ? (
         <div role="alert">
           <p>{error}</p>
@@ -118,51 +123,55 @@ function ClientRecordContent({
           />
         ) : (
           <>
-            <h2 className="text-lg font-bold">{record.fullName}</h2>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={statusBusy}
-                onClick={() => {
-                  setSaved(false);
-                  setEditing(true);
-                }}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-              >
-                Editar datos base
-              </button>
-              <button
-                type="button"
-                disabled={statusBusy}
-                onClick={() => setAttempt((n) => n + 1)}
-                className="px-4 py-2 border rounded-lg disabled:opacity-50"
-              >
-                Actualizar expediente
-              </button>
-              <ClientStatusAction
-                sessionReady={sessionReady}
-                clientId={clientId}
-                status={record.status}
-                accountId={accountId}
-                onBusyChange={setStatusBusy}
-                onChanged={(updated) => {
-                  setResult((current) => ({
-                    ...current,
-                    key: requestKey,
-                    record: updated,
-                    error: '',
-                  }));
-                  setStatusSaved(
-                    updated.status === 'active'
-                      ? 'El expediente está activo.'
-                      : 'El expediente está inactivo.'
-                  );
-                  onStatusChanged();
-                }}
-              />
+            <div className="ws-card flex flex-wrap items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">{record.fullName}</h2>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={statusBusy}
+                  onClick={() => {
+                    setSaved(false);
+                    setEditing(true);
+                  }}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                  Editar datos base
+                </button>
+                <button
+                  type="button"
+                  disabled={statusBusy}
+                  onClick={() => setAttempt((n) => n + 1)}
+                  className="px-4 py-2 border rounded-lg disabled:opacity-50"
+                >
+                  Actualizar expediente
+                </button>
+                <ClientStatusAction
+                  sessionReady={sessionReady}
+                  clientId={clientId}
+                  status={record.status}
+                  accountId={accountId}
+                  onBusyChange={setStatusBusy}
+                  onChanged={(updated) => {
+                    setResult((current) => ({
+                      ...current,
+                      key: requestKey,
+                      record: updated,
+                      error: '',
+                    }));
+                    setStatusSaved(
+                      updated.status === 'active'
+                        ? 'El expediente está activo.'
+                        : 'El expediente está inactivo.'
+                    );
+                    onStatusChanged();
+                  }}
+                />
+              </div>
             </div>
-            <h3 className="font-bold">Perfil y medidas base</h3>
-            <ClientBaseDetails record={record} />
+            <div className="ws-card space-y-4">
+              <h3 className="ws-card-title">Perfil y medidas base</h3>
+              <ClientBaseDetails record={record} />
+            </div>
             {sections && <ClientRecordSections sections={sections} />}
           </>
         ))

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CouchOne Fit">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3046eb"/>
+      <stop offset="0.5" stop-color="#4037f7"/>
+      <stop offset="1" stop-color="#6344dc"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(52 94) scale(0.6)" fill="#ffffff">
+    <g transform="translate(-280 -230)">
+      <path d="M740 262H535C400 262 295 380 295 512C295 640 395 742 520 742H630Q645 742 655 732L746 635Q752 626 740 618H535C475 618 432 570 432 512C432 455 475 400 535 400H612Q622 400 630 392L746 280Q752 264 740 262Z"/>
+      <path d="M840 243H930Q948 243 948 262V655Q948 695 910 712L828 757Q806 762 806 740V410Q806 400 796 400H690Q676 396 686 385L825 250Q832 243 840 243Z"/>
+    </g>
+  </g>
+</svg>

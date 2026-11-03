@@ -1,4 +1,5 @@
 import { useState, type ReactElement } from 'react';
+import { Icon } from '../../../components/Icon';
 
 type PreviewView = 'summary' | 'training' | 'nutrition';
 
@@ -38,16 +39,16 @@ function SummaryPreview({
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
         <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-          <span className="block text-[11px] font-semibold text-slate-500">
+          <span className="block text-xs font-semibold text-slate-500">
             Clientes activos
           </span>
           <strong className="block text-2xl font-black text-slate-900 mt-0.5">
             3
           </strong>
-          <small className="text-[10px] text-slate-400">En este ejemplo</small>
+          <small className="text-xs text-slate-400">En este ejemplo</small>
         </div>
         <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80">
-          <span className="block text-[11px] font-semibold text-indigo-700">
+          <span className="block text-xs font-semibold text-indigo-700">
             Check-ins recibidos
           </span>
           <strong className="block text-2xl font-black text-indigo-900 mt-0.5">
@@ -57,20 +58,18 @@ function SummaryPreview({
               / 3
             </em>
           </strong>
-          <small className="text-[10px] text-indigo-600">
+          <small className="text-xs text-indigo-600">
             El seguimiento de hoy
           </small>
         </div>
         <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-          <span className="block text-[11px] font-semibold text-slate-500">
+          <span className="block text-xs font-semibold text-slate-500">
             Por revisar
           </span>
           <strong className="block text-2xl font-black text-slate-900 mt-0.5">
             {isCheckInComplete ? '0' : '1'}
           </strong>
-          <small className="text-[10px] text-slate-400">
-            Check-ins pendientes
-          </small>
+          <small className="text-xs text-slate-400">Check-ins pendientes</small>
         </div>
       </div>
 
@@ -79,7 +78,7 @@ function SummaryPreview({
           <h3 className="text-sm font-bold text-slate-900">
             Tus clientes, al día
           </h3>
-          <span className="text-[11px] font-semibold text-slate-400">
+          <span className="text-xs font-semibold text-slate-400">
             Check-in de hoy
           </span>
         </div>
@@ -100,13 +99,13 @@ function SummaryPreview({
                   <strong className="block text-xs font-bold text-slate-900">
                     {client.name}
                   </strong>
-                  <small className="text-[11px] text-slate-400">
+                  <small className="text-xs text-slate-400">
                     {client.goal}
                   </small>
                 </div>
               </div>
               <span
-                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
                   client.received
                     ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                     : 'text-amber-700 bg-amber-50 border-amber-200'
@@ -134,7 +133,7 @@ function TrainingPreview(): ReactElement {
             Fuerza de cuerpo completo
           </h3>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
+        <span className="px-2.5 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
           Versión activa
         </span>
       </div>
@@ -155,7 +154,7 @@ function TrainingPreview(): ReactElement {
               }`}
             >
               <span className="text-xs">{day}</span>
-              <small className="text-[9px] font-medium mt-0.5">
+              <small className="text-[11px] font-medium mt-0.5">
                 {isTrain ? 'Entrena' : 'Descanso'}
               </small>
             </span>
@@ -168,7 +167,7 @@ function TrainingPreview(): ReactElement {
           <dt className="font-bold text-slate-900">Sentadilla goblet</dt>
           <dd className="flex items-center gap-2 text-slate-600 font-semibold">
             3 × 12{' '}
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 bg-indigo-100">
+            <span className="px-2 py-0.5 rounded text-xs font-bold text-indigo-700 bg-indigo-100">
               RPE 7
             </span>
           </dd>
@@ -177,7 +176,7 @@ function TrainingPreview(): ReactElement {
           <dt className="font-bold text-slate-900">Remo con mancuerna</dt>
           <dd className="flex items-center gap-2 text-slate-600 font-semibold">
             3 × 10{' '}
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 bg-indigo-100">
+            <span className="px-2 py-0.5 rounded text-xs font-bold text-indigo-700 bg-indigo-100">
               RPE 7
             </span>
           </dd>
@@ -186,14 +185,14 @@ function TrainingPreview(): ReactElement {
           <dt className="font-bold text-slate-900">Plancha</dt>
           <dd className="flex items-center gap-2 text-slate-600 font-semibold">
             3 × 30 s{' '}
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-indigo-700 bg-indigo-100">
+            <span className="px-2 py-0.5 rounded text-xs font-bold text-indigo-700 bg-indigo-100">
               Control
             </span>
           </dd>
         </div>
       </dl>
 
-      <p className="text-[11px] text-slate-400 text-center">
+      <p className="text-xs text-slate-400 text-center">
         Ejemplo ilustrativo, no una recomendación de entrenamiento.
       </p>
     </div>
@@ -212,7 +211,7 @@ function NutritionPreview(): ReactElement {
             Cada comida, bien definida
           </h3>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
+        <span className="px-2.5 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
           Versión activa
         </span>
       </div>
@@ -220,14 +219,14 @@ function NutritionPreview(): ReactElement {
       <dl className="space-y-2.5 text-xs">
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
           <dt className="flex items-center gap-2 font-bold text-slate-900">
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-purple-700 bg-purple-100">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold text-purple-700 bg-purple-100">
               01
             </span>{' '}
             Desayuno
           </dt>
           <dd className="text-slate-600 pl-7">
             Avena con yogur y fruta
-            <small className="block text-[10px] text-slate-400 mt-0.5">
+            <small className="block text-xs text-slate-400 mt-0.5">
               Cantidades e indicaciones del profesional
             </small>
           </dd>
@@ -235,14 +234,14 @@ function NutritionPreview(): ReactElement {
 
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
           <dt className="flex items-center gap-2 font-bold text-slate-900">
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-purple-700 bg-purple-100">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold text-purple-700 bg-purple-100">
               02
             </span>{' '}
             Comida
           </dt>
           <dd className="text-slate-600 pl-7">
             Pollo, arroz y verduras
-            <small className="block text-[10px] text-slate-400 mt-0.5">
+            <small className="block text-xs text-slate-400 mt-0.5">
               Cantidades e indicaciones del profesional
             </small>
           </dd>
@@ -250,21 +249,21 @@ function NutritionPreview(): ReactElement {
 
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
           <dt className="flex items-center gap-2 font-bold text-slate-900">
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-purple-700 bg-purple-100">
+            <span className="px-1.5 py-0.5 rounded text-xs font-bold text-purple-700 bg-purple-100">
               03
             </span>{' '}
             Cena
           </dt>
           <dd className="text-slate-600 pl-7">
             Tostadas con queso y vegetales
-            <small className="block text-[10px] text-slate-400 mt-0.5">
+            <small className="block text-xs text-slate-400 mt-0.5">
               Cantidades e indicaciones del profesional
             </small>
           </dd>
         </div>
       </dl>
 
-      <p className="text-[11px] text-slate-400 text-center">
+      <p className="text-xs text-slate-400 text-center">
         Ejemplo ilustrativo, no una recomendación alimenticia.
       </p>
     </div>
@@ -293,7 +292,7 @@ function ClientPreview({
       <div className="flex items-center justify-between text-xs font-bold text-slate-400 pt-1">
         <span>CouchOne Fit</span>
         <span
-          className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold"
+          className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs font-bold"
           aria-hidden="true"
         >
           AT
@@ -311,14 +310,14 @@ function ClientPreview({
       </div>
 
       <div className="p-4 rounded-2xl bg-indigo-600 text-white space-y-1 shadow-md">
-        <span className="text-[10px] font-black tracking-wider text-indigo-200 uppercase">
+        <span className="text-xs font-black tracking-wider text-indigo-200 uppercase">
           ENTRENAMIENTO
         </span>
         <strong className="block text-sm font-bold leading-snug">
           Hoy toca dar un paso más.
         </strong>
         <p className="text-xs text-indigo-100">Fuerza de cuerpo completo</p>
-        <small className="text-[10px] text-indigo-200 block pt-1">
+        <small className="text-xs text-indigo-200 block pt-1">
           3 ejercicios
         </small>
       </div>
@@ -334,7 +333,7 @@ function ClientPreview({
           <strong className="block text-xs font-bold text-white">
             Tu alimentación
           </strong>
-          <small className="text-[10px] text-slate-400">
+          <small className="text-xs text-slate-400">
             Plan activo de tu profesional
           </small>
         </div>
@@ -344,7 +343,7 @@ function ClientPreview({
         <strong className="block text-xs font-bold text-white">
           ¿Cómo va tu día?
         </strong>
-        <p className="text-[11px] text-slate-400 leading-snug">
+        <p className="text-xs text-slate-400 leading-snug">
           Tu check-in le da contexto a tu profesional.
         </p>
         <button
@@ -354,10 +353,14 @@ function ClientPreview({
           onClick={onToggleCheckIn}
         >
           {isCheckInComplete ? 'Deshacer ejemplo' : 'Simular check-in'}{' '}
-          <span aria-hidden="true">{isCheckInComplete ? '↶' : '→'}</span>
+          <Icon
+            name={isCheckInComplete ? 'refresh' : 'arrow-right'}
+            size={14}
+            className="ml-1 inline"
+          />
         </button>
         <span
-          className="block text-[10px] text-slate-400 text-center"
+          className="block text-xs text-slate-400 text-center"
           role="status"
         >
           {isCheckInComplete
@@ -397,7 +400,7 @@ export function ProductPreview(): ReactElement {
             <span className="font-semibold text-slate-700">
               Tu espacio profesional
             </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200">
               Ejemplo
             </span>
           </div>
@@ -410,7 +413,7 @@ export function ProductPreview(): ReactElement {
                 <span className="block text-base font-extrabold text-slate-900 tracking-tight">
                   CouchOne<span className="text-indigo-600"> Fit</span>
                 </span>
-                <span className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mt-4 mb-2">
+                <span className="block text-xs font-bold tracking-wider text-slate-400 uppercase mt-4 mb-2">
                   TU ESPACIO
                 </span>
                 <div
@@ -434,7 +437,7 @@ export function ProductPreview(): ReactElement {
                         }`}
                       >
                         <span
-                          className={`text-[10px] font-bold opacity-70`}
+                          className={`text-xs font-bold opacity-70`}
                           aria-hidden="true"
                         >
                           {view.number}
@@ -457,7 +460,7 @@ export function ProductPreview(): ReactElement {
                   <strong className="block text-xs font-bold text-slate-900 leading-tight">
                     Laura Campos
                   </strong>
-                  <small className="text-[10px] text-slate-400">
+                  <small className="text-xs text-slate-400">
                     Profesional de ejemplo
                   </small>
                 </div>
@@ -511,9 +514,6 @@ export function ProductPreview(): ReactElement {
         id="preview-caption"
         className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-500 text-center"
       >
-        <span className="text-indigo-600 font-bold" aria-hidden="true">
-          ↳
-        </span>
         <span>
           Una plataforma. Dos experiencias conectadas.{' '}
           <strong className="font-semibold text-slate-700">

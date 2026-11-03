@@ -24,3 +24,5 @@ flutter:
   assets:
     - .env.json
     - assets/logo.png
+    - assets/brand/logomark.png
+    - assets/brand/logomark_white.png

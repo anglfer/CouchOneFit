@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { ApiError } from '../../../services/api';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 
+import { Icon } from '../../../components/Icon';
 import { Link } from '../../../components/Link';
+import { Badge } from '../../../components/ui';
 import ClientAccountAction from './ClientAccountAction';
 import ClientStatusAction from './ClientStatusAction';
 import GoalField from './GoalField';
@@ -70,6 +72,7 @@ export default function ClientAccessPanel({
   >(null);
   const [hasClients, setHasClients] = useState(false);
   const [listError, setListError] = useState('');
+  const [formToggled, setFormToggled] = useState<boolean | null>(null);
   const requestKey = JSON.stringify([attempt, filters, cursors]);
   const loading = loadedKey !== requestKey;
   useEffect(() => {
@@ -106,6 +109,7 @@ export default function ClientAccessPanel({
       active = false;
     };
   }, [attempt, filters, cursors, requestKey]);
+  const formOpen = formToggled ?? (!!loadedKey && !hasClients && !listError);
   async function invitation(record: ClientRecord, revoke = false) {
     if (busy) return;
     setBusy(record.id);
@@ -178,6 +182,7 @@ export default function ClientAccessPanel({
       setSearch('');
       setFilters((current) => ({ ...current, search: '', status: '' }));
       setSaved('El expediente se guardó correctamente.');
+      setFormToggled(false);
       setAttempt((value) => value + 1);
       onStatusChanged();
     } catch (failure) {
@@ -195,225 +200,261 @@ export default function ClientAccessPanel({
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
   return (
-    <section className="p-6 rounded-2xl bg-white dark:bg-[#0c152c] border border-slate-200 dark:border-slate-800 space-y-5">
-      <h1 className="text-xl font-bold">Acceso a expedientes</h1>
-      {statusNotice && <p role="status">{statusNotice}</p>}
-      <p>
+    <section className="space-y-5" aria-labelledby="portfolio-heading">
+      <h2 id="portfolio-heading" className="sr-only">
+        Acceso a expedientes
+      </h2>
+      {statusNotice && (
+        <p className="ws-alert" data-tone="ok" role="status">
+          {statusNotice}
+        </p>
+      )}
+      <p className="ws-lead mt-0! mb-5!">
         Entrega una invitación privada al cliente de un expediente preparado.
         Reemplazarla invalida inmediatamente el código anterior. Se requiere
         expediente, profesional y suscripción activos.
       </p>
-      <form onSubmit={saveRecord} className="border rounded-xl p-4 space-y-3">
-        <h2 className="font-bold">Nuevo expediente</h2>
-        <label className="block">
-          Nombre completo
-          <input
-            required
-            minLength={2}
-            maxLength={150}
-            value={form.fullName}
-            onChange={(event) => updateField('fullName', event.target.value)}
-            aria-invalid={!!fieldErrors.fullName}
-            aria-describedby={
-              fieldErrors.fullName ? 'client-full-name-error' : undefined
-            }
-            className="block border p-2 rounded-lg w-full"
-          />
-          {fieldErrors.fullName && (
-            <p
-              id="client-full-name-error"
-              className="text-red-700"
-              role="alert"
-            >
-              {fieldErrors.fullName}
-            </p>
-          )}
-        </label>
-        <label className="block">
-          Fecha de nacimiento
-          <input
-            required
-            type="date"
-            value={form.birthDate}
-            onChange={(event) => updateField('birthDate', event.target.value)}
-            aria-invalid={!!fieldErrors.birthDate}
-            aria-describedby={
-              fieldErrors.birthDate ? 'client-birth-date-error' : undefined
-            }
-            className="block border p-2 rounded-lg w-full"
-          />
-          <span className="text-sm">
-            Solo se registran personas de 16 años o más.
-          </span>
-          {fieldErrors.birthDate && (
-            <p
-              id="client-birth-date-error"
-              className="text-red-700"
-              role="alert"
-            >
-              {fieldErrors.birthDate}
-            </p>
-          )}
-        </label>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            Estatura (cm)
-            <input
-              required
-              type="number"
-              min="100"
-              max="250"
-              step="0.1"
-              inputMode="decimal"
-              value={form.heightCm}
-              onChange={(event) => updateField('heightCm', event.target.value)}
-              aria-invalid={!!fieldErrors.heightCm}
-              aria-describedby={
-                fieldErrors.heightCm ? 'client-height-error' : undefined
-              }
-              className="block border p-2 rounded-lg w-full"
-            />
-            {fieldErrors.heightCm && (
-              <p id="client-height-error" className="text-red-700" role="alert">
-                {fieldErrors.heightCm}
-              </p>
-            )}
-          </label>
-          <label className="block">
-            Peso base (kg)
-            <input
-              required
-              type="number"
-              min="30"
-              max="300"
-              step="0.1"
-              inputMode="decimal"
-              value={form.baseWeightKg}
-              onChange={(event) =>
-                updateField('baseWeightKg', event.target.value)
-              }
-              aria-invalid={!!fieldErrors.baseWeightKg}
-              aria-describedby={
-                fieldErrors.baseWeightKg ? 'client-weight-error' : undefined
-              }
-              className="block border p-2 rounded-lg w-full"
-            />
-            {fieldErrors.baseWeightKg && (
-              <p id="client-weight-error" className="text-red-700" role="alert">
-                {fieldErrors.baseWeightKg}
-              </p>
-            )}
-          </label>
-        </div>
-        <fieldset className="border rounded-lg p-3 space-y-3">
-          <legend className="px-1">Medidas base opcionales</legend>
-          <p className="text-sm">Déjalas vacías si no se midieron todavía.</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block">
-              Grasa medida (%)
+      {saved && (
+        <p role="status" className="ws-alert" data-tone="ok">
+          ✓ {saved}
+        </p>
+      )}
+      <details
+        className="ws-card ws-disclosure"
+        open={formOpen}
+        onToggle={(event) => setFormToggled(event.currentTarget.open)}
+      >
+        <summary>
+          <Icon name="plus" size={18} />
+          Nuevo expediente
+        </summary>
+        <form onSubmit={saveRecord} className="space-y-4 pt-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="block sm:col-span-3">
+              Nombre completo
               <input
-                type="number"
-                min="2"
-                max="60"
-                step="0.1"
-                inputMode="decimal"
-                value={form.baseBodyFatPercentage}
+                required
+                minLength={2}
+                maxLength={150}
+                value={form.fullName}
                 onChange={(event) =>
-                  updateField('baseBodyFatPercentage', event.target.value)
+                  updateField('fullName', event.target.value)
                 }
-                aria-invalid={!!fieldErrors.baseBodyFatPercentage}
+                aria-invalid={!!fieldErrors.fullName}
                 aria-describedby={
-                  fieldErrors.baseBodyFatPercentage
-                    ? 'client-body-fat-error'
-                    : undefined
+                  fieldErrors.fullName ? 'client-full-name-error' : undefined
                 }
                 className="block border p-2 rounded-lg w-full"
               />
-              {fieldErrors.baseBodyFatPercentage && (
+              {fieldErrors.fullName && (
                 <p
-                  id="client-body-fat-error"
+                  id="client-full-name-error"
                   className="text-red-700"
                   role="alert"
                 >
-                  {fieldErrors.baseBodyFatPercentage}
+                  {fieldErrors.fullName}
                 </p>
               )}
             </label>
             <label className="block">
-              Cintura (cm)
+              Fecha de nacimiento
               <input
-                type="number"
-                min="40"
-                max="250"
-                step="0.1"
-                inputMode="decimal"
-                value={form.waistCm}
-                onChange={(event) => updateField('waistCm', event.target.value)}
-                aria-invalid={!!fieldErrors.waistCm}
+                required
+                type="date"
+                value={form.birthDate}
+                onChange={(event) =>
+                  updateField('birthDate', event.target.value)
+                }
+                aria-invalid={!!fieldErrors.birthDate}
                 aria-describedby={
-                  fieldErrors.waistCm ? 'client-waist-error' : undefined
+                  fieldErrors.birthDate ? 'client-birth-date-error' : undefined
                 }
                 className="block border p-2 rounded-lg w-full"
               />
-              {fieldErrors.waistCm && (
+              <span className="text-sm">
+                Solo se registran personas de 16 años o más.
+              </span>
+              {fieldErrors.birthDate && (
                 <p
-                  id="client-waist-error"
+                  id="client-birth-date-error"
                   className="text-red-700"
                   role="alert"
                 >
-                  {fieldErrors.waistCm}
+                  {fieldErrors.birthDate}
                 </p>
               )}
             </label>
-            <label className="block">
-              Cadera (cm)
-              <input
-                type="number"
-                min="50"
-                max="250"
-                step="0.1"
-                inputMode="decimal"
-                value={form.hipCm}
-                onChange={(event) => updateField('hipCm', event.target.value)}
-                aria-invalid={!!fieldErrors.hipCm}
-                aria-describedby={
-                  fieldErrors.hipCm ? 'client-hip-error' : undefined
-                }
-                className="block border p-2 rounded-lg w-full"
-              />
-              {fieldErrors.hipCm && (
-                <p id="client-hip-error" className="text-red-700" role="alert">
-                  {fieldErrors.hipCm}
-                </p>
-              )}
-            </label>
+            <div className="contents">
+              <label className="block">
+                Estatura (cm)
+                <input
+                  required
+                  type="number"
+                  min="100"
+                  max="250"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={form.heightCm}
+                  onChange={(event) =>
+                    updateField('heightCm', event.target.value)
+                  }
+                  aria-invalid={!!fieldErrors.heightCm}
+                  aria-describedby={
+                    fieldErrors.heightCm ? 'client-height-error' : undefined
+                  }
+                  className="block border p-2 rounded-lg w-full"
+                />
+                {fieldErrors.heightCm && (
+                  <p
+                    id="client-height-error"
+                    className="text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.heightCm}
+                  </p>
+                )}
+              </label>
+              <label className="block">
+                Peso base (kg)
+                <input
+                  required
+                  type="number"
+                  min="30"
+                  max="300"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={form.baseWeightKg}
+                  onChange={(event) =>
+                    updateField('baseWeightKg', event.target.value)
+                  }
+                  aria-invalid={!!fieldErrors.baseWeightKg}
+                  aria-describedby={
+                    fieldErrors.baseWeightKg ? 'client-weight-error' : undefined
+                  }
+                  className="block border p-2 rounded-lg w-full"
+                />
+                {fieldErrors.baseWeightKg && (
+                  <p
+                    id="client-weight-error"
+                    className="text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.baseWeightKg}
+                  </p>
+                )}
+              </label>
+            </div>
           </div>
-        </fieldset>
-        <GoalField
-          value={form.goal}
-          onChange={(value) => updateField('goal', value)}
-          error={fieldErrors.goal}
-          errorId="client-goal-error"
-          className="block border p-2 rounded-lg w-full"
-        />
-        <button
-          disabled={!!busy}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-        >
-          {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
-        </button>
-        {saved && (
-          <p
-            role="status"
-            className="font-semibold text-emerald-700 dark:text-emerald-400"
+          <fieldset className="space-y-3">
+            <legend>Medidas base opcionales</legend>
+            <p className="text-sm text-(--ws-muted)">
+              Déjalas vacías si no se midieron todavía.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                Grasa medida (%)
+                <input
+                  type="number"
+                  min="2"
+                  max="60"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={form.baseBodyFatPercentage}
+                  onChange={(event) =>
+                    updateField('baseBodyFatPercentage', event.target.value)
+                  }
+                  aria-invalid={!!fieldErrors.baseBodyFatPercentage}
+                  aria-describedby={
+                    fieldErrors.baseBodyFatPercentage
+                      ? 'client-body-fat-error'
+                      : undefined
+                  }
+                  className="block border p-2 rounded-lg w-full"
+                />
+                {fieldErrors.baseBodyFatPercentage && (
+                  <p
+                    id="client-body-fat-error"
+                    className="text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.baseBodyFatPercentage}
+                  </p>
+                )}
+              </label>
+              <label className="block">
+                Cintura (cm)
+                <input
+                  type="number"
+                  min="40"
+                  max="250"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={form.waistCm}
+                  onChange={(event) =>
+                    updateField('waistCm', event.target.value)
+                  }
+                  aria-invalid={!!fieldErrors.waistCm}
+                  aria-describedby={
+                    fieldErrors.waistCm ? 'client-waist-error' : undefined
+                  }
+                  className="block border p-2 rounded-lg w-full"
+                />
+                {fieldErrors.waistCm && (
+                  <p
+                    id="client-waist-error"
+                    className="text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.waistCm}
+                  </p>
+                )}
+              </label>
+              <label className="block">
+                Cadera (cm)
+                <input
+                  type="number"
+                  min="50"
+                  max="250"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={form.hipCm}
+                  onChange={(event) => updateField('hipCm', event.target.value)}
+                  aria-invalid={!!fieldErrors.hipCm}
+                  aria-describedby={
+                    fieldErrors.hipCm ? 'client-hip-error' : undefined
+                  }
+                  className="block border p-2 rounded-lg w-full"
+                />
+                {fieldErrors.hipCm && (
+                  <p
+                    id="client-hip-error"
+                    className="text-red-700"
+                    role="alert"
+                  >
+                    {fieldErrors.hipCm}
+                  </p>
+                )}
+              </label>
+            </div>
+          </fieldset>
+          <GoalField
+            value={form.goal}
+            onChange={(value) => updateField('goal', value)}
+            error={fieldErrors.goal}
+            errorId="client-goal-error"
+            className="block border p-2 rounded-lg w-full"
+          />
+          <button
+            disabled={!!busy}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
           >
-            ✓ {saved}
-          </p>
-        )}
-      </form>
+            {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
+          </button>
+        </form>
+      </details>
       <form
         aria-label="Buscar en mi cartera"
-        className="flex flex-wrap gap-3"
+        className="ws-card flex flex-wrap items-end gap-3 p-4!"
         onSubmit={(event) => {
           event.preventDefault();
           if (busy) return;
@@ -423,7 +464,7 @@ export default function ClientAccessPanel({
           setFilters((current) => ({ ...current, search: search.trim() }));
         }}
       >
-        <label>
+        <label className="min-w-56 flex-1">
           Buscar por nombre u objetivo
           <input
             className="block border rounded p-2"
@@ -477,16 +518,16 @@ export default function ClientAccessPanel({
             <option value={100}>100</option>
           </select>
         </label>
-        <button
-          type="submit"
-          disabled={!!busy}
-          className="self-end border rounded-lg px-4 py-2"
-        >
+        <button type="submit" disabled={!!busy} className="self-end">
           Buscar
         </button>
       </form>
       {loading ? (
-        <p role="status">Cargando expedientes…</p>
+        <div className="space-y-3" role="status" aria-busy="true">
+          <span className="sr-only">Cargando expedientes…</span>
+          <div className="ws-skeleton h-24" />
+          <div className="ws-skeleton h-24" />
+        </div>
       ) : listError ? (
         <div role="alert">
           <p>{listError}</p>
@@ -498,7 +539,7 @@ export default function ClientAccessPanel({
           </button>
         </div>
       ) : clients.length === 0 ? (
-        <p role="status">
+        <p className="ws-card ws-empty" role="status">
           {!hasClients
             ? 'Tu cartera está vacía.'
             : cursors.length > 1
@@ -506,32 +547,50 @@ export default function ClientAccessPanel({
               : 'No hay resultados para estos filtros.'}
         </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="m-0 list-none space-y-3 p-0">
           {clients.map((record) => (
-            <li key={record.id} className="border rounded-xl p-4 space-y-3">
-              <h2 className="font-bold">
-                <Link
-                  to={`/app/clientes/${record.id}`}
-                  className="text-indigo-600! dark:text-indigo-400! underline underline-offset-4 hover:text-indigo-700!"
-                >
-                  {record.fullName}
-                </Link>
-              </h2>
-              <p>{record.goal}</p>
-              <p>
-                Estado: {record.status === 'active' ? 'Activo' : 'Inactivo'}
-              </p>
-              <p>
-                {record.userId
-                  ? record.accountStatus === 'inactive'
-                    ? 'Cuenta vinculada dada de baja'
-                    : 'Cuenta vinculada'
-                  : record.status !== 'active'
-                    ? 'Expediente inactivo'
-                    : 'Sin cuenta vinculada'}
-              </p>
+            <li key={record.id} className="ws-card space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold">
+                    <Link
+                      to={`/app/clientes/${record.id}`}
+                      className="text-(--ws-primary-fg) hover:underline"
+                    >
+                      {record.fullName}
+                    </Link>
+                  </h3>
+                  {record.goal && (
+                    <p className="mt-0.5 text-sm text-(--ws-muted)">
+                      {record.goal}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={record.status === 'active' ? 'ok' : 'neutral'}>
+                    {record.status === 'active' ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                  <Badge
+                    tone={
+                      record.userId
+                        ? record.accountStatus === 'inactive'
+                          ? 'bad'
+                          : 'info'
+                        : 'neutral'
+                    }
+                  >
+                    {record.userId
+                      ? record.accountStatus === 'inactive'
+                        ? 'Cuenta vinculada dada de baja'
+                        : 'Cuenta vinculada'
+                      : record.status !== 'active'
+                        ? 'Expediente inactivo'
+                        : 'Sin cuenta vinculada'}
+                  </Badge>
+                </div>
+              </div>
               {record.invitationExpiresAt && (
-                <p>
+                <p className="text-sm text-(--ws-muted)">
                   Invitación vigente hasta{' '}
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
@@ -604,7 +663,7 @@ export default function ClientAccessPanel({
               {delivery?.clientId === record.id && (
                 <div
                   role="status"
-                  className="border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl p-4 space-y-3"
+                  className="space-y-3 rounded-lg border border-(--ws-primary) bg-(--ws-selected) p-4"
                 >
                   <h3 className="font-bold">
                     Invitación para {record.fullName}
@@ -647,7 +706,7 @@ export default function ClientAccessPanel({
       )}
       <nav
         aria-label="Páginas de mi cartera"
-        className="flex items-center gap-3"
+        className="flex items-center justify-end gap-3 text-sm text-(--ws-muted)"
       >
         <button
           type="button"

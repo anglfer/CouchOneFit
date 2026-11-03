@@ -6,17 +6,8 @@ class BrandHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         children: [
-          Container(
-              width: 44,
-              height: 44,
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                      color: Theme.of(context).colorScheme.outlineVariant)),
-              child:
-                  Image.asset('assets/logo.png', excludeFromSemantics: true)),
+          Image.asset('assets/brand/logomark.png',
+              width: 46, excludeFromSemantics: true),
           const SizedBox(width: 12),
           const Flexible(
               child: Text('CouchOne Fit',
