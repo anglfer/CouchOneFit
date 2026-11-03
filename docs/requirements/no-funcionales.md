@@ -27,3 +27,12 @@ Requisitos de arquitectura, rendimiento, disponibilidad, usabilidad, mantenibili
 | `RNF18` | Integridad de registros históricos | Las modificaciones de planes, rutinas, evaluaciones y seguimientos no deberán provocar pérdida de información histórica requerida por el sistema. |
 | `RNF19` | Internacionalización inicial | La interfaz del sistema deberá utilizar el idioma español, de acuerdo con el alcance actual de CouchOne Fit. |
 | `RNF20` | Evolución del producto | La solución deberá poder extenderse posteriormente con funcionalidades como pagos recurrentes, notificaciones avanzadas, chat, integraciones de salud o wearables sin reconstruir completamente el sistema. |
+
+> **Propuestos el 3 de noviembre de 2026** por instrucción de la persona responsable del producto en chat (decisión [DEC-018](../../plan/PLAN_TRABAJO_V2.md)). No están en la hoja fuente: deben añadirse allí y aprobarse. Detalle y alcance en [PWA con uso sin conexión](../architecture/pwa-offline.md).
+
+| ID | Requerimiento | Descripción |
+| :--- | :--- | :--- |
+| `RNF21` | Uso sin conexión | La PWA del profesional deberá abrir y poder usarse sin conexión a internet en casi toda su funcionalidad, la actual y la de cada módulo futuro: consultar la información ya vista y registrar cambios que se conservarán y se sincronizarán al volver la conexión. Solo requieren conexión las acciones de autenticación, secretos de un solo uso (invitaciones y códigos), pagos y suscripción, alta/baja de cuentas y las acciones auditadas de administración. |
+| `RNF22` | Sincronización segura | Los cambios hechos sin conexión se enviarán sin duplicarse ni sobrescribir en silencio cambios más recientes del servidor. Nunca se mostrará como guardado algo que el servidor no confirmó, y la persona verá siempre qué está pendiente, fallido o en conflicto. |
+| `RNF23` | Privacidad de los datos locales | Los datos guardados en el dispositivo para el uso sin conexión se cifrarán, caducarán y se borrarán al cerrar sesión o cambiar de cuenta. No se guardarán localmente contraseñas, tokens, códigos de invitación ni de recuperación. |
+| `RNF24` | Consulta sin conexión en móvil | La aplicación móvil del cliente deberá permitir consultar sin conexión su plan de entrenamiento, su plan de alimentación, su historial de pesos y su perfil, mostrando la antigüedad de los datos y sin permitir registros que el servidor no confirme. |

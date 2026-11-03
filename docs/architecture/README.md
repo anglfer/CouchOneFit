@@ -108,6 +108,8 @@ Los tipos de contrato se guardan en `types/` de su funcionalidad. Las props que 
 
 ---
 
+> **Decidido, no implementado — uso sin conexión de la PWA (DEC-018):** el profesional podrá consultar y capturar sin internet en casi toda la aplicación y sincronizar después (`RNF21`–`RNF23`). Es una capacidad de la plataforma que cada módulo futuro hereda. Diseño, fases y preguntas abiertas en [pwa-offline.md](pwa-offline.md).
+
 ## 3. Móvil
 
 **Tecnología:** Flutter + Dart

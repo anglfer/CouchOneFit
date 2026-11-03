@@ -223,6 +223,7 @@ No se ejecutó build APK/AAB, build iOS/macOS, instalación nativa, suite E2E de
 | DEC-015 | **ACTUALIZADA:** información de registro versionada y confirmación atómica; política de privacidad completa por definir. | Omar / Ferxxo | HU-001/008/041 |
 | DEC-016 | **RESUELTA PARA V2:** cuatro sprints quincenales 19-oct–13-dic, incrementos S0–S7 ordenados, WIP 1 y reserva 30%; horas/fecha oficial gates externos.              | Equipo; coordina Ferxxo                        | §10/13; primer replaneamiento 1-nov; no compromiso de capacidad |
 | DEC-017 | **ACORDADA 30-oct, NO IMPLEMENTADA:** renovación automática simulada con 7 días de gracia; subir/bajar/cancelar plan; edad mínima 16; cliente ve solo datos base básicos; admin con soporte de lectura/reset; correos y push; sin reasignación. Prevalece sobre las reglas anteriores que contradice. | Ferxxo producto / equipo | EP-01/02/03; ver §3.4 DEC-017 |
+| DEC-018 | **ACORDADA 3-nov, NO IMPLEMENTADA:** la PWA profesional debe poder usarse sin conexión en casi toda su funcionalidad (leer y escribir con cola y sincronización), tanto lo ya implementado como cada módulo futuro; la app móvil del cliente consulta sin conexión lo esencial. Sustituye la regla transversal 9 y los «sin escrituras offline» de V2. | Responsable de producto (chat) | PWA profesional (HU-040), EP-03–07, RNF21–23; ver §3.4 DEC-018 |
 
 **Alternativas evaluadas históricamente para DEC-002:** (a) Auth administrado con mecanismo transaccional seguro y (b) credenciales/sesiones gestionadas por API con hash seguro y transacción PostgreSQL. La decisión resuelta el 2026-10-09 seleccionó la segunda opción; este registro no la reabre. Una secuencia “crear usuario remoto → insertar vínculo → borrar código” sin recuperación demostrada no satisfacía el acuerdo; no insertar manualmente en tablas internas de un proveedor para simular soporte transaccional.
 
@@ -417,6 +418,21 @@ La imagen no incorpora citas/agenda, chat, notificaciones, rachas, reportes nuev
 
 **Preguntas abiertas (no respondidas):** qué datos exactos incluye «lo básico» del cliente (nombre, fecha de nacimiento); qué recordatorios llegan por push y a quién; si el expediente captura correo y/o teléfono del cliente; qué ve el cliente durante la gracia; cuándo aplica una bajada de plan elegida (de inmediato o al renovar) y si hay devolución; qué proveedor de correo/push se usará.
 
+#### DEC-018 — La PWA profesional funciona sin conexión
+
+**Fuente:** instrucción de la persona responsable del producto en el chat el 3-nov-2026: la aplicación debe poder usarse sin conexión «casi toda», no solo lo que ya está construido. **Estado: DECIDIDO, NO IMPLEMENTADO.** Prevalece sobre la regla transversal 9 de V2 y sobre las frases «sin escrituras offline» / «instalable no significa offline». Diseño y fases en [docs/architecture/pwa-offline.md](../docs/architecture/pwa-offline.md); requisitos propuestos `RNF21`–`RNF23`.
+
+| Tema | Regla vigente |
+| --- | --- |
+| Principio | El uso sin conexión es una **capacidad de la plataforma**, no de una pantalla. Todo lo que el profesional use en la PWA debe poder consultarse (lo ya visto) y capturarse sin internet, y sincronizarse al volver la conexión. Aplica a lo ya implementado (EP-03) y a **cada módulo futuro** (evaluaciones, alimentación, entrenamiento, seguimiento). |
+| Excepciones que siempre exigen conexión | Iniciar sesión, registro, cambio de contraseña y recuperación asistida; invitaciones y códigos (secretos de un solo uso); pagos y cambios de suscripción; alta/baja de la cuenta de un cliente; en administración, las acciones de soporte (auditadas) y los cambios al catálogo de planes. Cada excepción nueva debe justificarse por seguridad, dinero o auditoría. |
+| Contrato por módulo | Cada HU del panel profesional declara su comportamiento sin conexión: qué lecturas se guardan, qué escrituras entran en cola, cómo se detectan conflictos (`version` o registros solo-añadir) y qué acciones exigen conexión. Sin esa declaración la HU no cumple D0 (§5.2, punto 11). |
+| Escrituras | Siempre con **clave de idempotencia** (la repetición no duplica) y control de versión cuando se edita. Nunca se muestra como guardado lo que el servidor no confirmó; la persona ve qué está pendiente, fallido o en conflicto. |
+| Privacidad | Los datos locales se cifran, caducan y se borran al cerrar sesión o cambiar de cuenta. Nunca se guardan contraseñas, tokens ni códigos de invitación o recuperación (RS). |
+| Alcance de producto | PWA profesional (lectura y escritura) y administración (solo lectura). **App móvil del cliente:** consulta sin conexión de lo esencial (plan de entrenamiento, plan de alimentación, historial de pesos y perfil), sin escrituras offline por ahora. |
+| Varios dispositivos | Conflictos por `version` y aviso de «posible duplicado» al sincronizar; nunca se descarta una cola en silencio (ver diseño §4.5 y §4.7). |
+| Aceptado el 3-nov | Migración de BD de idempotencia; limitaciones de iPhone/Safari; administración en solo lectura; excepciones que exigen conexión. Pendiente: si el móvil podrá registrar sin conexión. |
+
 ### 3.5 Archivo histórico supersedido — propuestas revisadas el 14 de octubre de 2026
 
 **NO VIGENTE:** el contenido siguiente conserva íntegramente la revisión anterior y sus preguntas como evidencia histórica de propuestas 10/11-oct. Toda redacción “pendiente”, “propuesta”, rangos, 48 h, precios, opcionales y preguntas de este archivo queda reemplazada por §3.3/3.4 mediante delegación explícita usuario 14-oct; no implica trabajo condicional, aprobación equipo ni nuevas decisiones abiertas. La transcripción de fórmulas sigue sugerida hasta cotejo original técnico.
@@ -607,7 +623,7 @@ Restricciones mínimas: FK, unicidades, checks acordados, índices por profesion
 6. Baja de cuenta ≠ suspensión de suscripción ≠ eliminación de invitación. Historial y relaciones se conservan según política aprobada.
 7. Los planes/rutinas anteriores no se sobrescriben; cambiar versión activa no reinterpreta sesiones/adherencia históricas contra una prescripción nueva.
 8. Web/móvil manejan loading, vacío, error y éxito; los fallos de red no se presentan como guardado correcto.
-9. No cachear respuestas privadas ni sesiones en la PWA por defecto. Instalable no significa sincronización offline ni escrituras offline: no están exigidas por V2.
+9. **(Actualizada por [DEC-018](#dec-018--la-pwa-profesional-funciona-sin-conexión), 3-nov-2026)** La PWA profesional debe funcionar sin conexión en casi toda su funcionalidad: lectura de lo ya consultado y escritura en cola con sincronización posterior. Los datos privados solo se guardan localmente cifrados, con caducidad y con borrado al cerrar sesión o cambiar de cuenta; nunca se guardan tokens, contraseñas ni códigos. Los fallos de red nunca se presentan como guardado correcto.
 10. Reintentos seguros, validación servidor y consistencia no dependen de deshabilitar un botón.
 11. Peso corporal diario y carga/peso de ejercicio son magnitudes de registros distintos. Captura única HU-032-MOV1/HU-037-MOV1 compartida: no pantalla ni tabla paralela por guardar check-in/peso; HU-037 define almacenamiento/consulta de su evento. Un envío con ambos se confirma todo-o-nada; editar por DEC-008 conserva trazabilidad y nunca sobrescribe base/evaluaciones profesionales.
 12. La bitácora registra lo realmente realizado, no cambia lo prescrito. Ausente no equivale a cero; carga cero puede ser válida en modalidad de peso corporal si el diccionario lo permite. Descanso no penaliza adherencia y falta de datos no equivale a incumplimiento; no emitir diagnósticos.
@@ -636,6 +652,7 @@ Restricciones mínimas: FK, unicidades, checks acordados, índices por profesion
 8. Revisión de código por otro integrante y corrección de observaciones antes de merge.
 9. OpenAPI, diccionario de datos, README/decisiones actualizados solo donde cambian contrato/configuración/comportamiento.
 10. Validación desde una app real: una pantalla sola o un endpoint aislado no cierra una feature vertical.
+11. Si la HU toca el panel profesional (PWA): declara y prueba su comportamiento sin conexión (lectura en caché, escrituras en cola con idempotencia y conflicto, o «requiere conexión» justificado) según DEC-018.
 
 **DoD de cada historia:** D0 + criterios específicos + `QA1`. HU-025 pospuesta/HU-038 excluida no cumplen DoD por archivarse; HU-009/023/041 son base activa. HU-023 exige gate técnico, no nueva elección de producto.
 
@@ -1349,10 +1366,11 @@ El contrato de historial consume el evento confirmado HU-037 cuando existe, con 
 
 **DoD:** D0; no rediseñar lo que ya funciona ni añadir lista de espera/contacto sin requerimiento.
 
-#### HU-040 — Instalar la aplicación profesional sin cachear datos privados
+#### HU-040 — Instalar la aplicación profesional y usarla sin conexión
 
-**Como:** profesional. **Quiero:** instalar la PWA y usar navegación privada responsive. **Para:** acceder cómodamente a mi trabajo.
-**Referencias:** RNF03/04/12 y separación Web documentada. **Responsable:** Franela Whaite. **Capas:** Web, Infraestructura; API solo controles ya comunes.
+**Como:** profesional. **Quiero:** instalar la PWA, usar navegación privada responsive y seguir trabajando aunque no tenga internet. **Para:** acceder cómodamente a mi trabajo y no perder lo que capturo.
+> **Actualizada por DEC-018 (3-nov-2026):** el título anterior decía «sin cachear datos privados». Ahora la PWA guarda datos privados cifrados para el uso sin conexión; ver [diseño](../docs/architecture/pwa-offline.md).
+**Referencias:** RNF03/04/12/21/22/23 y separación Web documentada. **Responsable:** Franela Whaite. **Capas:** Web, Infraestructura, API (idempotencia) y BD.
 **Depende de:** HU-002/005, TT-008 y al menos una vista privada HU-016. **Bloquea a:** cierre PWA y publicación Web.
 
 **Aceptación:** instalación abre `/app/` y exige sesión; landing no registra SW nuevo de alcance global; icons/manifest/SW están bien servidos; refresh/deep link no da 404; actualización no pierde un formulario sin decisión UX; logout no permite ver expediente desde caché; sin conexión muestra estado/fallback seguro, no confirma escrituras inexistentes.
@@ -1361,10 +1379,12 @@ El contrato de historial consume el evento confirmado HU-037 cuando existe, con 
 | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
 | HU-040-WEB1 | Delimitar manifest/start URL/scope, registro y alcance efectivo del SW, incluidos reemplazo/limpieza del SW raíz anterior. |
 | HU-040-WEB2 | Icons instalables/identidad, estrategia de update y navegación fallback solo donde corresponde.                            |
-| HU-040-WEB3 | No cachear respuestas privadas/tokens por defecto; probar cierre/cambio de cuenta/offline y limpieza.                      |
-| HU-040-QA1  | Instalación en matriz compatible, deep links, logout/cambio de cuenta, offline/update y no interferencia con landing.      |
+| HU-040-WEB3 | Caché de lectura cifrada por cuenta, sin tokens ni códigos; borrado al cerrar sesión/cambiar de cuenta; probar caducidad y limpieza. |
+| HU-040-WEB4 | Bandeja de salida (outbox) genérica por módulo, sincronización automática y manual, pantalla de pendientes, conflictos por versión y avisos de conexión. |
+| HU-040-API1 | Clave de idempotencia (`Idempotency-Key`) en las escrituras del profesional y migración de `idempotency_keys`; repetición sin duplicar. |
+| HU-040-QA1  | Instalación en matriz compatible, deep links sin conexión, lectura/escritura/sincronización/conflicto, logout/cambio de cuenta, update con cola pendiente y no interferencia con landing. |
 
-**DoD:** D0; manifest existente no basta para declarar PWA profesional terminada.
+**DoD:** D0; manifest existente no basta para declarar PWA profesional terminada. Cada módulo posterior hereda el contrato de DEC-018 en su propia HU.
 
 #### HU-041 — Informar privacidad y condiciones aprobadas
 
@@ -2096,7 +2116,7 @@ La cobertura importante es sobre caminos/reglas, no un porcentaje arbitrario. Fe
 | Historial/privacidad   | Cliente propio permitido, cliente B denegado, categoría/periodo ocultos no devueltos, retirada de permiso y limpieza de caché, tabla alternativa a gráfico.                                                                                                                                                                                                                             |
 | Exclusión de medios    | HU-038 fuera V2: no tareas/pruebas Storage/fotos activas. Peso HU-037 se prueba con check-in/evolución.                                                                                                                                                                                                                                                                                 |
 | Portal                 | Landing existente preservada, vista interactiva del producto, FAQ/anclas/menu/Escape/foco, CTA registro/login, catálogo público sin datos sensibles, precios/límites solo aprobados.                                                                                                                                                                                                             |
-| PWA                    | Instalar/start URL, auth requerida, scope efectivo/registro, SW previo raíz retirado, refresh/deep links, actualización con formulario, offline seguro, logout/cambio usuario sin caché privada.                                                                                                                                                                                        |
+| PWA                    | Instalar/start URL, auth requerida, scope efectivo/registro, SW previo raíz retirado, refresh/deep links, actualización con formulario, uso sin conexión (lectura, cola, sincronización, conflictos), logout/cambio usuario con limpieza de datos locales.                                                                                                                                                                                        |
 | Entornos/build         | Clon limpio/locks compatibles/URLrelease no localhost, Android manifest/Internet/firma/emuladores24/36; no iOS/Windows nativo/AAB/tiendas V2, cero secretos bundles/APK.                                                                                                                                                                                                                |
 | Operación              | CORS preflight permitido/denegado, JSON 400/body 413/404 JSON/500 sanitizado, health/readiness, API/BD caída, cold start medido, migración única/redeploy, rollback y restore medido.                                                                                                                                                                                                   |
 
@@ -2148,7 +2168,7 @@ La cobertura importante es sobre caminos/reglas, no un porcentaje arbitrario. Fe
 
 ### 12.3 Qué no hace falta introducir
 
-No se propone migración tecnológica, microservicios, múltiples protocolos API, pipeline de pagos, chat, wearables, notificaciones, subida a tiendas ni escrituras offline. Tampoco se añade un framework de internacionalización multilingüe cuando RNF19 solo pide español. La modularidad deja esas ampliaciones posibles sin implementarlas ahora.
+No se propone migración tecnológica, microservicios, múltiples protocolos API, pipeline de pagos, chat, wearables, notificaciones, subida a tiendas. Las escrituras offline de la PWA profesional sí se incluyen desde DEC-018. Tampoco se añade un framework de internacionalización multilingüe cuando RNF19 solo pide español. La modularidad deja esas ampliaciones posibles sin implementarlas ahora.
 
 ### 12.4 Fuentes operativas contrastadas
 
@@ -2206,7 +2226,7 @@ Sin extractos literales extensos ni pruebas inventadas. Humano autorizado revali
 - **BD:** identidad/sesiones/activación, rutinas/versiones/prescripción, sesiones/series reales, check-in/evento único de peso y consultas de adherencia; modelo Franela Whaite, permisos TT-010 de Omar.
 - **API:** auth/rotación/revocación/activación/recuperación aprobada; prescripción/versiones/activación/consulta, ejecución por serie idempotente, check-in/peso con atomicidad conjunta y servicio de indicadores/adherencia HU-033.
 - **Web:** acceso y editor de rutina; página HU-033 con detalle real por serie, peso corporal separado, gráficas/histórico e indicadores. Dashboard HU-034 pertenece a Omar; no programa suscripciones/cupos.
-- **Móvil:** sesión y activación con MOV1 Franela Whaite; rutina activa, bitácora por serie, check-in diario con captura única de peso; sin prescripción profesional móvil ni offline añadido.
+- **Móvil:** sesión y activación con MOV1 Franela Whaite; rutina activa, bitácora por serie, check-in diario con captura única de peso; sin prescripción profesional móvil; consulta sin conexión de plan de entrenamiento, alimentación y pesos según DEC-018, sin escrituras offline.
 - **Pruebas/revisión:** auth/TTL/replay/rollback, versiones/series/idempotencia, ausencia frente a cero permitido, atomicidad check-in/peso, historia/origen/adherencia. Omar/Pukzil contrastan sus cambios; TT-020 acepta solo tras gates/revisión independiente.
 - **Dependencias recibidas:** modelo/contratos/expediente/invitación/MOV1 de Franela Whaite; permisos/tests/CI/capacidad de Omar; HTTP/nutrición/evaluación/historial de Pukzil.
 - **Entregas a otros:** sesión/activación a todos; rutina/serie/check-in/peso y servicio HU-033 a Omar/dashboard/inicio, Pukzil/evolución/historial y Franela Whaite/expediente; estándares/objetivos y aprobación de promoción.
