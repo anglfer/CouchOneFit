@@ -300,6 +300,8 @@ El alcance actual contempla población de **16 años o más** (DEC-017, 30-oct; 
 | Nutrición manual           | Comidas ordenadas, alimento nombre texto, cantidad >0 y ≤10000 precisión 0,1, unidades `g`, `ml`, `unidad`, `porcion`; estas últimas son excepción alimentaria, no antropométrica. Instrucciones ≤500; horario opcional, sin catálogo externo.              |
 | Objetivos nutricionales    | Calorías 0–10000 y macros g 0–1000, opcionales; límites software sin prescripción ni conciliación automática de macros.                                                                                                                                     |
 
+> **Ajuste del usuario en chat — 04-nov-2026 (EP-06):** prevalece sobre las filas «Prescripción entrenamiento» y «Serie real»: RPE de prescripción opcional, RIR entero 0–10 opcional, rango de repeticiones (`repsMax`) y descanso prescrito opcional; el cliente puede informar RPE/RIR reales por serie realizada. Se conservan las demás reglas. Detalle: [EP-06](../docs/epicas/ep-06-entrenamiento/README.md).
+
 Solo kg/cm/mm/horas/% en antropometría/seguimiento; no conversión lb. **Razón/alternativas:** permite captura parcial significativa con contratos inequívocos; pospone RIR/%1RM, fórmulas nutricionales y catálogo externo sin requisitos nuevos; RPE satisface intensidad V2. **Validación:** fronteras/precisión/opcionales, nacimiento/edad, cero vs NULL, corporal/externa, vacío y estructura manual; HU-015/017/021/024/028/031/032/037, TT-009.
 
 #### DEC-007 — Método elegido, evidencia técnica aún requerida

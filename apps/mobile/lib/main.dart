@@ -6,6 +6,7 @@ import 'routes/client_session_gate.dart';
 import 'shared/services/api_client.dart';
 import 'shared/services/api_config.dart';
 import 'shared/theme/app_theme.dart';
+import 'features/training/services/training_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,7 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
   late final ApiClient _apiClient;
   late final AuthService _authService;
   late final ClientProfileService _profileService;
+  late final TrainingService _trainingService;
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
     _apiClient = widget.apiClient ?? ApiClient(sessionStorage: _sessionStorage);
     _authService = widget.authService ??
         AuthService(apiClient: _apiClient, sessionStorage: _sessionStorage);
+    _trainingService = TrainingService(apiClient: _apiClient);
     _profileService =
         widget.profileService ?? ClientProfileService(apiClient: _apiClient);
   }
@@ -61,6 +64,7 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
       home: ClientSessionGate(
         authService: _authService,
         profileService: _profileService,
+        trainingService: _trainingService,
         onThemeChanged: (themeMode) => setState(() {
           _themeMode = themeMode;
         }),

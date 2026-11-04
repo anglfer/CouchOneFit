@@ -1,4 +1,5 @@
 import type { ProfessionalRecord, RecordSection } from '../types/record';
+import { Link } from '../../../components/Link';
 
 function SectionState({ section }: { section: RecordSection }) {
   switch (section.status) {
@@ -27,8 +28,10 @@ function SectionState({ section }: { section: RecordSection }) {
 
 export default function ClientRecordSections({
   sections,
+  clientId,
 }: {
   sections: ProfessionalRecord['sections'];
+  clientId: string;
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -42,7 +45,33 @@ export default function ClientRecordSections({
         <h3 className="font-semibold">Alimentación</h3>
         <SectionState section={sections.nutritionPlan} />
         <h3 className="font-semibold">Entrenamiento</h3>
-        <SectionState section={sections.trainingPlan} />
+        {sections.trainingPlan.status === 'available' ? (
+          <>
+            <p className="font-semibold">{sections.trainingPlan.plan.name}</p>
+            <p>
+              {sections.trainingPlan.plan.schedule === 'weekly'
+                ? 'Semana fija'
+                : sections.trainingPlan.plan.schedule === 'cycle'
+                  ? 'Ciclo de días'
+                  : 'Calendario por fechas'}
+            </p>
+            <ul>
+              {sections.trainingPlan.plan.days.map((day) => (
+                <li key={day.id}>
+                  {day.name}:{' '}
+                  {day.kind === 'rest'
+                    ? 'Descanso'
+                    : `${day.exercises.length} ejercicios`}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <SectionState section={sections.trainingPlan} />
+        )}
+        <Link to={`/app/clientes/${clientId}/entrenamiento`} className="ws-btn">
+          Gestionar rutina y registros
+        </Link>
       </section>
       <section
         aria-labelledby="record-evaluations-title"

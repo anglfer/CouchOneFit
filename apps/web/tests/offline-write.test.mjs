@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 // DEC-018 fase 2: bandeja de salida, sincronización, conflictos y duplicados.
 let vite, dom;
 let cache, store, outbox, sync, writes, leave, session, connection;
-let calls, handler, realNow;
+let calls, handler, realNow, training;
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -63,6 +63,7 @@ before(async () => {
   leave = await load('/src/services/offline/leave.ts');
   session = await load('/src/features/auth/services/session.ts');
   connection = await load('/src/services/offline/connection.ts');
+  training = await load('/src/features/training/services/training.ts');
   realNow = Date.now;
 });
 after(async () => {
@@ -345,4 +346,111 @@ test('lo pendiente caduca a los 30 días', async () => {
     0,
     op.id && 'se eliminó del almacén'
   );
+});
+
+test('training: merge unsent draft, then sync create, edit and activation in dependency order', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: false },
+    configurable: true,
+  });
+  const draft = {
+    kind: 'training.save',
+    method: 'POST',
+    endpoint: '/api/training/templates',
+    body: {
+      id: 'plan',
+      versionId: 'version',
+      prescription: { name: 'Original' },
+    },
+    label: 'Plantilla',
+    clientId: null,
+    clientName: null,
+    entityKey: 'plan',
+    readEndpoint: '/api/training/templates',
+  };
+  await training.trainingWrite(draft);
+  await training.trainingWrite({
+    ...draft,
+    method: 'PATCH',
+    endpoint: '/api/training/templates/plan/versions/version',
+    body: { revision: 1, prescription: { name: 'Actualizada' } },
+  });
+  assert.equal(outbox.getOperations().length, 1);
+  assert.equal(outbox.getOperations()[0].body.prescription.name, 'Actualizada');
+  const create = outbox.getOperations()[0];
+  await outbox.updateOperation(create.id, { attempts: 1 });
+  await training.trainingWrite({
+    ...draft,
+    method: 'PATCH',
+    endpoint: '/api/training/templates/plan/versions/version',
+    body: { revision: 1, prescription: { name: 'Después' } },
+  });
+  await training.trainingWrite({
+    ...draft,
+    kind: 'training.activate',
+    endpoint: '/api/clients/c1/training-plans/plan/versions/version/activate',
+    body: { revision: 2, activeRevision: 0 },
+  });
+  assert.equal(outbox.getOperations().length, 3);
+  let revision = 0;
+  handler = () => json({ version: { revision: ++revision } });
+  globalThis.navigator.onLine = true;
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations().length, 0);
+  const sent = writesMade();
+  assert.equal(sent.length, 3);
+  assert.equal(JSON.parse(sent[1].body).revision, 1);
+  assert.equal(JSON.parse(sent[2].body).revision, 2);
+});
+
+test('training: lost response preserves key, conflicts block activation and account switch isolates drafts', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: true },
+    configurable: true,
+  });
+  handler = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  const draft = {
+    kind: 'training.save',
+    method: 'PATCH',
+    endpoint: '/api/clients/c1/training-plans/p1/versions/v1',
+    body: { revision: 1, prescription: { name: 'Captura local' } },
+    label: 'Borrador',
+    clientId: 'c1',
+    clientName: 'Ana',
+    entityKey: 'p1',
+    readEndpoint: '/api/clients/c1/training-plans',
+  };
+  await training.trainingWrite(draft);
+  const key = idOf(writesMade()[0]);
+  assert.equal(outbox.getOperations()[0].id, key);
+  globalThis.navigator.onLine = false;
+  await training.trainingWrite({
+    ...draft,
+    kind: 'training.activate',
+    method: 'POST',
+    endpoint: draft.endpoint + '/activate',
+    body: { revision: 2, activeRevision: 0 },
+  });
+  handler = (url, options) =>
+    options.method === 'PATCH'
+      ? apiError(409, 'TRAINING_CONFLICT')
+      : json({
+          versions: [
+            { id: 'v1', revision: 4, published: false, name: 'Servidor' },
+          ],
+          activeRevision: 1,
+        });
+  globalThis.navigator.onLine = true;
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations()[0].state, 'conflict');
+  assert.equal(outbox.getOperations()[1].state, 'pending');
+  assert.equal(
+    writesMade().filter((c) => c.url.endsWith('/activate')).length,
+    0
+  );
+  await cache.noteAccount('pro-b');
+  await outbox.loadOutbox('pro-b');
+  assert.equal(outbox.getOperations().length, 0);
 });

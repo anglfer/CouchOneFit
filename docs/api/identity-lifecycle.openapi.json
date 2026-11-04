@@ -2743,7 +2743,22 @@
                 "$ref": "#/components/schemas/RecordSection"
               },
               "trainingPlan": {
-                "$ref": "#/components/schemas/RecordSection"
+                "description": "EP-06: rutina activa del cliente (available) o empty/error. Contrato completo de entrenamiento en docs/epicas/ep-06-entrenamiento/README.md.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RecordSection"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["status", "plan", "activeRevision"],
+                    "properties": {
+                      "status": { "const": "available" },
+                      "plan": { "type": "object" },
+                      "activeRevision": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                ]
               },
               "evaluations": {
                 "$ref": "#/components/schemas/RecordSection"

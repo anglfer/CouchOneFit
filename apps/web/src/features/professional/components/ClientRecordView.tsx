@@ -217,7 +217,9 @@ function ClientRecordContent({
               <h3 className="ws-card-title">Perfil y medidas base</h3>
               <ClientBaseDetails record={record} />
             </div>
-            {sections && <ClientRecordSections sections={sections} />}
+            {sections && (
+              <ClientRecordSections sections={sections} clientId={clientId} />
+            )}
           </>
         ))
       )}

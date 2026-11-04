@@ -86,7 +86,7 @@ test('HU-019 composition reuses the real owned base profile and never fabricates
   assert.deepEqual(Object.keys(read.body), ['record'])
   assert.deepEqual(Object.keys(read.body.record).sort(), ['profile', 'sections'])
   assert.deepEqual(Object.keys(read.body.record.sections).sort(), ['bodyWeightHistory', 'evaluations', 'nutritionPlan', 'progress', 'trainingPlan'])
-  for (const section of Object.values(read.body.record.sections)) assert.deepEqual(section, {status: 'not_integrated'})
+  for (const [name,section] of Object.entries(read.body.record.sections)) assert.deepEqual(section, {status: name==='trainingPlan'?'empty':'not_integrated'})
   assert.equal(read.body.record.profile.id, id)
   assert.equal(read.body.record.profile.baseWeightKg, 70.2)
   assert.equal('createdAt' in read.body.record.profile, false)

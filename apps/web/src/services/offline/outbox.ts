@@ -13,11 +13,20 @@ import { getStore } from './store';
  * también la `Idempotency-Key`: enviarla otra vez nunca duplica ni reaplica el cambio.
  */
 
-export type OperationKind = 'client.create' | 'client.edit' | 'client.status';
+export type OperationKind =
+  | 'client.create'
+  | 'client.edit'
+  | 'client.status'
+  | 'training.save'
+  | 'training.activate'
+  | 'training.zone';
 export type OperationState =
   'pending' | 'syncing' | 'failed' | 'conflict' | 'duplicate';
 
 export interface Operation {
+  entityKey?: string;
+  dependsOn?: string[];
+  readEndpoint?: string;
   id: string;
   accountId: string;
   kind: OperationKind;
@@ -51,6 +60,9 @@ export type OperationSpec = Pick<
   | 'label'
   | 'clientId'
   | 'clientName'
+  | 'entityKey'
+  | 'dependsOn'
+  | 'readEndpoint'
 >;
 
 interface Stored {

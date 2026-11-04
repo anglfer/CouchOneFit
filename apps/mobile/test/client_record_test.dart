@@ -97,6 +97,8 @@ void main() {
     expect(find.byKey(const ValueKey('record-loading')), findsOneWidget);
     pending.complete(response({'record': record}));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Cuenta'));
+    await tester.pumpAndSettle();
     expect(find.text('Objetivo preparado'), findsOneWidget);
     await tester
         .widget<ClientProfileScreen>(find.byType(ClientProfileScreen))
@@ -105,6 +107,8 @@ void main() {
     expect(find.byKey(const ValueKey('record-query-error')), findsOneWidget);
     expect(find.text('Objetivo preparado'), findsNothing);
     await tester.tap(find.text('Reintentar consulta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cuenta'));
     await tester.pumpAndSettle();
     expect(find.text('Objetivo actualizado'), findsOneWidget);
     expect(reads, 3);
@@ -168,6 +172,8 @@ void main() {
         });
     await tester
         .pumpWidget(CouchOneFitApp(sessionStorage: session, apiClient: api));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cuenta'));
     await tester.pumpAndSettle();
     expect(find.text('Objetivo preparado'), findsOneWidget);
     revoked = true;

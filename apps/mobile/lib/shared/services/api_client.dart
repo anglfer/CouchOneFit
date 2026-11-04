@@ -78,6 +78,7 @@ class ApiClient {
     String method,
     String path, {
     Map<String, Object?>? body,
+    String? idempotencyKey,
     bool authenticated = false,
   }) async {
     StoredSession? session;
@@ -100,6 +101,7 @@ class ApiClient {
       path: path,
       body: body,
       accessToken: session?.accessToken,
+      idempotencyKey: idempotencyKey,
     );
 
     if (authenticated && response.statusCode == 401 && session != null) {
@@ -110,6 +112,7 @@ class ApiClient {
           path: path,
           body: body,
           accessToken: refreshed.accessToken,
+          idempotencyKey: idempotencyKey,
         );
       } else {
         await _sessionStorage.clearSession();
@@ -233,9 +236,11 @@ class ApiClient {
     required String path,
     Map<String, Object?>? body,
     String? accessToken,
+    String? idempotencyKey,
   }) async {
     final headers = <String, String>{
       'Accept': 'application/json',
+      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       if (body != null) 'Content-Type': 'application/json',
       if (accessToken != null && accessToken.isNotEmpty)
         'Authorization': 'Bearer $accessToken',
