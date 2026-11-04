@@ -10,6 +10,7 @@ export function trainingControllers(pool: Pool, clock: () => Date) {
   const id=(value: unknown)=>value===undefined?null:uuid(value)
   return {
     catalog:wrap(req=>service.getCatalog(pool,req.identity!,req.query)),
+    clients:wrap(req=>service.getClients(pool,req.identity!)),
     versions:wrap(req=>service.getVersions(pool,req.identity!,id(req.params.clientId))),
     write:wrap(req=>service.writePlan(pool,req.identity!,id(req.params.clientId),id(req.params.planId),id(req.params.versionId),req.get('Idempotency-Key'),req.body,clock())),
     activate:wrap(req=>service.activatePlan(pool,req.identity!,uuid(req.params.clientId),uuid(req.params.planId),uuid(req.params.versionId),req.get('Idempotency-Key'),req.body,clock())),

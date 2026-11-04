@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { readCatalog, type CatalogExercise } from '../services/training';
 import ExerciseAnimation from './ExerciseAnimation';
+import Modal from './Modal';
 
 export default function ExercisePicker({
   onSelect,
+  onCustom,
   onClose,
 }: {
   onSelect: (exercise: CatalogExercise) => void;
+  onCustom: () => void;
   onClose: () => void;
 }) {
   const [search, setSearch] = useState(''),
@@ -18,7 +21,8 @@ export default function ExercisePicker({
     > | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
-    [attempt, setAttempt] = useState(0);
+    [attempt, setAttempt] = useState(0),
+    [added, setAdded] = useState<string[]>([]);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -38,10 +42,7 @@ export default function ExercisePicker({
           }
         })
         .catch(() => {
-          if (active)
-            setError(
-              'No pudimos cargar el catálogo. Puedes crear un ejercicio manual.'
-            );
+          if (active) setError('No pudimos cargar el catálogo.');
         })
         .finally(() => {
           if (active) setBusy(false);
@@ -52,135 +53,145 @@ export default function ExercisePicker({
       clearTimeout(timer);
     };
   }, [search, muscle, equipment, offset, attempt]);
+  const reset = () => setOffset(0);
   return (
-    <section
-      className="training-catalog ws-card"
-      aria-label="Catálogo de ejercicios"
+    <Modal
+      wide
+      title="Añadir ejercicios"
+      subtitle="Busca en español y añade varios seguidos; pulsa Listo al terminar."
+      onClose={onClose}
     >
-      <div className="training-row">
-        <div>
-          <p className="training-eyebrow">BIBLIOTECA DE MOVIMIENTO</p>
-          <h2>Elige un ejercicio</h2>
-        </div>
-        <button type="button" className="ws-btn" onClick={onClose}>
-          Cerrar catálogo
-        </button>
-      </div>
-      <div className="training-fields">
-        <label>
-          Buscar en español
+      <div className="training-catalog-filters">
+        <label className="training-search">
+          <span className="sr-only">Buscar ejercicio</span>
           <input
             autoFocus
+            type="search"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setOffset(0);
+              reset();
             }}
             placeholder="Sentadilla, remo, press…"
           />
         </label>
         <label>
-          Grupo muscular
+          <span className="sr-only">Grupo muscular</span>
           <select
             value={muscle}
             onChange={(e) => {
               setMuscle(e.target.value);
-              setOffset(0);
+              reset();
             }}
           >
-            <option value="">Todos</option>
+            <option value="">Todos los músculos</option>
             {data?.filters.muscles.map((x) => (
               <option key={x}>{x}</option>
             ))}
           </select>
         </label>
         <label>
-          Equipo
+          <span className="sr-only">Equipo</span>
           <select
             value={equipment}
             onChange={(e) => {
               setEquipment(e.target.value);
-              setOffset(0);
+              reset();
             }}
           >
-            <option value="">Todos</option>
+            <option value="">Todo el equipo</option>
             {data?.filters.equipment.map((x) => (
               <option key={x}>{x}</option>
             ))}
           </select>
         </label>
       </div>
-      {busy && <p role="status">Buscando ejercicios…</p>}
       {error && (
-        <p role="alert">
+        <p role="alert" className="ws-alert" data-tone="bad">
           {error}{' '}
           <button type="button" onClick={() => setAttempt((x) => x + 1)}>
             Reintentar
           </button>
         </p>
       )}
-      <div className="training-catalog-grid">
-        {!busy &&
-          !error &&
-          data?.exercises.map((e) => (
-            <article key={e.id} className="training-catalog-item">
+      <div className="training-catalog-grid" aria-busy={busy}>
+        {data?.exercises.map((e) => {
+          const count = added.filter((id) => id === e.id).length;
+          return (
+            <button
+              type="button"
+              key={e.id}
+              className="ws-plain training-catalog-item"
+              data-added={count > 0 || undefined}
+              onClick={() => {
+                onSelect(e);
+                setAdded((list) => [...list, e.id]);
+              }}
+            >
               <ExerciseAnimation images={e.images} name={e.name} />
-              <div>
-                <h3>{e.name}</h3>
-                <p>
-                  {e.bodyPart} ·{' '}
-                  {e.equipment.join(', ') || 'Equipo no especificado'}
-                </p>
-                <details>
-                  <summary>Ver instrucciones</summary>
-                  <ol>
-                    {e.guidance.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ol>
-                </details>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  data-variant="primary"
-                  onClick={() => onSelect(e)}
-                >
-                  Añadir ejercicio
-                </button>
-              </div>
-            </article>
-          ))}
+              <strong>{e.name}</strong>
+              <small>
+                {e.muscles[0] ?? e.bodyPart}
+                {e.equipment.length ? ` · ${e.equipment[0]}` : ' · Sin equipo'}
+              </small>
+              <span className="training-catalog-add">
+                {count
+                  ? `✓ Añadido${count > 1 ? ` ×${count}` : ''}`
+                  : '+ Añadir'}
+              </span>
+            </button>
+          );
+        })}
       </div>
       {!busy && !error && data?.exercises.length === 0 && (
-        <p>
-          No hay coincidencias. Cambia los filtros o crea un ejercicio manual.
-        </p>
+        <div className="ws-empty">
+          <p>No hay coincidencias. Cambia los filtros o crea uno propio.</p>
+        </div>
       )}
-      <div className="training-row">
+      <footer className="training-catalog-foot">
         <button
           type="button"
           className="ws-btn"
-          disabled={offset === 0 || busy}
-          onClick={() => setOffset(Math.max(0, offset - 40))}
+          onClick={() => {
+            onCustom();
+            onClose();
+          }}
         >
-          Anterior
+          Crear ejercicio propio
         </button>
-        <button
-          type="button"
-          className="ws-btn"
-          disabled={data?.nextOffset == null || busy}
-          onClick={() => setOffset(data!.nextOffset!)}
-        >
-          Siguiente
-        </button>
-      </div>
-      <small>
+        <div className="training-actions">
+          <button
+            type="button"
+            className="ws-btn"
+            disabled={offset === 0 || busy}
+            onClick={() => setOffset(Math.max(0, offset - 40))}
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            className="ws-btn"
+            disabled={data?.nextOffset == null || busy}
+            onClick={() => setOffset(data!.nextOffset!)}
+          >
+            Siguiente
+          </button>
+          <button
+            type="button"
+            className="ws-btn"
+            data-variant="primary"
+            onClick={onClose}
+          >
+            Listo{added.length ? ` (${added.length})` : ''}
+          </button>
+        </div>
+      </footer>
+      <small className="training-credit">
         Exercise data by{' '}
-        <a href="https://repdb.co/" target="_blank" rel="noreferrer">
+        <a href="https://repdb.co/" target="_blank" rel="nofollow noreferrer">
           RepDB
-        </a>{' '}
-        · Demostración animada con posición inicial y final
+        </a>
       </small>
-    </section>
+    </Modal>
   );
 }

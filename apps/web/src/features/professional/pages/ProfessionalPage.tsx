@@ -76,7 +76,9 @@ export default function ProfessionalPage(): ReactElement {
     /^\/app\/clientes\/([^/]+)\/entrenamiento$/
   )?.[1];
   const isTrainingPage =
-    pathname === '/app/entrenamiento' || !!trainingClientId;
+    pathname === '/app/entrenamiento' ||
+    pathname === '/app/entrenamiento/plantillas' ||
+    !!trainingClientId;
   const knownRoute =
     isTrainingPage ||
     isHome ||
@@ -334,8 +336,7 @@ export default function ProfessionalPage(): ReactElement {
             </section>
           ) : isTrainingPage ? (
             <TrainingPage
-              key={`${account.id}:${trainingClientId ?? 'templates'}`}
-              accountId={account.id}
+              key={`${account.id}:${trainingClientId ?? 'hub'}`}
               clientId={trainingClientId}
             />
           ) : isClientsPage ? (

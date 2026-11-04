@@ -94,6 +94,11 @@ test('complete prescription, activation, session, revisions, ownership and idemp
  assert.equal((await db.query('SELECT count(*) FROM private.training_active WHERE client_id=$1',[client.clientId])).rows[0].count,'1')
  assert.equal((await send('patch',`${base}/${id}/versions/${versionId}`,{revision:2,prescription:input()})).status,409)
  const logged=(await get(`/api/clients/${client.clientId}/training-sessions`)).body.sessions;assert.equal(logged.length,1)
+ const hub=(await get('/api/training/clients')).body.clients;assert.equal(hub.length,1)
+ assert.deepEqual([hub[0].id,hub[0].activeRoutine,hub[0].sessionsLast7],[client.clientId,'Fuerza de prueba',1])
+ assert.equal((await get('/api/training/clients',other)).body.clients.length,1)
+ assert.equal((await get('/api/training/clients',client)).status,403)
+ assert.equal((await get(base)).body.clientName,'Training client')
  assert.deepEqual([logged[0].results[0].rpe,logged[0].results[0].rir,logged[0].results[0].reps],[8.5,1,9])
  assert.equal((await get(`/api/clients/${client.clientId}/training-sessions`,other)).status,404)
  const r=await runtime.connect();try{await r.query('BEGIN');await r.query("SELECT set_config('app.subject_id',$1,true)",[clientB.id]);assert.equal((await r.query('SELECT * FROM private.training_sessions')).rowCount,0);assert.equal((await r.query('SELECT * FROM private.training_versions')).rowCount,0)}finally{await r.query('ROLLBACK');r.release()}

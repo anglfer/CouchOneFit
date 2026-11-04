@@ -25,7 +25,7 @@ export function getVersions(pool: Pool, identity: SessionIdentity, clientId: str
   return repository.read(pool,identity,async c=>{
     const scope=await repository.scope(c,identity,clientId)
     const active=clientId?await repository.active(c,clientId):{versionId:null,revision:0}
-    return {versions:await repository.versions(c,identity,clientId),activeVersionId:active.versionId,activeRevision:active.revision,timeZone:scope?.timeZone??null,clientRevision:scope?.clientRevision??null}
+    return {versions:await repository.versions(c,identity,clientId),activeVersionId:active.versionId,activeRevision:active.revision,timeZone:scope?.timeZone??null,clientRevision:scope?.clientRevision??null,clientName:scope?.clientName??null}
   })
 }
 export async function writePlan(pool: Pool, identity: SessionIdentity, clientId: string | null, planId: string | null, versionId: string | null, key: unknown, body: unknown, now: Date) {
@@ -95,4 +95,7 @@ export function getSessions(pool: Pool, identity: SessionIdentity, clientId: str
   const q=validate.object(query,['offset'])
   const offset=q.offset===undefined?0:typeof q.offset==='string' && /^\d+$/.test(q.offset)?validate.number(Number(q.offset),0,100000):validate.invalid()
   return repository.read(pool,identity,async c=>{await repository.scope(c,identity,clientId);return repository.listSessions(c,clientId,offset)})
+}
+export function getClients(pool: Pool, identity: SessionIdentity) {
+  return repository.read(pool,identity,async c=>{await repository.scope(c,identity,null);return repository.trainingClients(c,identity)})
 }

@@ -52,6 +52,7 @@ BD: `202611040001_training.sql`, `202611040002_training_guards.sql` y
 | Método y ruta | Rol | Uso |
 | --- | --- | --- |
 | `GET /api/training/exercises?search&muscle&equipment&offset` | profesional | Catálogo paginado (40) |
+| `GET /api/training/clients` | profesional | Cartera con estado de entrenamiento: rutina activa, borrador, último registro y registros en 7 días |
 | `GET/POST /api/training/templates`, `POST …/:planId/versions`, `PATCH …/versions/:versionId` | profesional | Plantillas propias |
 | `GET/POST /api/clients/:clientId/training-plans` (+ mismas subrutas) | profesional dueño | Rutina del cliente: borrador, historial |
 | `POST /api/clients/:clientId/training-plans/:planId/versions/:versionId/activate` | profesional dueño | Publicar y activar (una sola activa) |
@@ -70,10 +71,22 @@ del cliente» con estado *Activa/Anterior/Borrador* y fecha, y el botón
 
 ## Experiencia
 
-- **Web profesional** (`/app/clientes/:id/entrenamiento`): editor por días,
-  ejercicios del catálogo con demostración animada, tabla por serie
-  (reps, «hasta» para rango, RPE, RIR, carga objetivo), descanso por
-  ejercicio, y **Registros del cliente** con prescrito vs realizado por serie.
+- **Web profesional**, con navegación por secciones:
+  - *Entrenamiento → Clientes* (`/app/entrenamiento`): indicadores (activos,
+    con rutina, sin rutina, entrenaron esta semana), búsqueda, filtros y
+    tarjetas por cliente con su estado y la siguiente acción.
+  - *Entrenamiento → Plantillas* (`/app/entrenamiento/plantillas`): crear,
+    editar, duplicar y asignar plantillas a un cliente (queda como borrador).
+  - *Cliente* (`/app/clientes/:id/entrenamiento`): pestañas **Resumen**
+    (rutina activa con la semana, empezar desde plantilla o desde cero,
+    actividad reciente, zona horaria), **Rutina** (vista del cliente o editor
+    con barra fija «Guardar borrador / Guardar y activar»), **Registros**
+    (prescrito vs realizado por serie) e **Historial** (rutinas anteriores,
+    ver o usar como base).
+  - Editor: días como pestañas, tipo de día segmentado, ejercicios como
+    tarjetas plegables con demostración animada y tabla de series (reps,
+    «hasta», RPE, RIR, kg objetivo); el catálogo se abre en un modal que
+    permite añadir varios ejercicios seguidos.
 - **Móvil cliente**: pestañas *Hoy* (entrenamiento del día, ejercicios con
   animación, semana L–D, registrar ayer/anteayer), *Rutina* (días) y
   *Cuenta*. La bitácora muestra el objetivo de cada serie, *Hecha / No la

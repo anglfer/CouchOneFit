@@ -30,6 +30,7 @@ export interface VersionsResponse {
   activeRevision: number;
   timeZone: string | null;
   clientRevision: number | null;
+  clientName: string | null;
 }
 export const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
@@ -93,7 +94,9 @@ export async function readVersions(base: string): Promise<VersionsResponse> {
     (value.activeVersionId !== null &&
       typeof value.activeVersionId !== 'string') ||
     (value.timeZone !== null && typeof value.timeZone !== 'string') ||
-    (value.clientRevision !== null && typeof value.clientRevision !== 'number')
+    (value.clientRevision !== null &&
+      typeof value.clientRevision !== 'number') ||
+    (value.clientName != null && typeof value.clientName !== 'string')
   )
     throw new Error('No pudimos interpretar las rutinas.');
   return value as unknown as VersionsResponse;
@@ -258,3 +261,104 @@ export async function readSessions(clientId: string, offset: number) {
     nextOffset: number | null;
   };
 }
+export interface TrainingClient {
+  id: string;
+  fullName: string;
+  status: string;
+  activeRoutine: string | null;
+  hasDraft: boolean;
+  lastSession: string | null;
+  sessionsLast7: number;
+}
+export async function readTrainingClients(): Promise<TrainingClient[]> {
+  const value = await sessionRequest<unknown>('/api/training/clients');
+  if (
+    !object(value) ||
+    !Array.isArray(value.clients) ||
+    !value.clients.every(
+      (c) =>
+        object(c) &&
+        typeof c.id === 'string' &&
+        typeof c.fullName === 'string' &&
+        typeof c.status === 'string' &&
+        (c.activeRoutine === null || typeof c.activeRoutine === 'string') &&
+        typeof c.hasDraft === 'boolean' &&
+        (c.lastSession === null || typeof c.lastSession === 'string') &&
+        typeof c.sessionsLast7 === 'number'
+    )
+  )
+    throw new Error('No pudimos interpretar la lista de clientes.');
+  return value.clients as TrainingClient[];
+}
+/** Copies a template into the client's draft (replacing an existing draft). */
+export async function assignTemplate(
+  prescription: Prescription,
+  client: { id: string; fullName: string }
+) {
+  const destination = `/api/clients/${encodeURIComponent(client.id)}/training-plans`,
+    current = await readVersions(destination),
+    draft = current.versions.find((v) => !v.published),
+    previous = current.versions[0],
+    planId = previous?.planId ?? crypto.randomUUID();
+  return trainingWrite({
+    kind: 'training.save',
+    endpoint: draft
+      ? `${destination}/${planId}/versions/${draft.id}`
+      : previous
+        ? `${destination}/${planId}/versions`
+        : destination,
+    method: draft ? 'PATCH' : 'POST',
+    body: draft
+      ? {
+          revision: draft.revision,
+          prescription: clonePrescription(prescription),
+        }
+      : {
+          id: planId,
+          versionId: crypto.randomUUID(),
+          prescription: clonePrescription(prescription),
+        },
+    label: `Asignar ${prescription.name}`,
+    clientId: client.id,
+    clientName: client.fullName,
+    entityKey: planId,
+    readEndpoint: destination,
+  });
+}
+/** "Hace 2 días" style label for a local YYYY-MM-DD date. */
+export function relativeDay(date: string): string {
+  const today = new Date().toLocaleDateString('en-CA');
+  const days = Math.round(
+    (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${date}T12:00:00Z`)) /
+      86400000
+  );
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  return days < 30
+    ? `hace ${days} días`
+    : new Date(`${date}T12:00:00Z`).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      });
+}
+export const scheduleLabel = (p: Prescription) =>
+  p.schedule === 'weekly'
+    ? 'Semana fija'
+    : p.schedule === 'cycle'
+      ? `Ciclo de ${p.days.length} días`
+      : 'Por fechas';
+export const routineStats = (p: Prescription) => {
+  const training = p.days.filter((d) => d.kind === 'training');
+  return {
+    trainingDays: training.length,
+    exercises: training.reduce((n, d) => n + d.exercises.length, 0),
+  };
+};
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('');

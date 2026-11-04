@@ -10,6 +10,7 @@ export function trainingRoutes(pool: Pool, now?: () => Date) {
   // Parse only training writes with the larger bound; auth keeps its existing limit.
   const payload=json({limit:'1mb'})
   router.get('/training/exercises',pro,controller.catalog)
+  router.get('/training/clients',pro,controller.clients)
   for(const path of ['/training/templates','/clients/:clientId/training-plans']){
     router.get(path,pro,controller.versions)
     router.post(path,pro,requireCsrf,payload,controller.write)

@@ -8,16 +8,16 @@ import type { Prescription, SetResult, TrainingSession, TrainingVersion } from '
 export const conflict = (message = 'El entrenamiento cambió. Actualiza la rutina antes de guardar.'): never => { throw new AuthError(409, 'TRAINING_CONFLICT', message) }
 export const missing = (): never => { throw new AuthError(404, 'TRAINING_NOT_FOUND', 'El entrenamiento no está disponible.') }
 export const forbidden = (): never => { throw new AuthError(403, 'TRAINING_READ_ONLY', 'Puedes consultar tu rutina, pero no registrar cambios en este momento.') }
-export interface Scope { clientId: string; timeZone: string; canWrite: boolean; clientRevision: number }
+export interface Scope { clientId: string; timeZone: string; canWrite: boolean; clientRevision: number; clientName?: string }
 export async function scope(c: PoolClient, identity: SessionIdentity, clientId: string | null, write = false): Promise<Scope | null> {
   if (identity.role === 'professional') {
     const { rows: [allowed] } = await c.query('SELECT private.training_professional($1) AS allowed', [identity.id])
     if (!allowed.allowed) return forbidden()
     if (!clientId) return null
-    const { rows: [client] } = await c.query(`SELECT c.id,c.time_zone,c.version,c.status FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id WHERE c.id=$1 AND p.user_id=$2 ${write ? 'FOR UPDATE OF c' : ''}`, [clientId, identity.id])
+    const { rows: [client] } = await c.query(`SELECT c.id,c.time_zone,c.version,c.status,c.full_name FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id WHERE c.id=$1 AND p.user_id=$2 ${write ? 'FOR UPDATE OF c' : ''}`, [clientId, identity.id])
     if (!client) return missing()
     if (write && client.status !== 'active') return forbidden()
-    return { clientId: client.id, timeZone: client.time_zone, canWrite: client.status === 'active', clientRevision: client.version }
+    return { clientId: client.id, timeZone: client.time_zone, canWrite: client.status === 'active', clientRevision: client.version, clientName: client.full_name }
   }
   if (identity.role !== 'client') return forbidden()
   if (write) await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`training-session:${identity.id}`])
@@ -156,4 +156,15 @@ export async function listSessions(c: PoolClient, clientId: string, offset: numb
   const sessions=[]
   for (const row of rows.slice(0,40)) sessions.push(await session(c,clientId,row.date))
   return {sessions,nextOffset:rows.length>40?offset+40:null}
+}
+// shortcut: returns the whole portfolio (no paging); add a cursor if Élite portfolios grow past a few hundred.
+export async function trainingClients(c: PoolClient, identity: SessionIdentity) {
+  const { rows } = await c.query(`SELECT c.id,c.full_name AS "fullName",c.status,
+      (SELECT v.document->>'name' FROM private.training_active a JOIN private.training_versions v ON v.id=a.version_id WHERE a.client_id=c.id) AS "activeRoutine",
+      EXISTS(SELECT 1 FROM private.training_plans tp JOIN private.training_versions v ON v.plan_id=tp.id WHERE tp.client_id=c.id AND NOT v.published) AS "hasDraft",
+      (SELECT max(local_date)::text FROM private.training_sessions s WHERE s.client_id=c.id) AS "lastSession",
+      (SELECT count(*)::int FROM private.training_sessions s WHERE s.client_id=c.id AND s.local_date > (CURRENT_TIMESTAMP AT TIME ZONE c.time_zone)::date-7) AS "sessionsLast7"
+    FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
+    WHERE p.user_id=$1 ORDER BY c.status='active' DESC,c.full_name,c.id`,[identity.id])
+  return { clients: rows }
 }

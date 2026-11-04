@@ -1,21 +1,46 @@
 import { useState } from 'react';
+import { Icon } from '../../../components/Icon';
 import type { Prescription, TrainingExercise } from '../types/training';
-import { clonePrescription, type CatalogExercise } from '../services/training';
+import {
+  clonePrescription,
+  setTarget,
+  type CatalogExercise,
+} from '../services/training';
 import ExercisePicker from './ExercisePicker';
 import ExerciseAnimation from './ExerciseAnimation';
 
 // Blank optional inputs mean "not prescribed", never zero.
 const optionalNumber = (input: HTMLInputElement) =>
   input.value === '' ? null : input.valueAsNumber;
+const weekdays = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+];
+const isoPlus = (start: string, days: number) =>
+  new Date(Date.parse(start + 'T12:00:00Z') + days * 86400000)
+    .toISOString()
+    .slice(0, 10);
+
+function exerciseSummary(e: TrainingExercise) {
+  const targets = new Set(e.sets.map(setTarget));
+  return targets.size === 1
+    ? `${e.sets.length} × ${[...targets][0]}`
+    : `${e.sets.length} series`;
+}
 
 export default function PrescriptionEditor({
   value,
   onChange,
-  readOnly = false,
+  disabled = false,
 }: {
   value: Prescription;
   onChange: (p: Prescription) => void;
-  readOnly?: boolean;
+  disabled?: boolean;
 }) {
   const [selected, setSelected] = useState(0),
     [picker, setPicker] = useState(false);
@@ -28,11 +53,25 @@ export default function PrescriptionEditor({
   };
   const changeDay = (work: (d: Prescription['days'][number]) => void) =>
     change((p) => work(p.days[index]));
+  const dayLabel = (i: number) =>
+    value.schedule === 'weekly'
+      ? weekdays[i]
+      : value.schedule === 'calendar' && value.days[i].date
+        ? new Date(`${value.days[i].date}T12:00:00Z`).toLocaleDateString(
+            'es-MX',
+            {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              timeZone: 'UTC',
+            }
+          )
+        : `Día ${i + 1}`;
   function addExercise(source?: CatalogExercise) {
     const exercise: TrainingExercise = {
       id: crypto.randomUUID(),
       catalogId: source?.id ?? null,
-      name: source?.name ?? 'Ejercicio personalizado',
+      name: source?.name ?? 'Ejercicio propio',
       instructions: '',
       guidance: source?.guidance ?? [],
       images: source?.images ?? [],
@@ -51,19 +90,20 @@ export default function PrescriptionEditor({
       d.kind = 'training';
       d.exercises.push(exercise);
     });
-    setPicker(false);
   }
   const copyDay = () => clonePrescription({ ...value, days: [day] }).days[0];
   return (
-    <div className="training-editor">
-      <fieldset disabled={readOnly}>
+    <fieldset className="training-editor" disabled={disabled}>
+      <section className="training-panel">
+        <h3 className="training-panel-title">Datos de la rutina</h3>
         <div className="training-fields">
-          <label>
-            Nombre de la rutina
+          <label className="training-span-2">
+            Nombre
             <input
               required
               maxLength={150}
               value={value.name}
+              placeholder="Ej. Fuerza 4 días"
               onChange={(e) =>
                 change((p) => {
                   p.name = e.target.value;
@@ -72,7 +112,7 @@ export default function PrescriptionEditor({
             />
           </label>
           <label>
-            Programación
+            Cómo se repite
             <select
               value={value.schedule}
               onChange={(e) => {
@@ -92,7 +132,7 @@ export default function PrescriptionEditor({
                     while (p.days.length < 7)
                       p.days.push({
                         id: crypto.randomUUID(),
-                        name: `Día ${p.days.length + 1}`,
+                        name: weekdays[p.days.length],
                         kind: 'rest',
                         date: null,
                         exercises: [],
@@ -100,25 +140,18 @@ export default function PrescriptionEditor({
                   }
                   p.days.forEach((d, i) => {
                     d.date =
-                      schedule === 'calendar'
-                        ? new Date(
-                            Date.parse(p.startDate + 'T12:00:00Z') +
-                              i * 86400000
-                          )
-                            .toISOString()
-                            .slice(0, 10)
-                        : null;
+                      schedule === 'calendar' ? isoPlus(p.startDate, i) : null;
                   });
                 });
               }}
             >
-              <option value="weekly">Semana fija · lunes a domingo</option>
-              <option value="cycle">Ciclo de días</option>
-              <option value="calendar">Calendario por fechas</option>
+              <option value="weekly">Cada semana (lunes a domingo)</option>
+              <option value="cycle">Ciclo de días (Día 1, Día 2…)</option>
+              <option value="calendar">Fechas concretas</option>
             </select>
           </label>
           <label>
-            Fecha inicial
+            Empieza el
             <input
               required
               type="date"
@@ -131,582 +164,554 @@ export default function PrescriptionEditor({
             />
           </label>
         </div>
-      </fieldset>
-      <div className="training-days" aria-label="Días de la rutina">
+      </section>
+
+      <div className="training-days" role="tablist" aria-label="Días">
         {value.days.map((d, i) => (
           <button
             type="button"
+            role="tab"
             key={d.id}
-            className="training-day"
-            aria-pressed={index === i}
-            onClick={() => {
-              setSelected(i);
-              setPicker(false);
-            }}
+            className="ws-plain training-day"
+            data-kind={d.kind}
+            aria-selected={index === i}
+            onClick={() => setSelected(i)}
           >
-            <span>
-              {value.schedule === 'weekly'
-                ? ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][i]
-                : (d.date ?? `Día ${i + 1}`)}
-            </span>
-            <strong>{d.name}</strong>
+            <span>{dayLabel(i)}</span>
+            <strong>{d.kind === 'rest' ? 'Descanso' : d.name}</strong>
             <small>
               {d.kind === 'rest'
-                ? 'Descanso'
-                : `${d.exercises.length} ejercicios`}
+                ? '—'
+                : `${d.exercises.length} ejercicio${d.exercises.length === 1 ? '' : 's'}`}
             </small>
           </button>
         ))}
+        {value.schedule !== 'weekly' && (
+          <button
+            type="button"
+            className="ws-plain training-day training-day-add"
+            disabled={
+              value.days.length >= (value.schedule === 'calendar' ? 366 : 28)
+            }
+            onClick={() =>
+              change((p) => {
+                p.days.push({
+                  id: crypto.randomUUID(),
+                  name: `Día ${p.days.length + 1}`,
+                  kind: 'training',
+                  date:
+                    p.schedule === 'calendar'
+                      ? isoPlus(p.startDate, p.days.length)
+                      : null,
+                  exercises: [],
+                });
+                setSelected(p.days.length - 1);
+              })
+            }
+          >
+            <Icon name="plus" size={18} />
+            <strong>Añadir día</strong>
+          </button>
+        )}
       </div>
+
       {day && (
-        <>
-          <fieldset disabled={readOnly}>
-            <div className="training-fields">
-              <label>
-                Nombre del día
-                <input
-                  required
-                  maxLength={100}
-                  value={day.name}
-                  onChange={(e) =>
-                    changeDay((d) => {
-                      d.name = e.target.value;
-                    })
-                  }
-                />
-              </label>
-              {value.schedule === 'calendar' && (
-                <label>
-                  Fecha
-                  <input
-                    required
-                    type="date"
-                    value={day.date ?? ''}
-                    onChange={(e) =>
-                      changeDay((d) => {
-                        d.date = e.target.value;
-                      })
-                    }
-                  />
-                </label>
-              )}
-              <label>
-                Tipo de día
-                <select
-                  value={day.kind}
-                  onChange={(e) => {
+        <section className="training-panel">
+          <div className="training-day-head">
+            <label className="training-day-name">
+              <span className="sr-only">Nombre del día</span>
+              <input
+                required
+                maxLength={100}
+                value={day.name}
+                onChange={(e) =>
+                  changeDay((d) => {
+                    d.name = e.target.value;
+                  })
+                }
+              />
+            </label>
+            <div
+              className="training-segmented"
+              role="group"
+              aria-label="Tipo de día"
+            >
+              {(['training', 'rest'] as const).map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={day.kind === kind}
+                  onClick={() => {
                     if (
-                      e.target.value === 'rest' &&
+                      kind === 'rest' &&
                       day.exercises.length &&
                       !window.confirm(
-                        'Marcar descanso quitará los ejercicios de este borrador.'
+                        'Marcar descanso quitará los ejercicios de este día.'
                       )
                     )
                       return;
                     changeDay((d) => {
-                      d.kind = e.target.value as 'training' | 'rest';
-                      if (d.kind === 'rest') d.exercises = [];
+                      d.kind = kind;
+                      if (kind === 'rest') d.exercises = [];
                     });
                   }}
                 >
-                  <option value="rest">Descanso</option>
-                  <option value="training">Entrenamiento</option>
-                </select>
-              </label>
+                  {kind === 'training' ? 'Entrenamiento' : 'Descanso'}
+                </button>
+              ))}
             </div>
-            {!readOnly && (
-              <div className="training-row">
-                {value.schedule === 'weekly' ? (
-                  <label>
-                    Copiar este día a
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const to = Number(e.target.value);
-                        if (
-                          window.confirm(
-                            '¿Sustituir los ejercicios del día elegido en este borrador?'
-                          )
+          </div>
+          <div className="training-day-tools">
+            {value.schedule === 'calendar' && (
+              <label>
+                Fecha
+                <input
+                  required
+                  type="date"
+                  value={day.date ?? ''}
+                  onChange={(e) =>
+                    changeDay((d) => {
+                      d.date = e.target.value;
+                    })
+                  }
+                />
+              </label>
+            )}
+            {value.schedule === 'weekly' ? (
+              day.kind === 'training' && (
+                <label>
+                  Copiar este día a
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const to = Number(e.target.value);
+                      if (
+                        window.confirm(
+                          `¿Sustituir ${weekdays[to].toLowerCase()} por una copia de este día?`
                         )
-                          change((p) => {
-                            const copy = copyDay();
-                            copy.name = p.days[to].name;
-                            p.days[to] = copy;
-                          });
-                      }}
-                    >
-                      <option value="">Selecciona un día</option>
-                      {value.days.map(
-                        (d, i) =>
-                          i !== index && (
-                            <option key={d.id} value={i}>
-                              {
-                                [
-                                  'Lunes',
-                                  'Martes',
-                                  'Miércoles',
-                                  'Jueves',
-                                  'Viernes',
-                                  'Sábado',
-                                  'Domingo',
-                                ][i]
-                              }
-                            </option>
-                          )
-                      )}
-                    </select>
-                  </label>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      onClick={() =>
+                      )
                         change((p) => {
                           const copy = copyDay();
-                          copy.name += ' (copia)';
-                          if (p.schedule === 'calendar') copy.date = '';
-                          p.days.push(copy);
-                          setSelected(p.days.length - 1);
-                        })
-                      }
-                    >
-                      Duplicar día
-                    </button>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      disabled={value.days.length === 1}
-                      onClick={() => {
-                        if (window.confirm('¿Quitar este día del borrador?'))
-                          change((p) => {
-                            p.days.splice(index, 1);
-                            setSelected(0);
-                          });
-                      }}
-                    >
-                      Quitar día
-                    </button>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      onClick={() =>
-                        change((p) => {
-                          p.days.push({
-                            id: crypto.randomUUID(),
-                            name: `Día ${p.days.length + 1}`,
-                            kind: 'rest',
-                            date: p.schedule === 'calendar' ? '' : null,
-                            exercises: [],
-                          });
-                          setSelected(p.days.length - 1);
-                        })
-                      }
-                    >
-                      Añadir día
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            {day.kind === 'rest' ? (
-              <div className="training-rest">
-                <span aria-hidden="true">☾</span>
-                <h3>Descanso programado</h3>
-                <p>Este día no requiere registrar series.</p>
-              </div>
-            ) : (
-              <>
-                {day.exercises.map((exercise, ei) => (
-                  <article
-                    key={exercise.id}
-                    className="training-exercise ws-card"
+                          copy.name = day.name;
+                          p.days[to] = copy;
+                        });
+                    }}
                   >
-                    <div className="training-row">
-                      <div className="training-exercise-heading">
-                        <span className="training-order">{ei + 1}</span>
-                        <div>
-                          <h3>{exercise.name}</h3>
-                          <small>
-                            {exercise.sets.length} series ·{' '}
-                            {exercise.loadMode === 'bodyweight'
-                              ? 'Peso corporal'
-                              : 'Carga externa'}
-                            {exercise.restSeconds !== null &&
-                              ` · descanso ${exercise.restSeconds} s`}
-                          </small>
-                        </div>
-                      </div>
-                      {!readOnly && (
-                        <div className="training-actions">
-                          <button
-                            type="button"
-                            className="ws-btn"
-                            disabled={ei === 0}
-                            aria-label={`Subir ${exercise.name}`}
-                            onClick={() =>
-                              changeDay((d) => {
-                                [d.exercises[ei - 1], d.exercises[ei]] = [
-                                  d.exercises[ei],
-                                  d.exercises[ei - 1],
-                                ];
-                              })
-                            }
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-btn"
-                            disabled={ei === day.exercises.length - 1}
-                            aria-label={`Bajar ${exercise.name}`}
-                            onClick={() =>
-                              changeDay((d) => {
-                                [d.exercises[ei], d.exercises[ei + 1]] = [
-                                  d.exercises[ei + 1],
-                                  d.exercises[ei],
-                                ];
-                              })
-                            }
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-btn"
-                            onClick={() =>
-                              changeDay((d) => {
-                                const copy = structuredClone(exercise);
-                                copy.id = crypto.randomUUID();
-                                copy.sets.forEach((s) => {
-                                  s.id = crypto.randomUUID();
-                                });
-                                d.exercises.splice(ei + 1, 0, copy);
-                              })
-                            }
-                          >
-                            Duplicar
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-btn"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  '¿Quitar este ejercicio del borrador?'
-                                )
-                              )
-                                changeDay((d) => {
-                                  d.exercises.splice(ei, 1);
-                                });
-                            }}
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="training-exercise-body">
-                      <div>
-                        <ExerciseAnimation
-                          images={exercise.images}
-                          name={exercise.name}
-                        />
-                        {exercise.guidance.length > 0 && (
-                          <details>
-                            <summary>Instrucciones del catálogo</summary>
-                            <ol>
-                              {exercise.guidance.map((s, i) => (
-                                <li key={i}>{s}</li>
-                              ))}
-                            </ol>
-                          </details>
-                        )}
-                      </div>
-                      <div>
-                        <div className="training-fields">
-                          {!exercise.catalogId && (
-                            <label>
-                              Ejercicio
-                              <input
-                                required
-                                value={exercise.name}
-                                maxLength={150}
-                                onChange={(e) =>
-                                  changeDay((d) => {
-                                    d.exercises[ei].name = e.target.value;
-                                  })
-                                }
-                              />
-                            </label>
-                          )}
-                          <label>
-                            Modalidad de carga
-                            <select
-                              value={exercise.loadMode}
-                              onChange={(e) =>
-                                changeDay((d) => {
-                                  d.exercises[ei].loadMode = e.target
-                                    .value as TrainingExercise['loadMode'];
-                                  d.exercises[ei].sets.forEach((s) => {
-                                    s.targetLoadKg = null;
-                                  });
-                                })
-                              }
-                            >
-                              <option value="external">Externa · kg</option>
-                              <option value="bodyweight">
-                                Corporal · 0 kg de carga externa
-                              </option>
-                            </select>
-                          </label>
-                          <label>
-                            Descanso entre series (s) · opcional
-                            <input
-                              type="number"
-                              min={0}
-                              max={900}
-                              step={5}
-                              placeholder="Sin definir"
-                              value={exercise.restSeconds ?? ''}
-                              onChange={(e) =>
-                                changeDay((d) => {
-                                  d.exercises[ei].restSeconds = optionalNumber(
-                                    e.target
-                                  );
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
-                        <label>
-                          Indicaciones del profesional
-                          <textarea
-                            maxLength={500}
-                            value={exercise.instructions}
-                            onChange={(e) =>
-                              changeDay((d) => {
-                                d.exercises[ei].instructions = e.target.value;
-                              })
-                            }
-                          />
-                        </label>
-                        <div className="training-table-scroll">
-                          <table>
-                            <caption>
-                              Parámetros por serie · deja vacío lo que no
-                              quieras prescribir
-                            </caption>
-                            <thead>
-                              <tr>
-                                <th>Serie</th>
-                                <th>Reps</th>
-                                <th>Hasta (rango)</th>
-                                <th>RPE</th>
-                                <th>RIR</th>
-                                <th>Carga objetivo (kg)</th>
-                                {!readOnly && <th>Acción</th>}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {exercise.sets.map((s, si) => (
-                                <tr key={s.id}>
-                                  <th>{si + 1}</th>
-                                  <td>
-                                    <input
-                                      aria-label={`Repeticiones serie ${si + 1} de ${exercise.name}`}
-                                      type="number"
-                                      required
-                                      min={1}
-                                      max={100}
-                                      step={1}
-                                      value={
-                                        Number.isFinite(s.reps) ? s.reps : ''
-                                      }
-                                      onChange={(e) =>
-                                        changeDay((d) => {
-                                          d.exercises[ei].sets[si].reps =
-                                            e.target.valueAsNumber;
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      aria-label={`Repeticiones máximas serie ${si + 1} de ${exercise.name}`}
-                                      type="number"
-                                      min={Number.isFinite(s.reps) ? s.reps : 1}
-                                      max={100}
-                                      step={1}
-                                      placeholder="Fijas"
-                                      value={s.repsMax ?? ''}
-                                      onChange={(e) =>
-                                        changeDay((d) => {
-                                          d.exercises[ei].sets[si].repsMax =
-                                            optionalNumber(e.target);
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      aria-label={`RPE serie ${si + 1} de ${exercise.name}`}
-                                      type="number"
-                                      min={1}
-                                      max={10}
-                                      step={0.5}
-                                      placeholder="—"
-                                      value={s.rpe ?? ''}
-                                      onChange={(e) =>
-                                        changeDay((d) => {
-                                          d.exercises[ei].sets[si].rpe =
-                                            optionalNumber(e.target);
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      aria-label={`RIR serie ${si + 1} de ${exercise.name}`}
-                                      type="number"
-                                      min={0}
-                                      max={10}
-                                      step={1}
-                                      placeholder="—"
-                                      value={s.rir ?? ''}
-                                      onChange={(e) =>
-                                        changeDay((d) => {
-                                          d.exercises[ei].sets[si].rir =
-                                            optionalNumber(e.target);
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  <td>
-                                    <input
-                                      aria-label={`Carga objetivo serie ${si + 1} de ${exercise.name}`}
-                                      type="number"
-                                      min={
-                                        exercise.loadMode === 'bodyweight'
-                                          ? 0
-                                          : 0.1
-                                      }
-                                      max={
-                                        exercise.loadMode === 'bodyweight'
-                                          ? 0
-                                          : 1000
-                                      }
-                                      step={0.1}
-                                      placeholder="Sin definir"
-                                      value={s.targetLoadKg ?? ''}
-                                      onChange={(e) =>
-                                        changeDay((d) => {
-                                          d.exercises[ei].sets[
-                                            si
-                                          ].targetLoadKg = optionalNumber(
-                                            e.target
-                                          );
-                                        })
-                                      }
-                                    />
-                                  </td>
-                                  {!readOnly && (
-                                    <td>
-                                      <button
-                                        type="button"
-                                        className="ws-btn"
-                                        disabled={exercise.sets.length === 1}
-                                        aria-label={`Quitar serie ${si + 1}`}
-                                        onClick={() =>
-                                          changeDay((d) => {
-                                            d.exercises[ei].sets.splice(si, 1);
-                                          })
-                                        }
-                                      >
-                                        Quitar
-                                      </button>
-                                    </td>
-                                  )}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        {!readOnly && (
-                          <div className="training-actions">
-                            <button
-                              type="button"
-                              className="ws-btn"
-                              disabled={exercise.sets.length >= 20}
-                              onClick={() =>
-                                changeDay((d) => {
-                                  d.exercises[ei].sets.push({
-                                    ...exercise.sets.at(-1)!,
-                                    id: crypto.randomUUID(),
-                                  });
-                                })
-                              }
-                            >
-                              Añadir serie
-                            </button>
-                            <button
-                              type="button"
-                              className="ws-btn"
-                              onClick={() =>
-                                changeDay((d) => {
-                                  d.exercises[ei].sets = d.exercises[
-                                    ei
-                                  ].sets.map((s) => ({
-                                    ...exercise.sets[0],
-                                    id: s.id,
-                                  }));
-                                })
-                              }
-                            >
-                              Aplicar primera serie a todas
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-                {!readOnly && (
-                  <div className="training-actions">
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      data-variant="primary"
-                      onClick={() => setPicker(true)}
-                    >
-                      Elegir del catálogo
-                    </button>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      onClick={() => addExercise()}
-                    >
-                      Ejercicio personalizado
-                    </button>
-                  </div>
-                )}
-                {day.exercises.length === 0 && (
-                  <p>
-                    Selecciona al menos un ejercicio para guardar este día de
-                    entrenamiento.
-                  </p>
-                )}
-              </>
+                    <option value="">Elige un día…</option>
+                    {value.days.map(
+                      (d, i) =>
+                        i !== index && (
+                          <option key={d.id} value={i}>
+                            {weekdays[i]}
+                          </option>
+                        )
+                    )}
+                  </select>
+                </label>
+              )
+            ) : (
+              <div className="training-actions">
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={() =>
+                    change((p) => {
+                      const copy = copyDay();
+                      copy.name += ' (copia)';
+                      if (p.schedule === 'calendar')
+                        copy.date = isoPlus(p.startDate, p.days.length);
+                      p.days.push(copy);
+                      setSelected(p.days.length - 1);
+                    })
+                  }
+                >
+                  Duplicar día
+                </button>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  data-variant="danger"
+                  disabled={value.days.length === 1}
+                  onClick={() => {
+                    if (window.confirm('¿Quitar este día de la rutina?'))
+                      change((p) => {
+                        p.days.splice(index, 1);
+                        setSelected(Math.max(0, index - 1));
+                      });
+                  }}
+                >
+                  Quitar día
+                </button>
+              </div>
             )}
-          </fieldset>
-          {picker && !readOnly && (
-            <ExercisePicker
-              onSelect={addExercise}
-              onClose={() => setPicker(false)}
-            />
+          </div>
+
+          {day.kind === 'rest' ? (
+            <div className="training-rest">
+              <span aria-hidden="true">☾</span>
+              <h4>Día de descanso</h4>
+              <p>El cliente verá que hoy toca recuperarse. No hay series.</p>
+            </div>
+          ) : (
+            <>
+              {day.exercises.length === 0 && (
+                <div className="training-rest">
+                  <Icon name="dumbbell" size={28} />
+                  <h4>Aún no hay ejercicios</h4>
+                  <p>Añade ejercicios del catálogo o crea uno propio.</p>
+                </div>
+              )}
+              <ol className="training-exercises">
+                {day.exercises.map((exercise, ei) => (
+                  <ExerciseCard
+                    key={exercise.id}
+                    exercise={exercise}
+                    order={ei}
+                    last={ei === day.exercises.length - 1}
+                    onChange={(work) => changeDay((d) => work(d.exercises[ei]))}
+                    onMove={(delta) =>
+                      changeDay((d) => {
+                        const [item] = d.exercises.splice(ei, 1);
+                        d.exercises.splice(ei + delta, 0, item);
+                      })
+                    }
+                    onDuplicate={() =>
+                      changeDay((d) => {
+                        const copy = structuredClone(exercise);
+                        copy.id = crypto.randomUUID();
+                        copy.sets.forEach((s) => {
+                          s.id = crypto.randomUUID();
+                        });
+                        d.exercises.splice(ei + 1, 0, copy);
+                      })
+                    }
+                    onRemove={() => {
+                      if (window.confirm(`¿Quitar ${exercise.name}?`))
+                        changeDay((d) => {
+                          d.exercises.splice(ei, 1);
+                        });
+                    }}
+                  />
+                ))}
+              </ol>
+              <button
+                type="button"
+                className="ws-plain training-add-exercise"
+                disabled={day.exercises.length >= 40}
+                onClick={() => setPicker(true)}
+              >
+                <Icon name="plus" size={18} /> Añadir ejercicios
+              </button>
+            </>
           )}
-        </>
+        </section>
       )}
-    </div>
+      {picker && !disabled && (
+        <ExercisePicker
+          onSelect={addExercise}
+          onCustom={() => addExercise()}
+          onClose={() => setPicker(false)}
+        />
+      )}
+    </fieldset>
+  );
+}
+
+function ExerciseCard({
+  exercise,
+  order,
+  last,
+  onChange,
+  onMove,
+  onDuplicate,
+  onRemove,
+}: {
+  exercise: TrainingExercise;
+  order: number;
+  last: boolean;
+  onChange: (work: (e: TrainingExercise) => void) => void;
+  onMove: (delta: number) => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const setField = (
+    si: number,
+    key: 'reps' | 'repsMax' | 'rpe' | 'rir' | 'targetLoadKg',
+    input: HTMLInputElement
+  ) =>
+    onChange((e) => {
+      e.sets[si][key] = (
+        key === 'reps' ? input.valueAsNumber : optionalNumber(input)
+      ) as never;
+    });
+  const bodyweight = exercise.loadMode === 'bodyweight';
+  return (
+    <li className="training-exercise">
+      <header className="training-exercise-head">
+        <span className="training-order">{order + 1}</span>
+        <ExerciseAnimation
+          images={exercise.images}
+          name={exercise.name}
+          size={64}
+        />
+        <button
+          type="button"
+          className="ws-plain training-exercise-title"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <strong>{exercise.name}</strong>
+          <small>
+            {exerciseSummary(exercise)}
+            {exercise.restSeconds !== null &&
+              ` · descanso ${exercise.restSeconds} s`}
+          </small>
+        </button>
+        <div className="training-icon-row">
+          <button
+            type="button"
+            className="ws-plain training-icon-btn"
+            disabled={order === 0}
+            aria-label={`Subir ${exercise.name}`}
+            title="Subir"
+            onClick={() => onMove(-1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="ws-plain training-icon-btn"
+            disabled={last}
+            aria-label={`Bajar ${exercise.name}`}
+            title="Bajar"
+            onClick={() => onMove(1)}
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            className="ws-plain training-icon-btn"
+            aria-label={`Duplicar ${exercise.name}`}
+            title="Duplicar"
+            onClick={onDuplicate}
+          >
+            ⧉
+          </button>
+          <button
+            type="button"
+            className="ws-plain training-icon-btn"
+            data-danger
+            aria-label={`Quitar ${exercise.name}`}
+            title="Quitar"
+            onClick={onRemove}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      </header>
+      {open && (
+        <div className="training-exercise-body">
+          <div className="training-fields">
+            {!exercise.catalogId && (
+              <label className="training-span-2">
+                Nombre del ejercicio
+                <input
+                  required
+                  value={exercise.name}
+                  maxLength={150}
+                  onChange={(e) =>
+                    onChange((x) => {
+                      x.name = e.target.value;
+                    })
+                  }
+                />
+              </label>
+            )}
+            <label>
+              Carga
+              <select
+                value={exercise.loadMode}
+                onChange={(e) =>
+                  onChange((x) => {
+                    x.loadMode = e.target.value as TrainingExercise['loadMode'];
+                    x.sets.forEach((s) => {
+                      s.targetLoadKg = null;
+                    });
+                  })
+                }
+              >
+                <option value="external">Con peso (kg)</option>
+                <option value="bodyweight">Peso corporal</option>
+              </select>
+            </label>
+            <label>
+              Descanso entre series (s)
+              <input
+                type="number"
+                min={0}
+                max={900}
+                step={5}
+                placeholder="Opcional"
+                value={exercise.restSeconds ?? ''}
+                onChange={(e) =>
+                  onChange((x) => {
+                    x.restSeconds = optionalNumber(e.target);
+                  })
+                }
+              />
+            </label>
+            <label className="training-span-2">
+              Indicaciones para el cliente
+              <input
+                maxLength={500}
+                placeholder="Opcional · ej. controla la bajada en 3 segundos"
+                value={exercise.instructions}
+                onChange={(e) =>
+                  onChange((x) => {
+                    x.instructions = e.target.value;
+                  })
+                }
+              />
+            </label>
+          </div>
+          <div className="training-table-scroll">
+            <table className="training-sets">
+              <caption className="sr-only">Series de {exercise.name}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Serie</th>
+                  <th scope="col">Reps</th>
+                  <th scope="col" title="Déjalo vacío para reps fijas">
+                    Hasta
+                  </th>
+                  <th scope="col" title="Esfuerzo percibido 1–10">
+                    RPE
+                  </th>
+                  <th scope="col" title="Repeticiones en reserva">
+                    RIR
+                  </th>
+                  {!bodyweight && <th scope="col">Kg objetivo</th>}
+                  <th scope="col">
+                    <span className="sr-only">Quitar</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {exercise.sets.map((s, si) => (
+                  <tr key={s.id}>
+                    <th scope="row">{si + 1}</th>
+                    <td>
+                      <input
+                        aria-label={`Repeticiones serie ${si + 1}`}
+                        type="number"
+                        required
+                        min={1}
+                        max={100}
+                        value={Number.isFinite(s.reps) ? s.reps : ''}
+                        onChange={(e) => setField(si, 'reps', e.target)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`Repeticiones máximas serie ${si + 1}`}
+                        type="number"
+                        min={Number.isFinite(s.reps) ? s.reps : 1}
+                        max={100}
+                        placeholder="—"
+                        value={s.repsMax ?? ''}
+                        onChange={(e) => setField(si, 'repsMax', e.target)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`RPE serie ${si + 1}`}
+                        type="number"
+                        min={1}
+                        max={10}
+                        step={0.5}
+                        placeholder="—"
+                        value={s.rpe ?? ''}
+                        onChange={(e) => setField(si, 'rpe', e.target)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`RIR serie ${si + 1}`}
+                        type="number"
+                        min={0}
+                        max={10}
+                        placeholder="—"
+                        value={s.rir ?? ''}
+                        onChange={(e) => setField(si, 'rir', e.target)}
+                      />
+                    </td>
+                    {!bodyweight && (
+                      <td>
+                        <input
+                          aria-label={`Carga objetivo serie ${si + 1}`}
+                          type="number"
+                          min={0.1}
+                          max={1000}
+                          step={0.1}
+                          placeholder="—"
+                          value={s.targetLoadKg ?? ''}
+                          onChange={(e) =>
+                            setField(si, 'targetLoadKg', e.target)
+                          }
+                        />
+                      </td>
+                    )}
+                    <td>
+                      <button
+                        type="button"
+                        className="ws-plain training-icon-btn"
+                        disabled={exercise.sets.length === 1}
+                        aria-label={`Quitar serie ${si + 1}`}
+                        onClick={() =>
+                          onChange((x) => {
+                            x.sets.splice(si, 1);
+                          })
+                        }
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="training-actions">
+            <button
+              type="button"
+              className="ws-btn"
+              disabled={exercise.sets.length >= 20}
+              onClick={() =>
+                onChange((x) => {
+                  x.sets.push({ ...x.sets.at(-1)!, id: crypto.randomUUID() });
+                })
+              }
+            >
+              <Icon name="plus" size={16} /> Serie
+            </button>
+            {exercise.sets.length > 1 && (
+              <button
+                type="button"
+                className="ws-btn"
+                onClick={() =>
+                  onChange((x) => {
+                    x.sets = x.sets.map((s) => ({ ...x.sets[0], id: s.id }));
+                  })
+                }
+              >
+                Igualar a la serie 1
+              </button>
+            )}
+            <small>Vacío = no se prescribe. RPE y RIR son opcionales.</small>
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
