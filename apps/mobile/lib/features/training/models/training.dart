@@ -19,6 +19,10 @@ List<T> trainingList<T>(Object? value, T Function(Map<String, Object?>) parse) {
   return value.map((e) => parse(trainingObject(e))).toList();
 }
 
+/// Optional list of non-empty strings (absent = empty).
+List<String> trainingStrings(Object? value) =>
+    value == null ? const [] : (value as List).map(trainingText).toList();
+
 num? trainingOptional(Object? value, num min, num max, {num step = 1}) =>
     value == null ? null : trainingNumber(value, min, max, step: step);
 
@@ -76,13 +80,17 @@ class PrescribedSet {
 class TrainingExercise {
   TrainingExercise(Map<String, Object?> json)
       : id = trainingText(json['id']),
+        catalogId = json['catalogId'] as String?,
         name = trainingText(json['name']),
         instructions = json['instructions'] as String,
         loadMode = trainingText(json['loadMode']),
         restSeconds = trainingOptional(json['restSeconds'], 0, 900)?.toInt(),
         sets = trainingList(json['sets'], PrescribedSet.new),
         guidance = (json['guidance'] as List).map(trainingText).toList(),
-        images = (json['images'] as List).map(trainingText).toList() {
+        images = (json['images'] as List).map(trainingText).toList(),
+        muscles = trainingStrings(json['muscles']),
+        equipment = trainingStrings(json['equipment']),
+        bodyPart = json['bodyPart'] as String? {
     if (!['external', 'bodyweight'].contains(loadMode) ||
         sets.isEmpty ||
         sets.length > 20 ||
@@ -91,9 +99,17 @@ class TrainingExercise {
     }
   }
   final String id, name, instructions, loadMode;
+  final String? catalogId;
   final int? restSeconds;
+
+  /// Stable identity across routine edits; matches the history `key`.
+  String get key => catalogId ?? id;
   final List<PrescribedSet> sets;
   final List<String> guidance, images;
+
+  /// Catalog facts; empty for custom exercises or older payloads.
+  final List<String> muscles, equipment;
+  final String? bodyPart;
 
   bool get bodyweight => loadMode == 'bodyweight';
 
@@ -247,6 +263,66 @@ class TrainingContext {
   TrainingDay? get day {
     for (final day in plan?.days ?? <TrainingDay>[]) {
       if (day.id == dayId) return day;
+    }
+    return null;
+  }
+}
+
+/// One exercise of a past session, with results aligned to the prescribed
+/// sets (null = never marked).
+class HistoryExercise {
+  HistoryExercise(Map<String, Object?> json)
+      : key = trainingText(json['key']),
+        name = trainingText(json['name']),
+        loadMode = trainingText(json['loadMode']),
+        muscles = trainingStrings(json['muscles']),
+        bodyPart = json['bodyPart'] as String?,
+        sets = (json['sets'] as List)
+            .map((s) => s == null ? null : SetResult(trainingObject(s)))
+            .toList();
+  final String key, name, loadMode;
+  final List<String> muscles;
+  final String? bodyPart;
+  final List<SetResult?> sets;
+
+  bool get bodyweight => loadMode == 'bodyweight';
+  Iterable<SetResult> get performed =>
+      sets.whereType<SetResult>().where((s) => s.state == 'performed');
+}
+
+class HistorySession {
+  HistorySession(Map<String, Object?> json)
+      : id = trainingText(json['id']),
+        localDate = trainingText(json['localDate']),
+        status = trainingText(json['status']),
+        dayName = trainingText(json['dayName']),
+        exercises = trainingList(json['exercises'], HistoryExercise.new) {
+    trainingDate(localDate);
+    if (!['draft', 'finalized'].contains(status)) {
+      throw const FormatException('Sesión inválida');
+    }
+  }
+  final String id, localDate, status, dayName;
+  final List<HistoryExercise> exercises;
+}
+
+/// The client's own log, newest first.
+class TrainingHistory {
+  TrainingHistory(Map<String, Object?> json)
+      : sessions = trainingList(json['sessions'], HistorySession.new),
+        nextOffset = json['nextOffset'] as int?;
+  TrainingHistory.empty()
+      : sessions = const [],
+        nextOffset = null;
+  TrainingHistory.merged(TrainingHistory first, TrainingHistory next)
+      : sessions = [...first.sessions, ...next.sessions],
+        nextOffset = next.nextOffset;
+  final List<HistorySession> sessions;
+  final int? nextOffset;
+
+  HistorySession? on(String date) {
+    for (final s in sessions) {
+      if (s.localDate == date) return s;
     }
     return null;
   }

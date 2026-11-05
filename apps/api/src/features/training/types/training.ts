@@ -59,6 +59,12 @@ export interface TrainingSession {
   createdAt: string
   updatedAt: string
 }
+export interface TrainingActivity {
+  lastSession: string | null
+  sessionsLast7: number
+  sessionsLast30: number
+  setsLast30: number
+}
 export interface TrainingContext {
   clientId: string
   localDate: string

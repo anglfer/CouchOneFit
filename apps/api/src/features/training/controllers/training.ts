@@ -17,6 +17,7 @@ export function trainingControllers(pool: Pool, clock: () => Date) {
     plan:wrap(req=>service.getContext(pool,req.identity!,null,req.query,clock())),
     context:wrap(req=>service.getContext(pool,req.identity!,null,req.query,clock(),true)),
     saveSession:wrap(req=>service.saveSession(pool,req.identity!,req.get('Idempotency-Key'),req.body,clock())),
+    history:wrap(req=>service.getHistory(pool,req.identity!,req.query)),
     sessions:wrap(req=>service.getSessions(pool,req.identity!,uuid(req.params.clientId),req.query)),
     zone:wrap(req=>service.changeZone(pool,req.identity!,uuid(req.params.clientId),req.get('Idempotency-Key'),req.body,clock())),
   }

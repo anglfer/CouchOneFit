@@ -7,13 +7,26 @@ export type RecordSection =
   | { status: 'empty' }
   | { status: 'error'; code: 'QUERY_FAILED' };
 
+/** Recent activity of the client, sent with the active routine. */
+export interface TrainingActivity {
+  lastSession: string | null;
+  sessionsLast7: number;
+  sessionsLast30: number;
+  setsLast30: number;
+}
+
 export interface ProfessionalRecord {
   profile: ClientBaseRecord;
   sections: {
     nutritionPlan: RecordSection;
     trainingPlan:
       | RecordSection
-      | { status: 'available'; plan: TrainingVersion; activeRevision: number };
+      | {
+          status: 'available';
+          plan: TrainingVersion;
+          activeRevision: number;
+          activity?: TrainingActivity | null;
+        };
     evaluations: RecordSection;
     progress: RecordSection;
     bodyWeightHistory: RecordSection;

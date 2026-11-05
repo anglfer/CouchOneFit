@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
+import { Badge, Card } from '../../../components/ui';
 import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import type { Operation } from '../../../services/offline/outbox';
+import RoutineWeek from '../../training/components/RoutineWeek';
+import {
+  relativeDay,
+  routineStats,
+  scheduleLabel,
+} from '../../training/services/training';
 import { fetchProfessionalRecord } from '../services/record';
 import type { ClientBaseRecord } from '../types/portfolio';
 import type { ProfessionalRecord } from '../types/record';
 import ClientRecordEditor from './ClientRecordEditor';
 import ClientStatusAction from './ClientStatusAction';
 import ClientBaseDetails from './ClientBaseDetails';
-import ClientRecordSections from './ClientRecordSections';
+import ClientHeader from './ClientHeader';
+import ClientRecordSections, { SectionState } from './ClientRecordSections';
 
 /** Muestra el expediente con los cambios hechos sin conexión que aún no se envían. */
 function applyPending(
@@ -92,13 +100,84 @@ function ClientRecordContent({
   }, [clientId, attempt, requestKey]);
   return (
     <section className="space-y-5">
-      <Link
-        to="/app/clientes"
-        className="inline-block text-sm font-semibold text-(--ws-primary-fg) hover:underline"
-      >
-        ← Volver a mi cartera
-      </Link>
-      <h1 className="ws-title mt-0!">Expediente del cliente</h1>
+      {record ? (
+        <ClientHeader
+          clientId={clientId}
+          name={record.fullName}
+          active="summary"
+          badges={
+            <>
+              <Badge tone={record.status === 'active' ? 'ok' : 'neutral'}>
+                {record.status === 'active' ? 'Activo' : 'Inactivo'}
+              </Badge>
+              {sections && <RoutineBadge section={sections.trainingPlan} />}
+            </>
+          }
+          facts={[
+            age(record.birthDate),
+            record.heightCm === null ? '' : `${record.heightCm} cm`,
+            record.baseWeightKg === null ? '' : `${record.baseWeightKg} kg`,
+            record.goal ?? '',
+          ].filter(Boolean)}
+          actions={
+            !editing && (
+              <>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  data-variant="primary"
+                  disabled={statusBusy || hasPending}
+                  onClick={() => {
+                    setSaved(false);
+                    setEditing(true);
+                  }}
+                >
+                  Editar datos base
+                </button>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  disabled={statusBusy}
+                  onClick={() => setAttempt((n) => n + 1)}
+                >
+                  Actualizar expediente
+                </button>
+                <ClientStatusAction
+                  sessionReady={sessionReady}
+                  clientId={clientId}
+                  status={record.status}
+                  accountId={accountId}
+                  disabled={hasPending}
+                  onQueued={() =>
+                    setStatusSaved(
+                      'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+                    )
+                  }
+                  onBusyChange={setStatusBusy}
+                  onChanged={(updated) => {
+                    setResult((current) => ({
+                      ...current,
+                      key: requestKey,
+                      record: updated,
+                      error: '',
+                    }));
+                    setStatusSaved(
+                      updated.status === 'active'
+                        ? 'El expediente está activo.'
+                        : 'El expediente está inactivo.'
+                    );
+                    onStatusChanged();
+                  }}
+                />
+              </>
+            )
+          }
+        />
+      ) : (
+        <Link to="/app/clientes" className="client-hub-back">
+          ← Clientes
+        </Link>
+      )}
       {[saved && 'Los cambios se guardaron correctamente.', statusSaved]
         .filter(Boolean)
         .map((notice) => (
@@ -120,9 +199,13 @@ function ClientRecordContent({
           <div className="ws-skeleton h-40" />
         </div>
       ) : error ? (
-        <div role="alert">
+        <div role="alert" className="ws-alert" data-tone="bad">
           <p>{error}</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)}>
+          <button
+            type="button"
+            className="ws-btn"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
             Reintentar lectura
           </button>
         </div>
@@ -162,67 +245,145 @@ function ClientRecordContent({
                 </Link>
               </p>
             )}
-            <div className="ws-card flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">{record.fullName}</h2>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={statusBusy || hasPending}
-                  onClick={() => {
-                    setSaved(false);
-                    setEditing(true);
-                  }}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-                >
-                  Editar datos base
-                </button>
-                <button
-                  type="button"
-                  disabled={statusBusy}
-                  onClick={() => setAttempt((n) => n + 1)}
-                  className="px-4 py-2 border rounded-lg disabled:opacity-50"
-                >
-                  Actualizar expediente
-                </button>
-                <ClientStatusAction
-                  sessionReady={sessionReady}
+            {sections && <ActivityStats section={sections.trainingPlan} />}
+            <div className="client-hub-grid">
+              {sections && (
+                <RoutineCard
+                  section={sections.trainingPlan}
                   clientId={clientId}
-                  status={record.status}
-                  accountId={accountId}
-                  disabled={hasPending}
-                  onQueued={() =>
-                    setStatusSaved(
-                      'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
-                    )
-                  }
-                  onBusyChange={setStatusBusy}
-                  onChanged={(updated) => {
-                    setResult((current) => ({
-                      ...current,
-                      key: requestKey,
-                      record: updated,
-                      error: '',
-                    }));
-                    setStatusSaved(
-                      updated.status === 'active'
-                        ? 'El expediente está activo.'
-                        : 'El expediente está inactivo.'
-                    );
-                    onStatusChanged();
-                  }}
                 />
-              </div>
+              )}
+              <Card title="Perfil y medidas base" icon="user">
+                <div className="space-y-4">
+                  <ClientBaseDetails record={record} />
+                </div>
+              </Card>
             </div>
-            <div className="ws-card space-y-4">
-              <h3 className="ws-card-title">Perfil y medidas base</h3>
-              <ClientBaseDetails record={record} />
-            </div>
-            {sections && (
-              <ClientRecordSections sections={sections} clientId={clientId} />
-            )}
+            {sections && <ClientRecordSections sections={sections} />}
           </>
         ))
       )}
     </section>
+  );
+}
+
+type TrainingSection = ProfessionalRecord['sections']['trainingPlan'];
+
+function age(birthDate: string | null): string {
+  if (!birthDate) return '';
+  const [y, m, d] = birthDate.split('-').map(Number);
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const years =
+    now.getFullYear() -
+    y -
+    (month < m || (month === m && now.getDate() < d) ? 1 : 0);
+  return `${years} años`;
+}
+
+function RoutineBadge({ section }: { section: TrainingSection }) {
+  if (section.status === 'available')
+    return <Badge tone="ok">Rutina activa</Badge>;
+  if (section.status === 'empty') return <Badge tone="warn">Sin rutina</Badge>;
+  return null;
+}
+
+/** Quick numbers from the routine and the client's own log. */
+function ActivityStats({ section }: { section: TrainingSection }) {
+  if (section.status !== 'available') return null;
+  const stats = routineStats(section.plan);
+  const activity = section.activity;
+  return (
+    <div className="ws-stats">
+      <div className="ws-card">
+        <p className="ws-stat-label">Rutina</p>
+        <p className="ws-stat-value client-hub-stat-text">
+          {section.plan.name}
+        </p>
+        <p className="ws-stat-note">
+          {scheduleLabel(section.plan)} · {stats.trainingDays} días de
+          entrenamiento
+        </p>
+      </div>
+      {activity && (
+        <>
+          <div className="ws-card">
+            <p className="ws-stat-label">Último entrenamiento</p>
+            <p className="ws-stat-value client-hub-stat-text">
+              {activity.lastSession
+                ? relativeDay(activity.lastSession)
+                : 'Aún sin registros'}
+            </p>
+            <p className="ws-stat-note">
+              {activity.lastSession
+                ? 'Registrado por el cliente en su móvil'
+                : 'Aparecerá cuando registre su primera sesión'}
+            </p>
+          </div>
+          <div className="ws-card">
+            <p className="ws-stat-label">Entrenamientos en 7 días</p>
+            <p className="ws-stat-value">
+              {activity.sessionsLast7}
+              <span className="text-base font-medium text-(--ws-muted)">
+                {' '}
+                / {stats.trainingDays}
+              </span>
+            </p>
+            <p className="ws-stat-note">
+              {activity.sessionsLast30} en los últimos 30 días
+            </p>
+          </div>
+          <div className="ws-card">
+            <p className="ws-stat-label">Series hechas en 30 días</p>
+            <p className="ws-stat-value">{activity.setsLast30}</p>
+            <p className="ws-stat-note">Detalle por serie en Entrenamiento</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RoutineCard({
+  section,
+  clientId,
+}: {
+  section: TrainingSection;
+  clientId: string;
+}) {
+  const training = `/app/clientes/${clientId}/entrenamiento`;
+  return (
+    <Card
+      title="Entrenamiento"
+      icon="dumbbell"
+      action={
+        <Link to={training} className="ws-btn">
+          Gestionar rutina y registros
+        </Link>
+      }
+    >
+      {section.status === 'available' ? (
+        <div className="space-y-3">
+          <p className="font-semibold">
+            {section.plan.name}{' '}
+            <span className="text-sm font-normal text-(--ws-muted)">
+              · {scheduleLabel(section.plan)}
+            </span>
+          </p>
+          <RoutineWeek routine={section.plan} compact />
+        </div>
+      ) : section.status === 'empty' ? (
+        <div className="space-y-3">
+          <p className="text-(--ws-muted)">
+            Todavía no tiene una rutina activa.
+          </p>
+          <Link to={training} className="ws-btn" data-variant="primary">
+            Asignar rutina
+          </Link>
+        </div>
+      ) : (
+        <SectionState section={section} />
+      )}
+    </Card>
   );
 }

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../../shared/widgets/gradient_widgets.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../auth/models/session_models.dart';
 import '../../client/models/client_profile.dart';
+import '../../settings/services/settings_controller.dart';
 import '../models/training.dart';
 import '../services/training_service.dart';
+import 'home_tab.dart';
+import 'plans_tab.dart';
+import 'progress_tab.dart';
 import 'training_views.dart';
 import 'training_session_screen.dart';
 
@@ -13,25 +17,46 @@ class ClientShell extends StatefulWidget {
       required this.profile,
       required this.service,
       required this.account,
-      required this.onThemeChanged});
+      this.settings});
   final ClientProfile profile;
   final TrainingService service;
+
+  /// Cuenta tab: profile, access and Configuración.
   final Widget account;
-  final ValueChanged<ThemeMode> onThemeChanged;
+  final SettingsController? settings;
   @override
   State<ClientShell> createState() => _ClientShellState();
 }
 
 class _ClientShellState extends State<ClientShell> {
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
   int _selected = 0, _epoch = 0;
   TrainingContext? _data;
+  TrainingHistory? _history;
   DateTime? _cachedAt;
   String? _error;
-  bool _loading = true, _opening = false;
+  bool _loading = true, _opening = false, _historyFailed = false;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    if (widget.settings == null) _settings.dispose();
+    super.dispose();
+  }
+
+  // History is a complement: failing it never hides the routine.
+  Future<TrainingHistory?> _fetchHistory() async {
+    try {
+      return await widget.service.history();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _load() async {
@@ -40,6 +65,7 @@ class _ClientShellState extends State<ClientShell> {
       _loading = true;
       _error = null;
     });
+    final history = _fetchHistory();
     try {
       final data = await widget.service.context();
       if (!mounted || epoch != _epoch) return;
@@ -68,9 +94,19 @@ class _ClientShellState extends State<ClientShell> {
                 : 'No pudimos consultar tu rutina. Reintenta la consulta.';
       });
     } finally {
-      if (mounted && epoch == _epoch) setState(() => _loading = false);
+      final loaded = await history;
+      if (mounted && epoch == _epoch) {
+        setState(() {
+          _history = loaded;
+          _historyFailed = loaded == null;
+          _loading = false;
+        });
+      }
     }
   }
+
+  bool get _canLog =>
+      _data != null && _data!.canWrite && _cachedAt == null && !_opening;
 
   Future<void> _openSession(String date) async {
     setState(() {
@@ -100,7 +136,11 @@ class _ClientShellState extends State<ClientShell> {
           context,
           MaterialPageRoute(
               builder: (_) => TrainingSessionScreen(
-                  contextData: data, service: widget.service)));
+                  contextData: data,
+                  service: widget.service,
+                  history: _history,
+                  settings: _settings.value,
+                  onShowProgress: () => setState(() => _selected = 2))));
       if (mounted) await _load();
     } catch (error) {
       if (TrainingService.denied(error)) await widget.service.cache.clear();
@@ -114,62 +154,104 @@ class _ClientShellState extends State<ClientShell> {
     }
   }
 
+  /// Center button: today's workout directly, otherwise the recent days.
+  void _start() {
+    final data = _data, plan = data?.plan;
+    String? problem;
+    if (data == null || plan == null) {
+      problem = 'Aún no tienes una rutina asignada.';
+    } else if (!data.canWrite) {
+      problem = 'El registro está pausado por ahora.';
+    } else if (_cachedAt != null) {
+      problem = 'Conéctate a internet para registrar tu entrenamiento.';
+    }
+    if (problem != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(problem)));
+      return;
+    }
+    if (data!.day?.kind == 'training') {
+      _openSession(data.today);
+      return;
+    }
+    final recent = [
+      for (final offset in [1, 2])
+        if (plan!.dayFor(shiftDate(data.today, -offset))?.kind == 'training')
+          shiftDate(data.today, -offset)
+    ];
+    showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                          data.day?.kind == 'rest'
+                              ? 'Hoy toca descansar'
+                              : 'Hoy no tienes entrenamiento programado',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 6),
+                      Text(recent.isEmpty
+                          ? 'Disfruta tu recuperación; tu siguiente sesión aparecerá en Inicio.'
+                          : '¿Quieres registrar un día anterior?'),
+                      const SizedBox(height: 8),
+                      for (final date in recent)
+                        ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.history),
+                            title: Text(plan!.dayFor(date)!.name),
+                            subtitle: Text(capitalized(longDate(date))),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              _openSession(date);
+                            }),
+                    ]))));
+  }
+
   void _showDay(TrainingDay day) => Navigator.push(context,
       MaterialPageRoute<void>(builder: (_) => TrainingDayScreen(day: day)));
-
-  void _showExercise(TrainingExercise exercise) => Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-          builder: (_) => ExerciseDetailScreen(exercise: exercise)));
 
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 768;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    const destinations = [
-      NavigationDestination(
-          icon: Icon(Icons.today_outlined),
-          selectedIcon: Icon(Icons.today),
-          label: 'Hoy'),
-      NavigationDestination(
-          icon: Icon(Icons.fitness_center_outlined),
-          selectedIcon: Icon(Icons.fitness_center),
-          label: 'Rutina'),
-      NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Cuenta')
+    const items = [
+      (Icons.home_outlined, Icons.home, 'Inicio'),
+      (Icons.calendar_month_outlined, Icons.calendar_month, 'Planes'),
+      (Icons.insights_outlined, Icons.insights, 'Progreso'),
+      (Icons.person_outline, Icons.person, 'Cuenta'),
     ];
     return Scaffold(
-        appBar: AppBar(
-            title: const Text('CouchOne Fit',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            actions: [
-              IconButton(
-                  tooltip:
-                      dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
-                  icon: Icon(dark
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined),
-                  onPressed: () => widget
-                      .onThemeChanged(dark ? ThemeMode.light : ThemeMode.dark)),
-            ]),
         body: SafeArea(
             child: Row(children: [
           if (wide)
             NavigationRail(
                 labelType: NavigationRailLabelType.all,
                 selectedIndex: _selected,
+                leading: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: FloatingActionButton(
+                        tooltip: 'Entrenar',
+                        elevation: 0,
+                        onPressed: _opening ? null : _start,
+                        child: const Icon(Icons.play_arrow_rounded))),
                 onDestinationSelected: (index) =>
                     setState(() => _selected = index),
-                destinations: destinations
-                    .map((d) => NavigationRailDestination(
-                        icon: d.icon,
-                        selectedIcon: d.selectedIcon,
-                        label: Text(d.label)))
-                    .toList()),
+                destinations: [
+                  for (final (icon, selected, label) in items)
+                    NavigationRailDestination(
+                        icon: Icon(icon),
+                        selectedIcon: Icon(selected),
+                        label: Text(label))
+                ]),
           Expanded(
-              child: _selected == 2
+              child: _selected == 3
                   ? widget.account
                   : RefreshIndicator(
                       onRefresh: _load,
@@ -188,32 +270,149 @@ class _ClientShellState extends State<ClientShell> {
                             ]);
                       })))
         ])),
-        bottomNavigationBar: wide
-            ? null
-            : NavigationBar(
-                selectedIndex: _selected,
-                onDestinationSelected: (index) =>
-                    setState(() => _selected = index),
-                destinations: destinations));
+        bottomNavigationBar: wide ? null : _bottomBar(items));
+  }
+
+  Widget _bottomBar(List<(IconData, IconData, String)> items) {
+    final colors = Theme.of(context).colorScheme;
+    final background = Theme.of(context).navigationBarTheme.backgroundColor;
+    Widget item(int index) {
+      final (icon, selectedIcon, label) = items[index];
+      final selected = _selected == index;
+      final color = selected ? colors.primary : colors.onSurfaceVariant;
+      return Expanded(
+          child: Semantics(
+              button: true,
+              selected: selected,
+              label: label,
+              child: ExcludeSemantics(
+                  child: InkWell(
+                      onTap: () => setState(() => _selected = index),
+                      child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(selected ? selectedIcon : icon, color: color),
+                            const SizedBox(height: 4),
+                            Text(label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: selected
+                                        ? FontWeight.w800
+                                        : FontWeight.w500,
+                                    color: color)),
+                          ]))))));
+    }
+
+    // Labels must fit 320 px; content keeps full text scaling.
+    return MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: Container(
+            decoration: BoxDecoration(
+                color: background,
+                border: Border(top: BorderSide(color: colors.outlineVariant))),
+            child: SafeArea(
+                top: false,
+                child: Row(children: [
+                  item(0),
+                  item(1),
+                  Expanded(
+                      child: Semantics(
+                          button: true,
+                          label: 'Entrenar',
+                          child: ExcludeSemantics(
+                              child: InkWell(
+                                  onTap: _opening ? null : _start,
+                                  child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 6),
+                                      child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                                width: 48,
+                                                height: 48,
+                                                decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    gradient:
+                                                        BrandColors.gradient,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                          color: colors.primary
+                                                              .withValues(
+                                                                  alpha: .35),
+                                                          blurRadius: 12,
+                                                          offset: const Offset(
+                                                              0, 4))
+                                                    ]),
+                                                child: _opening
+                                                    ? const Padding(
+                                                        padding:
+                                                            EdgeInsets.all(14),
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                color: Colors
+                                                                    .white))
+                                                    : const Icon(
+                                                        Icons
+                                                            .play_arrow_rounded,
+                                                        color: Colors.white,
+                                                        size: 30)),
+                                            const SizedBox(height: 2),
+                                            Text('Entrenar',
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: colors.primary)),
+                                          ])))))),
+                  item(2),
+                  item(3),
+                ]))));
   }
 
   Widget _content() {
     final data = _data, plan = data?.plan;
-    final text = Theme.of(context).textTheme;
+    final today = data?.today ?? trainingIso(DateTime.now());
+    final header = switch (_selected) {
+      0 => ScreenHeader(
+          title: 'Hola, ${widget.profile.fullName.split(' ').first}',
+          subtitle: data == null ? 'Tu día' : capitalized(longDate(data.today)),
+          trailing: IconButton.filledTonal(
+              tooltip: 'Configuración',
+              onPressed: () => setState(() => _selected = 3),
+              icon: const Icon(Icons.settings_outlined))),
+      1 => const ScreenHeader(
+          title: 'Planes', subtitle: 'Lo que te asignó tu profesional'),
+      _ => ScreenHeader(
+          title: 'Progreso',
+          subtitle: 'Tu avance e historial',
+          trailing: _history == null
+              ? null
+              : IconButton.filledTonal(
+                  tooltip: 'Historial',
+                  onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                          builder: (_) => HistoryScreen(
+                              initial: _history!, service: widget.service))),
+                  icon: const Icon(Icons.history))),
+    };
+    if (_selected == 2) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        header,
+        ProgressTab(
+            history: _history,
+            failed: _historyFailed && !_loading,
+            today: today,
+            onRetry: _load,
+            service: widget.service),
+      ]);
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      TrainingEyebrow(_selected == 0
-          ? (data == null ? 'Hoy' : longDate(data.today))
-          : 'Tu programación'),
-      const SizedBox(height: 6),
-      Semantics(
-          header: true,
-          child: Text(
-              _selected == 0
-                  ? 'Hola, ${widget.profile.fullName.split(' ').first}'
-                  : 'Mi rutina',
-              style: text.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800, letterSpacing: -0.6))),
-      const SizedBox(height: 16),
+      header,
       if (_loading && data == null)
         const Center(
             child: Padding(
@@ -243,190 +442,18 @@ class _ClientShellState extends State<ClientShell> {
           const TrainingNotice(
               text:
                   'Puedes consultar tu rutina. El registro está pausado por ahora.'),
-        if (data != null && plan != null)
-          ..._selected == 0 ? _today(data, plan) : _routine(plan),
+        if (data != null && _selected == 0)
+          HomeTab(
+              data: data,
+              history: _history,
+              canLog: _canLog,
+              opening: _opening,
+              onStart: _openSession,
+              onShowDay: _showDay,
+              onOpenProgress: () => setState(() => _selected = 2)),
+        if (data != null && _selected == 1)
+          PlansTab(plan: plan, today: data.today, onShowDay: _showDay),
       ],
     ]);
   }
-
-  List<Widget> _today(TrainingContext data, TrainingPlan plan) {
-    final day = data.day;
-    final colors = Theme.of(context).colorScheme;
-    final canLog = data.canWrite && _cachedAt == null && !_opening;
-    final monday = shiftDate(data.today, 1 - trainingDate(data.today).weekday);
-    return [
-      Card(
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(children: [
-                      Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                              color: colors.primaryContainer,
-                              borderRadius: BorderRadius.circular(14)),
-                          child: Icon(
-                              day?.kind == 'rest'
-                                  ? Icons.spa_outlined
-                                  : day == null
-                                      ? Icons.event_busy_outlined
-                                      : Icons.fitness_center,
-                              color: colors.onPrimaryContainer)),
-                      const SizedBox(width: 14),
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text(
-                                day?.kind == 'rest'
-                                    ? 'Hoy toca descansar'
-                                    : day?.name ?? 'Sin entrenamiento hoy',
-                                style: const TextStyle(
-                                    fontSize: 19, fontWeight: FontWeight.w800)),
-                            Text(
-                                day?.kind == 'training'
-                                    ? '${trainingCount(day!.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}'
-                                    : day?.kind == 'rest'
-                                        ? 'El descanso también es parte del plan.'
-                                        : 'No hay nada programado para esta fecha.',
-                                style:
-                                    TextStyle(color: colors.onSurfaceVariant)),
-                          ])),
-                    ]),
-                    if (day?.kind == 'training') ...[
-                      const SizedBox(height: 12),
-                      for (final entry in day!.exercises.asMap().entries)
-                        ExerciseTile(
-                            exercise: entry.value,
-                            index: entry.key,
-                            onTap: () => _showExercise(entry.value)),
-                      if (data.canWrite) ...[
-                        const SizedBox(height: 14),
-                        GradientActionButton(
-                            label: 'Registrar entrenamiento',
-                            busy: _opening,
-                            busyLabel: 'Abriendo…',
-                            icon: Icons.play_arrow_rounded,
-                            onPressed:
-                                canLog ? () => _openSession(data.today) : null),
-                      ],
-                    ],
-                  ]))),
-      const SizedBox(height: 24),
-      const TrainingEyebrow('Tu semana'),
-      const SizedBox(height: 10),
-      Row(children: [
-        for (var i = 0; i < 7; i++)
-          Expanded(child: _weekCell(plan, shiftDate(monday, i), data.today, i)),
-      ]),
-      if (data.canWrite) ...[
-        const SizedBox(height: 24),
-        const TrainingEyebrow('¿Olvidaste registrar?'),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final offset in [1, 2])
-            OutlinedButton.icon(
-                onPressed: canLog
-                    ? () => _openSession(shiftDate(data.today, -offset))
-                    : null,
-                icon: const Icon(Icons.history, size: 18),
-                label: Text(
-                    '${offset == 1 ? 'Ayer' : 'Anteayer'} · ${shortDate(shiftDate(data.today, -offset))}')),
-        ]),
-      ],
-    ];
-  }
-
-  Widget _weekCell(TrainingPlan plan, String date, String today, int index) {
-    final colors = Theme.of(context).colorScheme;
-    final day = plan.dayFor(date);
-    final current = date == today;
-    return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Semantics(
-            button: day != null,
-            label:
-                '${longDate(date)}: ${day == null ? 'sin programación' : day.kind == 'rest' ? 'descanso' : day.name}',
-            child: ExcludeSemantics(
-                child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: day == null ? null : () => _showDay(day),
-                    child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                            color: current
-                                ? colors.primary
-                                : colors.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(14)),
-                        child: Column(children: [
-                          Text(weekdayInitials[index],
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: current
-                                      ? colors.onPrimary
-                                      : colors.onSurfaceVariant)),
-                          const SizedBox(height: 6),
-                          Icon(
-                              day == null
-                                  ? Icons.remove
-                                  : day.kind == 'rest'
-                                      ? Icons.spa_outlined
-                                      : Icons.fitness_center,
-                              size: 18,
-                              color: current
-                                  ? colors.onPrimary
-                                  : colors.onSurfaceVariant),
-                        ]))))));
-  }
-
-  List<Widget> _routine(TrainingPlan plan) {
-    final colors = Theme.of(context).colorScheme;
-    return [
-      Text(plan.name,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        TrainingChip(plan.scheduleLabel, icon: Icons.event_repeat),
-        TrainingChip('Desde ${shortDate(plan.startDate)}',
-            icon: Icons.flag_outlined),
-      ]),
-      const SizedBox(height: 16),
-      for (final entry in plan.days.asMap().entries)
-        Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                leading: Icon(entry.value.kind == 'rest'
-                    ? Icons.spa_outlined
-                    : Icons.fitness_center),
-                title: Text(entry.value.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text([
-                  // 2024-01-01 was a Monday: day offsets map to weekday names.
-                  plan.schedule == 'weekly'
-                      ? _capitalized(
-                          weekdayName(shiftDate('2024-01-01', entry.key)))
-                      : entry.value.date != null
-                          ? shortDate(entry.value.date!)
-                          : 'Día ${entry.key + 1}',
-                  entry.value.kind == 'rest'
-                      ? 'Descanso'
-                      : trainingCount(entry.value.exercises.length, 'ejercicio',
-                          'ejercicios'),
-                ].join(' · ')),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showDay(entry.value))),
-      const SizedBox(height: 16),
-      Text('Datos de ejercicios: RepDB · repdb.co',
-          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-    ];
-  }
-
-  String _capitalized(String value) =>
-      value[0].toUpperCase() + value.substring(1);
 }

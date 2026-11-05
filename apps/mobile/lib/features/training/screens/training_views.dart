@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../models/training.dart';
 
 const _weekdays = [
@@ -29,6 +30,16 @@ String weekdayName(String date) => _weekdays[trainingDate(date).weekday - 1];
 String shortDate(String date) {
   final d = trainingDate(date);
   return '${d.day} ${_months[d.month - 1].substring(0, 3)}';
+}
+
+String capitalized(String v) =>
+    v.isEmpty ? v : v[0].toUpperCase() + v.substring(1);
+
+/// "1:27" or "1:02:05".
+String clockLabel(Duration d) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final h = d.inHours, m = d.inMinutes % 60, s = d.inSeconds % 60;
+  return h > 0 ? '$h:${two(m)}:${two(s)}' : '$m:${two(s)}';
 }
 
 String longDate(String date) {
@@ -288,7 +299,19 @@ class ExerciseDetailScreen extends StatelessWidget {
                               if (exercise.restLabel != null)
                                 TrainingChip(exercise.restLabel!,
                                     icon: Icons.timer_outlined),
+                              for (final e in exercise.equipment)
+                                TrainingChip(e, icon: Icons.handyman_outlined),
                             ]),
+                            if (exercise.muscles.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              const TrainingEyebrow('Músculos principales'),
+                              const SizedBox(height: 8),
+                              Wrap(spacing: 8, runSpacing: 8, children: [
+                                for (final m in exercise.muscles)
+                                  TrainingChip(m,
+                                      icon: Icons.accessibility_new),
+                              ]),
+                            ],
                             const SizedBox(height: 24),
                             const TrainingEyebrow('Tu prescripción'),
                             const SizedBox(height: 8),
@@ -379,4 +402,220 @@ class TrainingDayScreen extends StatelessWidget {
                       ],
                     ])))
       ])));
+}
+
+/// Large tab title with subtitle and an optional action (theme toggle…).
+class ScreenHeader extends StatelessWidget {
+  const ScreenHeader(
+      {super.key, required this.title, required this.subtitle, this.trailing});
+  final String title, subtitle;
+  final Widget? trailing;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Semantics(
+                    header: true,
+                    child: Text(title,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.6))),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 15, color: colors.onSurfaceVariant)),
+              ])),
+          if (trailing != null) trailing!,
+        ]));
+  }
+}
+
+/// Number tile for the progress grid.
+class StatTile extends StatelessWidget {
+  const StatTile(
+      {super.key,
+      required this.icon,
+      required this.label,
+      required this.value,
+      this.highlight = false});
+  final IconData icon;
+  final String label, value;
+  final bool highlight;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+        label: '$label: $value',
+        child: ExcludeSemantics(
+            child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Icon(icon,
+                                size: 16, color: colors.onSurfaceVariant),
+                            const SizedBox(width: 6),
+                            Expanded(
+                                child: Text(label,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: colors.onSurfaceVariant))),
+                          ]),
+                          const SizedBox(height: 6),
+                          Text(value,
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: highlight
+                                      ? BrandColors.success
+                                      : colors.onSurface)),
+                        ])))));
+  }
+}
+
+/// Line + soft area chart for a numeric series (oldest first).
+class TrendChart extends StatelessWidget {
+  const TrendChart(
+      {super.key,
+      required this.values,
+      required this.label,
+      this.height = 44,
+      this.axis = false});
+  final List<double> values;
+  final String label;
+  final double height;
+
+  /// Shows min/max guides with their values.
+  final bool axis;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+        image: true,
+        label: label,
+        child: SizedBox(
+            height: height,
+            child: CustomPaint(
+                size: Size.infinite,
+                painter: _TrendPainter(values, colors.primary, colors.outline,
+                    colors.onSurfaceVariant, axis))));
+  }
+}
+
+class _TrendPainter extends CustomPainter {
+  _TrendPainter(this.values, this.line, this.grid, this.text, this.axis);
+  final List<double> values;
+  final Color line, grid, text;
+  final bool axis;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final lo = values.reduce((a, b) => a < b ? a : b);
+    final hi = values.reduce((a, b) => a > b ? a : b);
+    final span = hi - lo == 0 ? 1 : hi - lo;
+    final left = axis ? 36.0 : 0.0, top = 6.0, bottom = size.height - 6;
+    final width = size.width - left - 6;
+    Offset at(int i) => Offset(
+        left +
+            (values.length == 1 ? width / 2 : width * i / (values.length - 1)),
+        bottom - (values[i] - lo) / span * (bottom - top));
+    if (axis) {
+      final guide = Paint()
+        ..color = grid
+        ..strokeWidth = 1;
+      for (final (y, v) in [(top, hi), (bottom, lo)]) {
+        canvas.drawLine(Offset(left, y), Offset(size.width, y), guide);
+        (TextPainter(
+                text: TextSpan(
+                    text: trainingDecimal(v),
+                    style: TextStyle(fontSize: 11, color: text)),
+                textDirection: TextDirection.ltr)
+              ..layout(maxWidth: left - 4))
+            .paint(canvas, Offset(0, y - 7));
+      }
+    }
+    final path = Path()..moveTo(at(0).dx, at(0).dy);
+    for (var i = 1; i < values.length; i++) {
+      path.lineTo(at(i).dx, at(i).dy);
+    }
+    final area = Path.from(path)
+      ..lineTo(at(values.length - 1).dx, bottom)
+      ..lineTo(at(0).dx, bottom)
+      ..close();
+    canvas.drawPath(
+        area,
+        Paint()
+          ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                line.withValues(alpha: .28),
+                line.withValues(alpha: 0)
+              ]).createShader(Rect.fromLTRB(0, top, size.width, bottom)));
+    canvas.drawPath(
+        path,
+        Paint()
+          ..color = line
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..strokeJoin = StrokeJoin.round);
+    canvas.drawCircle(at(values.length - 1), 4, Paint()..color = line);
+  }
+
+  @override
+  bool shouldRepaint(_TrendPainter old) =>
+      old.values != values || old.line != line;
+}
+
+/// Single choice: a segmented control when the labels fit in one row,
+/// wrapping chips otherwise (narrow screens or large text).
+class ChoiceBar<T> extends StatelessWidget {
+  const ChoiceBar(
+      {super.key,
+      required this.options,
+      required this.selected,
+      required this.onChanged});
+  final List<(T, String)> options;
+  final T selected;
+  final ValueChanged<T>? onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(14);
+    // Segments share the width equally, so the longest label decides.
+    final longest =
+        options.fold<int>(0, (m, o) => o.$2.length > m ? o.$2.length : m);
+    final needed = options.length * (longest * scale * .55 + 36);
+    return LayoutBuilder(
+        builder: (context, c) => needed <= c.maxWidth
+            ? SegmentedButton<T>(
+                showSelectedIcon: false,
+                segments: [
+                  for (final (value, label) in options)
+                    ButtonSegment(value: value, label: Text(label))
+                ],
+                selected: {selected},
+                onSelectionChanged:
+                    onChanged == null ? null : (v) => onChanged!(v.first))
+            : Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final (value, label) in options)
+                  ChoiceChip(
+                      label: Text(label),
+                      showCheckmark: false,
+                      selected: value == selected,
+                      onSelected:
+                          onChanged == null ? null : (_) => onChanged!(value)),
+              ]));
+  }
 }

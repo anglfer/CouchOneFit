@@ -6,7 +6,7 @@ Aplicación móvil orientada a los clientes y atletas de CouchOne Fit, desarroll
 
 **UI-001 actualizada el 16 de octubre de 2026:** misma marca azul/violeta que Web, con interacción táctil y radios 10/12/16 px. Los temas mobile-light y mobile-dark siguen inicialmente al dispositivo y permiten alternar con un botón de sol/luna en la cabecera durante la sesión. Al volver a abrir la app se usa nuevamente el tema del dispositivo. Ya están conectados a la pantalla inicial mediante `lib/shared/theme/app_theme.dart`.
 
-La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. Inicio/Planes/Progreso/Cuenta y las tarjetas de entrenamiento/alimentación/check-in siguen siendo composición prevista por sus HU; esta actualización no implementa esas pantallas. No agrega agenda, chat, notificaciones, rachas o fotografías.
+La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. El cliente navega por Inicio/Planes/Progreso/Cuenta (rediseño del 04-nov-2026, ver [EP-06](../../docs/epicas/ep-06-entrenamiento/README.md)); entrenamiento y progreso son reales, y alimentación, check-in, peso y evaluaciones aparecen como «Próximamente» hasta que sus HU los implementen. La racha semanal, el temporizador de descanso y la Configuración en Cuenta (tema, descanso, incremento de carga, vibración; guardada solo en el teléfono) se incorporaron por decisión del usuario. No agrega agenda, chat, notificaciones o fotografías.
 
 ## Interacción móvil
 

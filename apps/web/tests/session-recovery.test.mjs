@@ -481,6 +481,8 @@ beforeEach(async () => {
     if (url === '/api/professional/profile')
       return json({ profile: { userId: identity, ...account(identity) } });
     if (url === '/api/me/subscription') return subscriptionResponder();
+    // Portfolio rows add the training summary when it is available.
+    if (url === '/api/training/clients') return json({ clients: [] });
     if (
       url.startsWith('/api/clients?') &&
       (!options.method || options.method === 'GET')

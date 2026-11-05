@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
 import { AuthError } from '../../auth/types/errors.js'
 import { lockActor, readAsSubject } from '../../auth/repositories/lifecycle.js'
-import type { Prescription, SetResult, TrainingSession, TrainingVersion } from '../types/training.js'
+import type { Prescription, SetResult, TrainingSession, TrainingVersion, TrainingActivity } from '../types/training.js'
 
 export const conflict = (message = 'El entrenamiento cambió. Actualiza la rutina antes de guardar.'): never => { throw new AuthError(409, 'TRAINING_CONFLICT', message) }
 export const missing = (): never => { throw new AuthError(404, 'TRAINING_NOT_FOUND', 'El entrenamiento no está disponible.') }
@@ -143,6 +143,21 @@ export async function changeZone(c: PoolClient, identity: SessionIdentity, s: Sc
   if (!row) return conflict()
   await audit(c,identity,s.clientId,'time_zone_changed',{before:s.timeZone,after:timeZone})
   return {timeZone,clientRevision:row.version}
+}
+/** Recent training activity of one client, in the client's local calendar. */
+export async function activity(c: PoolClient, clientId: string): Promise<TrainingActivity> {
+  const { rows: [row] } = await c.query(`SELECT max(s.local_date)::text AS "lastSession",
+      count(s.id) FILTER (WHERE s.local_date > (CURRENT_TIMESTAMP AT TIME ZONE c.time_zone)::date-7)::int AS "sessionsLast7",
+      count(s.id) FILTER (WHERE s.local_date > (CURRENT_TIMESTAMP AT TIME ZONE c.time_zone)::date-30)::int AS "sessionsLast30",
+      (SELECT count(*)::int FROM private.training_results r JOIN private.training_sessions x ON x.id=r.session_id
+        WHERE x.client_id=c.id AND r.state='performed' AND x.local_date > (CURRENT_TIMESTAMP AT TIME ZONE c.time_zone)::date-30) AS "setsLast30"
+    FROM private.clients c LEFT JOIN private.training_sessions s ON s.client_id=c.id WHERE c.id=$1 GROUP BY c.id,c.time_zone`,[clientId])
+  return row ?? { lastSession: null, sessionsLast7: 0, sessionsLast30: 0, setsLast30: 0 }
+}
+/** Muscles, body part and equipment by catalog id, for client-facing reads. */
+export async function catalogFacts(c: PoolClient, ids: string[]) {
+  const {rows} = ids.length ? await c.query('SELECT id,body_part,muscles,equipment FROM private.training_exercise_catalog WHERE id=ANY($1)',[ids]) : {rows:[]}
+  return new Map<string,{bodyPart:string,muscles:string[],equipment:string[]}>(rows.map(r=>[r.id,{bodyPart:r.body_part,muscles:r.muscles,equipment:r.equipment}]))
 }
 export async function catalog(c: PoolClient, search: string, muscle: string, equipment: string, offset: number) {
   const {rows} = await c.query(`SELECT id,name,body_part AS "bodyPart",muscles,equipment,guidance,images,selectable FROM private.training_exercise_catalog

@@ -6,6 +6,7 @@ import { Pool } from 'pg'
 import request from 'supertest'
 import { prescription,results } from '../src/features/training/validators/training.js'
 import { scheduledDay,calendarDistance,localDate } from '../src/features/training/services/calendar.js'
+import { catalogFacts } from '../src/features/training/repositories/training.js'
 
 process.env.AUTH_JWT_SECRET='training-local-test-secret-at-least-32-bytes'
 process.env.CORS_ORIGIN='http://localhost:5000'
@@ -79,6 +80,7 @@ test('complete prescription, activation, session, revisions, ownership and idemp
  const context=await get('/api/me/training-sessions/context',client);assert.equal(context.status,200,JSON.stringify(context.body));assert.equal(context.body.plan.id,versionId)
  assert.equal((await get(`/api/clients/${client.clientId}/record`)).body.record.sections.trainingPlan.status,'available')
  const day=context.body.plan.days.find((d:{id:string})=>d.id===context.body.dayId)
+ assert.deepEqual([day.exercises[0].muscles,day.exercises[0].bodyPart],[[],null])
  const execution={id:randomUUID(),localDate:context.body.today,versionId,revision:0,status:'draft',results:[] as unknown[]}
  const sessionKey=randomUUID(),draft=await send('post','/api/me/training-sessions',execution,client,sessionKey);assert.equal(draft.status,200,JSON.stringify(draft.body))
  assert.deepEqual((await send('post','/api/me/training-sessions',execution,client,sessionKey)).body,draft.body)
@@ -95,12 +97,20 @@ test('complete prescription, activation, session, revisions, ownership and idemp
  assert.equal((await send('patch',`${base}/${id}/versions/${versionId}`,{revision:2,prescription:input()})).status,409)
  const logged=(await get(`/api/clients/${client.clientId}/training-sessions`)).body.sessions;assert.equal(logged.length,1)
  const hub=(await get('/api/training/clients')).body.clients;assert.equal(hub.length,1)
+ const recordActivity=(await get(`/api/clients/${client.clientId}/record`)).body.record.sections.trainingPlan.activity
+ assert.deepEqual([recordActivity.lastSession,recordActivity.sessionsLast7,recordActivity.sessionsLast30,recordActivity.setsLast30],[context.body.today,1,1,1])
  assert.deepEqual([hub[0].id,hub[0].activeRoutine,hub[0].sessionsLast7],[client.clientId,'Fuerza de prueba',1])
  assert.equal((await get('/api/training/clients',other)).body.clients.length,1)
  assert.equal((await get('/api/training/clients',client)).status,403)
  assert.equal((await get(base)).body.clientName,'Training client')
  assert.deepEqual([logged[0].results[0].rpe,logged[0].results[0].rir,logged[0].results[0].reps],[8.5,1,9])
  assert.equal((await get(`/api/clients/${client.clientId}/training-sessions`,other)).status,404)
+ const history=await get('/api/me/training-history',client);assert.equal(history.status,200,JSON.stringify(history.body))
+ assert.deepEqual([history.body.sessions.length,history.body.sessions[0].dayName,history.body.sessions[0].exercises[0].name,history.body.sessions[0].exercises[0].sets[0]],[1,day.name,'Sentadilla',{setId:day.exercises[0].sets[0].id,state:'performed',reps:9,loadKg:0,rpe:8.5,rir:1}])
+ assert.deepEqual([history.body.sessions[0].exercises[0].muscles,history.body.sessions[0].exercises[0].catalogId],[[],null])
+ assert.equal((await get('/api/me/training-history',clientB)).body.sessions.length,0)
+ assert.equal((await get('/api/me/training-history')).status,403)
+ assert.equal((await get('/api/me/training-history?offset=x',client)).status,400)
  const r=await runtime.connect();try{await r.query('BEGIN');await r.query("SELECT set_config('app.subject_id',$1,true)",[clientB.id]);assert.equal((await r.query('SELECT * FROM private.training_sessions')).rowCount,0);assert.equal((await r.query('SELECT * FROM private.training_versions')).rowCount,0)}finally{await r.query('ROLLBACK');r.release()}
  await db.query("UPDATE private.subscriptions SET status='suspended' WHERE professional_id=$1",[pro.professionalId])
  assert.equal((await get('/api/me/training-plan',client)).status,200)
@@ -151,6 +161,9 @@ test('templates remain independent; historical dates, corrections, catalog and S
   await assert.rejects(r.query('COMMIT'),/every prescribed set/);
  }finally{await r.query('ROLLBACK');r.release();}
  assert.equal((await db.query('SELECT count(*) FROM private.training_results WHERE session_id=$1',[capture.id])).rows[0].count,'1');
+ await db.query(`INSERT INTO private.training_exercise_catalog(id,name,body_part,muscles,equipment,guidance,images,selectable,source_revision) VALUES('qa-row','Remo','Espalda','["Dorsal ancho"]','["Polea"]','[]','[]',true,'qa')`);
+ const rc=await runtime.connect();
+ try{await rc.query('BEGIN');await rc.query("SELECT set_config('app.subject_id',$1,true)",[a.id]);assert.deepEqual([...(await catalogFacts(rc,['qa-row','missing'])).entries()],[['qa-row',{bodyPart:'Espalda',muscles:['Dorsal ancho'],equipment:['Polea']}]])}finally{await rc.query('ROLLBACK');rc.release()}
  assert.equal((await get('/api/training/templates',a)).status,403);
  assert.equal((await get('/api/training/exercises',coach)).status,200);
 });

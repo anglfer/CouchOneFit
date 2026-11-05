@@ -69,9 +69,9 @@ void main() {
     expect(find.text(goal), findsOneWidget);
     await tester.ensureVisible(find.text('Datos base preparados'));
     await tester.pumpAndSettle();
-    expect(find.text('Peso base: 70.2 kg'), findsOneWidget);
-    expect(find.text('Estatura: 170.5 cm'), findsOneWidget);
-    expect(find.text('Fecha de nacimiento: 15/06/1990'), findsOneWidget);
+    expect(find.text('70.2 kg'), findsOneWidget);
+    expect(find.text('170.5 cm'), findsOneWidget);
+    expect(find.text('15/06/1990'), findsOneWidget);
     final measurements =
         await binding.takeScreenshot('client-base-measurements');
     await File('${Directory.systemTemp.path}/client-base-measurements.png')

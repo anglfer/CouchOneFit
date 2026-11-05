@@ -7,6 +7,12 @@ import { sessionMutation, sessionRequest } from '../../auth/services/session';
 import { Icon } from '../../../components/Icon';
 import { Link } from '../../../components/Link';
 import { Badge } from '../../../components/ui';
+import { initials } from '../../../utils/personName';
+import {
+  readTrainingClients,
+  relativeDay,
+  type TrainingClient,
+} from '../../training/services/training';
 import ClientAccountAction from './ClientAccountAction';
 import ClientStatusAction from './ClientStatusAction';
 import GoalField from './GoalField';
@@ -37,6 +43,24 @@ const emptyClientForm = (): ClientForm => ({
 
 const numberOrNull = (value: string) =>
   value.trim() === '' ? null : Number(value);
+
+/** Routine and recent activity of one portfolio row, when known. */
+function TrainingSummary({ summary }: { summary?: TrainingClient }) {
+  if (!summary) return <div className="client-row-training" />;
+  return (
+    <div className="client-row-training">
+      <strong>
+        {summary.activeRoutine ??
+          (summary.hasDraft ? 'Borrador de rutina sin activar' : 'Sin rutina')}
+      </strong>
+      <span>
+        {summary.lastSession
+          ? `Último entreno ${relativeDay(summary.lastSession)} · ${summary.sessionsLast7} en 7 días`
+          : 'Sin entrenamientos registrados'}
+      </span>
+    </div>
+  );
+}
 
 export default function ClientAccessPanel({
   accountId,
@@ -122,6 +146,21 @@ export default function ClientAccessPanel({
     };
   }, [attempt, filters, cursors, requestKey]);
   const formOpen = formToggled ?? (!!loadedKey && !hasClients && !listError);
+  // Training state per client; a failed read only hides the summaries.
+  const [training, setTraining] = useState<Map<string, TrainingClient>>(
+    () => new Map()
+  );
+  useEffect(() => {
+    let active = true;
+    void readTrainingClients()
+      .then((list) => {
+        if (active) setTraining(new Map(list.map((c) => [c.id, c])));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [attempt]);
   async function invitation(record: ClientRecord, revoke = false) {
     if (busy) return;
     setBusy(record.id);
@@ -239,10 +278,9 @@ export default function ClientAccessPanel({
           {statusNotice}
         </p>
       )}
-      <p className="ws-lead mt-0! mb-5!">
-        Entrega una invitación privada al cliente de un expediente preparado.
-        Reemplazarla invalida inmediatamente el código anterior. Se requiere
-        expediente, profesional y suscripción activos.
+      <p className="text-sm text-(--ws-muted) mt-0! mb-4!">
+        Las invitaciones son privadas: reemplazar una invalida el código
+        anterior. Requieren expediente, profesional y suscripción activos.
       </p>
       {saved && (
         <p role="status" className="ws-alert" data-tone="ok">
@@ -548,7 +586,7 @@ export default function ClientAccessPanel({
             <option value={100}>100</option>
           </select>
         </label>
-        <button type="submit" disabled={!!busy} className="self-end">
+        <button type="submit" disabled={!!busy} className="ws-btn self-end">
           Buscar
         </button>
       </form>
@@ -622,43 +660,58 @@ export default function ClientAccessPanel({
         <ul className="m-0 list-none space-y-3 p-0">
           {clients.map((record) => (
             <li key={record.id} className="ws-card space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-base font-semibold">
-                    <Link
-                      to={`/app/clientes/${record.id}`}
-                      className="text-(--ws-primary-fg) hover:underline"
-                    >
-                      {record.fullName}
-                    </Link>
-                  </h3>
-                  {record.goal && (
-                    <p className="mt-0.5 text-sm text-(--ws-muted)">
-                      {record.goal}
-                    </p>
-                  )}
+              <div className="client-row">
+                <div className="client-row-identity">
+                  <span className="ws-avatar" aria-hidden="true">
+                    {initials(record.fullName)}
+                  </span>
+                  <div className="min-w-0">
+                    <h3>
+                      <Link
+                        to={`/app/clientes/${record.id}`}
+                        className="text-(--ws-primary-fg) hover:underline"
+                      >
+                        {record.fullName}
+                      </Link>
+                    </h3>
+                    {record.goal && (
+                      <p className="mt-0.5 text-sm text-(--ws-muted)">
+                        {record.goal}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone={record.status === 'active' ? 'ok' : 'neutral'}>
-                    {record.status === 'active' ? 'Activo' : 'Inactivo'}
-                  </Badge>
-                  <Badge
-                    tone={
-                      record.userId
+                <TrainingSummary summary={training.get(record.id)} />
+                <div className="client-row-side">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone={record.status === 'active' ? 'ok' : 'neutral'}>
+                      {record.status === 'active' ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <Badge
+                      tone={
+                        record.userId
+                          ? record.accountStatus === 'inactive'
+                            ? 'bad'
+                            : 'info'
+                          : 'neutral'
+                      }
+                    >
+                      {record.userId
                         ? record.accountStatus === 'inactive'
-                          ? 'bad'
-                          : 'info'
-                        : 'neutral'
-                    }
+                          ? 'Cuenta vinculada dada de baja'
+                          : 'Cuenta vinculada'
+                        : record.status !== 'active'
+                          ? 'Expediente inactivo'
+                          : 'Sin cuenta vinculada'}
+                    </Badge>
+                  </div>
+                  <Link
+                    to={`/app/clientes/${record.id}`}
+                    className="ws-btn"
+                    data-variant="primary"
                   >
-                    {record.userId
-                      ? record.accountStatus === 'inactive'
-                        ? 'Cuenta vinculada dada de baja'
-                        : 'Cuenta vinculada'
-                      : record.status !== 'active'
-                        ? 'Expediente inactivo'
-                        : 'Sin cuenta vinculada'}
-                  </Badge>
+                    Abrir ficha
+                  </Link>
                 </div>
               </div>
               {record.invitationExpiresAt && (
@@ -667,7 +720,7 @@ export default function ClientAccessPanel({
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
               )}
-              <div className="flex flex-wrap gap-2">
+              <div className="client-row-actions">
                 <ClientStatusAction
                   sessionReady={sessionReady}
                   clientId={record.id}

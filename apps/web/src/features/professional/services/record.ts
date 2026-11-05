@@ -39,6 +39,19 @@ export async function fetchProfessionalRecord(
         typeof section.activeRevision !== 'number'
       )
         throw new Error('Invalid training section');
+      // Optional complement: a malformed summary is dropped, never trusted.
+      const activity = section.activity;
+      if (
+        !object(activity) ||
+        !(
+          activity.lastSession === null ||
+          typeof activity.lastSession === 'string'
+        ) ||
+        !['sessionsLast7', 'sessionsLast30', 'setsLast30'].every((field) =>
+          Number.isInteger(activity[field])
+        )
+      )
+        section.activity = null;
       continue;
     }
     if (

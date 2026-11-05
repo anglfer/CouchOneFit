@@ -101,6 +101,10 @@ class TrainingService {
     return TrainingContext(raw);
   }
 
+  Future<TrainingHistory> history({int offset = 0}) async => TrainingHistory(
+      await _api.getJson('/api/me/training-history?offset=$offset',
+          authenticated: true));
+
   Future<TrainingSession> save(Map<String, Object?> body, String key) async {
     final raw = await _api.requestJson('POST', '/api/me/training-sessions',
         body: body, idempotencyKey: key, authenticated: true);

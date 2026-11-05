@@ -22,6 +22,7 @@ export function trainingRoutes(pool: Pool, now?: () => Date) {
   router.get('/clients/:clientId/training-sessions',pro,controller.sessions)
   router.get('/me/training-plan',client,controller.plan)
   router.get('/me/training-sessions/context',client,controller.context)
+  router.get('/me/training-history',client,controller.history)
   router.post('/me/training-sessions',client,(req,res,next)=>bearerToken(req)!==undefined?next():requireCsrf(req,res,next),payload,controller.saveSession)
   return router
 }

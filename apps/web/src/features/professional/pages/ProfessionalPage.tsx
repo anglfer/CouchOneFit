@@ -29,7 +29,7 @@ import TrainingPage from '../../training/pages/TrainingPage';
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
   { href: '/app/clientes', label: 'Clientes', icon: 'users' },
-  { href: '/app/entrenamiento', label: 'Entrenamiento', icon: 'dumbbell' },
+  { href: '/app/entrenamiento', label: 'Rutinas', icon: 'layers' },
 ];
 
 const accountMenu: WorkspaceNavItem[] = [
@@ -244,19 +244,21 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = isTrainingPage
-    ? 'Entrenamiento'
-    : isPendingPage
-      ? 'Pendientes de enviar'
-      : isSubscriptionPage
-        ? 'Mi suscripción'
-        : isClientsPage
-          ? 'Clientes'
-          : isRecoveryPage
-            ? 'Recuperación asistida'
-            : isProfilePage
-              ? 'Mi perfil'
-              : 'Inicio';
+  const pageTitle = trainingClientId
+    ? 'Clientes'
+    : isTrainingPage
+      ? 'Rutinas'
+      : isPendingPage
+        ? 'Pendientes de enviar'
+        : isSubscriptionPage
+          ? 'Mi suscripción'
+          : isClientsPage
+            ? 'Clientes'
+            : isRecoveryPage
+              ? 'Recuperación asistida'
+              : isProfilePage
+                ? 'Mi perfil'
+                : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -353,7 +355,7 @@ export default function ProfessionalPage(): ReactElement {
                 <PageHeader
                   eyebrow="Cartera"
                   title="Clientes"
-                  lead="Crea expedientes, entrega invitaciones y administra el acceso de cada persona."
+                  lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
                   actions={
                     <Link to="/app/recuperacion" className="ws-btn">
                       Recuperación asistida

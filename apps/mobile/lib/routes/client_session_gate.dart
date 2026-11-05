@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../shared/animations/premium_route.dart';
 import '../features/training/services/training_service.dart';
 import '../features/training/screens/client_shell.dart';
+import '../features/settings/services/settings_controller.dart';
+import '../features/settings/widgets/settings_panel.dart';
 
 import '../features/auth/models/session_models.dart';
 import '../features/auth/screens/login_screen.dart';
@@ -19,18 +21,22 @@ class ClientSessionGate extends StatefulWidget {
     required this.authService,
     required this.profileService,
     this.trainingService,
+    this.settings,
   });
 
   final ValueChanged<ThemeMode> onThemeChanged;
   final AuthService authService;
   final ClientProfileService profileService;
   final TrainingService? trainingService;
+  final SettingsController? settings;
 
   @override
   State<ClientSessionGate> createState() => _ClientSessionGateState();
 }
 
 class _ClientSessionGateState extends State<ClientSessionGate> {
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
   ClientProfile? _profile;
   bool _loadingProfile = true;
   bool _hasSession = false;
@@ -255,14 +261,15 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
           key: ValueKey(activeProfile.id),
           profile: activeProfile,
           service: widget.trainingService!,
-          onThemeChanged: widget.onThemeChanged,
+          settings: _settings,
           account: ClientProfileScreen(
               profile: activeProfile,
               onRefresh: _handleRefreshProfile,
               onLogout: _handleLogout,
               isRefreshing: _isRefreshing,
               errorMessage: _errorMessage,
-              onCredentials: () => _openAccess(AccountAccessMode.credentials)));
+              onCredentials: () => _openAccess(AccountAccessMode.credentials),
+              settings: SettingsPanel(controller: _settings)));
     }
 
     return Scaffold(

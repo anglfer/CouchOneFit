@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from '../../../components/Link';
 import { Icon, type IconName } from '../../../components/Icon';
 import { Badge } from '../../../components/ui';
 import Modal from '../components/Modal';
@@ -10,7 +9,6 @@ import RoutineWeek from '../components/RoutineWeek';
 import SessionLog from '../components/SessionLog';
 import { useRoutines, type Routines } from '../hooks/useRoutines';
 import {
-  initials,
   readSessions,
   relativeDay,
   routineStats,
@@ -22,10 +20,11 @@ import type {
   TrainingVersion,
 } from '../types/training';
 import { Notices } from './TrainingHub';
+import ClientHeader from '../../professional/components/ClientHeader';
 
 type Tab = 'summary' | 'routine' | 'logs' | 'history';
 const tabs: [Tab, string, IconName][] = [
-  ['summary', 'Resumen', 'home'],
+  ['summary', 'Vista general', 'home'],
   ['routine', 'Rutina', 'dumbbell'],
   ['logs', 'Registros', 'chart'],
   ['history', 'Historial', 'layers'],
@@ -64,25 +63,17 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
   }
   return (
     <>
-      <header className="training-client-header">
-        <Link to="/app/entrenamiento" className="training-back">
-          ← Entrenamiento
-        </Link>
-        <div className="training-client-identity">
-          <span className="ws-avatar ws-avatar-lg" aria-hidden="true">
-            {initials(name)}
-          </span>
-          <div>
-            <span className="ws-eyebrow">ENTRENAMIENTO DEL CLIENTE</span>
-            <h1 className="ws-title">{name}</h1>
-            <Badge tone={status.tone}>{status.text}</Badge>
-          </div>
-          <Link to={`/app/clientes/${clientId}`} className="ws-btn">
-            Ver expediente
-          </Link>
-        </div>
-      </header>
-      <div className="training-tabs" role="tablist" aria-label="Secciones">
+      <ClientHeader
+        clientId={clientId}
+        name={name}
+        active="training"
+        badges={<Badge tone={status.tone}>{status.text}</Badge>}
+      />
+      <div
+        className="client-subtabs"
+        role="tablist"
+        aria-label="Secciones de entrenamiento"
+      >
         {tabs.map(([key, label, icon]) => (
           <button
             key={key}

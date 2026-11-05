@@ -48,11 +48,14 @@ void main() {
       onLogout: () async {},
     ))));
     await tester.pumpAndSettle();
-    expect(find.text('Peso base: 70.2 kg'), findsOneWidget);
+    // Each base value is a labelled tile.
+    expect(find.text('Peso base'), findsOneWidget);
+    expect(find.text('70.2 kg'), findsOneWidget);
     expect(find.textContaining('Grasa'), findsNothing);
     expect(find.textContaining('Cintura'), findsNothing);
     expect(find.textContaining('Cadera'), findsNothing);
-    expect(find.text('Fecha de nacimiento: 15/06/1990'), findsOneWidget);
+    expect(find.text('Fecha de nacimiento'), findsOneWidget);
+    expect(find.text('15/06/1990'), findsOneWidget);
     expect(find.textContaining('todavía no está disponible'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Guardar'), findsNothing);

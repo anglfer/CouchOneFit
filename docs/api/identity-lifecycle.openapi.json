@@ -2751,11 +2751,62 @@
                   {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["status", "plan", "activeRevision"],
+                    "required": [
+                      "status",
+                      "plan",
+                      "activeRevision",
+                      "activity"
+                    ],
                     "properties": {
-                      "status": { "const": "available" },
-                      "plan": { "type": "object" },
-                      "activeRevision": { "type": "integer", "minimum": 1 }
+                      "status": {
+                        "const": "available"
+                      },
+                      "plan": {
+                        "type": "object"
+                      },
+                      "activeRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "activity": {
+                        "description": "Actividad reciente del cliente en su calendario local (EP-06). null si la consulta falla; nunca oculta la rutina.",
+                        "oneOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "lastSession",
+                              "sessionsLast7",
+                              "sessionsLast30",
+                              "setsLast30"
+                            ],
+                            "properties": {
+                              "lastSession": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "date"
+                              },
+                              "sessionsLast7": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sessionsLast30": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "setsLast30": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        ]
+                      }
                     }
                   }
                 ]

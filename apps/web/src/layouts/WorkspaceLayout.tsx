@@ -48,7 +48,13 @@ const themes: { value: ThemePreference; label: string; icon: IconName }[] = [
 ];
 
 function isCurrentPath(pathname: string, href: string): boolean {
-  return pathname.replace(/\/$/, '') === href.replace(/\/$/, '');
+  const path = pathname.replace(/\/$/, '');
+  const target = href.replace(/\/$/, '');
+  // Area roots (/app, /admin) match exactly; sections also own their sub-pages.
+  return (
+    path === target ||
+    (target.split('/').length > 2 && path.startsWith(`${target}/`))
+  );
 }
 
 function AccountMenu({

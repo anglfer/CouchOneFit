@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from 'pg'
 import type { SessionIdentity } from '../../auth/types/session.js'
-import type { TrainingContext } from '../types/training.js'
+import type { TrainingContext, TrainingVersion } from '../types/training.js'
 import * as validate from '../validators/training.js'
 import * as repository from '../repositories/training.js'
 import { calendarDistance, localDate, scheduledDay } from './calendar.js'
@@ -19,7 +19,14 @@ export async function readContext(c: PoolClient, identity: SessionIdentity, clie
 export function getContext(pool: Pool, identity: SessionIdentity, clientId: string | null, query: unknown, now: Date, execution = false) {
   const q=validate.object(query,execution?['date']:[])
   const date=q.date===undefined?null:validate.date(q.date)
-  return repository.read(pool,identity,c=>readContext(c,identity,clientId,date,now,execution))
+  return repository.read(pool,identity,async c=>{
+    const context=await readContext(c,identity,clientId,date,now,execution)
+    if(!context.plan) return context
+    const exercises=context.plan.days.flatMap(d=>d.exercises)
+    const facts=await repository.catalogFacts(c,exercises.flatMap(e=>e.catalogId?[e.catalogId]:[]))
+    const none={bodyPart:null,muscles:[],equipment:[]}
+    return {...context,plan:{...context.plan,days:context.plan.days.map(d=>({...d,exercises:d.exercises.map(e=>({...e,...(e.catalogId?facts.get(e.catalogId)??none:none)}))}))}}
+  })
 }
 export function getVersions(pool: Pool, identity: SessionIdentity, clientId: string | null) {
   return repository.read(pool,identity,async c=>{
@@ -91,10 +98,40 @@ export function getCatalog(pool: Pool, identity: SessionIdentity, query: unknown
     return repository.catalog(c,validate.text(q.search??'',150),validate.text(q.muscle??'',100),validate.text(q.equipment??'',100),offset)
   })
 }
-export function getSessions(pool: Pool, identity: SessionIdentity, clientId: string, query: unknown) {
+function offsetOf(query: unknown) {
   const q=validate.object(query,['offset'])
-  const offset=q.offset===undefined?0:typeof q.offset==='string' && /^\d+$/.test(q.offset)?validate.number(Number(q.offset),0,100000):validate.invalid()
+  return q.offset===undefined?0:typeof q.offset==='string' && /^\d+$/.test(q.offset)?validate.number(Number(q.offset),0,100000):validate.invalid()
+}
+export function getSessions(pool: Pool, identity: SessionIdentity, clientId: string, query: unknown) {
+  const offset=offsetOf(query)
   return repository.read(pool,identity,async c=>{await repository.scope(c,identity,clientId);return repository.listSessions(c,clientId,offset)})
+}
+/** Own sessions joined with the prescription that was in force, so mobile can show "last time" and progress. */
+export function getHistory(pool: Pool, identity: SessionIdentity, query: unknown) {
+  const offset=offsetOf(query)
+  return repository.read(pool,identity,async c=>{
+    const scope=(await repository.scope(c,identity,null))!
+    const {sessions,nextOffset}=await repository.listSessions(c,scope.clientId,offset)
+    const versions=new Map<string,TrainingVersion>()
+    const history=[]
+    const ids=new Set<string>()
+    for(const s of sessions){
+      if(!s) continue
+      const version=versions.get(s.versionId)??await repository.version(c,s.versionId)
+      versions.set(s.versionId,version)
+      const day=version.days.find(d=>d.id===s.dayId)
+      const results=new Map(s.results.map(r=>[r.setId,r]))
+      history.push({id:s.id,localDate:s.localDate,status:s.status,dayName:day?.name??'Entrenamiento',
+        exercises:(day?.exercises??[]).map(e=>{if(e.catalogId)ids.add(e.catalogId);return {key:e.catalogId??e.id,catalogId:e.catalogId,name:e.name,loadMode:e.loadMode,
+          sets:e.sets.map(p=>results.get(p.id)??null)}})})
+    }
+    const facts=await repository.catalogFacts(c,[...ids])
+    for(const s of history) for(const e of s.exercises) Object.assign(e,{muscles:e.catalogId?facts.get(e.catalogId)?.muscles??[]:[],bodyPart:e.catalogId?facts.get(e.catalogId)?.bodyPart??null:null})
+    return {sessions:history,nextOffset}
+  })
+}
+export function getActivity(pool: Pool, identity: SessionIdentity, clientId: string) {
+  return repository.read(pool,identity,async c=>{await repository.scope(c,identity,clientId);return repository.activity(c,clientId)})
 }
 export function getClients(pool: Pool, identity: SessionIdentity) {
   return repository.read(pool,identity,async c=>{await repository.scope(c,identity,null);return repository.trainingClients(c,identity)})
