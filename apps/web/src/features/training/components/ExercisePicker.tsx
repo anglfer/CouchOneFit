@@ -114,6 +114,11 @@ export default function ExercisePicker({
           </button>
         </p>
       )}
+      {busy && !data && (
+        <p role="status" className="training-muted">
+          Cargando catálogo…
+        </p>
+      )}
       <div className="training-catalog-grid" aria-busy={busy}>
         {data?.exercises.map((e) => {
           const count = added.filter((id) => id === e.id).length;

@@ -73,7 +73,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '25'
+      '26'
     );
     await databases[1].query(
       readFileSync(
@@ -191,7 +191,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '25'
+      '26'
     );
     assert.equal(
       (

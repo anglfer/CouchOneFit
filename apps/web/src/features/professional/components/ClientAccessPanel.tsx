@@ -535,7 +535,7 @@ export default function ClientAccessPanel({
         <label className="min-w-56 flex-1">
           Buscar por nombre u objetivo
           <input
-            className="block border rounded p-2"
+            className="block w-full border rounded p-2"
             disabled={!!busy}
             value={search}
             ref={(input) => {
@@ -775,7 +775,7 @@ export default function ClientAccessPanel({
                     type="button"
                     disabled={!!busy}
                     onClick={() => void invitation(record)}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                    className="ws-btn"
                   >
                     {busy === record.id
                       ? 'Procesando…'
@@ -789,7 +789,7 @@ export default function ClientAccessPanel({
                     type="button"
                     disabled={!!busy}
                     onClick={() => void invitation(record, true)}
-                    className="px-4 py-2 border rounded-lg"
+                    className="ws-btn"
                   >
                     Revocar invitación
                   </button>

@@ -1,5 +1,8 @@
+export type SetKind =
+  'warmup' | 'working' | 'top' | 'backoff' | 'drop' | 'failure';
 export interface PrescribedSet {
   id: string;
+  kind: SetKind;
   reps: number;
   repsMax: number | null;
   rpe: number | null;

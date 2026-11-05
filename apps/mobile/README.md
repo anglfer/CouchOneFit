@@ -6,7 +6,7 @@ Aplicación móvil orientada a los clientes y atletas de CouchOne Fit, desarroll
 
 **UI-001 actualizada el 16 de octubre de 2026:** misma marca azul/violeta que Web, con interacción táctil y radios 10/12/16 px. Los temas mobile-light y mobile-dark siguen inicialmente al dispositivo y permiten alternar con un botón de sol/luna en la cabecera durante la sesión. Al volver a abrir la app se usa nuevamente el tema del dispositivo. Ya están conectados a la pantalla inicial mediante `lib/shared/theme/app_theme.dart`.
 
-La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. El cliente navega por Inicio/Planes/Progreso/Cuenta (rediseño del 04-nov-2026, ver [EP-06](../../docs/epicas/ep-06-entrenamiento/README.md)); entrenamiento y progreso son reales, y alimentación, check-in, peso y evaluaciones aparecen como «Próximamente» hasta que sus HU los implementen. La racha semanal, el temporizador de descanso y la Configuración en Cuenta (tema, descanso, incremento de carga, vibración; guardada solo en el teléfono) se incorporaron por decisión del usuario. No agrega agenda, chat, notificaciones o fotografías.
+La fuente visual es [DESIGN.md de la raíz](../../DESIGN.md): seis paletas exactas, colores semánticos, componentes y criterios de validación. El cliente navega por Inicio/Planes/Progreso/Cuenta (rediseño del 04-nov-2026, ver [EP-06](../../docs/epicas/ep-06-entrenamiento/README.md)); entrenamiento y progreso son reales, y alimentación, check-in, peso y evaluaciones aparecen como «Próximamente» hasta que sus HU los implementen. La racha semanal, el temporizador de descanso y las Preferencias en Cuenta (Apariencia; Entrenamiento: descanso, salto de carga, vibración; guardadas solo en el teléfono), la bitácora en lista continua estilo Hevy y la figura muscular de recuperación (05-nov-2026) se incorporaron por decisión del usuario. No agrega agenda, chat, notificaciones o fotografías.
 
 ## Interacción móvil
 
@@ -148,6 +148,29 @@ cambiar la configuración global de Java, Gradle ni Windows. Mantén la carpeta
 mientras haya procesos Java usándola. Compilar el APK no acredita el recorrido
 de login/perfil: esa comprobación se registra por separado en el
 [seguimiento de auditoría](../../docs/epicas/ep-03-cartera-y-expediente/seguimiento-auditoria.md).
+
+## Emulador: «Lost connection to device» al iniciar sesión
+
+Diagnosticado el 05/nov/2026 con el AVD `Medium_Phone` (API 37, imagen Play
+Store de páginas de 16 KB, `hw.gpu.mode=auto`). No es un fallo de la app: con
+`auto` el emulador eligió `lavapipe` (gráficos por software en la CPU). Con el
+equipo cargado, Android se ahogaba antes de terminar el login: carga 33,
+«System UI/Pixel Launcher isn't responding» y `lowmemorykiller` matando apps
+del sistema. Al final el proceso `qemu` del emulador se cerró solo, incluso
+sin tocar la app. La API respondía el login con 200.
+
+Arranca el emulador con GPU por hardware (la Intel HD 630 cumple los
+requisitos):
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd Medium_Phone -gpu host
+```
+
+Con `-gpu host` el login y el Inicio funcionaron, la carga bajó a ~2 y no hubo
+ANR del sistema ni cierre. Para que sea permanente, usa
+`hw.gpu.mode=host` en el `config.ini` del AVD, o en Device Manager →
+*Graphics acceleration: Hardware*. Si sigue lento, cierra programas pesados o
+usa un teléfono por USB con `adb reverse`.
 
 ## Recorrido Android de login y expediente
 

@@ -4,6 +4,8 @@ import 'package:couchonefit_mobile/features/auth/services/session_storage.dart';
 import 'package:couchonefit_mobile/features/client/models/client_profile.dart';
 import 'package:couchonefit_mobile/features/client/screens/client_profile_screen.dart';
 import 'package:couchonefit_mobile/features/client/services/client_profile_service.dart';
+import 'package:couchonefit_mobile/features/client/widgets/client_base_measurements.dart';
+import 'package:couchonefit_mobile/features/settings/services/settings_controller.dart';
 import 'package:couchonefit_mobile/main.dart';
 import 'package:couchonefit_mobile/shared/services/api_client.dart';
 import 'package:flutter/material.dart';
@@ -188,5 +190,46 @@ void main() {
     expect(find.byType(ClientProfileScreen), findsNothing);
     expect(await session.readSession(), isNull);
     expect(find.byKey(const ValueKey('record-query-error')), findsNothing);
+  });
+
+  testWidgets('Cuenta shows age, picks the theme and opens training settings',
+      (tester) async {
+    final settings = SettingsController();
+    final profile = ClientProfile.fromJson(record);
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: ClientProfileScreen(
+                profile: profile,
+                onRefresh: () async {},
+                onLogout: () async {},
+                settings: settings))));
+    await tester.pumpAndSettle();
+    expect(find.text('Inactivo'), findsOneWidget);
+    await tester.ensureVisible(find.text('Apariencia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apariencia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Oscuro'));
+    await tester.pumpAndSettle();
+    expect(settings.value.themeMode, ThemeMode.dark);
+    expect(find.text('Oscuro'), findsOneWidget);
+    await tester.tap(find.text('Entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(find.text('Temporizador de descanso'), findsOneWidget);
+  });
+
+  testWidgets('age counts the birthday only once it has passed',
+      (tester) async {
+    Future<void> at(DateTime today) => tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SingleChildScrollView(
+                child: ClientBaseMeasurements(
+                    profile: ClientProfile.fromJson(record),
+                    onRefresh: () async {},
+                    today: today)))));
+    await at(DateTime(2026, 6, 14));
+    expect(find.text('35 años'), findsOneWidget);
+    await at(DateTime(2026, 6, 15));
+    expect(find.text('36 años'), findsOneWidget);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
+import '../widgets/muscle_map.dart';
 import 'training_views.dart';
 
 class SummaryExercise {
@@ -138,7 +139,19 @@ class SessionSummaryScreen extends StatelessWidget {
                     if (groups.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       const TrainingEyebrow('Músculos trabajados'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
+                      MuscleMap(
+                          height: 200,
+                          // More sets, stronger tint.
+                          fill: {
+                            for (final g in groups)
+                              g.key: colors.primary.withValues(
+                                  alpha:
+                                      .35 + .65 * g.value / groups.first.value)
+                          },
+                          semanticsLabel:
+                              'Figura muscular con ${groups.map((g) => g.key).join(', ')}'),
+                      const SizedBox(height: 12),
                       Wrap(spacing: 8, runSpacing: 8, children: [
                         for (final g in groups)
                           TrainingChip(

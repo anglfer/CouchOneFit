@@ -9,6 +9,7 @@ import RoutineWeek from '../components/RoutineWeek';
 import SessionLog from '../components/SessionLog';
 import { useRoutines, type Routines } from '../hooks/useRoutines';
 import {
+  count,
   readSessions,
   relativeDay,
   routineStats,
@@ -48,16 +49,15 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
     : r.draft
       ? ({ tone: 'warn', text: 'Borrador sin activar' } as const)
       : ({ tone: 'info', text: 'Sin rutina' } as const);
-  const startFrom = (source?: Prescription) => {
-    if (r.newDraft(source)) setTab('routine');
-  };
-  const continueDraft = () => {
-    if (r.draft && r.open(r.draft)) setTab('routine');
-  };
+  const startFrom = (source?: Prescription) =>
+    void r.newDraft(source).then((ok) => ok && setTab('routine'));
+  const continueDraft = () =>
+    void (r.draft && r.open(r.draft))?.then((ok) => ok && setTab('routine'));
   async function saveAndActivate() {
     const saved = r.dirty || r.editor?.newVersion ? await r.save() : r.editor;
     if (saved && (await r.activate(saved))) {
-      r.close();
+      // Just saved: skip the unsaved-changes question (`r.dirty` here is stale).
+      await r.close(true);
       setTab('summary');
     }
   }
@@ -67,7 +67,7 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
         clientId={clientId}
         name={name}
         active="training"
-        badges={<Badge tone={status.tone}>{status.text}</Badge>}
+        badges={!r.loading && <Badge tone={status.tone}>{status.text}</Badge>}
       />
       <div
         className="client-subtabs"
@@ -205,9 +205,9 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
                   type="button"
                   className="ws-btn"
                   disabled={r.busy}
-                  onClick={() => {
-                    if (r.close()) setTab('summary');
-                  }}
+                  onClick={() =>
+                    void r.close().then((ok) => ok && setTab('summary'))
+                  }
                 >
                   Cerrar
                 </button>
@@ -294,7 +294,7 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
                 <div>
                   <strong>{v.name}</strong>
                   <small>
-                    {day(v.createdAt)} · {scheduleLabel(v)}
+                    Versión {v.number} · {day(v.createdAt)} · {scheduleLabel(v)}
                   </small>
                 </div>
                 <Badge
@@ -372,8 +372,14 @@ function RoutineCard({
       <h2>{routine.name}</h2>
       <p className="training-chips">
         <span>{scheduleLabel(routine)}</span>
-        <span>{stats.trainingDays} días de entrenamiento</span>
-        <span>{stats.exercises} ejercicios</span>
+        <span>
+          {count(
+            stats.trainingDays,
+            'día de entrenamiento',
+            'días de entrenamiento'
+          )}
+        </span>
+        <span>{count(stats.exercises, 'ejercicio')}</span>
       </p>
       <RoutineWeek routine={routine} />
       <p className="training-muted">{note}</p>
@@ -476,7 +482,7 @@ function TimeZoneCard({ r }: { r: Routines }) {
   const [zone, setZone] = useState('');
   const current = r.data?.timeZone ?? '';
   return (
-    <details className="ws-card training-settings">
+    <details className="ws-card ws-disclosure training-settings">
       <summary>Ajustes · zona horaria ({current || '—'})</summary>
       <p className="training-muted">
         Define qué día es «hoy» para el cliente. No cambia registros anteriores.

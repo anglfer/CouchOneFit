@@ -85,14 +85,14 @@ void main() {
       final theme = Theme.of(tester.element(find.text('CouchOne Fit')));
       final dark = brightness == Brightness.dark;
       expect(theme.brightness, brightness);
-      expect(theme.colorScheme.primary, Color(dark ? 0xFF4B40FF : 0xFF4037F7));
+      expect(theme.colorScheme.primary, Color(dark ? 0xFF7357FF : 0xFF4037F7));
       expect(
-          theme.scaffoldBackgroundColor, Color(dark ? 0xFF050A1A : 0xFFFBFBFD));
-      expect(theme.colorScheme.surface, Color(dark ? 0xFF0C152C : 0xFFFFFFFF));
+          theme.scaffoldBackgroundColor, Color(dark ? 0xFF07050F : 0xFFF6F6FB));
+      expect(theme.colorScheme.surface, Color(dark ? 0xFF120E20 : 0xFFFFFFFF));
       expect(theme.colorScheme.error, BrandColors.error);
       expect(theme.cardTheme.shape, isA<RoundedRectangleBorder>());
       expect((theme.cardTheme.shape as RoundedRectangleBorder).borderRadius,
-          BorderRadius.circular(12));
+          BorderRadius.circular(18));
       expect(tester.takeException(), isNull);
     });
   }

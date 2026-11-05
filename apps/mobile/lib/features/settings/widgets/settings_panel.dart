@@ -7,7 +7,22 @@ String restLabel(int seconds) => seconds % 60 == 0
     ? '${seconds ~/ 60} min'
     : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 
-/// "Configuración" block shown inside Cuenta.
+/// Theme names shown in Cuenta › Apariencia.
+const themeLabels = {
+  ThemeMode.system: ('Según el sistema', Icons.brightness_auto),
+  ThemeMode.light: ('Claro', Icons.light_mode_outlined),
+  ThemeMode.dark: ('Oscuro', Icons.dark_mode_outlined),
+};
+
+/// One-line summary of the training preferences for the Cuenta row.
+String trainingSettingsSummary(AppSettings s) => [
+      s.restTimer
+          ? 'Descanso ${restLabel(s.defaultRestSeconds)}'
+          : 'Sin temporizador',
+      'carga ±${s.loadStep % 1 == 0 ? s.loadStep.toInt() : s.loadStep.toString().replaceAll('.', ',')} kg',
+    ].join(' · ');
+
+/// Training preferences, opened from Cuenta › Entrenamiento.
 class SettingsPanel extends StatelessWidget {
   const SettingsPanel({super.key, required this.controller});
   final SettingsController controller;
@@ -15,58 +30,16 @@ class SettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    Widget title(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text,
-            style: TextStyle(
-                fontWeight: FontWeight.w800, color: colors.onSurfaceVariant)));
     return ValueListenableBuilder<AppSettings>(
         valueListenable: controller,
         builder: (context, s, _) =>
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Semantics(
-                  header: true,
-                  child: Text('Configuración',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800))),
-              const SizedBox(height: 10),
               Card(
                   margin: EdgeInsets.zero,
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        title('Apariencia'),
-                        Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: SegmentedButton<ThemeMode>(
-                                showSelectedIcon: false,
-                                segments: const [
-                                  ButtonSegment(
-                                      value: ThemeMode.system,
-                                      icon: Icon(Icons.brightness_auto),
-                                      label: Text('Sistema')),
-                                  ButtonSegment(
-                                      value: ThemeMode.light,
-                                      icon: Icon(Icons.light_mode_outlined),
-                                      label: Text('Claro')),
-                                  ButtonSegment(
-                                      value: ThemeMode.dark,
-                                      icon: Icon(Icons.dark_mode_outlined),
-                                      label: Text('Oscuro')),
-                                ],
-                                selected: {s.themeMode},
-                                onSelectionChanged: (v) => controller
-                                    .update(s.copyWith(themeMode: v.first)))),
-                      ])),
-              const SizedBox(height: 12),
-              Card(
-                  margin: EdgeInsets.zero,
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        title('Entrenamiento'),
+                        const SizedBox(height: 8),
                         SwitchListTile(
                             title: const Text('Temporizador de descanso'),
                             subtitle: const Text(
@@ -95,7 +68,7 @@ class SettingsPanel extends StatelessWidget {
                                 : null),
                         _choices<double>(
                             context,
-                            'Incremento de carga en − / +',
+                            'Salto de carga sugerido',
                             AppSettings.stepOptions,
                             s.loadStep,
                             (v) =>

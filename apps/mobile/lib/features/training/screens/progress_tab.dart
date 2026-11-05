@@ -4,6 +4,7 @@ import '../../../shared/widgets/coming_soon_card.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../services/training_service.dart';
+import '../widgets/muscle_map.dart';
 import 'training_views.dart';
 
 /// Progreso: own log turned into numbers, activity, muscle balance,
@@ -293,7 +294,9 @@ class _ProgressTabState extends State<ProgressTab> {
                     _Analysis.recovery => [
                         Text('Recuperación estimada por grupo muscular',
                             style: TextStyle(color: colors.onSurfaceVariant)),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
+                        RecoveryBody(items: recovery(h, widget.today)),
+                        const SizedBox(height: 16),
                         ...recoveryRows(recovery(h, widget.today)),
                       ],
                     _Analysis.strength => _strength(context, exercises),

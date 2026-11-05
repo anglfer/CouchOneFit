@@ -3,7 +3,6 @@ import '../shared/animations/premium_route.dart';
 import '../features/training/services/training_service.dart';
 import '../features/training/screens/client_shell.dart';
 import '../features/settings/services/settings_controller.dart';
-import '../features/settings/widgets/settings_panel.dart';
 
 import '../features/auth/models/session_models.dart';
 import '../features/auth/screens/login_screen.dart';
@@ -269,7 +268,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
               isRefreshing: _isRefreshing,
               errorMessage: _errorMessage,
               onCredentials: () => _openAccess(AccountAccessMode.credentials),
-              settings: SettingsPanel(controller: _settings)));
+              settings: _settings));
     }
 
     return Scaffold(

@@ -3,6 +3,7 @@ import { sessionRequest, sessionMutation } from '../../auth/services/session';
 import type { PlanSaaS } from '../types/admin';
 import { ApiError } from '../../../services/api';
 import { PageHeader } from '../../../components/ui';
+import { confirmDialog } from '../../../services/confirm';
 
 export default function PlanCatalog() {
   const [plans, setPlans] = useState<PlanSaaS[]>([]);
@@ -74,9 +75,12 @@ export default function PlanCatalog() {
 
     if (
       isEditing &&
-      !window.confirm(
-        'El cambio afecta inmediatamente a todas las suscripciones de este plan. El exceso bloqueará nuevas altas y reactivaciones; los expedientes se conservan. ¿Guardar cambios?'
-      )
+      !(await confirmDialog({
+        title: '¿Guardar cambios del plan?',
+        message:
+          'El cambio afecta inmediatamente a todas las suscripciones de este plan. El exceso bloqueará nuevas altas y reactivaciones; los expedientes se conservan.',
+        confirmLabel: 'Guardar cambios',
+      }))
     )
       return;
     setBusy(true);

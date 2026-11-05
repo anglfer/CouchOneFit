@@ -4,6 +4,7 @@ import '../../../shared/widgets/coming_soon_card.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
+import '../widgets/muscle_map.dart';
 import 'progress_tab.dart';
 import 'training_views.dart';
 
@@ -346,7 +347,11 @@ class _HomeTabState extends State<HomeTab> {
                       padding: const EdgeInsets.only(right: 8),
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: recoveryRows(items, limit: 3))),
+                          children: [
+                            RecoveryBody(items: items, height: 200),
+                            const SizedBox(height: 16),
+                            ...recoveryRows(items, limit: 3),
+                          ])),
                 ])));
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '../../../components/ui';
 import {
+  count,
   initials,
   readTrainingClients,
   readVersions,
@@ -65,8 +66,8 @@ export function TemplatePicker({
             >
               <strong>{t.name}</strong>
               <small>
-                {scheduleLabel(t)} · {stats.trainingDays} días ·{' '}
-                {stats.exercises} ejercicios
+                {scheduleLabel(t)} · {count(stats.trainingDays, 'día')} ·{' '}
+                {count(stats.exercises, 'ejercicio')}
               </small>
               <RoutineWeek routine={t} compact />
               <span className="training-catalog-add">Usar esta plantilla</span>

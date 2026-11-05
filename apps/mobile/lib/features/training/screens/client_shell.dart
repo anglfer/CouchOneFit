@@ -228,58 +228,64 @@ class _ClientShellState extends State<ClientShell> {
       (Icons.person_outline, Icons.person, 'Cuenta'),
     ];
     return Scaffold(
-        body: SafeArea(
-            child: Row(children: [
-          if (wide)
-            NavigationRail(
-                labelType: NavigationRailLabelType.all,
-                selectedIndex: _selected,
-                leading: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: FloatingActionButton(
-                        tooltip: 'Entrenar',
-                        elevation: 0,
-                        onPressed: _opening ? null : _start,
-                        child: const Icon(Icons.play_arrow_rounded))),
-                onDestinationSelected: (index) =>
-                    setState(() => _selected = index),
-                destinations: [
-                  for (final (icon, selected, label) in items)
-                    NavigationRailDestination(
-                        icon: Icon(icon),
-                        selectedIcon: Icon(selected),
-                        label: Text(label))
-                ]),
-          Expanded(
-              child: _selected == 3
-                  ? widget.account
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: LayoutBuilder(builder: (context, constraints) {
-                        final gutter = constraints.maxWidth < 360 ? 16.0 : 20.0;
-                        return ListView(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 16, gutter, 32),
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              Center(
-                                  child: ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 560),
-                                      child: _content()))
-                            ]);
-                      })))
-        ])),
+        body: DecoratedBox(
+            decoration: brandGlow(context),
+            child: SafeArea(
+                child: Row(children: [
+              if (wide)
+                NavigationRail(
+                    labelType: NavigationRailLabelType.all,
+                    selectedIndex: _selected,
+                    leading: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: FloatingActionButton(
+                            tooltip: 'Entrenar',
+                            elevation: 0,
+                            onPressed: _opening ? null : _start,
+                            child: const Icon(Icons.play_arrow_rounded))),
+                    onDestinationSelected: (index) =>
+                        setState(() => _selected = index),
+                    destinations: [
+                      for (final (icon, selected, label) in items)
+                        NavigationRailDestination(
+                            icon: Icon(icon),
+                            selectedIcon: Icon(selected),
+                            label: Text(label))
+                    ]),
+              Expanded(
+                  child: _selected == 3
+                      ? widget.account
+                      : RefreshIndicator(
+                          onRefresh: _load,
+                          child: LayoutBuilder(builder: (context, constraints) {
+                            final gutter =
+                                constraints.maxWidth < 360 ? 16.0 : 20.0;
+                            return ListView(
+                                padding:
+                                    EdgeInsets.fromLTRB(gutter, 16, gutter, 32),
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                children: [
+                                  Center(
+                                      child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 560),
+                                          child: _content()))
+                                ]);
+                          })))
+            ]))),
         bottomNavigationBar: wide ? null : _bottomBar(items));
   }
 
   Widget _bottomBar(List<(IconData, IconData, String)> items) {
     final colors = Theme.of(context).colorScheme;
-    final background = Theme.of(context).navigationBarTheme.backgroundColor;
+    final navigation = Theme.of(context).navigationBarTheme;
+    final background = navigation.backgroundColor;
+    Color tone(bool selected) => navigation.iconTheme!
+        .resolve({if (selected) WidgetState.selected})!.color!;
     Widget item(int index) {
       final (icon, selectedIcon, label) = items[index];
       final selected = _selected == index;
-      final color = selected ? colors.primary : colors.onSurfaceVariant;
+      final color = tone(selected);
       return Expanded(
           child: Semantics(
               button: true,
@@ -332,20 +338,24 @@ class _ClientShellState extends State<ClientShell> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Container(
-                                                width: 48,
-                                                height: 48,
+                                                width: 52,
+                                                height: 52,
                                                 decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     gradient:
                                                         BrandColors.gradient,
+                                                    border: Border.all(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                                alpha: .14)),
                                                     boxShadow: [
                                                       BoxShadow(
                                                           color: colors.primary
                                                               .withValues(
-                                                                  alpha: .35),
-                                                          blurRadius: 12,
+                                                                  alpha: .5),
+                                                          blurRadius: 18,
                                                           offset: const Offset(
-                                                              0, 4))
+                                                              0, 6))
                                                     ]),
                                                 child: _opening
                                                     ? const Padding(
@@ -366,7 +376,7 @@ class _ClientShellState extends State<ClientShell> {
                                                 style: TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w800,
-                                                    color: colors.primary)),
+                                                    color: tone(true))),
                                           ])))))),
                   item(2),
                   item(3),

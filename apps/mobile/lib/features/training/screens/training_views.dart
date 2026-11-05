@@ -186,6 +186,52 @@ class _ExerciseAnimationState extends State<ExerciseAnimation>
   }
 }
 
+/// Round set marker: the set number, or the type letter (C, T, B, D, F)
+/// tinted by type; green once the set is done.
+class SetBadge extends StatelessWidget {
+  const SetBadge(
+      {super.key,
+      required this.text,
+      required this.kind,
+      this.done = false,
+      this.radius = 13});
+  final String text, kind;
+  final bool done;
+  final double radius;
+
+  static Color? accent(String kind, ColorScheme colors) => switch (kind) {
+        'warmup' => const Color(0xFF5B8DEF),
+        'top' => colors.primary,
+        'drop' => BrandColors.warning,
+        'failure' => BrandColors.error,
+        _ => null,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final tint = accent(kind, colors);
+    return Container(
+        width: radius * 2,
+        height: radius * 2,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: done
+                ? BrandColors.success
+                : tint?.withValues(alpha: .22) ??
+                    colors.surfaceContainerHighest,
+            border: done || tint == null
+                ? null
+                : Border.all(color: tint, width: 1.5)),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: radius * .9,
+                fontWeight: FontWeight.w800,
+                color: done ? Colors.white : colors.onSurface)));
+  }
+}
+
 /// Small pill used for prescription facts (reps, RPE, rest…).
 class TrainingChip extends StatelessWidget {
   const TrainingChip(this.text, {super.key, this.icon});
@@ -321,11 +367,10 @@ class ExerciseDetailScreen extends StatelessWidget {
                                   for (final entry
                                       in exercise.sets.asMap().entries)
                                     ListTile(
-                                        leading: CircleAvatar(
+                                        leading: SetBadge(
                                             radius: 15,
-                                            child: Text('${entry.key + 1}',
-                                                style: const TextStyle(
-                                                    fontSize: 13))),
+                                            kind: entry.value.kind,
+                                            text: exercise.badgeFor(entry.key)),
                                         title: Text(entry.value.target)),
                                 ])),
                             if (exercise.instructions.isNotEmpty) ...[
@@ -426,13 +471,13 @@ class ScreenHeader extends StatelessWidget {
                         style: Theme.of(context)
                             .textTheme
                             .headlineMedium
-                            ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.6))),
-                const SizedBox(height: 2),
+                            ?.copyWith(fontSize: 30, height: 1.1))),
+                const SizedBox(height: 4),
                 Text(subtitle,
                     style: TextStyle(
-                        fontSize: 15, color: colors.onSurfaceVariant)),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: colors.onSurfaceVariant)),
               ])),
           if (trailing != null) trailing!,
         ]));
@@ -473,13 +518,21 @@ class StatTile extends StatelessWidget {
                                         fontSize: 13,
                                         color: colors.onSurfaceVariant))),
                           ]),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Text(value,
                               style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                  // Darker green keeps AA contrast on white.
                                   color: highlight
-                                      ? BrandColors.success
+                                      ? Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? BrandColors.success
+                                          : const Color(0xFF0A7D56)
                                       : colors.onSurface)),
                         ])))));
   }

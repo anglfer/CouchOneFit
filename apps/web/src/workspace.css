@@ -33,43 +33,55 @@
   --ws-info-fg: #2236b8;
   --ws-neutral-bg: #eef0f8;
   --ws-neutral-fg: #424a73;
+  --ws-glow: #4037f712;
+  --ws-backdrop: #070c2166;
 }
 
+/* Night theme: deep violet-black, shared with the mobile client app. */
 :root[data-theme='dark'] {
-  --ws-bg: #050a1a;
-  --ws-sidebar: #081126;
-  --ws-topbar: #0c152ccc;
-  --ws-surface: #0c152c;
-  --ws-surface-2: #121f43;
-  --ws-selected: #1b2162;
-  --ws-text: #eff0f4;
-  --ws-text-2: #bbbfd3;
-  --ws-muted: #9aa2bd;
-  --ws-border: #21305b;
-  --ws-border-subtle: #1a2748;
-  --ws-primary: #5a50ff;
-  --ws-primary-hover: #6f67ff;
-  --ws-primary-fg: #9a94ff;
-  --ws-ring: #8f88ff66;
-  --ws-shadow: none;
-  --ws-pop-shadow: 0 16px 40px #00000080;
+  --ws-bg: #07050f;
+  --ws-sidebar: #0b0817;
+  --ws-topbar: #0b0817cc;
+  --ws-surface: #120e20;
+  --ws-surface-2: #1c1733;
+  --ws-selected: #2d2360;
+  --ws-text: #f4f1ff;
+  --ws-text-2: #cbc3e6;
+  --ws-muted: #a39bc2;
+  --ws-border: #2a2347;
+  --ws-border-subtle: #1d1834;
+  --ws-primary: #7357ff;
+  --ws-primary-hover: #6346f5;
+  --ws-primary-fg: #b3a5ff;
+  --ws-ring: #8a72ff66;
+  --ws-shadow: 0 1px 0 #ffffff08 inset;
+  --ws-pop-shadow: 0 16px 40px #000000a6;
+  --ws-glow: #7357ff2e;
+  --ws-backdrop: #07050fb3;
   --ws-ok-bg: #0c382f;
   --ws-ok-fg: #6ee7b7;
   --ws-warn-bg: #3b2b0b;
   --ws-warn-fg: #fcd34d;
   --ws-bad-bg: #411a21;
   --ws-bad-fg: #fda4af;
-  --ws-info-bg: #14225b;
-  --ws-info-fg: #a5b4fc;
-  --ws-neutral-bg: #162040;
-  --ws-neutral-fg: #bbbfd3;
+  --ws-info-bg: #1e1a52;
+  --ws-info-fg: #b9b1ff;
+  --ws-neutral-bg: #221c3b;
+  --ws-neutral-fg: #cbc3e6;
 }
 
 /* ---------- Estructura ---------- */
 
 .ws-app {
   min-height: 100svh;
-  background: var(--ws-bg);
+  /* Soft brand glow at the top, as in the mobile app. */
+  background:
+    radial-gradient(
+      1100px 420px at 62% -160px,
+      var(--ws-glow),
+      transparent 70%
+    ),
+    var(--ws-bg);
   color: var(--ws-text);
 }
 
@@ -280,7 +292,7 @@
 .ws-card {
   padding: 20px;
   border: 1px solid var(--ws-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--ws-surface);
   box-shadow: var(--ws-shadow);
 }
@@ -325,8 +337,9 @@
 }
 .ws-stat-value {
   margin-top: 6px;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--ws-text);
@@ -420,7 +433,7 @@
   min-height: 40px;
   padding: 8px 16px;
   border: 1px solid var(--ws-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--ws-surface);
   color: var(--ws-text);
   font-size: 14px;
@@ -716,7 +729,7 @@
   min-height: 40px;
   padding: 8px 12px;
   border: 1px solid var(--ws-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: var(--ws-surface);
   color: var(--ws-text);
   font-size: 14px;
@@ -815,7 +828,7 @@
   min-height: 40px;
   padding: 8px 16px;
   border: 1px solid var(--ws-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--ws-surface);
   color: var(--ws-text);
   font-size: 14px;
@@ -865,7 +878,7 @@
 /* Cajas con borde heredadas → tarjetas. */
 .ws-content :is(div, section, article, li, dialog)[class~='border'] {
   border-color: var(--ws-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background-color: var(--ws-surface);
   box-shadow: var(--ws-shadow);
 }
@@ -877,7 +890,7 @@
   box-shadow: var(--ws-pop-shadow);
 }
 .ws-content dialog::backdrop {
-  background: #050a1a99;
+  background: var(--ws-backdrop);
 }
 
 .ws-content table {
@@ -939,4 +952,55 @@
 }
 .ws-content tbody tr {
   border-color: var(--ws-border-subtle);
+}
+
+/* In-app confirmation (replaces window.confirm). */
+.ws-confirm {
+  width: min(440px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--ws-border);
+  border-radius: 16px;
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  box-shadow: var(--ws-pop-shadow);
+}
+.ws-confirm::backdrop {
+  background: var(--ws-backdrop);
+}
+.ws-confirm[open] {
+  animation: ws-confirm-in 0.14s ease-out;
+}
+.ws-confirm-body {
+  display: grid;
+  gap: 10px;
+  padding: 22px 22px 18px;
+}
+.ws-confirm h2 {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.ws-confirm p {
+  color: var(--ws-text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ws-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+@keyframes ws-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-confirm[open] {
+    animation: none;
+  }
 }

@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 
 // DEC-018 fase 2: bandeja de salida, sincronización, conflictos y duplicados.
 let vite, dom;
-let cache, store, outbox, sync, writes, leave, session, connection;
+let cache, store, outbox, sync, writes, leave, confirm, session, connection;
 let calls, handler, realNow, training;
 
 const json = (body, status = 200) =>
@@ -61,6 +61,7 @@ before(async () => {
   sync = await load('/src/services/offline/sync.ts');
   writes = await load('/src/services/offline/writes.ts');
   leave = await load('/src/services/offline/leave.ts');
+  confirm = await load('/src/services/confirm.ts');
   session = await load('/src/features/auth/services/session.ts');
   connection = await load('/src/services/offline/connection.ts');
   training = await load('/src/features/training/services/training.ts');
@@ -325,12 +326,16 @@ test('cerrar sesión con pendientes: pide confirmar y solo entonces descarta', a
   handler = () => {
     throw new TypeError('Failed to fetch');
   };
-  window.confirm = () => false;
+  confirm.setConfirmHandler(async () => false);
   assert.equal(await leave.confirmLeaveWithPending(), false);
   assert.equal(outbox.getOperations().length, 1);
   let message = '';
-  window.confirm = (text) => ((message = text), true);
+  confirm.setConfirmHandler(async (request) => {
+    message = request.message;
+    return true;
+  });
   assert.equal(await leave.confirmLeaveWithPending(), true);
+  confirm.setConfirmHandler(null);
   assert.match(message, /1 cambio sin enviar/);
   assert.equal(outbox.getOperations().length, 0);
 });

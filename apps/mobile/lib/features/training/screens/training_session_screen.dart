@@ -72,10 +72,11 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   late bool _finalized;
   late final DateTime _started = widget.clock();
   Timer? _ticker;
-  int _current = 0, _restTotal = 0;
+  final _exerciseKeys = <String, GlobalKey>{};
+  int _restTotal = 0;
   DateTime? _restEnd;
   Duration? _restPaused;
-  bool _dirty = false, _busy = false, _conflict = false, _compact = false;
+  bool _dirty = false, _busy = false, _conflict = false;
   String? _error, _notice, _retryPayload, _retryKey;
 
   TrainingHistory get _history => widget.history ?? TrainingHistory.empty();
@@ -97,7 +98,6 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     _id = context.session?.id ?? trainingId();
     _revision = context.session?.revision ?? 0;
     _finalized = context.session?.status == 'finalized';
-    _current = 0;
     for (final exercise in context.day!.exercises) {
       // Show the effort scale the professional prescribed; RIR otherwise.
       _rpeMode[exercise.id] = exercise.sets.any((s) => s.rpe != null) &&
@@ -181,9 +181,13 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         _dirty = true;
       });
 
+  /// Scrolls the exercise into view (the list shows all of them, Hevy-style).
   void _go(int index) {
-    setState(() => _current = index);
-    if (_scroll.hasClients) _scroll.jumpTo(0);
+    final target = _exerciseKeys[_exercises[index].id]?.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(target,
+          duration: const Duration(milliseconds: 250));
+    }
   }
 
   (String, HistoryExercise)? _last(TrainingExercise e) =>
@@ -522,7 +526,6 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   Widget build(BuildContext context) {
     final day = _context.day!;
     final colors = Theme.of(context).colorScheme;
-    final marked = _captures.values.where((c) => c.state != null).length;
     final isToday = _context.localDate == _context.today;
     return PopScope(
         canPop: !_dirty && !_busy,
@@ -548,13 +551,9 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                           style: const TextStyle(
                               fontSize: 17, fontWeight: FontWeight.w800)),
                       Text(
-                          [
-                            if (isToday)
-                              clockLabel(widget.clock().difference(_started))
-                            else
-                              shortDate(_context.localDate),
-                            '$marked/${_captures.length} series',
-                          ].join(' · '),
+                          isToday
+                              ? 'Registro de hoy'
+                              : capitalized(longDate(_context.localDate)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -577,7 +576,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             body: SafeArea(
                 child: ListView(
                     controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                     children: [
                   Center(
                       child: ConstrainedBox(
@@ -585,7 +584,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _progress(marked),
+                                _stats(isToday),
                                 if (_finalized)
                                   const TrainingNotice(
                                       icon: Icons.check_circle_outline,
@@ -601,91 +600,73 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                   OutlinedButton(
                                       onPressed: _busy ? null : _reviewConflict,
                                       child: const Text('Ver lo guardado')),
-                                if (_exercises.length > 1) _exerciseChips(),
-                                _exercise(_exercises[_current]),
-                                const SizedBox(height: 12),
-                                Text(
-                                    'Una serie sin marcar queda pendiente; no cuenta como cero. Necesitas conexión para guardar.',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: colors.onSurfaceVariant)),
+                                for (final e in _exercises) _exercise(e),
+                                Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4),
+                                    child: Text(
+                                        'Toca ✓ al terminar cada serie; si dejas un campo vacío usamos el valor gris. Toca ANTERIOR para copiar lo de la vez pasada y el número de serie para más opciones. Una serie sin marcar queda pendiente, no cuenta como cero. Necesitas conexión para guardar.',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: colors.onSurfaceVariant))),
                               ])))
                 ])),
             bottomNavigationBar:
                 _restLeft != null ? _restBar() : _actionBar()));
   }
 
-  Widget _progress(int marked) {
+  /// Hevy-style live numbers: duration, volume and marked sets.
+  Widget _stats(bool isToday) {
     final colors = Theme.of(context).colorScheme;
     final total = _captures.length;
-    return Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Row(children: [
-          Expanded(
-              child: Semantics(
-                  label:
-                      '$marked de ${trainingCount(total, 'serie registrada', 'series registradas')}',
-                  child: ClipRRect(
-                      borderRadius: BorderRadius.circular(99),
-                      child: LinearProgressIndicator(
-                          minHeight: 8,
-                          value: total == 0 ? 0 : marked / total,
-                          color: BrandColors.success,
-                          backgroundColor: colors.surfaceContainerHighest)))),
-          const SizedBox(width: 12),
-          Text('${trainingThousands(_volume)} kg',
-              style: TextStyle(
-                  fontWeight: FontWeight.w700, color: colors.onSurfaceVariant)),
+    final marked = _captures.values.where((c) => c.state != null).length;
+    Widget stat(String label, String value, {Key? key}) => Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+          const SizedBox(height: 2),
+          FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value,
+                  key: key,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()]))),
         ]));
-  }
-
-  Widget _exerciseChips() {
-    final colors = Theme.of(context).colorScheme;
-    return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(children: [
-          for (final entry in _exercises.asMap().entries)
-            Builder(builder: (context) {
-              final sets = entry.value.sets.map((s) => _captures[s.id]!);
-              final complete = sets.every((c) => c.state != null);
-              final current = entry.key == _current;
-              return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Semantics(
-                      button: true,
-                      selected: current,
-                      label:
-                          'Ejercicio ${entry.key + 1}: ${entry.value.name}${complete ? ', completo' : ''}',
-                      child: ExcludeSemantics(
-                          child: InkWell(
-                              customBorder: const CircleBorder(),
-                              onTap: () => _go(entry.key),
-                              child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: complete
-                                          ? BrandColors.success
-                                          : current
-                                              ? colors.primary
-                                              : colors.surfaceContainerHighest,
-                                      border: current && complete
-                                          ? Border.all(
-                                              color: colors.onSurface, width: 2)
-                                          : null),
-                                  child: complete
-                                      ? const Icon(Icons.check,
-                                          color: Colors.white, size: 20)
-                                      : Text('${entry.key + 1}',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              color: current
-                                                  ? colors.onPrimary
-                                                  : colors.onSurface)))))));
-            }),
+    return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            if (isToday)
+              stat('Duración', clockLabel(widget.clock().difference(_started)))
+            else
+              stat('Fecha', shortDate(_context.localDate)),
+            stat('Volumen', '${trainingThousands(_volume)} kg'),
+            Semantics(
+                label:
+                    '$marked de ${trainingCount(total, 'serie registrada', 'series registradas')}',
+                child: ExcludeSemantics(
+                    child: SizedBox(
+                        width: 84,
+                        child: Row(children: [
+                          stat('Series', '$marked/$total',
+                              key: const ValueKey('sets-marked')),
+                        ])))),
+          ]),
+          const SizedBox(height: 10),
+          ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                  minHeight: 6,
+                  value: total == 0 ? 0 : marked / total,
+                  color: BrandColors.success,
+                  backgroundColor: colors.surfaceContainerHighest)),
         ]));
   }
 
@@ -696,178 +677,153 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         _history, exercise.key, exercise.bodyweight, _context.localDate);
     final hint = _progression(exercise);
     final groups = muscleGroups(exercise.muscles, exercise.bodyPart);
+    final complete = exercise.sets.every((s) => _captures[s.id]!.state != null);
+    final rpe = _rpeMode[exercise.id]!;
     void detail() => Navigator.push(
         context,
         MaterialPageRoute<void>(
             builder: (_) => ExerciseDetailScreen(exercise: exercise)));
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (!_compact)
-        ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Stack(children: [
-              Container(
-                  color: exercise.images.isEmpty
-                      ? colors.surfaceContainerHighest
-                      : Colors.white,
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 300),
-                      child: ExerciseAnimation(
-                          images: exercise.images, label: exercise.name))),
-              Positioned(
-                  left: 10,
-                  bottom: 10,
-                  child: _overlayButton(Icons.close_fullscreen, 'Minimizar',
-                      () => setState(() => _compact = true))),
-              Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: _overlayButton(
-                      Icons.menu_book_outlined, 'Técnica', detail)),
-            ])),
-      const SizedBox(height: 14),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (_compact) ...[
-          InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => setState(() => _compact = false),
-              child: ExerciseAnimation(
-                  images: exercise.images, label: exercise.name, size: 56)),
-          const SizedBox(width: 12),
+    return Card(
+        key: _exerciseKeys.putIfAbsent(exercise.id, GlobalKey.new),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: detail,
+                        child: ExerciseAnimation(
+                            images: exercise.images,
+                            label: exercise.name,
+                            size: 48)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(exercise.name,
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: colors.primary)),
+                          Text(
+                              [
+                                ...groups.take(2),
+                                if (exercise.equipment.isNotEmpty)
+                                  exercise.equipment.first
+                                else
+                                  exercise.bodyweight
+                                      ? 'Peso corporal'
+                                      : 'Con carga',
+                              ].join(' · '),
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: colors.onSurfaceVariant)),
+                        ])),
+                    if (complete)
+                      const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(Icons.check_circle,
+                              color: BrandColors.success,
+                              semanticLabel: 'Ejercicio completo')),
+                    IconButton(
+                        tooltip: 'Ver técnica',
+                        onPressed: detail,
+                        icon: const Icon(Icons.info_outline)),
+                  ]),
+                  if (exercise.instructions.isNotEmpty)
+                    Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: BorderRadius.circular(10)),
+                        child: Text(exercise.instructions,
+                            style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: colors.onPrimaryContainer))),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    TrainingChip(exercise.summary, icon: Icons.flag_outlined),
+                    if (exercise.restLabel != null)
+                      TrainingChip(exercise.restLabel!,
+                          icon: Icons.timer_outlined),
+                    if (best != null)
+                      TrainingChip(
+                          'Mejor: ${exercise.bodyweight ? '${best.round()} reps' : '${trainingDecimal(best)} kg'}',
+                          icon: Icons.emoji_events_outlined),
+                    if (last != null)
+                      TrainingChip('Última vez: ${shortDate(last.$1)}',
+                          icon: Icons.history),
+                  ]),
+                  if (hint != null)
+                    Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.trending_up,
+                                  size: 18, color: BrandColors.success),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                  child: Text(hint,
+                                      style: const TextStyle(
+                                          color: BrandColors.success,
+                                          fontWeight: FontWeight.w700))),
+                            ])),
+                  const SizedBox(height: 12),
+                  _tableRow(
+                      set: _columnTitle('SERIE'),
+                      previous: _columnTitle('ANTERIOR'),
+                      kg: exercise.bodyweight ? null : _columnTitle('KG'),
+                      reps: _columnTitle('REPS'),
+                      check: const Icon(Icons.check, size: 18)),
+                  for (var i = 0; i < exercise.sets.length; i++)
+                    _setRow(exercise, i),
+                  Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                          key: ValueKey('effort-mode-${exercise.id}'),
+                          onPressed: () =>
+                              setState(() => _rpeMode[exercise.id] = !rpe),
+                          icon: const Icon(Icons.swap_vert, size: 18),
+                          label: Text(rpe
+                              ? 'Esfuerzo en RPE · cambiar a RIR'
+                              : 'Esfuerzo en RIR · cambiar a RPE'))),
+                ])));
+  }
+
+  /// Shared column widths so the header lines up with every set row.
+  Widget _tableRow(
+          {required Widget set,
+          required Widget previous,
+          required Widget? kg,
+          required Widget reps,
+          required Widget check}) =>
+      Row(children: [
+        SizedBox(width: 36, child: Center(child: set)),
+        const SizedBox(width: 4),
+        Expanded(flex: 4, child: previous),
+        if (kg != null) ...[
+          const SizedBox(width: 6),
+          Expanded(flex: 5, child: kg),
         ],
-        Expanded(
-            child: Text(exercise.name,
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3))),
-        IconButton.filledTonal(
-            tooltip: _compact ? 'Mostrar demostración' : 'Ver técnica',
-            onPressed:
-                _compact ? () => setState(() => _compact = false) : detail,
-            icon: Icon(_compact ? Icons.open_in_full : Icons.info_outline)),
-      ]),
-      const SizedBox(height: 8),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final g in groups.take(3)) TrainingChip(g),
-        if (exercise.equipment.isNotEmpty)
-          TrainingChip(exercise.equipment.first)
-        else
-          TrainingChip(exercise.bodyweight ? 'Peso corporal' : 'Con carga'),
-        if (exercise.restLabel != null)
-          TrainingChip(exercise.restLabel!, icon: Icons.timer_outlined),
-        if (best != null)
-          TrainingChip(
-              'Mejor: ${exercise.bodyweight ? '${best.round()} reps' : '${trainingDecimal(best)} kg'}',
-              icon: Icons.emoji_events_outlined),
-      ]),
-      const SizedBox(height: 10),
-      Text('Plan: ${exercise.summary}',
-          style: TextStyle(color: colors.onSurfaceVariant)),
-      if (last != null)
-        Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-                'La última vez (${shortDate(last.$1)}): ${last.$2.sets.whereType<SetResult>().map(setShort).join(', ')}',
-                style: TextStyle(color: colors.onSurfaceVariant))),
-      if (hint != null)
-        Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.trending_up,
-                  size: 18, color: BrandColors.success),
-              const SizedBox(width: 6),
-              Expanded(
-                  child: Text(hint,
-                      style: const TextStyle(
-                          color: BrandColors.success,
-                          fontWeight: FontWeight.w700))),
-            ])),
-      if (exercise.instructions.isNotEmpty)
-        Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(exercise.instructions,
-                style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: colors.onSurfaceVariant))),
-      const SizedBox(height: 14),
-      _setsCard(exercise),
-    ]);
-  }
-
-  Widget _overlayButton(IconData icon, String label, VoidCallback onTap) =>
-      Material(
-          color: Colors.black.withValues(alpha: .55),
-          shape: const StadiumBorder(),
-          child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: onTap,
-              child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(icon, size: 16, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Text(label,
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600)),
-                  ]))));
-
-  Widget _setsCard(TrainingExercise exercise) {
-    final colors = Theme.of(context).colorScheme;
-    final rpe = _rpeMode[exercise.id]!;
-    return Container(
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
-        decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest.withValues(alpha: .55),
-            borderRadius: BorderRadius.circular(18)),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            const SizedBox(width: 36),
-            if (!exercise.bodyweight) ...[
-              Expanded(child: _columnTitle('KG')),
-              const SizedBox(width: 8),
-            ],
-            Expanded(child: _columnTitle('REPS')),
-          ]),
-          for (var i = 0; i < exercise.sets.length; i++) _setRow(exercise, i),
-          const SizedBox(height: 8),
-          Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              runSpacing: 4,
-              children: [
-                TextButton.icon(
-                    key: ValueKey('effort-mode-${exercise.id}'),
-                    onPressed: () =>
-                        setState(() => _rpeMode[exercise.id] = !rpe),
-                    icon: const Icon(Icons.swap_vert, size: 18),
-                    label: Text(rpe
-                        ? 'Esfuerzo en RPE · cambiar a RIR'
-                        : 'Esfuerzo en RIR · cambiar a RPE')),
-                if (_current < _exercises.length - 1)
-                  TextButton.icon(
-                      onPressed: () => _go(_current + 1),
-                      icon: const Icon(Icons.skip_next_rounded),
-                      label: const Text('Siguiente ejercicio')),
-              ]),
-          if (_captures.values.every((c) => c.state == null))
-            Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                    'Ajusta kg y reps con − / + o escribe, y toca ✓ al terminar cada serie. Si dejas un campo vacío usamos la sugerencia gris.',
-                    style: TextStyle(
-                        fontSize: 12.5, color: colors.onSurfaceVariant))),
-        ]));
-  }
+        const SizedBox(width: 6),
+        Expanded(flex: 5, child: reps),
+        const SizedBox(width: 6),
+        SizedBox(width: 44, child: Center(child: check)),
+      ]);
 
   Widget _columnTitle(String text) => Text(text,
       textAlign: TextAlign.center,
+      maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-          fontSize: 12,
-          letterSpacing: 1,
+          fontSize: 11,
+          letterSpacing: .8,
           fontWeight: FontWeight.w800,
           color: Theme.of(context).colorScheme.onSurfaceVariant));
 
@@ -888,7 +844,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             controller: controller,
             enabled: enabled,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             decoration: InputDecoration(
                 isDense: true,
                 filled: false,
@@ -897,7 +853,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                 focusedBorder: InputBorder.none,
                 disabledBorder: InputBorder.none,
                 hintText: hint,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10)),
             keyboardType: TextInputType.numberWithOptions(decimal: decimal),
             inputFormatters: [
               FilteringTextInputFormatter.allow(
@@ -905,8 +861,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             ],
             onChanged: (_) => _touch(() => capture.error = null)));
     Widget button(IconData icon, String tip, double delta) => SizedBox(
-        width: 36,
-        height: 48,
+        width: 32,
+        height: 44,
         child: IconButton(
             tooltip: '$tip $label',
             padding: EdgeInsets.zero,
@@ -916,10 +872,12 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       capture.error = null;
                     })
                 : null,
-            icon: Icon(icon, size: 20)));
+            icon: Icon(icon, size: 18)));
     return Container(
         decoration: BoxDecoration(
-            color: colors.surface, borderRadius: BorderRadius.circular(12)),
+            color: colors.surfaceContainerHighest.withValues(alpha: .7),
+            borderRadius: BorderRadius.circular(10)),
+        // − / + only when the column is wide (tablets); phones type directly.
         child: LayoutBuilder(
             builder: (context, c) => c.maxWidth < 112
                 ? field
@@ -929,6 +887,13 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                     button(Icons.add, 'Sumar a', step),
                   ])));
   }
+
+  /// "50×10", "10 reps" or "—" for the same set last time.
+  String _previousLabel(TrainingExercise e, SetResult? s) => s == null
+      ? '—'
+      : e.bodyweight || s.loadKg == null || s.loadKg == 0
+          ? '${s.reps} reps'
+          : '${trainingDecimal(s.loadKg!)}×${s.reps}';
 
   Widget _setRow(TrainingExercise e, int index) {
     final prescribed = e.sets[index];
@@ -942,39 +907,68 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         : c.rir?.toString();
     final comparison = done ? _comparison(e, index, c) : null;
     final editable = !_busy && !skipped;
+    final previous = _lastSet(e, index);
     return Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             color: done
-                ? BrandColors.success.withValues(alpha: .14)
+                ? BrandColors.success.withValues(alpha: .16)
                 : skipped
-                    ? colors.surfaceContainerHighest
+                    ? colors.surfaceContainerHighest.withValues(alpha: .6)
                     : null,
-            border: Border.all(
-                color: c.error != null
-                    ? colors.error
-                    : done
-                        ? BrandColors.success.withValues(alpha: .6)
-                        : Colors.transparent)),
+            border: c.error != null ? Border.all(color: colors.error) : null),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            SizedBox(
-                width: 32,
-                child: CircleAvatar(
-                    radius: 13,
-                    backgroundColor:
-                        done ? BrandColors.success : colors.surface,
-                    foregroundColor: done ? Colors.white : colors.onSurface,
-                    child: Text('${index + 1}',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800)))),
-            const SizedBox(width: 4),
-            if (!e.bodyweight) ...[
-              Expanded(
-                  child: _stepper(
+          _tableRow(
+              set: Semantics(
+                  button: true,
+                  label:
+                      'Opciones de la serie ${index + 1}, ${prescribed.kindLabel}',
+                  child: ExcludeSemantics(
+                      child: InkWell(
+                          key: ValueKey('set-menu-${prescribed.id}'),
+                          customBorder: const CircleBorder(),
+                          onTap: _busy ? null : () => _setMenu(e, index),
+                          child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: SetBadge(
+                                  kind: prescribed.kind,
+                                  done: done,
+                                  text: skipped ? '—' : e.badgeFor(index)))))),
+              previous: Semantics(
+                  button: previous != null && editable,
+                  label: previous == null
+                      ? 'Sin dato anterior'
+                      : 'Anterior ${_previousLabel(e, previous)}. Toca para copiar',
+                  child: ExcludeSemantics(
+                      child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: previous == null || !editable
+                              ? null
+                              : () => _touch(() {
+                                    if (!e.bodyweight) {
+                                      c.load.text =
+                                          trainingDecimal(previous.loadKg ?? 0);
+                                    }
+                                    c.reps.text = '${previous.reps}';
+                                    c.error = null;
+                                  }),
+                          child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(_previousLabel(e, previous),
+                                  key: ValueKey('previous-${prescribed.id}'),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.onSurfaceVariant)))))),
+              kg: e.bodyweight
+                  ? null
+                  : _stepper(
                       key: ValueKey('kg-${prescribed.id}'),
                       controller: c.load,
                       hint: kgHint.isEmpty ? 'kg' : kgHint,
@@ -982,110 +976,121 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       decimal: true,
                       step: widget.settings.loadStep,
                       enabled: editable,
-                      capture: c)),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-                child: _stepper(
-                    key: ValueKey('reps-${prescribed.id}'),
-                    controller: c.reps,
-                    hint: repsHint,
-                    label: 'reps de la serie ${index + 1}',
-                    decimal: false,
-                    step: 1,
-                    enabled: editable,
-                    capture: c)),
-          ]),
+                      capture: c),
+              reps: _stepper(
+                  key: ValueKey('reps-${prescribed.id}'),
+                  controller: c.reps,
+                  hint: repsHint,
+                  label: 'reps de la serie ${index + 1}',
+                  decimal: false,
+                  step: 1,
+                  enabled: editable,
+                  capture: c),
+              check: done
+                  ? IconButton.filled(
+                      key: ValueKey('check-${prescribed.id}'),
+                      tooltip: 'Desmarcar serie ${index + 1}',
+                      style: IconButton.styleFrom(
+                          backgroundColor: BrandColors.success,
+                          foregroundColor: Colors.white),
+                      onPressed: _busy ? null : () => _toggle(e, index),
+                      icon: const Icon(Icons.check))
+                  : IconButton.filledTonal(
+                      key: ValueKey('check-${prescribed.id}'),
+                      tooltip: 'Marcar serie ${index + 1} como hecha',
+                      onPressed:
+                          _busy || skipped ? null : () => _toggle(e, index),
+                      icon: const Icon(Icons.check))),
           Padding(
-              padding: const EdgeInsets.only(left: 36, top: 6),
-              child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: 4,
-                  children: [
-                    Semantics(
-                        button: true,
-                        label:
-                            '${rpe ? 'RPE' : 'RIR'} de la serie ${index + 1}: ${effort ?? 'sin dato'}',
-                        child: ExcludeSemantics(
-                            child: OutlinedButton(
-                                key: ValueKey('effort-${prescribed.id}'),
-                                style: OutlinedButton.styleFrom(
-                                    minimumSize: const Size(76, 44),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10),
-                                    foregroundColor: colors.onSurface),
-                                onPressed:
-                                    editable ? () => _pickEffort(e, c) : null,
-                                child: Text(
-                                    '${rpe ? 'RPE' : 'RIR'} ${effort ?? '—'}',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700))))),
-                    Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (!done)
-                            TextButton(
-                                key: ValueKey('skip-${prescribed.id}'),
-                                style: TextButton.styleFrom(
-                                    minimumSize: const Size(48, 44),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8)),
-                                onPressed: _busy
-                                    ? null
-                                    : () => _touch(() {
-                                          c.state =
-                                              skipped ? null : 'not_performed';
-                                          c.error = null;
-                                        }),
-                                child: Text(skipped ? 'Deshacer' : 'No la hice',
-                                    style: const TextStyle(fontSize: 13))),
-                          done
-                              ? IconButton.filled(
-                                  key: ValueKey('check-${prescribed.id}'),
-                                  tooltip: 'Desmarcar serie ${index + 1}',
-                                  style: IconButton.styleFrom(
-                                      backgroundColor: BrandColors.success,
-                                      foregroundColor: Colors.white),
-                                  onPressed:
-                                      _busy ? null : () => _toggle(e, index),
-                                  icon: const Icon(Icons.check))
-                              : IconButton.outlined(
-                                  key: ValueKey('check-${prescribed.id}'),
-                                  tooltip:
-                                      'Marcar serie ${index + 1} como hecha',
-                                  onPressed: _busy || skipped
-                                      ? null
-                                      : () => _toggle(e, index),
-                                  icon: const Icon(Icons.check)),
+              padding: const EdgeInsets.only(left: 40, right: 4),
+              child: Row(children: [
+                Expanded(
+                    child: Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                              text: c.error ??
+                                  (skipped
+                                      ? 'No hecha · sin reps ni carga'
+                                      : 'Objetivo: ${prescribed.target}')),
+                          if (comparison != null)
+                            TextSpan(
+                                text: '  $comparison',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: comparison.startsWith('+')
+                                        ? BrandColors.success
+                                        : colors.onSurfaceVariant)),
                         ]),
-                  ])),
-          Padding(
-              padding: const EdgeInsets.only(left: 36, top: 2),
-              child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(
-                        text: c.error ??
-                            (skipped
-                                ? 'No hecha · sin reps ni carga'
-                                : 'Objetivo: ${prescribed.target}')),
-                    if (comparison != null)
-                      TextSpan(
-                          text: '  $comparison',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: comparison.startsWith('+')
-                                  ? BrandColors.success
-                                  : colors.onSurfaceVariant)),
-                  ]),
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight:
-                          c.error != null ? FontWeight.w700 : FontWeight.w400,
-                      color: c.error != null
-                          ? colors.error
-                          : colors.onSurfaceVariant))),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: c.error != null
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: c.error != null
+                                ? colors.error
+                                : colors.onSurfaceVariant))),
+                Semantics(
+                    button: true,
+                    label:
+                        '${rpe ? 'RPE' : 'RIR'} de la serie ${index + 1}: ${effort ?? 'sin dato'}',
+                    child: ExcludeSemantics(
+                        child: TextButton(
+                            key: ValueKey('effort-${prescribed.id}'),
+                            style: TextButton.styleFrom(
+                                minimumSize: const Size(64, 40),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                foregroundColor: effort == null
+                                    ? colors.onSurfaceVariant
+                                    : colors.primary),
+                            onPressed:
+                                editable ? () => _pickEffort(e, c) : null,
+                            child: Text(
+                                '${rpe ? 'RPE' : 'RIR'} ${effort ?? '—'}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700))))),
+              ])),
         ]));
+  }
+
+  /// Set number menu: what the professional prescribed and "no la hice".
+  Future<void> _setMenu(TrainingExercise e, int index) async {
+    final prescribed = e.sets[index];
+    final c = _captures[prescribed.id]!;
+    final skipped = c.state == 'not_performed';
+    final skip = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Serie ${index + 1} · ${prescribed.kindLabel}',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text('Objetivo: ${prescribed.target}'),
+                      const SizedBox(height: 12),
+                      ListTile(
+                          key: ValueKey('skip-${prescribed.id}'),
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(skipped
+                              ? Icons.undo_rounded
+                              : Icons.do_not_disturb_on_outlined),
+                          title: Text(skipped ? 'Deshacer' : 'No la hice'),
+                          subtitle: Text(skipped
+                              ? 'Vuelve a dejarla pendiente.'
+                              : 'Se guarda como no hecha, sin reps ni carga.'),
+                          onTap: () => Navigator.pop(sheet, true)),
+                    ]))));
+    if (skip != true || !mounted) return;
+    _touch(() {
+      c.state = skipped ? null : 'not_performed';
+      c.error = null;
+    });
   }
 
   String _difference(bool bodyweight, int reps, double kg) {
@@ -1171,7 +1176,6 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                   child: child))));
 
   Widget _actionBar() {
-    final last = _current == _exercises.length - 1;
     return _barShell(Row(children: [
       Expanded(
           child: OutlinedButton(
@@ -1183,17 +1187,11 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       : 'Guardar avance'))),
       const SizedBox(width: 10),
       Expanded(
-          child: last
-              ? FilledButton(
-                  onPressed: _busy || _conflict || _finalized
-                      ? null
-                      : () => _save(true),
-                  child: const Text('Finalizar entrenamiento',
-                      textAlign: TextAlign.center))
-              : FilledButton.icon(
-                  onPressed: () => _go(_current + 1),
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Siguiente'))),
+          child: FilledButton(
+              onPressed:
+                  _busy || _conflict || _finalized ? null : () => _save(true),
+              child: const Text('Finalizar entrenamiento',
+                  textAlign: TextAlign.center))),
     ]));
   }
 

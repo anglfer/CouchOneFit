@@ -1041,3 +1041,7 @@ ALTER TABLE private.training_sets ADD COLUMN reps_max integer, ADD COLUMN rir sm
 ALTER TABLE private.training_results ADD COLUMN rpe numeric(3,1) CONSTRAINT ck_training_results_rpe CHECK(rpe BETWEEN 1 AND 10 AND mod(rpe,0.5)=0),
   ADD COLUMN rir smallint CONSTRAINT ck_training_results_rir CHECK(rir BETWEEN 0 AND 10),
   ADD CONSTRAINT ck_training_results_effort CHECK(state='performed' OR (rpe IS NULL AND rir IS NULL));
+
+-- EP-06: prescribed set type (warm-up, working, top set, back-off, drop set, to failure).
+ALTER TABLE private.training_sets ADD COLUMN kind text NOT NULL DEFAULT 'working'
+  CONSTRAINT ck_training_sets_kind CHECK(kind IN ('warmup','working','top','backoff','drop','failure'));

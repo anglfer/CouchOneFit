@@ -10,9 +10,41 @@ import { flushOutbox } from '../../../services/offline/sync';
 import type {
   PrescribedSet,
   Prescription,
+  SetKind,
   TrainingSession,
   TrainingVersion,
 } from '../types/training';
+
+// Gym set types; `short` badges replace the set number for non-working sets.
+export const SET_KINDS: Record<
+  SetKind,
+  { label: string; short: string; hint: string }
+> = {
+  working: { label: 'Efectiva', short: '', hint: 'Serie de trabajo normal' },
+  warmup: {
+    label: 'Calentamiento',
+    short: 'C',
+    hint: 'Prepara el movimiento con poca carga',
+  },
+  top: { label: 'Top set', short: 'T', hint: 'La serie más pesada del día' },
+  backoff: {
+    label: 'Back-off',
+    short: 'B',
+    hint: 'Menos carga después de la top set',
+  },
+  drop: {
+    label: 'Drop set',
+    short: 'D',
+    hint: 'Baja la carga y sigue sin descanso',
+  },
+  failure: {
+    label: 'Al fallo',
+    short: 'F',
+    hint: 'Hasta no poder hacer otra repetición',
+  },
+};
+const isSetKind = (value: unknown): value is SetKind =>
+  typeof value === 'string' && Object.hasOwn(SET_KINDS, value);
 
 export interface CatalogExercise {
   id: string;
@@ -74,6 +106,7 @@ export function isVersion(v: unknown): v is TrainingVersion {
               (s) =>
                 object(s) &&
                 typeof s.id === 'string' &&
+                isSetKind(s.kind) &&
                 typeof s.reps === 'number' &&
                 nullableNumber(s.repsMax) &&
                 nullableNumber(s.rpe) &&
@@ -217,6 +250,7 @@ export async function trainingWrite(
 }
 export function setTarget(set: PrescribedSet): string {
   return [
+    set.kind !== 'working' && SET_KINDS[set.kind].label,
     set.repsMax === null
       ? `${set.reps} reps`
       : `${set.reps}–${set.repsMax} reps`,
@@ -342,11 +376,14 @@ export function relativeDay(date: string): string {
         timeZone: 'UTC',
       });
 }
+/** "1 ejercicio" / "3 ejercicios": visible counts always agree in number. */
+export const count = (n: number, one: string, many = `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
 export const scheduleLabel = (p: Prescription) =>
   p.schedule === 'weekly'
     ? 'Semana fija'
     : p.schedule === 'cycle'
-      ? `Ciclo de ${p.days.length} días`
+      ? `Ciclo de ${count(p.days.length, 'día')}`
       : 'Por fechas';
 export const routineStats = (p: Prescription) => {
   const training = p.days.filter((d) => d.kind === 'training');

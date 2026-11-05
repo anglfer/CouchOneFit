@@ -1,3 +1,4 @@
+import { confirmDialog } from '../confirm';
 import { discardAllOperations, getOperations } from './outbox';
 import { flushOutbox } from './sync';
 
@@ -10,9 +11,13 @@ export async function confirmLeaveWithPending(): Promise<boolean> {
   if (navigator.onLine !== false) await flushOutbox();
   const left = getOperations().length;
   if (left === 0) return true;
-  const confirmed = window.confirm(
-    `Tienes ${left} ${left === 1 ? 'cambio' : 'cambios'} sin enviar. Si cierras sesión ahora se perderán. ¿Cerrar sesión y descartarlos?`
-  );
+  const confirmed = await confirmDialog({
+    title: '¿Cerrar sesión y descartar cambios?',
+    message: `Tienes ${left} ${left === 1 ? 'cambio' : 'cambios'} sin enviar. Si cierras sesión ahora se perderán.`,
+    confirmLabel: 'Cerrar sesión y descartar',
+    cancelLabel: 'Seguir conectado',
+    danger: true,
+  });
   if (!confirmed) return false;
   await discardAllOperations();
   return true;

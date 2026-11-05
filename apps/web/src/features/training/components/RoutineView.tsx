@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { routineStats, scheduleLabel, setTarget } from '../services/training';
+import {
+  count,
+  routineStats,
+  scheduleLabel,
+  setTarget,
+} from '../services/training';
 import type { Prescription } from '../types/training';
 import ExerciseAnimation from './ExerciseAnimation';
 import RoutineWeek from './RoutineWeek';
@@ -24,8 +29,14 @@ export default function RoutineView({ routine }: { routine: Prescription }) {
             { day: 'numeric', month: 'long', timeZone: 'UTC' }
           )}
         </span>
-        <span>{stats.trainingDays} días de entrenamiento</span>
-        <span>{stats.exercises} ejercicios</span>
+        <span>
+          {count(
+            stats.trainingDays,
+            'día de entrenamiento',
+            'días de entrenamiento'
+          )}
+        </span>
+        <span>{count(stats.exercises, 'ejercicio')}</span>
       </p>
       <div className="training-view-days" role="tablist" aria-label="Días">
         {routine.days.map((d, i) => (

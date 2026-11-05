@@ -45,9 +45,22 @@ num trainingNumber(Object? value, num min, num max, {num step = 1}) {
   return value;
 }
 
+/// Gym set types prescribed by the professional: (label, badge letter).
+/// Working sets show their number instead of a letter.
+const setKinds = {
+  'working': ('Efectiva', ''),
+  'warmup': ('Calentamiento', 'C'),
+  'top': ('Top set', 'T'),
+  'backoff': ('Back-off', 'B'),
+  'drop': ('Drop set', 'D'),
+  'failure': ('Al fallo', 'F'),
+};
+
 class PrescribedSet {
   PrescribedSet(Map<String, Object?> json)
       : id = trainingText(json['id']),
+        // Cached payloads from before set types existed read as working sets.
+        kind = json['kind'] as String? ?? 'working',
         reps = trainingNumber(json['reps'], 1, 100).toInt(),
         repsMax = trainingOptional(json['repsMax'], 1, 100)?.toInt(),
         rpe = trainingOptional(json['rpe'], 1, 10, step: .5)?.toDouble(),
@@ -57,9 +70,19 @@ class PrescribedSet {
     if (repsMax != null && repsMax! < reps) {
       throw const FormatException('Rango de repeticiones inválido');
     }
+    if (!setKinds.containsKey(kind)) {
+      throw const FormatException('Tipo de serie inválido');
+    }
   }
-  final String id;
+  final String id, kind;
   final int reps;
+
+  bool get warmup => kind == 'warmup';
+  String get kindLabel => setKinds[kind]!.$1;
+
+  /// Badge text: the letter of the type, or [number] for working sets.
+  String badge(int number) =>
+      setKinds[kind]!.$2.isEmpty ? '$number' : setKinds[kind]!.$2;
   final int? repsMax;
   final double? rpe;
   final int? rir;
@@ -70,6 +93,7 @@ class PrescribedSet {
 
   /// Everything the professional prescribed, omitting what was left blank.
   String get target => [
+        if (kind != 'working') kindLabel,
         repsLabel,
         if (rpe != null) 'RPE ${trainingDecimal(rpe!)}',
         if (rir != null) 'RIR $rir',
@@ -113,13 +137,23 @@ class TrainingExercise {
 
   bool get bodyweight => loadMode == 'bodyweight';
 
-  /// "3 × 8–12 reps · RPE 8" when every set shares a target, else "4 series".
+  /// "3 × 8–12 reps · RPE 8" when every set shares a target, else "4 series";
+  /// warm-ups are counted apart ("2 calent. + 3 × …").
   String get summary {
-    final targets = sets.map((s) => s.target).toSet();
-    return targets.length == 1
-        ? '${sets.length} × ${targets.first}'
-        : '${sets.length} series';
+    final work = sets.where((s) => !s.warmup).toList();
+    final warmups = sets.length - work.length;
+    final targets = work.map((s) => s.target).toSet();
+    final main = targets.length == 1
+        ? '${work.length} × ${targets.first}'
+        : '${work.length} series';
+    if (warmups == 0) return main;
+    return work.isEmpty ? '$warmups calent.' : '$warmups calent. + $main';
   }
+
+  /// Badge for set [index]: its type letter, or its number among the
+  /// non-warm-up sets.
+  String badgeFor(int index) =>
+      sets[index].badge(sets.take(index + 1).where((s) => !s.warmup).length);
 
   String? get restLabel {
     final rest = restSeconds;

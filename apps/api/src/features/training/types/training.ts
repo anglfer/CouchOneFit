@@ -1,5 +1,8 @@
+export const SET_KINDS = ['warmup', 'working', 'top', 'backoff', 'drop', 'failure'] as const
+export type SetKind = typeof SET_KINDS[number]
 export interface PrescribedSet {
   id: string
+  kind: SetKind
   reps: number
   repsMax: number | null
   rpe: number | null

@@ -176,7 +176,7 @@ class _LoginFormState extends State<LoginForm> {
                 autocorrect: false,
                 decoration: InputDecoration(
                   fillColor: isDark
-                      ? const Color(0xFF101C3D)
+                      ? const Color(0xFF1C1733)
                       : const Color(0xFFF3F6FD),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -223,7 +223,7 @@ class _LoginFormState extends State<LoginForm> {
                 onSubmitted: (_) => _handleSubmit(),
                 decoration: InputDecoration(
                   fillColor: isDark
-                      ? const Color(0xFF101C3D)
+                      ? const Color(0xFF1C1733)
                       : const Color(0xFFF3F6FD),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 18),

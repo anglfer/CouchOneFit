@@ -10,6 +10,7 @@ import 'package:couchonefit_mobile/features/training/services/training_service.d
 import 'package:couchonefit_mobile/features/training/screens/client_shell.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_session_screen.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_views.dart';
+import 'package:couchonefit_mobile/features/training/widgets/muscle_map.dart';
 import 'package:couchonefit_mobile/shared/services/api_client.dart';
 import 'package:couchonefit_mobile/shared/theme/app_theme.dart';
 import 'package:couchonefit_mobile/shared/widgets/gradient_widgets.dart';
@@ -172,6 +173,44 @@ void main() {
         matches(RegExp(
             r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')));
   });
+  test('set types: legacy default, badges, summary and unknown types', () {
+    Map<String, Object?> set(String id, String? kind, int reps) => {
+          'id': id,
+          if (kind != null) 'kind': kind,
+          'reps': reps,
+          'repsMax': null,
+          'rpe': null,
+          'rir': kind == 'failure' ? 0 : null,
+          'targetLoadKg': null
+        };
+    TrainingExercise exercise(List<Map<String, Object?>> sets) {
+      final raw = fixture();
+      final json = ((((raw['plan'] as Map)['days'] as List).first
+              as Map)['exercises'] as List)
+          .first as Map<String, Object?>;
+      return TrainingExercise({...json, 'sets': sets});
+    }
+
+    final legacy = exercise([set('a', null, 8)]);
+    expect(legacy.sets.single.kind, 'working');
+    final mixed = exercise([
+      set('w1', 'warmup', 12),
+      set('w2', 'warmup', 8),
+      set('t', 'top', 5),
+      set('b', 'backoff', 8),
+      set('n', 'working', 8),
+      set('f', 'failure', 8),
+    ]);
+    expect([for (var i = 0; i < 6; i++) mixed.badgeFor(i)],
+        ['C', 'C', 'T', 'B', '3', 'F']);
+    expect(mixed.sets[2].target, 'Top set · 5 reps');
+    expect(mixed.sets[5].target, 'Al fallo · 8 reps · RIR 0');
+    expect(mixed.summary, '2 calent. + 4 series');
+    expect(exercise([set('w', 'warmup', 10), set('x', null, 8)]).summary,
+        '1 calent. + 1 × 8 reps');
+    expect(() => exercise([set('s', 'superset', 8)]), throwsFormatException);
+  });
+
   test('progress stats, streak, records and Spanish number formats', () {
     final history = TrainingHistory(historyFixture());
     final stats = TrainingStats(history, '2026-11-04');
@@ -352,7 +391,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('check-set')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('1/1 series'), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
     await tester.ensureVisible(find.text('Finalizar entrenamiento'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Finalizar entrenamiento'));
@@ -409,7 +448,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('check-set')));
     await tester.pumpAndSettle();
     // Empty fields adopt the prescribed load and the minimum reps.
-    expect(find.textContaining('1/1 series'), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
     expect(
         tester
             .widget<TextField>(find.byKey(const ValueKey('kg-set')))
@@ -472,7 +511,9 @@ void main() {
             history: TrainingHistory(historyFixture())),
         Brightness.light));
     await tester.pumpAndSettle();
-    expect(find.text('La última vez (2 nov): 50×10 (RIR 2)'), findsOneWidget);
+    expect(find.text('Última vez: 2 nov'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('previous-set'))).data,
+        '50×10');
     expect(find.text('Mejor: 50 kg'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('check-set')));
     await tester.pumpAndSettle();
@@ -483,7 +524,10 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('kg-set')), '52,5');
     await tester.pumpAndSettle();
     expect(find.textContaining('+2,5 kg'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const ValueKey('skip-set-2')));
+    // "No la hice" lives in the set number menu, Hevy-style.
+    await tester.ensureVisible(find.byKey(const ValueKey('set-menu-set-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('set-menu-set-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('skip-set-2')));
     await tester.pumpAndSettle();
@@ -575,6 +619,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('rest-left')), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('recovery figure reports the overall and per-group estimate',
+      (tester) async {
+    // Pecho: 1 of 3 days (33 %); Cuádriceps: 4 of 2 days (100 %).
+    final items = [
+      GroupRecovery('Pecho', '2026-11-03', 8, 1),
+      GroupRecovery('Cuádriceps', '2026-10-31', 6, 4),
+    ];
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(host(
+        Scaffold(
+            body: SingleChildScrollView(child: RecoveryBody(items: items))),
+        Brightness.dark));
+    expect(find.textContaining('67 %'), findsOneWidget);
+    expect(
+        find.bySemanticsLabel(RegExp(
+            r'Recuperación general 67 %\. Pecho 33 %, Cuádriceps 100 %')),
+        findsOneWidget);
+    expect(recoveryColor(.33), BrandColors.highlight);
+    expect(recoveryColor(1), BrandColors.success);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
   testWidgets('missing illustrations have an explicit fallback',
       (tester) async {

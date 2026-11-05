@@ -3,12 +3,14 @@ import { Link } from '../../../components/Link';
 import { Icon } from '../../../components/Icon';
 import { Badge, PageHeader } from '../../../components/ui';
 import { navigate } from '../../../utils/navigation';
+import { confirmDialog } from '../../../services/confirm';
 import { ClientPicker } from '../components/Pickers';
 import PrescriptionEditor from '../components/PrescriptionEditor';
 import RoutineWeek from '../components/RoutineWeek';
 import { useRoutines } from '../hooks/useRoutines';
 import {
   assignTemplate,
+  count,
   type TrainingClient,
   routineStats,
   scheduleLabel,
@@ -41,9 +43,12 @@ function TemplatesBoard() {
   async function assign(template: TrainingVersion, client: TrainingClient) {
     if (
       client.hasDraft &&
-      !window.confirm(
-        `${client.fullName} ya tiene un borrador. ¿Sustituirlo por esta plantilla?`
-      )
+      !(await confirmDialog({
+        title: '¿Sustituir el borrador?',
+        message: `${client.fullName} ya tiene un borrador sin activar. Se reemplazará por esta plantilla.`,
+        confirmLabel: 'Sustituir borrador',
+        danger: true,
+      }))
     )
       return;
     setAssigning(null);
@@ -65,7 +70,11 @@ function TemplatesBoard() {
         }}
       >
         <div className="training-savebar">
-          <button type="button" className="ws-btn" onClick={() => r.close()}>
+          <button
+            type="button"
+            className="ws-btn"
+            onClick={() => void r.close()}
+          >
             ← Plantillas
           </button>
           <div className="training-savebar-status">
@@ -122,7 +131,7 @@ function TemplatesBoard() {
           <button
             type="button"
             className="ws-plain training-template-card training-template-new"
-            onClick={() => r.newDraft()}
+            onClick={() => void r.newDraft()}
           >
             <Icon name="plus" size={28} />
             <strong>Nueva plantilla</strong>
@@ -138,8 +147,8 @@ function TemplatesBoard() {
               <div>
                 <strong>{t.name}</strong>
                 <small>
-                  {scheduleLabel(t)} · {stats.trainingDays} días ·{' '}
-                  {stats.exercises} ejercicios
+                  {scheduleLabel(t)} · {count(stats.trainingDays, 'día')} ·{' '}
+                  {count(stats.exercises, 'ejercicio')}
                 </small>
                 {r.pending(t.planId) && (
                   <Badge tone="warn">Pendiente de enviar</Badge>
@@ -158,7 +167,7 @@ function TemplatesBoard() {
                 <button
                   type="button"
                   className="ws-btn"
-                  onClick={() => r.open(t)}
+                  onClick={() => void r.open(t)}
                 >
                   Editar
                 </button>
@@ -166,7 +175,7 @@ function TemplatesBoard() {
                   type="button"
                   className="ws-btn"
                   onClick={() =>
-                    r.newDraft({ ...t, name: `${t.name} (copia)` })
+                    void r.newDraft({ ...t, name: `${t.name} (copia)` })
                   }
                 >
                   Duplicar

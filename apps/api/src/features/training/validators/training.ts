@@ -1,5 +1,5 @@
 import { AuthError } from '../../auth/types/errors.js'
-import type { Prescription, SetResult, TrainingDay } from '../types/training.js'
+import { SET_KINDS, type Prescription, type SetKind, type SetResult, type TrainingDay } from '../types/training.js'
 
 export const invalid = (message = 'Revisa los parámetros del entrenamiento.'): never => {
   throw new AuthError(400, 'INVALID_TRAINING', message)
@@ -65,12 +65,14 @@ export function prescription(value: unknown): Prescription {
       const e = object(value, ['id', 'catalogId', 'name', 'instructions', 'guidance', 'images', 'loadMode', 'restSeconds', 'sets'])
       if (e.loadMode !== 'external' && e.loadMode !== 'bodyweight') return invalid()
       const sets = array(e.sets, 20).map(value => {
-        const s = object(value, ['id', 'reps', 'repsMax', 'rpe', 'rir', 'targetLoadKg'])
+        const s = object(value, ['id', 'kind', 'reps', 'repsMax', 'rpe', 'rir', 'targetLoadKg'])
+        // Absent kind keeps older clients and queued offline edits valid.
+        const kind: SetKind = s.kind === undefined ? 'working' : SET_KINDS.includes(s.kind as SetKind) ? s.kind as SetKind : invalid('Tipo de serie inválido.')
         const target = optional(s.targetLoadKg, e.loadMode === 'bodyweight' ? 0 : 0.1, e.loadMode === 'bodyweight' ? 0 : 1000, 0.1)
         const reps = number(s.reps, 1, 100)
         // repsMax turns the prescription into a range; equal bounds are stored as a fixed target.
         const repsMax = optional(s.repsMax, reps, 100)
-        return { id: uniqueId(s.id), reps, repsMax: repsMax === reps ? null : repsMax, rpe: optional(s.rpe, 1, 10, 0.5), rir: optional(s.rir, 0, 10), targetLoadKg: target }
+        return { id: uniqueId(s.id), kind, reps, repsMax: repsMax === reps ? null : repsMax, rpe: optional(s.rpe, 1, 10, 0.5), rir: optional(s.rir, 0, 10), targetLoadKg: target }
       })
       if (!sets.length) return invalid('Incluye al menos una serie por ejercicio.')
       const catalogId = e.catalogId === null ? null : text(e.catalogId, 150, true)

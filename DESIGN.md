@@ -27,7 +27,7 @@ El isotipo C1 está vectorizado a partir del logo principal. Fuentes en `apps/we
 
 ## Temas por superficie
 
-Los seis conjuntos son exactos. Web ofrece el selector claro/oscuro/sistema en el menú de cuenta del panel y de administración (sin botón suelto en la cabecera) y el botón de sol/luna en marketing, acceso y registro. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente; antes de entrar ofrece el botón de sol/luna y, ya dentro, el tema (sistema/claro/oscuro) se elige en Cuenta → Configuración y se recuerda en el teléfono (decisión del usuario del 04-nov-2026, ver EP-06). Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
+Los seis conjuntos son exactos. Web ofrece el selector claro/oscuro/sistema en el menú de cuenta del panel y de administración (sin botón suelto en la cabecera) y el botón de sol/luna en marketing, acceso y registro. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente; antes de entrar ofrece el botón de sol/luna y, ya dentro, el tema (sistema/claro/oscuro) se elige en Cuenta → Preferencias → Apariencia y se recuerda en el teléfono (decisión del usuario del 04-nov-2026, ver EP-06). Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
 
 ### marketing-light
 
@@ -91,26 +91,35 @@ professional-light:
 
 ### professional-dark
 
+Desde el 05-nov-2026 el panel comparte el tema nocturno violeta profundo del
+móvil (decisión del usuario, ver EP-06). Tokens implementados como `--ws-*` en
+`apps/web/src/workspace.css`; blanco sobre `primary` 4,6:1 y sobre
+`primary-hover` 5,6:1 (el hover oscurece para no perder contraste).
+
 ```yaml
 professional-dark:
-  primary: "#4037F7"
-  primary-hover: "#6259FF"
-  secondary: "#6344DC"
-  app-background: "#050A1A"
-  sidebar: "#081126"
-  topbar: "#0C152C"
-  surface: "#0C152C"
-  surface-secondary: "#121F43"
-  surface-tertiary: "#162467"
-  surface-selected: "#1B2162"
-  text-primary: "#EFF0F4"
-  text-secondary: "#BBBFD3"
-  text-muted: "#8F97AF"
-  border: "#1E2C50"
-  border-strong: "#293A70"
-  icon: "#8F97AF"
-  icon-active: "#756EFF"
+  primary: "#7357FF"
+  primary-hover: "#6346F5"
+  accent-text: "#B3A5FF"
+  app-background: "#07050F"
+  sidebar: "#0B0817"
+  topbar: "#0B0817CC"
+  surface: "#120E20"
+  surface-secondary: "#1C1733"
+  surface-selected: "#2D2360"
+  text-primary: "#F4F1FF"
+  text-secondary: "#CBC3E6"
+  text-muted: "#A39BC2"
+  border: "#2A2347"
+  border-subtle: "#1D1834"
+  glow: "#7357FF2E"
+  backdrop: "#07050FB3"
 ```
+
+Ambos temas del panel llevan un brillo radial suave de marca arriba del
+contenido (`--ws-glow`). Jerarquía de acciones: en cada fila de cliente solo
+«Abrir ficha» es primaria; invitar, revocar e inactivar son secundarias y
+«Dar de baja la cuenta» usa la variante de peligro.
 
 ### mobile-light
 
@@ -119,14 +128,14 @@ mobile-light:
   primary: "#4037F7"
   primary-hover: "#3128D9"
   secondary: "#6344DC"
-  background: "#FBFBFD"
+  background: "#F6F6FB"
   surface: "#FFFFFF"
-  surface-secondary: "#EAEFFD"
+  surface-secondary: "#EEF0FB"
   surface-selected: "#EAE8FF"
   text-primary: "#070C21"
   text-secondary: "#222F64"
   text-muted: "#626A90"
-  border: "#D9DFF6"
+  border: "#E1E4F3"
   navigation-background: "#FFFFFF"
   navigation-active: "#4037F7"
   navigation-inactive: "#8D99C0"
@@ -134,23 +143,30 @@ mobile-light:
 
 ### mobile-dark
 
+Tema nocturno violeta profundo (decisión del usuario del 05-nov-2026, ver
+EP-06): sustituye al azul nocturno en el móvil. Blanco sobre `primary`
+4,6:1; `secondary` es el color de texto de acento y navegación activa.
+
 ```yaml
 mobile-dark:
-  primary: "#4B40FF"
-  primary-hover: "#6259FF"
-  secondary: "#756EFF"
-  background: "#050A1A"
-  surface: "#0C152C"
-  surface-secondary: "#121F43"
-  surface-selected: "#162467"
-  text-primary: "#EFF0F4"
-  text-secondary: "#BBBFD3"
-  text-muted: "#8F97AF"
-  border: "#21305B"
-  navigation-background: "#081126"
-  navigation-active: "#756EFF"
-  navigation-inactive: "#8F97AF"
+  primary: "#7357FF"
+  primary-hover: "#8A72FF"
+  secondary: "#A594FF"
+  background: "#07050F"
+  surface: "#120E20"
+  surface-secondary: "#1C1733"
+  surface-selected: "#2D2360"
+  text-primary: "#F4F1FF"
+  text-secondary: "#CBC3E6"
+  text-muted: "#958CB5"
+  border: "#241D40"
+  navigation-background: "#0B0817"
+  navigation-active: "#A594FF"
+  navigation-inactive: "#8A82A8"
 ```
+
+Las pestañas del cliente llevan un brillo radial suave de `primary` en la
+parte superior (26 % de opacidad en oscuro, 7 % en claro).
 
 ## Estados compartidos
 
@@ -170,11 +186,11 @@ Tipografía del sistema (Segoe UI en Web y fuente nativa en Flutter), sin descar
 
 | Elemento | Marketing | Panel profesional | Móvil |
 |---|---|---|---|
-| Input | 10 px | 6 px | 10 px |
-| Botón | 12 px | 6 px | 10 px |
-| Card | 20–24 px | 8 px | 12 px |
-| Dropdown | 10 px | 6 px | 10 px |
-| Modal / card grande | 24 px | 10 px | 16 px |
+| Input | 10 px | 8 px | 12 px |
+| Botón | 12 px | 8 px | 14 px |
+| Card | 20–24 px | 12 px | 18 px |
+| Dropdown | 10 px | 6 px | 12 px |
+| Modal / card grande | 24 px | 10 px | 24 px (hoja inferior 28 px) |
 | Pill | 999 px | Solo estados que lo necesiten | 999 px |
 
 Marcos de dispositivos son excepciones ilustrativas. Espaciado base 4/8/16/24/32; marketing añade separación amplia entre secciones. Sombras discretas, sin animaciones continuas; respetar movimiento reducido.

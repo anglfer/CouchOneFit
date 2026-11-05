@@ -34,6 +34,11 @@
   font-size: 14px;
   font-weight: 500;
 }
+.training-page label :is(input, select, textarea) {
+  /* Label gap already spaces it; drop the generic .ws-content margin. */
+  margin-top: 0;
+  font-weight: 500;
+}
 .training-page input:focus-visible,
 .training-page select:focus-visible,
 .training-page textarea:focus-visible {
@@ -45,6 +50,7 @@
   padding: 0;
   margin: 0;
   min-width: 0;
+  background: none;
 }
 .training-page a:not(.ws-btn) {
   color: var(--ws-primary-fg);
@@ -154,7 +160,7 @@
 .training-client-grid,
 .training-template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 14px;
   list-style: none;
   padding: 0;
@@ -282,12 +288,18 @@ button.training-template-card:hover {
   gap: 16px;
   min-width: 0;
 }
+.training-routine-card {
+  min-width: 0;
+}
 .training-routine-card h2 {
   font-size: 1.4rem;
   margin-top: 4px;
 }
 .training-routine-card .training-actions {
   margin-top: 14px;
+}
+.training-routine-card > .training-muted {
+  margin-top: 12px;
 }
 .training-section-head {
   display: flex;
@@ -369,9 +381,7 @@ button.training-template-card:hover {
 .training-activity small {
   color: var(--ws-muted);
 }
-.training-settings summary {
-  cursor: pointer;
-  font-weight: 650;
+.training-settings > summary {
   font-size: 14px;
 }
 .training-settings[open] {
@@ -459,6 +469,11 @@ button.training-template-card:hover {
   overflow-x: auto;
   scrollbar-width: thin;
   padding: 2px 2px 6px;
+}
+/* A fixed week fills the row: seven equal tabs, scrolling only when narrow. */
+.training-days[data-weekly] {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(108px, 1fr));
 }
 .training-day {
   flex: 0 0 132px;
@@ -625,9 +640,9 @@ button.training-template-card:hover {
   overflow-x: auto;
   min-width: 0;
 }
-.training-sets {
+.training-page .training-sets {
   width: 100%;
-  min-width: 480px;
+  min-width: 640px;
   border-collapse: separate;
   border-spacing: 0 6px;
   font-size: 13px;
@@ -648,10 +663,73 @@ button.training-template-card:hover {
 .training-sets td {
   padding: 0 4px;
 }
-.training-page .training-sets input {
+.training-page .training-sets input,
+.training-page .training-sets select {
   min-height: 36px;
   padding: 6px 8px;
   text-align: center;
+}
+.training-page .training-sets select {
+  width: 100%;
+  min-width: 64px;
+  text-align: left;
+}
+.training-page .training-sets .training-kind-select {
+  min-width: 140px;
+}
+.training-sets tbody tr[data-kind='warmup'] td {
+  opacity: 0.85;
+}
+/* One badge per set type; working sets show their number. */
+.training-set-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ws-neutral-bg);
+  color: var(--ws-neutral-fg);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.training-set-badge[data-kind='warmup'] {
+  background: var(--ws-info-bg);
+  color: var(--ws-info-fg);
+}
+.training-set-badge[data-kind='top'] {
+  background: var(--ws-selected);
+  color: var(--ws-primary-fg);
+}
+.training-set-badge[data-kind='drop'] {
+  background: var(--ws-warn-bg);
+  color: var(--ws-warn-fg);
+}
+.training-set-badge[data-kind='failure'] {
+  background: var(--ws-bad-bg);
+  color: var(--ws-bad-fg);
+}
+.training-kind-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 0;
+  color: var(--ws-muted);
+  font-size: 12.5px;
+}
+.training-kind-legend > span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.training-kind-legend .training-set-badge {
+  min-width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+.training-kind-legend small {
+  flex-basis: 100%;
 }
 .training-add-exercise {
   display: flex;
@@ -724,6 +802,12 @@ button.training-template-card:hover {
   list-style: none;
   padding: 0;
 }
+.training-week[data-weekly]:not([data-compact]) {
+  grid-template-columns: repeat(7, minmax(84px, 1fr));
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 4px;
+}
 .training-week > li {
   display: grid;
   align-content: start;
@@ -736,6 +820,13 @@ button.training-template-card:hover {
 }
 .training-week > li[data-kind='rest'] {
   opacity: 0.7;
+}
+.training-week > li[data-kind='rest'] strong {
+  color: var(--ws-muted);
+  font-weight: 600;
+}
+.training-week > li[data-kind='training'] .training-week-label {
+  color: var(--ws-primary-fg);
 }
 .training-week-label {
   color: var(--ws-muted);
@@ -754,7 +845,7 @@ button.training-template-card:hover {
   list-style: none;
   padding: 0;
   font-size: 12px;
-  color: var(--ws-muted);
+  color: var(--ws-text-2);
 }
 .training-week[data-compact] {
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -764,12 +855,12 @@ button.training-template-card:hover {
   padding: 6px;
   text-align: center;
 }
-.training-week[data-compact] strong {
-  font-size: 11px;
-  white-space: nowrap;
-}
 .training-week[data-compact] small {
-  font-size: 10.5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.training-week[data-compact] > li[data-kind='rest'] small {
+  color: var(--ws-muted);
 }
 .training-view {
   display: grid;
@@ -858,7 +949,7 @@ button.training-template-card:hover {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: #050a1a99;
+  background: var(--ws-backdrop);
 }
 .training-modal {
   display: grid;
@@ -1042,17 +1133,44 @@ button.training-template-card:hover {
   .training-span-2 {
     grid-column: auto;
   }
+  /* Phones: the week reads top to bottom, one row per day. */
+  .training-week[data-weekly]:not([data-compact]) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .training-week[data-weekly]:not([data-compact]) > li {
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 10px;
+    align-items: baseline;
+  }
+  .training-week[data-weekly]:not([data-compact])
+    > li
+    > :not(.training-week-label) {
+    grid-column: 2;
+    margin-top: 0;
+  }
   .training-catalog-filters {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* A sticky bar of three wrapped buttons would hide a third of the phone. */
   .training-savebar {
-    top: 56px;
+    position: static;
+  }
+  .training-savebar .training-actions > * {
+    flex: 1 1 auto;
   }
   .training-exercise-head {
     flex-wrap: wrap;
   }
   .training-exercise-head .training-anim {
     display: none;
+  }
+  /* Name gets the full row; the action icons drop below it. */
+  .training-exercise-title {
+    flex-basis: calc(100% - 40px);
+  }
+  .training-exercise-head .training-icon-row {
+    margin-left: auto;
   }
   .training-modal-backdrop {
     padding: 0;

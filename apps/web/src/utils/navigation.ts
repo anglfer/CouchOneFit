@@ -1,8 +1,10 @@
 const listeners = new Set<() => void>();
-let guard: (() => boolean) | null = null;
+type Guard = () => boolean | Promise<boolean>;
+let guard: Guard | null = null;
 let currentUrl = typeof window === 'undefined' ? '' : window.location.href;
 
-export function guardNavigation(check: () => boolean): () => void {
+/** Registers a check (sync or async, e.g. confirmDialog) that may cancel navigation. */
+export function guardNavigation(check: Guard): () => void {
   guard = check;
   return () => {
     if (guard === check) guard = null;
@@ -15,11 +17,14 @@ function notify(): void {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
-    if (window.location.href !== currentUrl && guard && !guard()) {
+    const target = window.location.href;
+    if (target !== currentUrl && guard) {
+      // Stay on the current page while asking; go on only if confirmed.
       window.history.pushState({}, '', currentUrl);
+      void Promise.resolve(guard()).then((ok) => ok && go(target));
       return;
     }
-    currentUrl = window.location.href;
+    currentUrl = target;
     notify();
   });
 }
@@ -28,7 +33,14 @@ export function navigate(
   to: string,
   options: { replace?: boolean } = {}
 ): void {
-  if (guard && !guard()) return;
+  if (guard) {
+    void Promise.resolve(guard()).then((ok) => ok && go(to, options));
+    return;
+  }
+  go(to, options);
+}
+
+function go(to: string, options: { replace?: boolean } = {}): void {
   if (to.startsWith('#')) {
     const target = document.querySelector(to);
     if (target) {

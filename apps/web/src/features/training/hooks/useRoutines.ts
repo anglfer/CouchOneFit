@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { guardNavigation } from '../../../utils/navigation';
+import { confirmDialog } from '../../../services/confirm';
 import { useOperations } from '../../../hooks/useOperations';
 import { onSynced } from '../../../services/offline/sync';
 import {
@@ -34,6 +35,14 @@ const fromVersion = (v: TrainingVersion): Editor => ({
 });
 const message = (e: unknown, fallback: string) =>
   e instanceof Error ? e.message : fallback;
+const confirmDiscard = () =>
+  confirmDialog({
+    title: '¿Descartar los cambios sin guardar?',
+    message: 'Si sales ahora, se perderán los cambios de esta rutina.',
+    confirmLabel: 'Descartar cambios',
+    cancelLabel: 'Seguir editando',
+    danger: true,
+  });
 
 /**
  * Routines of one client (or the professional's templates when clientId is
@@ -50,7 +59,9 @@ export function useRoutines(clientId?: string) {
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [attempt, setAttempt] = useState(0),
-    [dirty, setDirty] = useState(false);
+    [dirty, setDirty] = useState(false),
+    // Only typed changes deserve a "discard?" question; a fresh copy does not.
+    [edited, setEdited] = useState(false);
   const operations = useOperations(),
     epoch = useRef(0);
   const reload = () => setAttempt((n) => n + 1);
@@ -90,20 +101,17 @@ export function useRoutines(clientId?: string) {
       setEditor(fromVersion(current));
   }, [data, operations, dirty, editor]);
   useEffect(() => {
-    if (!dirty) return;
+    if (!edited) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    const release = guardNavigation(() =>
-      window.confirm('Hay cambios sin guardar. ¿Quieres descartarlos?')
-    );
+    const release = guardNavigation(confirmDiscard);
     window.addEventListener('beforeunload', warn);
     return () => {
       release();
       window.removeEventListener('beforeunload', warn);
     };
-  }, [dirty]);
+  }, [edited]);
 
-  const canLeave = () =>
-    !dirty || window.confirm('Hay cambios sin guardar. ¿Quieres descartarlos?');
+  const canLeave = async () => !edited || confirmDiscard();
 
   // Unsent drafts stay visible as local routines until the outbox syncs.
   const routines = [...(data?.versions ?? [])];
@@ -139,23 +147,27 @@ export function useRoutines(clientId?: string) {
   const pending = (planId: string) =>
     operations.some((op) => op.entityKey === planId);
 
-  function open(v: TrainingVersion) {
-    if (!canLeave()) return false;
+  async function open(v: TrainingVersion) {
+    if (!(await canLeave())) return false;
     setEditor(fromVersion(v));
     setDirty(false);
+    setEdited(false);
     setNotice('');
     return true;
   }
-  function close() {
-    if (!canLeave()) return false;
+  /** `force` skips the question when the caller just saved (its `dirty` is stale). */
+  async function close(force = false) {
+    if (!force && !(await canLeave())) return false;
     setEditor(null);
     setDirty(false);
+    setEdited(false);
     return true;
   }
   /** Starts (or reuses) the editable draft; published routines are never edited in place. */
-  function newDraft(source?: Prescription) {
-    if (!canLeave()) return false;
+  async function newDraft(source?: Prescription) {
+    if (!(await canLeave())) return false;
     setNotice('');
+    setEdited(false);
     if (draft) {
       setEditor({
         ...fromVersion(draft),
@@ -181,6 +193,7 @@ export function useRoutines(clientId?: string) {
     if (!editor) return;
     setEditor({ ...editor, document });
     setDirty(true);
+    setEdited(true);
   }
   /** Returns the saved editor state so callers can chain activation. */
   async function save(): Promise<Editor | null> {
@@ -240,6 +253,7 @@ export function useRoutines(clientId?: string) {
       }
       setEditor(saved);
       setDirty(false);
+      setEdited(false);
       return saved;
     } catch (e) {
       setError(message(e, 'No pudimos guardar. Tus cambios siguen aquí.'));

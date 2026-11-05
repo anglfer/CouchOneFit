@@ -49,8 +49,8 @@ export async function mutate<T>(pool: Pool, identity: SessionIdentity, key: stri
   })
 }
 const projection = `SELECT v.*,p.client_id FROM private.training_versions v JOIN private.training_plans p ON p.id=v.plan_id`
-// Documents stored before rep ranges/RIR/rest existed read back with explicit nulls.
-const normalize = (document: Prescription): Prescription => ({ ...document, days: document.days.map(day => ({ ...day, exercises: day.exercises.map(e => ({ ...e, restSeconds: e.restSeconds ?? null, sets: e.sets.map(s => ({ ...s, repsMax: s.repsMax ?? null, rpe: s.rpe ?? null, rir: s.rir ?? null })) })) })) })
+// Documents stored before rep ranges/RIR/rest/set kinds existed read back with explicit defaults.
+const normalize = (document: Prescription): Prescription => ({ ...document, days: document.days.map(day => ({ ...day, exercises: day.exercises.map(e => ({ ...e, restSeconds: e.restSeconds ?? null, sets: e.sets.map(s => ({ ...s, kind: s.kind ?? 'working', repsMax: s.repsMax ?? null, rpe: s.rpe ?? null, rir: s.rir ?? null })) })) })) })
 function mapVersion(row: { document: Prescription; id: string; plan_id: string; client_id: string | null; number: number; revision: number; published: boolean; created_at: Date }): TrainingVersion {
   return { ...normalize(row.document), id: row.id, planId: row.plan_id, clientId: row.client_id, number: row.number, revision: row.revision, published: row.published, createdAt: new Date(row.created_at).toISOString() }
 }
@@ -97,7 +97,7 @@ export async function storeVersion(c: PoolClient, planId: string, id: string, do
     await c.query('INSERT INTO private.training_days(version_id,id,ordinal,kind) VALUES($1,$2,$3,$4)',[id,day.id,i,day.kind])
     for (const [j,e] of day.exercises.entries()) {
       await c.query('INSERT INTO private.training_exercises(version_id,day_id,id,ordinal,load_mode,rest_seconds) VALUES($1,$2,$3,$4,$5,$6)',[id,day.id,e.id,j,e.loadMode,e.restSeconds])
-      for (const [k,s] of e.sets.entries()) await c.query('INSERT INTO private.training_sets(version_id,exercise_id,id,ordinal,reps,reps_max,rpe,rir,target_load_kg) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,e.id,s.id,k,s.reps,s.repsMax,s.rpe,s.rir,s.targetLoadKg])
+      for (const [k,s] of e.sets.entries()) await c.query('INSERT INTO private.training_sets(version_id,exercise_id,id,ordinal,kind,reps,reps_max,rpe,rir,target_load_kg) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,e.id,s.id,k,s.kind,s.reps,s.repsMax,s.rpe,s.rir,s.targetLoadKg])
     }
   }
   return version(c,id)

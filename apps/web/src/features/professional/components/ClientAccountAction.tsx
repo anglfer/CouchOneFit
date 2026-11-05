@@ -97,7 +97,8 @@ export default function ClientAccountAction({
           setOpen(true);
           notify.current?.(true);
         }}
-        className="px-4 py-2 border rounded-lg"
+        className="ws-btn"
+        data-variant={accountStatus === 'active' ? 'danger' : undefined}
       >
         {accountStatus === 'active'
           ? 'Dar de baja la cuenta'

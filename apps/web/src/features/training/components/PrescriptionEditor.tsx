@@ -1,8 +1,16 @@
 import { useState } from 'react';
 import { Icon } from '../../../components/Icon';
-import type { Prescription, TrainingExercise } from '../types/training';
+import { confirmDialog } from '../../../services/confirm';
+import type {
+  PrescribedSet,
+  Prescription,
+  SetKind,
+  TrainingExercise,
+} from '../types/training';
 import {
   clonePrescription,
+  count,
+  SET_KINDS,
   setTarget,
   type CatalogExercise,
 } from '../services/training';
@@ -26,11 +34,28 @@ const isoPlus = (start: string, days: number) =>
     .toISOString()
     .slice(0, 10);
 
+const rirOptions = Array.from({ length: 11 }, (_, n) => n);
+const rpeOptions = Array.from({ length: 19 }, (_, n) => 10 - n * 0.5);
+const newSet = (kind: SetKind = 'working'): PrescribedSet => ({
+  id: crypto.randomUUID(),
+  kind,
+  reps: kind === 'warmup' ? 10 : 8,
+  repsMax: kind === 'warmup' ? null : 12,
+  rpe: null,
+  rir: kind === 'warmup' ? null : 2,
+  targetLoadKg: null,
+});
+
 function exerciseSummary(e: TrainingExercise) {
-  const targets = new Set(e.sets.map(setTarget));
-  return targets.size === 1
-    ? `${e.sets.length} × ${[...targets][0]}`
-    : `${e.sets.length} series`;
+  const warmups = e.sets.filter((s) => s.kind === 'warmup').length;
+  const work = e.sets.filter((s) => s.kind !== 'warmup');
+  const targets = new Set(work.map(setTarget));
+  const main =
+    targets.size === 1
+      ? `${work.length} × ${[...targets][0]}`
+      : `${work.length} series`;
+  if (!warmups) return main;
+  return work.length ? `${warmups} calent. + ${main}` : `${warmups} calent.`;
 }
 
 export default function PrescriptionEditor({
@@ -77,14 +102,7 @@ export default function PrescriptionEditor({
       images: source?.images ?? [],
       loadMode: source?.equipment.length === 0 ? 'bodyweight' : 'external',
       restSeconds: 90,
-      sets: [0, 1, 2].map(() => ({
-        id: crypto.randomUUID(),
-        reps: 8,
-        repsMax: 12,
-        rpe: 8,
-        rir: null,
-        targetLoadKg: null,
-      })),
+      sets: [0, 1, 2].map(() => newSet()),
     };
     changeDay((d) => {
       d.kind = 'training';
@@ -115,14 +133,16 @@ export default function PrescriptionEditor({
             Cómo se repite
             <select
               value={value.schedule}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const schedule = e.target.value as Prescription['schedule'];
                 if (
                   value.days.length > 7 &&
                   schedule === 'weekly' &&
-                  !window.confirm(
-                    'La semana usa siete días. Se conservarán los primeros siete.'
-                  )
+                  !(await confirmDialog({
+                    title: '¿Cambiar a semana fija?',
+                    message: `La semana usa siete días. Se conservarán los primeros siete y se quitarán ${value.days.length - 7}.`,
+                    confirmLabel: 'Cambiar',
+                  }))
                 )
                   return;
                 change((p) => {
@@ -166,7 +186,12 @@ export default function PrescriptionEditor({
         </div>
       </section>
 
-      <div className="training-days" role="tablist" aria-label="Días">
+      <div
+        className="training-days"
+        role="tablist"
+        aria-label="Días"
+        data-weekly={value.schedule === 'weekly' || undefined}
+      >
         {value.days.map((d, i) => (
           <button
             type="button"
@@ -178,12 +203,18 @@ export default function PrescriptionEditor({
             onClick={() => setSelected(i)}
           >
             <span>{dayLabel(i)}</span>
-            <strong>{d.kind === 'rest' ? 'Descanso' : d.name}</strong>
-            <small>
-              {d.kind === 'rest'
-                ? '—'
-                : `${d.exercises.length} ejercicio${d.exercises.length === 1 ? '' : 's'}`}
-            </small>
+            {d.kind === 'rest' ? (
+              <strong>Descanso</strong>
+            ) : !d.name.trim() ||
+              d.name.trim().toLowerCase() === dayLabel(i).toLowerCase() ? (
+              // Default name repeats the label: show what the day holds.
+              <strong>{count(d.exercises.length, 'ejercicio')}</strong>
+            ) : (
+              <>
+                <strong>{d.name}</strong>
+                <small>{count(d.exercises.length, 'ejercicio')}</small>
+              </>
+            )}
           </button>
         ))}
         {value.schedule !== 'weekly' && (
@@ -241,13 +272,16 @@ export default function PrescriptionEditor({
                   key={kind}
                   type="button"
                   aria-pressed={day.kind === kind}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
                       kind === 'rest' &&
                       day.exercises.length &&
-                      !window.confirm(
-                        'Marcar descanso quitará los ejercicios de este día.'
-                      )
+                      !(await confirmDialog({
+                        title: '¿Marcar como descanso?',
+                        message: `Se quitará${day.exercises.length === 1 ? '' : 'n'} ${count(day.exercises.length, 'ejercicio')} de ${day.name || 'este día'}.`,
+                        confirmLabel: 'Marcar descanso',
+                        danger: true,
+                      }))
                     )
                       return;
                     changeDay((d) => {
@@ -283,12 +317,18 @@ export default function PrescriptionEditor({
                   Copiar este día a
                   <select
                     value=""
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const to = Number(e.target.value);
+                      const target = value.days[to];
                       if (
-                        window.confirm(
-                          `¿Sustituir ${weekdays[to].toLowerCase()} por una copia de este día?`
-                        )
+                        target.kind === 'rest' ||
+                        !target.exercises.length ||
+                        (await confirmDialog({
+                          title: `¿Sustituir el ${weekdays[to].toLowerCase()}?`,
+                          message: `El ${weekdays[to].toLowerCase()} ya tiene ${count(target.exercises.length, 'ejercicio')}; se reemplazará por una copia de este día.`,
+                          confirmLabel: 'Sustituir',
+                          danger: true,
+                        }))
                       )
                         change((p) => {
                           const copy = copyDay();
@@ -332,8 +372,15 @@ export default function PrescriptionEditor({
                   className="ws-btn"
                   data-variant="danger"
                   disabled={value.days.length === 1}
-                  onClick={() => {
-                    if (window.confirm('¿Quitar este día de la rutina?'))
+                  onClick={async () => {
+                    if (
+                      await confirmDialog({
+                        title: `¿Quitar ${day.name || 'este día'}?`,
+                        message: 'Se quitará el día con sus ejercicios.',
+                        confirmLabel: 'Quitar día',
+                        danger: true,
+                      })
+                    )
                       change((p) => {
                         p.days.splice(index, 1);
                         setSelected(Math.max(0, index - 1));
@@ -385,8 +432,15 @@ export default function PrescriptionEditor({
                         d.exercises.splice(ei + 1, 0, copy);
                       })
                     }
-                    onRemove={() => {
-                      if (window.confirm(`¿Quitar ${exercise.name}?`))
+                    onRemove={async () => {
+                      if (
+                        await confirmDialog({
+                          title: `¿Quitar ${exercise.name}?`,
+                          message: `Se quitará junto con ${exercise.sets.length === 1 ? 'su serie' : `sus ${exercise.sets.length} series`}.`,
+                          confirmLabel: 'Quitar ejercicio',
+                          danger: true,
+                        })
+                      )
                         changeDay((d) => {
                           d.exercises.splice(ei, 1);
                         });
@@ -445,7 +499,19 @@ function ExerciseCard({
         key === 'reps' ? input.valueAsNumber : optionalNumber(input)
       ) as never;
     });
+  const setChoice = (si: number, key: 'rpe' | 'rir', raw: string) =>
+    onChange((e) => {
+      e.sets[si][key] = raw === '' ? null : Number(raw);
+    });
+  const setKind = (si: number, kind: SetKind) =>
+    onChange((e) => {
+      e.sets[si].kind = kind;
+      // "To failure" means zero reps in reserve unless told otherwise.
+      if (kind === 'failure' && e.sets[si].rir === null) e.sets[si].rir = 0;
+    });
   const bodyweight = exercise.loadMode === 'bodyweight';
+  const warmups = exercise.sets.filter((s) => s.kind === 'warmup').length;
+  let workNumber = 0;
   return (
     <li className="training-exercise">
       <header className="training-exercise-head">
@@ -581,104 +647,144 @@ function ExerciseCard({
               <thead>
                 <tr>
                   <th scope="col">Serie</th>
+                  <th scope="col">Tipo</th>
                   <th scope="col">Reps</th>
                   <th scope="col" title="Déjalo vacío para reps fijas">
                     Hasta
                   </th>
+                  {!bodyweight && <th scope="col">Kg objetivo</th>}
+                  <th scope="col" title="Repeticiones en reserva (0 = fallo)">
+                    RIR
+                  </th>
                   <th scope="col" title="Esfuerzo percibido 1–10">
                     RPE
                   </th>
-                  <th scope="col" title="Repeticiones en reserva">
-                    RIR
-                  </th>
-                  {!bodyweight && <th scope="col">Kg objetivo</th>}
                   <th scope="col">
                     <span className="sr-only">Quitar</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {exercise.sets.map((s, si) => (
-                  <tr key={s.id}>
-                    <th scope="row">{si + 1}</th>
-                    <td>
-                      <input
-                        aria-label={`Repeticiones serie ${si + 1}`}
-                        type="number"
-                        required
-                        min={1}
-                        max={100}
-                        value={Number.isFinite(s.reps) ? s.reps : ''}
-                        onChange={(e) => setField(si, 'reps', e.target)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`Repeticiones máximas serie ${si + 1}`}
-                        type="number"
-                        min={Number.isFinite(s.reps) ? s.reps : 1}
-                        max={100}
-                        placeholder="—"
-                        value={s.repsMax ?? ''}
-                        onChange={(e) => setField(si, 'repsMax', e.target)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`RPE serie ${si + 1}`}
-                        type="number"
-                        min={1}
-                        max={10}
-                        step={0.5}
-                        placeholder="—"
-                        value={s.rpe ?? ''}
-                        onChange={(e) => setField(si, 'rpe', e.target)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`RIR serie ${si + 1}`}
-                        type="number"
-                        min={0}
-                        max={10}
-                        placeholder="—"
-                        value={s.rir ?? ''}
-                        onChange={(e) => setField(si, 'rir', e.target)}
-                      />
-                    </td>
-                    {!bodyweight && (
+                {exercise.sets.map((s, si) => {
+                  const kind = SET_KINDS[s.kind];
+                  if (s.kind !== 'warmup') workNumber++;
+                  return (
+                    <tr key={s.id} data-kind={s.kind}>
+                      <th scope="row">
+                        <span
+                          className="training-set-badge"
+                          data-kind={s.kind}
+                          title={kind.label}
+                        >
+                          <span aria-hidden="true">
+                            {kind.short || workNumber}
+                          </span>
+                          <span className="sr-only">
+                            Serie {si + 1}, {kind.label}
+                          </span>
+                        </span>
+                      </th>
+                      <td>
+                        <select
+                          className="training-kind-select"
+                          aria-label={`Tipo de la serie ${si + 1}`}
+                          title={kind.hint}
+                          value={s.kind}
+                          onChange={(e) =>
+                            setKind(si, e.target.value as SetKind)
+                          }
+                        >
+                          {Object.entries(SET_KINDS).map(([value, k]) => (
+                            <option key={value} value={value}>
+                              {k.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td>
                         <input
-                          aria-label={`Carga objetivo serie ${si + 1}`}
+                          aria-label={`Repeticiones serie ${si + 1}`}
                           type="number"
-                          min={0.1}
-                          max={1000}
-                          step={0.1}
-                          placeholder="—"
-                          value={s.targetLoadKg ?? ''}
-                          onChange={(e) =>
-                            setField(si, 'targetLoadKg', e.target)
-                          }
+                          required
+                          min={1}
+                          max={100}
+                          value={Number.isFinite(s.reps) ? s.reps : ''}
+                          onChange={(e) => setField(si, 'reps', e.target)}
                         />
                       </td>
-                    )}
-                    <td>
-                      <button
-                        type="button"
-                        className="ws-plain training-icon-btn"
-                        disabled={exercise.sets.length === 1}
-                        aria-label={`Quitar serie ${si + 1}`}
-                        onClick={() =>
-                          onChange((x) => {
-                            x.sets.splice(si, 1);
-                          })
-                        }
-                      >
-                        <Icon name="close" size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td>
+                        <input
+                          aria-label={`Repeticiones máximas serie ${si + 1}`}
+                          type="number"
+                          min={Number.isFinite(s.reps) ? s.reps : 1}
+                          max={100}
+                          placeholder="—"
+                          value={s.repsMax ?? ''}
+                          onChange={(e) => setField(si, 'repsMax', e.target)}
+                        />
+                      </td>
+                      {!bodyweight && (
+                        <td>
+                          <input
+                            aria-label={`Carga objetivo serie ${si + 1}`}
+                            type="number"
+                            min={0.1}
+                            max={1000}
+                            step={0.1}
+                            placeholder="—"
+                            value={s.targetLoadKg ?? ''}
+                            onChange={(e) =>
+                              setField(si, 'targetLoadKg', e.target)
+                            }
+                          />
+                        </td>
+                      )}
+                      <td>
+                        <select
+                          aria-label={`RIR serie ${si + 1}`}
+                          value={s.rir ?? ''}
+                          onChange={(e) => setChoice(si, 'rir', e.target.value)}
+                        >
+                          <option value="">—</option>
+                          {rirOptions.map((n) => (
+                            <option key={n} value={n}>
+                              {n === 0 ? '0 · fallo' : n}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          aria-label={`RPE serie ${si + 1}`}
+                          value={s.rpe ?? ''}
+                          onChange={(e) => setChoice(si, 'rpe', e.target.value)}
+                        >
+                          <option value="">—</option>
+                          {rpeOptions.map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="ws-plain training-icon-btn"
+                          disabled={exercise.sets.length === 1}
+                          aria-label={`Quitar serie ${si + 1}`}
+                          onClick={() =>
+                            onChange((x) => {
+                              x.sets.splice(si, 1);
+                            })
+                          }
+                        >
+                          <Icon name="close" size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -695,21 +801,57 @@ function ExerciseCard({
             >
               <Icon name="plus" size={16} /> Serie
             </button>
-            {exercise.sets.length > 1 && (
+            <button
+              type="button"
+              className="ws-btn"
+              disabled={exercise.sets.length >= 20}
+              onClick={() =>
+                onChange((x) => {
+                  x.sets.splice(warmups, 0, newSet('warmup'));
+                })
+              }
+            >
+              <Icon name="plus" size={16} /> Calentamiento
+            </button>
+            {exercise.sets.length - warmups > 1 && (
               <button
                 type="button"
                 className="ws-btn"
                 onClick={() =>
                   onChange((x) => {
-                    x.sets = x.sets.map((s) => ({ ...x.sets[0], id: s.id }));
+                    const source = x.sets.find((s) => s.kind !== 'warmup')!;
+                    x.sets = x.sets.map((s) =>
+                      s.kind === 'warmup'
+                        ? s
+                        : { ...source, id: s.id, kind: s.kind }
+                    );
                   })
                 }
               >
-                Igualar a la serie 1
+                Igualar series de trabajo
               </button>
             )}
-            <small>Vacío = no se prescribe. RPE y RIR son opcionales.</small>
           </div>
+          <p className="training-kind-legend">
+            {Object.entries(SET_KINDS)
+              .filter(([, k]) => k.short)
+              .map(([value, k]) => (
+                <span key={value}>
+                  <b
+                    className="training-set-badge"
+                    data-kind={value}
+                    aria-hidden="true"
+                  >
+                    {k.short}
+                  </b>
+                  {k.label}
+                </span>
+              ))}
+            <small>
+              Vacío = no se prescribe. RIR 0 es llegar al fallo; usa RIR o RPE,
+              el que prefieras.
+            </small>
+          </p>
         </div>
       )}
     </li>

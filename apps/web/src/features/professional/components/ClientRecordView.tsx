@@ -5,6 +5,7 @@ import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import type { Operation } from '../../../services/offline/outbox';
 import RoutineWeek from '../../training/components/RoutineWeek';
 import {
+  count,
   relativeDay,
   routineStats,
   scheduleLabel,
@@ -301,8 +302,12 @@ function ActivityStats({ section }: { section: TrainingSection }) {
           {section.plan.name}
         </p>
         <p className="ws-stat-note">
-          {scheduleLabel(section.plan)} · {stats.trainingDays} días de
-          entrenamiento
+          {scheduleLabel(section.plan)} ·{' '}
+          {count(
+            stats.trainingDays,
+            'día de entrenamiento',
+            'días de entrenamiento'
+          )}
         </p>
       </div>
       {activity && (
