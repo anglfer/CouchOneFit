@@ -8,6 +8,7 @@ import '../../settings/models/app_settings.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../services/training_service.dart';
+import '../widgets/load_tools.dart';
 import 'session_summary_screen.dart';
 import 'training_views.dart';
 
@@ -229,23 +230,164 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     return (kg, '${_lastSet(e, index)?.reps ?? prescribed.reps}');
   }
 
-  /// Informative only; the prescribed load always wins over this hint.
-  String? _progression(TrainingExercise e) {
+  /// Informative only; the prescribed load always wins over this advice.
+  LoadAdvice? _advice(TrainingExercise e) {
     final last = _last(e);
-    if (last == null || e.bodyweight) return null;
-    if (e.sets.any((s) => s.targetLoadKg != null)) {
-      return 'Tu profesional indicó la carga de cada serie.';
+    return last == null || e.bodyweight
+        ? null
+        : loadAdvice(e.sets, last.$2.sets, widget.settings.loadStep);
+  }
+
+  /// Working sets still unmarked: where a chosen load can go.
+  List<PrescribedSet> _openWork(TrainingExercise e) => [
+        for (final s in e.sets)
+          if (progressionSet(s) && _captures[s.id]!.state == null) s
+      ];
+
+  void _applyLoad(TrainingExercise e, double kg) {
+    final open = _openWork(e);
+    _touch(() {
+      for (final s in open) {
+        final c = _captures[s.id]!;
+        c.load.text = trainingDecimal(kg);
+        if (c.error != null) c.error = _invalid(e, c);
+      }
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+          content: Text(
+              '${trainingDecimal(kg)} kg en ${trainingCount(open.length, 'serie', 'series')} de ${e.name}.')));
+  }
+
+  Future<void> _pickLoad(TrainingExercise e, LoadAdvice? advice) async {
+    final open = _openWork(e);
+    final last = _last(e);
+    final lastTop = last == null ? null : topSet(last.$2);
+    final lastKg = (lastTop?.loadKg ?? 0) > 0 ? lastTop!.loadKg : null;
+    final typed = open
+        .map((s) => _captures[s.id]!.loadValue)
+        .where((kg) => kg != null && kg > 0)
+        .firstOrNull;
+    final kg = await showLoadPicker(context,
+        exerciseName: e.name,
+        initial: typed ?? advice?.toKg ?? lastKg ?? 20,
+        step: widget.settings.loadStep,
+        openSets: open.length,
+        recommended:
+            advice?.kind == LoadAdviceKind.increase ? advice!.toKg : null,
+        lastKg: lastKg,
+        lastLabel: lastKg == null
+            ? null
+            : '${trainingDecimal(lastKg)} kg × ${lastTop!.reps}',
+        oneRm: bestEstimateBefore(_history, e.key, _context.localDate),
+        targetReps:
+            open.isEmpty ? null : open.first.repsMax ?? open.first.reps);
+    if (kg != null && mounted) _applyLoad(e, kg);
+  }
+
+  /// Double-progression card: raise the load once every working set reached
+  /// the top of its range; else keep it and chase the reps.
+  Widget? _loadCard(TrainingExercise e) {
+    if (e.bodyweight) return null;
+    if (e.sets.where(progressionSet).any((s) => s.targetLoadKg != null)) {
+      return Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Row(children: [
+            const Icon(Icons.trending_up_rounded,
+                size: 17, color: BrandColors.success),
+            const SizedBox(width: 6),
+            Expanded(
+                child: Text('Tu profesional indicó la carga de cada serie.',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant))),
+          ]));
     }
-    final sets = last.$2.sets;
-    final hitAll = sets.length >= e.sets.length &&
-        e.sets.asMap().entries.every((entry) {
-          final s = sets[entry.key];
-          return s?.state == 'performed' &&
-              s!.reps >= (entry.value.repsMax ?? entry.value.reps);
-        });
-    return hitAll
-        ? 'La vez pasada completaste todas las reps. Si te sientes bien, prueba +${trainingDecimal(widget.settings.loadStep)} kg.'
-        : 'Intenta igualar o superar lo de la vez pasada.';
+    final open = _openWork(e);
+    if (open.isEmpty) return null;
+    final colors = Theme.of(context).colorScheme;
+    final advice = _advice(e);
+    final up = advice?.kind == LoadAdviceKind.increase;
+    final accent = up ? BrandColors.success : colors.primary;
+    String kg(double v) => '${trainingDecimal(v)} kg';
+    final (title, body) = switch (advice) {
+      null => (
+          'Elige tu peso de trabajo',
+          'Uno con el que llegues a ${open.map((s) => s.repsMax ?? s.reps).reduce((a, b) => a > b ? a : b)} reps con buena técnica.'
+        ),
+      final a when up => (
+          'Sube a ${kg(a.toKg)}',
+          'La vez pasada: ${kg(a.fromKg)} × ${a.lastReps.join(' · ')}. Llegaste a ${a.topReps} reps en todas las series.'
+        ),
+      final a => (
+          'Mantén ${kg(a.fromKg)}',
+          'La vez pasada: ${kg(a.fromKg)} × ${a.lastReps.join(' · ')}. Sube cuando llegues a ${a.topReps} reps en todas las series.'
+        ),
+    };
+    return Container(
+        key: ValueKey('load-advice-${e.id}'),
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+        decoration: BoxDecoration(
+            color: accent.withValues(alpha: .09),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: accent.withValues(alpha: .32))),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                    color: accent.withValues(alpha: .18),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(
+                    advice == null
+                        ? Icons.fitness_center_rounded
+                        : up
+                            ? Icons.trending_up_rounded
+                            : Icons.trending_flat_rounded,
+                    size: 19,
+                    color: accent)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          color: colors.onSurface)),
+                  const SizedBox(height: 2),
+                  Text(body,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          color: colors.onSurfaceVariant)),
+                ])),
+          ]),
+          const SizedBox(height: 6),
+          Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton.icon(
+                    key: ValueKey('pick-load-${e.id}'),
+                    onPressed: () => _pickLoad(e, advice),
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    label: Text(advice == null ? 'Elegir peso' : 'Ajustar')),
+                if (advice != null)
+                  FilledButton(
+                      key: ValueKey('use-load-${e.id}'),
+                      onPressed: () => _applyLoad(e, advice.toKg),
+                      child: Text('Usar ${kg(advice.toKg)}')),
+              ]),
+        ]));
   }
 
   String? _invalid(TrainingExercise e, _Capture c) {
@@ -335,38 +477,52 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     return before != null && _todayBest(e) > before;
   }
 
-  List<SummaryExercise> _summary() => [
-        for (final e in _exercises)
-          () {
-            _Capture? top;
-            for (final c in _done(e)) {
-              if (top == null ||
-                  (e.bodyweight
-                      ? (c.repsValue ?? 0) > (top.repsValue ?? 0)
-                      : (c.loadValue ?? 0) > (top.loadValue ?? 0))) {
-                top = c;
-              }
+  List<SummaryExercise> _summary(List<Map<String, Object?>> saved) {
+    final today = {for (final r in saved) r['setId']: SetResult(r)};
+    return [
+      for (final e in _exercises)
+        () {
+          // Same double progression as during the session, from today.
+          final next = e.bodyweight
+              ? null
+              : loadAdvice(e.sets, [for (final s in e.sets) today[s.id]],
+                  widget.settings.loadStep);
+          _Capture? top;
+          for (final c in _done(e)) {
+            if (top == null ||
+                (e.bodyweight
+                    ? (c.repsValue ?? 0) > (top.repsValue ?? 0)
+                    : (c.loadValue ?? 0) > (top.loadValue ?? 0))) {
+              top = c;
             }
-            final last = _last(e);
-            final lastTop = last == null ? null : topSet(last.$2);
-            String? change;
-            if (top != null && lastTop != null) {
-              change = _difference(
-                  e.bodyweight,
-                  (top.repsValue ?? 0) - lastTop.reps,
-                  (top.loadValue ?? 0) - (lastTop.loadKg ?? 0));
-            }
-            return SummaryExercise(
-                e.name,
-                top == null
-                    ? null
-                    : e.bodyweight
-                        ? '${top.repsValue} reps'
-                        : '${trainingDecimal(top.loadValue!)} kg × ${top.repsValue}',
-                change,
-                _isRecord(e));
-          }()
-      ];
+          }
+          final last = _last(e);
+          final lastTop = last == null ? null : topSet(last.$2);
+          String? change;
+          if (top != null && lastTop != null) {
+            change = _difference(
+                e.bodyweight,
+                (top.repsValue ?? 0) - lastTop.reps,
+                (top.loadValue ?? 0) - (lastTop.loadKg ?? 0));
+          }
+          return SummaryExercise(
+              e.name,
+              top == null
+                  ? null
+                  : e.bodyweight
+                      ? '${top.repsValue} reps'
+                      : '${trainingDecimal(top.loadValue!)} kg × ${top.repsValue}',
+              change,
+              _isRecord(e),
+              next: next == null
+                  ? null
+                  : next.kind == LoadAdviceKind.increase
+                      ? 'Próxima vez: sube a ${trainingDecimal(next.toKg)} kg'
+                      : 'Próxima vez: mantén ${trainingDecimal(next.toKg)} kg',
+              nextUp: next?.kind == LoadAdviceKind.increase);
+        }()
+    ];
+  }
 
   List<MapEntry<String, int>> _groups() {
     final sets = <String, int>{};
@@ -465,7 +621,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                     sets:
                         results.where((r) => r['state'] == 'performed').length,
                     volume: _volume,
-                    exercises: _summary(),
+                    exercises: _summary(results),
                     groups: _groups(),
                     onShowProgress: widget.onShowProgress)));
         return;
@@ -803,7 +959,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final last = _last(exercise);
     final best = bestBefore(
         _history, exercise.key, exercise.bodyweight, _context.localDate);
-    final hint = _progression(exercise);
+    final loadCard = _loadCard(exercise);
     final groups = muscleGroups(exercise.muscles, exercise.bodyPart);
     final complete = exercise.sets.every((s) => _captures[s.id]!.state != null);
     final rpe = _rpeMode[exercise.id]!;
@@ -966,25 +1122,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                             height: 1.35,
                                             color: colors.onPrimaryContainer))),
                               ])),
-                    if (hint != null)
-                      Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Padding(
-                                    padding: EdgeInsets.only(top: 2),
-                                    child: Icon(Icons.trending_up_rounded,
-                                        size: 17, color: BrandColors.success)),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                    child: Text(hint,
-                                        style: const TextStyle(
-                                            fontSize: 12.5,
-                                            height: 1.3,
-                                            color: BrandColors.success,
-                                            fontWeight: FontWeight.w700))),
-                              ])),
+                    if (loadCard != null) loadCard,
                     const SizedBox(height: 12),
                     LayoutBuilder(builder: (context, constraints) {
                       final compactMode = constraints.maxWidth < 300 ||

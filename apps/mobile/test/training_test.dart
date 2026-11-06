@@ -515,6 +515,8 @@ void main() {
     expect(tester.widget<Text>(find.byKey(const ValueKey('previous-set'))).data,
         '50×10');
     expect(find.text('Mejor: 50 kg'), findsOneWidget);
+    // 50 × 10 is under the 15-rep top, so the load stays.
+    expect(find.text('Mantén 50 kg'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('check-set')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('check-set')));
@@ -552,6 +554,7 @@ void main() {
       },
     ]);
     expect(find.textContaining('¡Récord personal!'), findsOneWidget);
+    expect(find.text('Próxima vez: mantén 52,5 kg'), findsOneWidget);
     expect(find.text('Cuádriceps · 1 serie'), findsOneWidget);
   });
   testWidgets('rest timer, steppers and the disabled setting', (tester) async {
@@ -652,6 +655,178 @@ void main() {
         Brightness.light));
     await tester.pumpAndSettle();
     expect(find.text('Ilustración no disponible'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('GIF plays over the still unless paused or reduced motion',
+      (tester) async {
+    Future<int> frames({bool paused = false, bool still = false}) async {
+      await tester.pumpWidget(host(
+          Builder(
+              builder: (context) => MediaQuery(
+                  data:
+                      MediaQuery.of(context).copyWith(disableAnimations: still),
+                  child: Scaffold(
+                      body: ExerciseAnimation(images: const [
+                    'https://example.invalid/0001.jpg',
+                    'https://example.invalid/0001.gif'
+                  ], label: 'Sentadilla', paused: paused)))),
+          Brightness.light));
+      await tester.pumpAndSettle();
+      return find.byType(Image).evaluate().length;
+    }
+
+    expect(await frames(), 2);
+    expect(await frames(paused: true), 1);
+    expect(await frames(still: true), 1);
+  });
+  test('double progression advice and one-rep max', () {
+    PrescribedSet set(String id, int reps,
+            {int? max, String kind = 'working', double? load}) =>
+        PrescribedSet({
+          'id': id,
+          'kind': kind,
+          'reps': reps,
+          'repsMax': max,
+          'rpe': null,
+          'rir': null,
+          'targetLoadKg': load
+        });
+    SetResult done(double kg, int reps) => SetResult({
+          'setId': 's',
+          'state': 'performed',
+          'reps': reps,
+          'loadKg': kg,
+          'rpe': null,
+          'rir': null
+        });
+    final plan = [
+      set('w', 10, kind: 'warmup'),
+      set('a', 10),
+      set('b', 10),
+      set('c', 10)
+    ];
+    // The coach set 3 × 10 and every working set reached 10+ reps at 50 kg.
+    final up = loadAdvice(
+        plan, [done(20, 10), done(50, 11), done(50, 10), done(50, 10)], 2.5)!;
+    expect([
+      up.kind,
+      up.fromKg,
+      up.toKg,
+      up.lastReps,
+      up.topReps
+    ], [
+      LoadAdviceKind.increase,
+      50,
+      52.5,
+      [11, 10, 10],
+      10
+    ]);
+    // One short set keeps the load; the warm-up never counts.
+    final keep =
+        loadAdvice(plan, [null, done(50, 10), done(50, 10), done(50, 8)], 2.5)!;
+    expect([keep.kind, keep.toKg], [LoadAdviceKind.keep, 50]);
+    // Reaching the reps with a lighter load is not reaching the load.
+    expect(
+        loadAdvice(plan, [null, done(50, 10), done(50, 10), done(45, 12)], 2.5)!
+            .kind,
+        LoadAdviceKind.keep);
+    // Ranges count from their top; a missing set keeps the load.
+    final ranged = [set('a', 8, max: 12), set('b', 8, max: 12)];
+    expect(loadAdvice(ranged, [done(60, 12), done(60, 10)], 2.5)!.kind,
+        LoadAdviceKind.keep);
+    expect(loadAdvice(ranged, [done(60, 12), null], 2.5)!.kind,
+        LoadAdviceKind.keep);
+    expect(loadAdvice(ranged, [done(60, 12), done(60, 13)], 5)!.toKg, 65);
+    // The professional's working load always wins; nothing to build on: null.
+    expect(loadAdvice([set('a', 10, load: 40)], [done(40, 12)], 2.5), isNull);
+    expect(loadAdvice(plan, const [], 2.5), isNull);
+    expect([
+      oneRepMax(100, 1),
+      oneRepMax(100, 10).toStringAsFixed(1),
+      repsAtFraction(1),
+      repsAtFraction(.75),
+      roundToStep(66.67, .5)
+    ], [
+      100,
+      '133.3',
+      1,
+      10,
+      66.5
+    ]);
+  });
+  testWidgets('load advice, quick load picker and 1RM calculator',
+      (tester) async {
+    final raw = fixture();
+    final exercise = ((((raw['plan'] as Map)['days'] as List).first
+            as Map)['exercises'] as List)
+        .first as Map;
+    exercise['loadMode'] = 'external';
+    final sets = exercise['sets'] as List;
+    sets.add(<String, Object?>{...(sets.first as Map), 'id': 'set-2'});
+    // Last time both sets reached the top of 12–15 reps at 50 kg.
+    final past = session('2026-11-02', 50, 15);
+    final pastSets = ((past['exercises'] as List).first as Map)['sets'] as List;
+    pastSets[1] = <String, Object?>{
+      ...(pastSets.first as Map),
+      'setId': 'set-2'
+    };
+    await tester.pumpWidget(host(
+        TrainingSessionScreen(
+            contextData: TrainingContext(raw),
+            service: TrainingService(
+                apiClient: api((request) async =>
+                    const ApiHttpResponse(statusCode: 200, body: {}))),
+            history: TrainingHistory({
+              'sessions': [past],
+              'nextOffset': null
+            })),
+        Brightness.dark));
+    await tester.pumpAndSettle();
+    String kg(String id) => tester
+        .widget<EditableText>(find.descendant(
+            of: find.byKey(ValueKey('kg-$id')),
+            matching: find.byType(EditableText)))
+        .controller
+        .text;
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Sube a 52,5 kg'), findsOneWidget);
+    expect(find.textContaining('50 kg × 15 · 15'), findsOneWidget);
+    await tap(find.byKey(const ValueKey('use-load-exercise')));
+    expect([kg('set'), kg('set-2')], ['52,5', '52,5']);
+
+    await tap(find.byKey(const ValueKey('pick-load-exercise')));
+    String value() => tester
+        .widget<Text>(find.byKey(const ValueKey('load-picker-value')))
+        .textSpan!
+        .toPlainText();
+    // Starts from what is already typed.
+    expect(value(), '52,5 kg');
+    await tap(find.byTooltip('Sumar 2,5 kg'));
+    await tap(find.text('−0,5'));
+    expect(value(), '54,5 kg');
+    expect(find.textContaining('% de tu 1RM estimado (75 kg)'), findsOneWidget);
+    await tap(find.byKey(const ValueKey('load-picker-apply')));
+    expect([kg('set'), kg('set-2')], ['54,5', '54,5']);
+
+    await tap(find.byKey(const ValueKey('pick-load-exercise')));
+    await tap(find.text('Calculadora 1RM'));
+    String orm() =>
+        tester.widget<Text>(find.byKey(const ValueKey('orm-result'))).data!;
+    // Prefilled with the chosen load and the top of the range.
+    expect(orm(), '82 kg');
+    expect(find.textContaining('pierde precisión'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('orm-kg')), '100');
+    await tester.enterText(find.byKey(const ValueKey('orm-reps')), '5');
+    await tester.pumpAndSettle();
+    expect(orm(), '116,5 kg');
+    expect(find.text('≈ 10 reps'), findsOneWidget);
+    expect(find.textContaining('pierde precisión'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

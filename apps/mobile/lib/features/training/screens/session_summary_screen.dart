@@ -6,8 +6,13 @@ import '../widgets/muscle_map.dart';
 import 'training_views.dart';
 
 class SummaryExercise {
-  const SummaryExercise(this.name, this.best, this.change, this.record);
+  const SummaryExercise(this.name, this.best, this.change, this.record,
+      {this.next, this.nextUp = false});
   final String name;
+
+  /// Load advice for next time ("Próxima vez: sube a 52,5 kg").
+  final String? next;
+  final bool nextUp;
 
   /// Best set today ("70×10"), or null when nothing was performed.
   final String? best;
@@ -191,12 +196,25 @@ class SessionSummaryScreen extends StatelessWidget {
                                       title: Text(e.name,
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w700)),
-                                      subtitle: Text([
-                                        e.best == null
-                                            ? 'Sin series hechas'
-                                            : 'Mejor serie: ${e.best}',
-                                        if (e.record) '¡Récord personal!',
-                                      ].join(' · ')),
+                                      subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text([
+                                              e.best == null
+                                                  ? 'Sin series hechas'
+                                                  : 'Mejor serie: ${e.best}',
+                                              if (e.record) '¡Récord personal!',
+                                            ].join(' · ')),
+                                            if (e.next != null)
+                                              Text(e.next!,
+                                                  style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: e.nextUp
+                                                          ? BrandColors.success
+                                                          : colors.secondary)),
+                                          ]),
                                       trailing: e.change == null
                                           ? null
                                           : Text(e.change!,

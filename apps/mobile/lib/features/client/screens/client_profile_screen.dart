@@ -200,8 +200,12 @@ class ClientProfileScreen extends StatelessWidget {
                         'Tu profesional',
                         'Diseña y ajusta tu rutina; tú registras lo que haces.',
                         null),
-                    tile(Icons.dataset_outlined, colors.onSurfaceVariant,
-                        'Datos de ejercicios', 'RepDB · repdb.co', null),
+                    tile(
+                        Icons.dataset_outlined,
+                        colors.onSurfaceVariant,
+                        'Animaciones de ejercicios',
+                        '© Gym visual · gymvisual.com',
+                        null),
                   ]),
                   const SizedBox(height: 16),
                   group([

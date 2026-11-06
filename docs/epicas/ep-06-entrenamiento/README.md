@@ -70,7 +70,7 @@ exclusión anterior de temporizador (DEC-006/HU-031) y sobre la regla de
 - **Analíticas propias**: balance muscular (series por grupo), recuperación
   estimada por grupo (días desde la última sesión frente a 2–4 días según las
   series; orientativa, sin diagnóstico) y 1RM estimado (Epley). Los grupos
-  salen de los músculos principales del catálogo RepDB.
+  salen del músculo objetivo del catálogo de ejercicios.
 
 ## Decisión del usuario — 05-nov-2026 (tipo de serie y tema nocturno)
 
@@ -121,14 +121,30 @@ referencia, con los colores de CouchOne y un modo oscuro más profundo y morado.
 
 ## Catálogo de ejercicios
 
-Fuente: [RepDB exercise-dataset](https://github.com/RepDB/exercise-dataset)
-(revisión fijada en `apps/api/scripts/import-training-catalog.ts`), con nombres,
-músculos, equipo e instrucciones en español. El profesional solo ve los
-ejercicios por repeticiones (`selectable`). La edición gratuita trae dos
-fotogramas (inicio/pico); Web y móvil los alternan en bucle como demostración
-tipo GIF, y muestran una imagen fija con «reducir movimiento». Las animaciones
-oficiales de RepDB son de pago y no se usan. Atribución obligatoria
-«Exercise data by RepDB (repdb.co)» visible en Web y móvil.
+Decisión del usuario (06-nov-2026): sustituir el catálogo RepDB por
+[hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
+(1324 ejercicios con GIF), aceptando sus términos de medios porque el proyecto
+es una demo universitaria sin uso comercial.
+
+- **Fuente**: revisión fijada en `apps/api/scripts/import-training-catalog.ts`.
+  Datos e instrucciones bajo MIT; los medios (miniatura y GIF de 180×180) son
+  © Gym visual y se enlazan desde GitHub sin copiarlos al repositorio.
+- **Mapeo**: nombre original en inglés (primera letra en mayúscula);
+  instrucciones `instruction_steps.es`; zona, equipo y músculo objetivo
+  (`target`) traducidos al español. «Peso corporal» se guarda sin equipo, lo
+  que el editor interpreta como carga corporal. Los músculos coinciden con los
+  grupos de `training_progress.dart` (móvil).
+- **`selectable`**: el profesional solo ve ejercicios por repeticiones; quedan
+  fuera cardio, estiramientos, posturas y planchas isométricas (1230 de 1324).
+- **Medios**: `images` = [miniatura fija, GIF]. Web y móvil muestran el GIF
+  sobre la miniatura; en pausa (móvil) o con «reducir movimiento» queda la
+  miniatura.
+- **Atribución obligatoria** «© Gym visual — https://gymvisual.com/» visible en
+  el selector Web y, en móvil, en la rutina, el detalle del ejercicio y Cuenta.
+- **Reemplazo completo**: el script borra del catálogo los ids que ya no
+  existen. Las versiones publicadas conservan su copia (nombre, guía, medios)
+  porque son inmutables; un borrador que use un id antiguo no se publica
+  (`EXERCISE_UNAVAILABLE`) hasta cambiar el ejercicio.
 
 Importación local (el script exige `DATABASE_URL` en localhost): desde
 `apps/api`, `npx tsx scripts/import-training-catalog.ts`.

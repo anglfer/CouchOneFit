@@ -747,7 +747,7 @@ button.training-template-card:hover {
   background: var(--ws-selected);
 }
 
-/* Animated exercise demo (two catalog frames). */
+/* Exercise demo: still thumbnail under the animated GIF. */
 .training-anim {
   position: relative;
   flex: none;
@@ -771,26 +771,9 @@ button.training-template-card:hover {
   height: 100%;
   object-fit: contain;
 }
-.training-anim img[data-frame='1'] {
-  animation: training-frame 2.2s ease-in-out infinite;
-}
-@keyframes training-frame {
-  0%,
-  30% {
-    opacity: 0;
-  }
-  50%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .training-anim img[data-frame='1'] {
-    animation: none;
-    opacity: 0;
+    display: none;
   }
 }
 

@@ -164,7 +164,7 @@ export async function catalog(c: PoolClient, search: string, muscle: string, equ
     WHERE selectable AND ($1='' OR name ILIKE '%'||$1||'%') AND ($2='' OR muscles ? $2 OR body_part=$2) AND ($3='' OR equipment ? $3) ORDER BY name,id LIMIT 41 OFFSET $4`,[search,muscle,equipment,offset])
   const {rows:[filters]}=await c.query(`SELECT (SELECT COALESCE(jsonb_agg(x ORDER BY x),'[]') FROM (SELECT DISTINCT jsonb_array_elements_text(muscles) x FROM private.training_exercise_catalog WHERE selectable) m) muscles,
     (SELECT COALESCE(jsonb_agg(x ORDER BY x),'[]') FROM (SELECT DISTINCT jsonb_array_elements_text(equipment) x FROM private.training_exercise_catalog WHERE selectable) e) equipment`)
-  return {exercises:rows.slice(0,40),nextOffset:rows.length>40?offset+40:null,filters,attribution:'Exercise data by RepDB (repdb.co)'}
+  return {exercises:rows.slice(0,40),nextOffset:rows.length>40?offset+40:null,filters,attribution:'© Gym visual — https://gymvisual.com/'}
 }
 export async function listSessions(c: PoolClient, clientId: string, offset: number) {
   const { rows } = await c.query("SELECT local_date::text AS date FROM private.training_sessions WHERE client_id=$1 ORDER BY local_date DESC LIMIT 41 OFFSET $2",[clientId,offset])

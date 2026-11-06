@@ -130,7 +130,7 @@ class _PlansTabState extends State<PlansTab> {
         _dayRow(context, plan, entry.key, entry.value,
             entry.value.id == todayDay?.id),
       const SizedBox(height: 12),
-      Text('Datos de ejercicios: RepDB · repdb.co',
+      Text('Animaciones de ejercicios: © Gym visual · gymvisual.com',
           style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
     ];
   }

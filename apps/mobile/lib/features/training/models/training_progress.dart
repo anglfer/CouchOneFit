@@ -163,34 +163,22 @@ double? bestBefore(
 // Catalog muscle (Spanish, see import-training-catalog.ts) -> display group.
 const _muscleGroup = {
   'Pectoral mayor': 'Pecho',
+  'Serrato anterior': 'Pecho',
   'Dorsal ancho': 'Espalda',
-  'Romboides': 'Espalda',
+  'Espalda alta': 'Espalda',
   'Trapecio': 'Espalda',
   'Erectores espinales': 'Espalda',
-  'Cuadrado lumbar': 'Espalda',
-  'Infraespinoso y redondo menor': 'Espalda',
-  'Deltoides anterior': 'Hombros',
-  'Deltoides lateral': 'Hombros',
-  'Deltoides posterior': 'Hombros',
+  'Deltoides': 'Hombros',
   'Bíceps': 'Bíceps',
-  'Braquial': 'Bíceps',
-  'Braquiorradial': 'Antebrazos',
-  'Extensores del antebrazo': 'Antebrazos',
-  'Flexores del antebrazo': 'Antebrazos',
+  'Antebrazos': 'Antebrazos',
   'Tríceps': 'Tríceps',
   'Recto abdominal': 'Abdomen',
-  'Oblicuos': 'Abdomen',
-  'Transverso abdominal': 'Abdomen',
-  'Flexores de cadera': 'Abdomen',
   'Glúteo mayor': 'Glúteos',
-  'Glúteo medio': 'Glúteos',
   'Abductores': 'Glúteos',
   'Aductores': 'Aductores',
   'Cuádriceps': 'Cuádriceps',
   'Isquiotibiales': 'Isquiotibiales',
   'Gemelos': 'Pantorrillas',
-  'Sóleo': 'Pantorrillas',
-  'Tibial anterior': 'Pantorrillas',
 };
 const _bodyPartGroup = {
   'Pecho': 'Pecho',
@@ -298,3 +286,80 @@ double activityValue(HistorySession? s, {required bool volume}) => s == null
     : volume
         ? sessionVolume(s)
         : sessionPerformed(s).toDouble();
+
+/// Best Epley estimate for [key] in sessions before [before].
+double? bestEstimateBefore(TrainingHistory history, String key, String before) {
+  double? best;
+  for (final session in history.sessions) {
+    if (session.localDate.compareTo(before) >= 0) continue;
+    for (final e in session.exercises.where((e) => e.key == key)) {
+      final v = bestEstimatedMax(e);
+      if (v != null && (best == null || v > best)) best = v;
+    }
+  }
+  return best;
+}
+
+/// One-rep max for [kg] × [reps]: the load itself for a single, else Epley.
+double oneRepMax(double kg, int reps) => reps <= 1 ? kg : kg * (1 + reps / 30);
+
+/// Reps Epley predicts at [fraction] of the one-rep max.
+int repsAtFraction(double fraction) =>
+    fraction >= 1 ? 1 : (30 * (1 / fraction - 1)).round().clamp(1, 100);
+
+/// Nearest multiple of [step] (plates), e.g. 0,5 kg.
+double roundToStep(double kg, double step) =>
+    double.parse(((kg / step).round() * step).toStringAsFixed(2));
+
+enum LoadAdviceKind { increase, keep }
+
+/// Double progression from last time: once every working set reached the top
+/// of its prescribed range at the same load, add one load step.
+class LoadAdvice {
+  const LoadAdvice(
+      this.kind, this.fromKg, this.toKg, this.lastReps, this.topReps);
+  final LoadAdviceKind kind;
+  final double fromKg, toKg;
+
+  /// Reps of last time's performed working sets, in order.
+  final List<int> lastReps;
+
+  /// Highest rep target among the working sets.
+  final int topReps;
+}
+
+/// Working sets: warm-ups and drop sets are light on purpose.
+bool progressionSet(PrescribedSet s) => !s.warmup && s.kind != 'drop';
+
+/// Null when the exercise is bodyweight, the professional fixed the working
+/// loads, or last time has no loaded working set to build on.
+LoadAdvice? loadAdvice(
+    List<PrescribedSet> plan, List<SetResult?> last, double step) {
+  final work = [
+    for (var i = 0; i < plan.length; i++)
+      if (progressionSet(plan[i])) i
+  ];
+  if (work.isEmpty || work.any((i) => plan[i].targetLoadKg != null)) {
+    return null;
+  }
+  SetResult? at(int i) => i < last.length &&
+          last[i]?.state == 'performed' &&
+          (last[i]!.loadKg ?? 0) > 0
+      ? last[i]
+      : null;
+  final done = work.where((i) => at(i) != null).toList();
+  if (done.isEmpty) return null;
+  final from = done.map((i) => at(i)!.loadKg!).reduce((a, b) => a > b ? a : b);
+  final hitAll = done.length == work.length &&
+      work.every((i) =>
+          at(i)!.loadKg! >= from - .001 &&
+          at(i)!.reps >= (plan[i].repsMax ?? plan[i].reps));
+  final top = work
+      .map((i) => plan[i].repsMax ?? plan[i].reps)
+      .reduce((a, b) => a > b ? a : b);
+  final to = hitAll
+      ? double.parse((from + step).clamp(0, 1000).toStringAsFixed(1))
+      : from;
+  return LoadAdvice(hitAll ? LoadAdviceKind.increase : LoadAdviceKind.keep,
+      from, to, [for (final i in done) at(i)!.reps], top);
+}

@@ -1,7 +1,7 @@
 import { Icon } from '../../../components/Icon';
 
-// The catalog ships start/peak frames; alternating them gives a looping
-// GIF-like demonstration without redistributing or deriving new media.
+// Catalog media is [still thumbnail, animated GIF]: the GIF covers the still,
+// which remains visible with reduced motion (see training.css).
 export default function ExerciseAnimation({
   images,
   name,

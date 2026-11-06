@@ -4,6 +4,7 @@ import '../../../shared/widgets/coming_soon_card.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../services/training_service.dart';
+import '../widgets/load_tools.dart';
 import '../widgets/muscle_map.dart';
 import 'training_views.dart';
 
@@ -773,6 +774,16 @@ class ExerciseProgressScreen extends StatelessWidget {
                               icon: Icons.bolt_outlined,
                               label: '1RM estimado (última sesión)',
                               value: '${e.estimates.last.round()} kg'),
+                        ],
+                        if (!e.bodyweight) ...[
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                              key: const ValueKey('one-rep-max'),
+                              onPressed: () => showOneRepMaxCalculator(context,
+                                  kg: e.points.last.top.loadKg,
+                                  reps: e.points.last.top.reps),
+                              icon: const Icon(Icons.calculate_outlined),
+                              label: const Text('Calculadora 1RM')),
                         ],
                         const SizedBox(height: 12),
                         Card(

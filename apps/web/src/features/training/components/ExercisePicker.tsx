@@ -58,7 +58,7 @@ export default function ExercisePicker({
     <Modal
       wide
       title="Añadir ejercicios"
-      subtitle="Busca en español y añade varios seguidos; pulsa Listo al terminar."
+      subtitle="Los nombres están en inglés. Añade varios seguidos; pulsa Listo al terminar."
       onClose={onClose}
     >
       <div className="training-catalog-filters">
@@ -72,7 +72,7 @@ export default function ExercisePicker({
               setSearch(e.target.value);
               reset();
             }}
-            placeholder="Sentadilla, remo, press…"
+            placeholder="Squat, row, bench press…"
           />
         </label>
         <label>
@@ -192,9 +192,13 @@ export default function ExercisePicker({
         </div>
       </footer>
       <small className="training-credit">
-        Exercise data by{' '}
-        <a href="https://repdb.co/" target="_blank" rel="nofollow noreferrer">
-          RepDB
+        Animaciones ©{' '}
+        <a
+          href="https://gymvisual.com/"
+          target="_blank"
+          rel="nofollow noreferrer"
+        >
+          Gym visual
         </a>
       </small>
     </Modal>

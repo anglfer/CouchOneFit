@@ -93,9 +93,9 @@ class TrainingNotice extends StatelessWidget {
   }
 }
 
-/// Loops the catalog start/peak frames as a GIF-like demonstration. With
-/// reduced motion, or a single frame, it shows a still image.
-class ExerciseAnimation extends StatefulWidget {
+/// Catalog media is [still thumbnail, animated GIF]. The GIF plays over the
+/// still; paused or with reduced motion only the still is shown.
+class ExerciseAnimation extends StatelessWidget {
   const ExerciseAnimation(
       {super.key,
       required this.images,
@@ -108,61 +108,12 @@ class ExerciseAnimation extends StatefulWidget {
   /// Thumbnail size; null fills the available width as a square.
   final double? size;
   final bool paused;
-  @override
-  State<ExerciseAnimation> createState() => _ExerciseAnimationState();
-}
-
-class _ExerciseAnimationState extends State<ExerciseAnimation>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2200));
-  late final Animation<double> _second = TweenSequence<double>([
-    TweenSequenceItem(tween: ConstantTween<double>(0), weight: 30),
-    TweenSequenceItem(
-        tween: Tween<double>(begin: 0, end: 1)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 20),
-    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 30),
-    TweenSequenceItem(
-        tween: Tween<double>(begin: 1, end: 0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 20),
-  ]).animate(_controller);
-
-  void _syncAnimation() {
-    final animate = !widget.paused &&
-        widget.images.length > 1 &&
-        !MediaQuery.disableAnimationsOf(context);
-    if (animate && !_controller.isAnimating) _controller.repeat();
-    if (!animate && _controller.isAnimating) _controller.stop();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant ExerciseAnimation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.paused != widget.paused ||
-        oldWidget.images.length != widget.images.length) {
-      _syncAnimation();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   Widget _frame(String url) => Image.network(url,
       fit: BoxFit.contain,
       excludeFromSemantics: true,
       errorBuilder: (_, error, stack) => Center(
-          child: widget.size == null
+          child: size == null
               ? const Padding(
                   padding: EdgeInsets.all(20),
                   child: Text('Ilustración no disponible',
@@ -179,29 +130,27 @@ class _ExerciseAnimationState extends State<ExerciseAnimation>
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(widget.size == null ? 18 : 12);
-    final content = widget.images.isEmpty
+    final radius = BorderRadius.circular(size == null ? 18 : 12);
+    final animate = !paused && !MediaQuery.disableAnimationsOf(context);
+    final content = images.isEmpty
         ? ColoredBox(
             color: colors.surfaceContainerHighest,
             child: Icon(Icons.fitness_center,
-                color: colors.onSurfaceVariant,
-                size: widget.size == null ? 48 : 24))
+                color: colors.onSurfaceVariant, size: size == null ? 48 : 24))
         : ColoredBox(
             color: Colors.white,
             child: Stack(fit: StackFit.expand, children: [
-              _frame(widget.images.first),
-              if (widget.images.length > 1)
-                FadeTransition(
-                    opacity: _second, child: _frame(widget.images[1])),
+              _frame(images.first),
+              if (images.length > 1 && animate) _frame(images[1]),
             ]));
     final square = AspectRatio(
         aspectRatio: 1, child: ClipRRect(borderRadius: radius, child: content));
     return Semantics(
         image: true,
-        label: 'Demostración de ${widget.label}',
-        child: widget.size == null
+        label: 'Demostración de $label',
+        child: size == null
             ? square
-            : SizedBox.square(dimension: widget.size, child: square));
+            : SizedBox.square(dimension: size, child: square));
   }
 }
 
@@ -422,7 +371,8 @@ class ExerciseDetailScreen extends StatelessWidget {
                                                       height: 1.45))),
                                         ])),
                               const SizedBox(height: 24),
-                              Text('Datos de ejercicios: RepDB · repdb.co',
+                              Text(
+                                  'Animaciones de ejercicios: © Gym visual · gymvisual.com',
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: colors.onSurfaceVariant)),
