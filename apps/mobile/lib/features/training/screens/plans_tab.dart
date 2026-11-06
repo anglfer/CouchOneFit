@@ -67,6 +67,8 @@ class _PlansTabState extends State<PlansTab> {
         ),
       _ => (Icons.event_note, 'Cada sesión tiene una fecha asignada.'),
     };
+    final workoutDays = plan.days.where((d) => d.kind != 'rest').length;
+    final totalSets = plan.days.fold<int>(0, (t, d) => t + d.setCount);
     return [
       Card(
           margin: EdgeInsets.zero,
@@ -77,11 +79,18 @@ class _PlansTabState extends State<PlansTab> {
                   children: [
                     Row(children: [
                       Container(
-                          padding: const EdgeInsets.all(9),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                              color: BrandColors.warning,
-                              borderRadius: BorderRadius.circular(11)),
-                          child: Icon(icon, color: Colors.white, size: 20)),
+                              gradient: BrandColors.gradient,
+                              borderRadius: BorderRadius.circular(13),
+                              boxShadow: [
+                                BoxShadow(
+                                    color:
+                                        colors.primary.withValues(alpha: 0.28),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4))
+                              ]),
+                          child: Icon(icon, color: Colors.white, size: 22)),
                       const SizedBox(width: 12),
                       Expanded(
                           child: Column(
@@ -90,11 +99,21 @@ class _PlansTabState extends State<PlansTab> {
                             Text(plan.name,
                                 style: const TextStyle(
                                     fontSize: 18, fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 2),
                             Text(
                                 '${plan.scheduleLabel} · desde ${shortDate(plan.startDate)}',
                                 style:
                                     TextStyle(color: colors.onSurfaceVariant)),
                           ])),
+                    ]),
+                    const SizedBox(height: 12),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      TrainingChip(
+                          trainingCount(
+                              workoutDays, 'día activo', 'días activos'),
+                          icon: Icons.bolt_outlined),
+                      TrainingChip(trainingCount(totalSets, 'serie', 'series'),
+                          icon: Icons.repeat),
                     ]),
                     const SizedBox(height: 10),
                     Text(description,
@@ -130,21 +149,21 @@ class _PlansTabState extends State<PlansTab> {
         margin: const EdgeInsets.only(bottom: 10),
         shape: today
             ? RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: colors.primary, width: 2))
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: colors.primary, width: 1.8))
             : null,
         child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
             onTap: () => widget.onShowDay(day),
             child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 child: Row(children: [
                   SizedBox(
-                      width: 44,
+                      width: 42,
                       child: Text(label,
                           style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w800,
                               color: today
                                   ? colors.primary
@@ -154,7 +173,7 @@ class _PlansTabState extends State<PlansTab> {
                       decoration: BoxDecoration(
                           gradient: rest ? null : BrandColors.gradient,
                           color: rest ? colors.surfaceContainerHighest : null,
-                          borderRadius: BorderRadius.circular(11)),
+                          borderRadius: BorderRadius.circular(12)),
                       child: Icon(
                           rest ? Icons.bedtime_outlined : Icons.fitness_center,
                           size: 20,
@@ -168,6 +187,7 @@ class _PlansTabState extends State<PlansTab> {
                         Text(day.name,
                             style: const TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
                         Text(
                             rest
                                 ? 'Recuperar también suma'
@@ -177,13 +197,20 @@ class _PlansTabState extends State<PlansTab> {
                                     if (groups.isNotEmpty)
                                       groups.take(3).join(', '),
                                   ].join(' · '),
-                            style: TextStyle(color: colors.onSurfaceVariant)),
+                            style: TextStyle(
+                                fontSize: 13, color: colors.onSurfaceVariant)),
                       ])),
                   if (today)
-                    Padding(
-                        padding: const EdgeInsets.only(left: 6),
+                    Container(
+                        margin: const EdgeInsets.only(left: 6, right: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: BorderRadius.circular(999)),
                         child: Text('Hoy',
                             style: TextStyle(
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 color: colors.primary))),
                   Icon(Icons.chevron_right, color: colors.onSurfaceVariant),

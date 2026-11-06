@@ -37,34 +37,57 @@ BoxDecoration brandGlow(BuildContext context) {
   final dark = Theme.of(context).brightness == Brightness.dark;
   return BoxDecoration(
       gradient: RadialGradient(
-          center: const Alignment(0, -1.25),
-          radius: 1.1,
+          center: const Alignment(0, -1.18),
+          radius: 1.15,
           colors: [
-        colors.primary.withValues(alpha: dark ? .26 : .07),
+        colors.primary.withValues(alpha: dark ? .22 : .06),
+        BrandColors.violet.withValues(alpha: dark ? .08 : .02),
         Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0),
+      ],
+          stops: const [
+        0,
+        0.48,
+        1
       ]));
+}
+
+/// Subtle layered surface used for nested cards (e.g. today's workout box,
+/// set logger groups, and segmented bars).
+BoxDecoration innerPanelDecoration(BuildContext context,
+    {double radius = 16, Color? borderColor}) {
+  final colors = Theme.of(context).colorScheme;
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return BoxDecoration(
+    color: colors.surfaceContainerHighest,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(
+      color: borderColor ??
+          colors.outline.withValues(alpha: dark ? 0.85 : 0.7),
+    ),
+  );
 }
 
 ThemeData mobileTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  // Night theme: deep violet-black surfaces with a vivid violet accent.
+  // Night theme: deep purple-black surfaces (#07050F / #120E20 / #20182F)
+  // paired with vivid violet (#7357FF) and luminous lavender (#A78BFA).
   final primary = dark ? const Color(0xFF7357FF) : BrandColors.primary;
-  final hover = dark ? const Color(0xFF8A72FF) : const Color(0xFF3128D9);
-  final secondary = dark ? const Color(0xFFA594FF) : BrandColors.violet;
+  final hover = dark ? const Color(0xFF8870FF) : const Color(0xFF3128D9);
+  final secondary = dark ? const Color(0xFFA78BFA) : BrandColors.violet;
   final background = dark ? const Color(0xFF07050F) : const Color(0xFFF6F6FB);
   final surface = dark ? const Color(0xFF120E20) : Colors.white;
   final surfaceSecondary =
-      dark ? const Color(0xFF1C1733) : const Color(0xFFEEF0FB);
-  final selected = dark ? const Color(0xFF2D2360) : const Color(0xFFEAE8FF);
-  final text = dark ? const Color(0xFFF4F1FF) : const Color(0xFF070C21);
+      dark ? const Color(0xFF20182F) : const Color(0xFFEEF0FB);
+  final selected = dark ? const Color(0xFF2E2252) : const Color(0xFFEAE8FF);
+  final text = dark ? const Color(0xFFF5F3FF) : const Color(0xFF070C21);
   final textSecondary =
-      dark ? const Color(0xFFCBC3E6) : const Color(0xFF222F64);
-  final muted = dark ? const Color(0xFF958CB5) : const Color(0xFF626A90);
-  final border = dark ? const Color(0xFF241D40) : const Color(0xFFE1E4F3);
-  final navigation = dark ? const Color(0xFF0B0817) : Colors.white;
+      dark ? const Color(0xFFD0C8EC) : const Color(0xFF222F64);
+  final muted = dark ? const Color(0xFF948BB4) : const Color(0xFF626A90);
+  final border = dark ? const Color(0xFF261E3D) : const Color(0xFFE1E4F3);
+  final navigation = dark ? const Color(0xFF0B0915) : Colors.white;
   final navigationActive = dark ? secondary : BrandColors.primary;
   final navigationInactive =
-      dark ? const Color(0xFF8A82A8) : const Color(0xFF8D99C0);
+      dark ? const Color(0xFF857CA6) : const Color(0xFF8D99C0);
   final scheme =
       ColorScheme.fromSeed(seedColor: primary, brightness: brightness).copyWith(
     primary: primary,

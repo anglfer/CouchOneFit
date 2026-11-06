@@ -183,36 +183,80 @@ class _ClientShellState extends State<ClientShell> {
     showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
-        builder: (sheet) => SafeArea(
-            child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                          data.day?.kind == 'rest'
-                              ? 'Hoy toca descansar'
-                              : 'Hoy no tienes entrenamiento programado',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 6),
-                      Text(recent.isEmpty
-                          ? 'Disfruta tu recuperación; tu siguiente sesión aparecerá en Inicio.'
-                          : '¿Quieres registrar un día anterior?'),
-                      const SizedBox(height: 8),
-                      for (final date in recent)
-                        ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.history),
-                            title: Text(plan!.dayFor(date)!.name),
-                            subtitle: Text(capitalized(longDate(date))),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () {
-                              Navigator.pop(sheet);
-                              _openSession(date);
-                            }),
-                    ]))));
+        builder: (sheet) {
+          final colors = Theme.of(sheet).colorScheme;
+          return SafeArea(
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(children: [
+                          Expanded(
+                              child: Text(
+                                  data.day?.kind == 'rest'
+                                      ? 'Hoy toca descansar'
+                                      : 'Hoy no tienes entrenamiento programado',
+                                  style: const TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800))),
+                          IconButton(
+                              tooltip: 'Cerrar',
+                              onPressed: () => Navigator.pop(sheet),
+                              icon: const Icon(Icons.close, size: 20)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(
+                            recent.isEmpty
+                                ? 'Disfruta tu recuperación; tu siguiente sesión aparecerá en Inicio.'
+                                : '¿Quieres registrar un día anterior?',
+                            style: TextStyle(color: colors.onSurfaceVariant)),
+                        if (recent.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          for (final date in recent)
+                            Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: DecoratedBox(
+                                    decoration:
+                                        innerPanelDecoration(sheet, radius: 14),
+                                    child: Material(
+                                        type: MaterialType.transparency,
+                                        borderRadius: BorderRadius.circular(14),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: ListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                    vertical: 2),
+                                            leading: Container(
+                                                width: 38,
+                                                height: 38,
+                                                decoration: BoxDecoration(
+                                                    gradient:
+                                                        BrandColors.gradient,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10)),
+                                                child: const Icon(Icons.history,
+                                                    color: Colors.white,
+                                                    size: 20)),
+                                            title: Text(
+                                                plan!.dayFor(date)!.name,
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.w700)),
+                                            subtitle: Text(
+                                                capitalized(longDate(date))),
+                                            trailing:
+                                                const Icon(Icons.chevron_right),
+                                            onTap: () {
+                                              Navigator.pop(sheet);
+                                              _openSession(date);
+                                            })))),
+                        ],
+                      ])));
+        });
   }
 
   void _showDay(TrainingDay day) => Navigator.push(context,
@@ -286,6 +330,7 @@ class _ClientShellState extends State<ClientShell> {
       final (icon, selectedIcon, label) = items[index];
       final selected = _selected == index;
       final color = tone(selected);
+      final disableAnim = MediaQuery.disableAnimationsOf(context);
       return Expanded(
           child: Semantics(
               button: true,
@@ -295,19 +340,33 @@ class _ClientShellState extends State<ClientShell> {
                   child: InkWell(
                       onTap: () => setState(() => _selected = index),
                       child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child:
                               Column(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(selected ? selectedIcon : icon, color: color),
-                            const SizedBox(height: 4),
+                            AnimatedContainer(
+                                duration: disableAnim
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 180),
+                                curve: Curves.easeOutCubic,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 3),
+                                decoration: BoxDecoration(
+                                    color: selected
+                                        ? colors.primaryContainer
+                                            .withValues(alpha: 0.85)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(99)),
+                                child: Icon(selected ? selectedIcon : icon,
+                                    size: 22, color: color)),
+                            const SizedBox(height: 3),
                             Text(label,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: selected
                                         ? FontWeight.w800
-                                        : FontWeight.w500,
+                                        : FontWeight.w600,
                                     color: color)),
                           ]))))));
     }
@@ -318,7 +377,16 @@ class _ClientShellState extends State<ClientShell> {
         child: Container(
             decoration: BoxDecoration(
                 color: background,
-                border: Border(top: BorderSide(color: colors.outlineVariant))),
+                border: Border(top: BorderSide(color: colors.outlineVariant)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(
+                          alpha: Theme.of(context).brightness == Brightness.dark
+                              ? 0.45
+                              : 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4))
+                ]),
             child: SafeArea(
                 top: false,
                 child: Row(children: [
@@ -332,30 +400,32 @@ class _ClientShellState extends State<ClientShell> {
                               child: InkWell(
                                   onTap: _opening ? null : _start,
                                   child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 6),
+                                      padding: const EdgeInsets.only(
+                                          top: 4, bottom: 6),
                                       child: Column(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Container(
-                                                width: 52,
-                                                height: 52,
+                                                width: 50,
+                                                height: 50,
                                                 decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     gradient:
                                                         BrandColors.gradient,
                                                     border: Border.all(
+                                                        width: 1.5,
                                                         color: Colors.white
                                                             .withValues(
-                                                                alpha: .14)),
+                                                                alpha: .22)),
                                                     boxShadow: [
                                                       BoxShadow(
                                                           color: colors.primary
                                                               .withValues(
-                                                                  alpha: .5),
+                                                                  alpha: .52),
                                                           blurRadius: 18,
+                                                          spreadRadius: 1,
                                                           offset: const Offset(
-                                                              0, 6))
+                                                              0, 4))
                                                     ]),
                                                 child: _opening
                                                     ? const Padding(
@@ -370,11 +440,13 @@ class _ClientShellState extends State<ClientShell> {
                                                         Icons
                                                             .play_arrow_rounded,
                                                         color: Colors.white,
-                                                        size: 30)),
+                                                        size: 29)),
                                             const SizedBox(height: 2),
                                             Text('Entrenar',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: 11.5,
                                                     fontWeight: FontWeight.w800,
                                                     color: tone(true))),
                                           ])))))),

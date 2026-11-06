@@ -39,13 +39,18 @@ class GradientActionButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           gradient: disabled ? null : BrandColors.gradient,
           color: disabled ? scheme.surfaceContainerHighest : null,
+          border: Border.all(
+            color: disabled
+                ? scheme.outline.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: isDark ? 0.14 : 0.18),
+          ),
           boxShadow: disabled
               ? const []
               : [
                   BoxShadow(
-                    color: BrandColors.primary
-                        .withValues(alpha: isDark ? 0.18 : 0.16),
-                    blurRadius: 18,
+                    color:
+                        scheme.primary.withValues(alpha: isDark ? 0.28 : 0.20),
+                    blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
                 ],
@@ -54,8 +59,8 @@ class GradientActionButton extends StatelessWidget {
           key: buttonKey,
           onPressed: disabled ? null : onPressed,
           style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 56),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
+            minimumSize: const Size(48, 54),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             backgroundColor: Colors.transparent,
             disabledBackgroundColor: Colors.transparent,
             foregroundColor: Colors.white,

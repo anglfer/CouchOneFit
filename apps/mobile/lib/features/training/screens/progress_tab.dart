@@ -30,9 +30,13 @@ class ProgressTab extends StatefulWidget {
 
 enum _Analysis { balance, recovery, strength }
 
+enum _ProgressSection { overview, muscles, lifts, sessions }
+
 class _ProgressTabState extends State<ProgressTab> {
   bool _volume = false;
+  bool _showAllMuscles = false;
   _Analysis _analysis = _Analysis.balance;
+  _ProgressSection _section = _ProgressSection.overview;
   int _period = 7;
 
   @override
@@ -75,64 +79,84 @@ class _ProgressTabState extends State<ProgressTab> {
   List<Widget> _content(BuildContext context, TrainingHistory h) {
     final stats = TrainingStats(h, widget.today);
     final exercises = exerciseProgress(h);
+    final showOverview = _section == _ProgressSection.overview;
     return [
-      Row(children: [
-        Expanded(
-            child: StatTile(
-                icon: Icons.fitness_center,
-                label: 'Entrenamientos',
-                value: '${stats.total}')),
-        const SizedBox(width: 10),
-        Expanded(
-            child: StatTile(
-                icon: Icons.calendar_month_outlined,
-                label: 'Este mes',
-                value: '${stats.thisMonth}')),
-      ]),
-      const SizedBox(height: 10),
-      Row(children: [
-        Expanded(
-            child: StatTile(
-                icon: Icons.local_fire_department_outlined,
-                label: 'Racha semanal',
-                value: trainingCount(stats.weekStreak, 'semana', 'semanas'),
-                highlight: stats.weekStreak > 1)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: StatTile(
-                icon: Icons.repeat,
-                label: 'Series hechas',
-                value: trainingThousands(
-                    h.sessions.fold(0, (t, s) => t + sessionPerformed(s))))),
-      ]),
-      const SizedBox(height: 10),
-      StatTile(
-          icon: Icons.emoji_events_outlined,
-          label: 'Levantado en total',
-          value: '${trainingThousands(stats.volume)} kg'),
-      const SizedBox(height: 12),
-      _activity(context, h),
+      ChoiceBar<_ProgressSection>(options: const [
+        (_ProgressSection.overview, 'Resumen'),
+        (_ProgressSection.muscles, 'Músculos'),
+        (_ProgressSection.lifts, 'Ejercicios'),
+        (_ProgressSection.sessions, 'Sesiones'),
+      ], selected: _section, onChanged: (v) => setState(() => _section = v)),
+      const SizedBox(height: 14),
+      if (showOverview) ...[
+        Row(children: [
+          Expanded(
+              child: StatTile(
+                  icon: Icons.fitness_center,
+                  label: 'Entrenamientos',
+                  value: '${stats.total}')),
+          const SizedBox(width: 10),
+          Expanded(
+              child: StatTile(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Este mes',
+                  value: '${stats.thisMonth}')),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+              child: StatTile(
+                  icon: Icons.local_fire_department_outlined,
+                  label: 'Racha semanal',
+                  value: trainingCount(stats.weekStreak, 'semana', 'semanas'),
+                  highlight: stats.weekStreak > 1)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: StatTile(
+                  icon: Icons.repeat,
+                  label: 'Series hechas',
+                  value: trainingThousands(
+                      h.sessions.fold(0, (t, s) => t + sessionPerformed(s))))),
+        ]),
+        const SizedBox(height: 10),
+        StatTile(
+            icon: Icons.emoji_events_outlined,
+            label: 'Levantado en total',
+            value: '${trainingThousands(stats.volume)} kg'),
+        const SizedBox(height: 12),
+        _activity(context, h),
+      ],
       if (h.sessions.isEmpty) ...[
         const SizedBox(height: 12),
         const TrainingNotice(
             icon: Icons.insights_outlined,
             text:
                 'Aún no hay entrenamientos registrados. Cuando registres tu primera sesión verás aquí tu progreso.'),
-      ] else ...[
-        const SizedBox(height: 12),
+      ] else if (showOverview || _section == _ProgressSection.muscles) ...[
+        if (showOverview) const SizedBox(height: 12),
         _analysisCard(context, h, exercises),
       ],
-      if (exercises.isNotEmpty) ...[
-        const SizedBox(height: 24),
+      if (exercises.isNotEmpty &&
+          (showOverview || _section == _ProgressSection.lifts)) ...[
+        SizedBox(height: showOverview ? 24 : 4),
         const TrainingEyebrow('Tus ejercicios'),
         const SizedBox(height: 8),
-        for (final e in exercises.take(8)) _exerciseRow(context, e),
+        for (final e in exercises.take(showOverview ? 8 : exercises.length))
+          _exerciseRow(context, e),
+      ] else if (_section == _ProgressSection.lifts &&
+          h.sessions.isNotEmpty) ...[
+        const TrainingNotice(
+            icon: Icons.fitness_center,
+            text:
+                'Registra series completadas para ver el avance por ejercicio.'),
       ],
-      if (h.sessions.isNotEmpty) ...[
-        const SizedBox(height: 24),
+      if (h.sessions.isNotEmpty &&
+          (showOverview || _section == _ProgressSection.sessions)) ...[
+        SizedBox(height: showOverview ? 24 : 4),
         const TrainingEyebrow('Últimas sesiones'),
         const SizedBox(height: 8),
-        for (final s in h.sessions.take(3)) SessionRow(session: s),
+        for (final s in h.sessions.take(showOverview ? 3 : 10))
+          SessionRow(session: s),
         TextButton.icon(
             onPressed: () => Navigator.push(
                 context,
@@ -313,6 +337,9 @@ class _ProgressTabState extends State<ProgressTab> {
     };
     final groups = setsByGroup(h, since: since);
     final max = groups.isEmpty ? 1 : groups.first.value;
+    final visibleGroups = _showAllMuscles || groups.length <= 6
+        ? groups
+        : groups.take(6).toList();
     return [
       Text('Series por grupo muscular',
           style: TextStyle(color: colors.onSurfaceVariant)),
@@ -327,35 +354,103 @@ class _ProgressTabState extends State<ProgressTab> {
       if (groups.isEmpty)
         Text('Sin series con grupo muscular en este periodo.',
             style: TextStyle(color: colors.onSurfaceVariant))
-      else
-        for (final g in groups)
+      else ...[
+        MuscleMap(
+            height: 196,
+            fill: {
+              for (final g in groups)
+                g.key:
+                    colors.primary.withValues(alpha: .35 + .65 * g.value / max)
+            },
+            semanticsLabel:
+                'Series entrenadas: ${groups.map((g) => '${g.key} ${g.value}').join(', ')}'),
+        const SizedBox(height: 10),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Text('Menos',
+              style: TextStyle(fontSize: 11.5, color: colors.onSurfaceVariant)),
+          for (final a in [.0, .35, .6, .82, 1.0])
+            Container(
+                width: 9,
+                height: 9,
+                margin: const EdgeInsets.only(left: 3),
+                decoration: BoxDecoration(
+                    color: a == 0
+                        ? colors.surfaceContainerHighest
+                        : colors.primary.withValues(alpha: a),
+                    borderRadius: BorderRadius.circular(2.5))),
+          const SizedBox(width: 4),
+          Text('Más',
+              style: TextStyle(fontSize: 11.5, color: colors.onSurfaceVariant)),
+        ]),
+        const SizedBox(height: 10),
+        for (final g in visibleGroups)
           Semantics(
               label: '${g.key}: ${trainingCount(g.value, 'serie', 'series')}',
               child: ExcludeSemantics(
                   child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(children: [
-                        SizedBox(
-                            width: 104,
-                            child: Text(g.key,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600))),
-                        Expanded(
-                            child: ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
-                                child: LinearProgressIndicator(
-                                    minHeight: 10,
-                                    value: g.value / max,
-                                    backgroundColor:
-                                        colors.surfaceContainerHighest))),
-                        SizedBox(
-                            width: 36,
-                            child: Text('${g.value}',
-                                textAlign: TextAlign.end,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700))),
-                      ])))),
+                      child: LayoutBuilder(builder: (context, c) {
+                        final stacked = c.maxWidth < 260 ||
+                            MediaQuery.textScalerOf(context).scale(14) > 19;
+                        if (stacked) {
+                          return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(children: [
+                                  Expanded(
+                                      child: Text(g.key,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600))),
+                                  Text('${g.value}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
+                                ]),
+                                const SizedBox(height: 5),
+                                ClipRRect(
+                                    borderRadius: BorderRadius.circular(99),
+                                    child: LinearProgressIndicator(
+                                        minHeight: 9,
+                                        value: g.value / max,
+                                        backgroundColor:
+                                            colors.surfaceContainerHighest)),
+                              ]);
+                        }
+                        return Row(children: [
+                          SizedBox(
+                              width: 104,
+                              child: Text(g.key,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600))),
+                          Expanded(
+                              child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(99),
+                                  child: LinearProgressIndicator(
+                                      minHeight: 10,
+                                      value: g.value / max,
+                                      backgroundColor:
+                                          colors.surfaceContainerHighest))),
+                          SizedBox(
+                              width: 36,
+                              child: Text('${g.value}',
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700))),
+                        ]);
+                      })))),
+        if (groups.length > 6)
+          Align(
+              alignment: Alignment.center,
+              child: TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _showAllMuscles = !_showAllMuscles),
+                  icon: Icon(_showAllMuscles
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded),
+                  label: Text(_showAllMuscles
+                      ? 'Mostrar menos'
+                      : 'Mostrar más (${groups.length - 6})'))),
+      ],
       Text(
           'Cuenta las series hechas de cada ejercicio en sus músculos principales.',
           style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),

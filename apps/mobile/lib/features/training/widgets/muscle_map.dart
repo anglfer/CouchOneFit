@@ -24,6 +24,7 @@ class MuscleMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     Widget figure(bool front) =>
         Column(mainAxisSize: MainAxisSize.min, children: [
           CustomPaint(
@@ -31,27 +32,41 @@ class MuscleMap extends StatelessWidget {
               painter: _BodyPainter(
                   front: front,
                   fill: fill,
-                  base: Color.lerp(
-                      colors.surfaceContainerHighest, colors.onSurface, .05)!,
-                  idle: Color.lerp(
-                      colors.surfaceContainerHighest, colors.onSurface, .17)!,
+                  base: Color.lerp(colors.surfaceContainerHighest,
+                      colors.onSurface, dark ? .07 : .05)!,
+                  idle: Color.lerp(colors.surfaceContainerHighest,
+                      colors.onSurface, dark ? .19 : .15)!,
                   outline:
                       Theme.of(context).cardTheme.color ?? colors.surface)),
-          const SizedBox(height: 4),
-          Text(front ? 'Frente' : 'Espalda',
-              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: dark ? 0.65 : 0.85),
+                  borderRadius: BorderRadius.circular(999),
+                  border:
+                      Border.all(color: colors.outline.withValues(alpha: 0.6))),
+              child: Text(front ? 'Frente' : 'Espalda',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurfaceVariant))),
         ]);
     return Semantics(
         image: true,
         label: semanticsLabel,
         child: ExcludeSemantics(
-            child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  figure(true),
-                  SizedBox(width: height * .12),
-                  figure(false),
-                ]))));
+            child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: innerPanelDecoration(context, radius: 18),
+                child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      figure(true),
+                      SizedBox(width: height * .14),
+                      figure(false),
+                    ])))));
   }
 }
 

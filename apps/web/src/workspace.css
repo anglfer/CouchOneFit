@@ -5,24 +5,24 @@
  */
 
 :root {
-  --ws-bg: #eef1fc;
-  --ws-sidebar: #f7f9ff;
-  --ws-topbar: #ffffffcc;
+  --ws-bg: #f6f6fb;
+  --ws-sidebar: #fcfcff;
+  --ws-topbar: #ffffffd9;
   --ws-surface: #ffffff;
-  --ws-surface-2: #f5f7fd;
+  --ws-surface-2: #eef0fb;
   --ws-selected: #eae8ff;
   --ws-text: #070c21;
   --ws-text-2: #222f64;
   --ws-muted: #5b6388;
-  --ws-border: #d9dff6;
-  --ws-border-subtle: #e8ebf7;
+  --ws-border: #e1e4f3;
+  --ws-border-subtle: #ebeef8;
   --ws-primary: #4037f7;
   --ws-primary-hover: #3128d9;
   --ws-primary-fg: #4037f7;
   --ws-on-primary: #ffffff;
-  --ws-ring: #4037f747;
-  --ws-shadow: 0 1px 2px #1b214a0d, 0 1px 1px #1b214a08;
-  --ws-pop-shadow: 0 12px 32px #1b214a29, 0 2px 6px #1b214a14;
+  --ws-ring: #4037f742;
+  --ws-shadow: 0 1px 3px #1b214a0d, 0 4px 14px #1b214a08;
+  --ws-pop-shadow: 0 14px 36px #1b214a26, 0 2px 6px #1b214a14;
   --ws-ok-bg: #e5faf3;
   --ws-ok-fg: #0b6b4d;
   --ws-warn-bg: #fff5db;
@@ -40,34 +40,34 @@
 /* Night theme: deep violet-black, shared with the mobile client app. */
 :root[data-theme='dark'] {
   --ws-bg: #07050f;
-  --ws-sidebar: #0b0817;
-  --ws-topbar: #0b0817cc;
+  --ws-sidebar: #0b0915;
+  --ws-topbar: #0b0915d9;
   --ws-surface: #120e20;
-  --ws-surface-2: #1c1733;
-  --ws-selected: #2d2360;
-  --ws-text: #f4f1ff;
-  --ws-text-2: #cbc3e6;
-  --ws-muted: #a39bc2;
-  --ws-border: #2a2347;
-  --ws-border-subtle: #1d1834;
+  --ws-surface-2: #20182f;
+  --ws-selected: #2e2252;
+  --ws-text: #f5f3ff;
+  --ws-text-2: #d0c8ec;
+  --ws-muted: #948bb4;
+  --ws-border: #261e3d;
+  --ws-border-subtle: #1c1530;
   --ws-primary: #7357ff;
-  --ws-primary-hover: #6346f5;
-  --ws-primary-fg: #b3a5ff;
+  --ws-primary-hover: #8870ff;
+  --ws-primary-fg: #a78bfa;
   --ws-ring: #8a72ff66;
-  --ws-shadow: 0 1px 0 #ffffff08 inset;
-  --ws-pop-shadow: 0 16px 40px #000000a6;
-  --ws-glow: #7357ff2e;
-  --ws-backdrop: #07050fb3;
+  --ws-shadow: 0 1px 0 #ffffff0a inset, 0 8px 24px #00000042;
+  --ws-pop-shadow: 0 18px 44px #000000b3;
+  --ws-glow: #7357ff33;
+  --ws-backdrop: #07050fb8;
   --ws-ok-bg: #0c382f;
   --ws-ok-fg: #6ee7b7;
   --ws-warn-bg: #3b2b0b;
   --ws-warn-fg: #fcd34d;
   --ws-bad-bg: #411a21;
   --ws-bad-fg: #fda4af;
-  --ws-info-bg: #1e1a52;
-  --ws-info-fg: #b9b1ff;
-  --ws-neutral-bg: #221c3b;
-  --ws-neutral-fg: #cbc3e6;
+  --ws-info-bg: #1a1650;
+  --ws-info-fg: #c4b5fd;
+  --ws-neutral-bg: #20182f;
+  --ws-neutral-fg: #d0c8ec;
 }
 
 /* ---------- Estructura ---------- */
@@ -1002,5 +1002,241 @@
 @media (prefers-reduced-motion: reduce) {
   .ws-confirm[open] {
     animation: none;
+  }
+}
+
+/* ---------- Mobile Bottom Navigation ---------- */
+
+.ws-bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  min-height: 64px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ws-border-subtle);
+  background: var(--ws-topbar);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -8px 24px #00000018;
+}
+.ws-bottom-link {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 112px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  color: var(--ws-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+.ws-bottom-link-pill {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  border-radius: 999px;
+  transition:
+    background 0.16s,
+    transform 0.16s;
+}
+.ws-bottom-link[aria-current='page'] {
+  color: var(--ws-primary-fg);
+  font-weight: 700;
+}
+.ws-bottom-link[aria-current='page'] .ws-bottom-link-pill {
+  background: var(--ws-selected);
+}
+
+/* ---------- Auth & Standalone Surface ---------- */
+
+.ws-auth-shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 420px at 50% -120px, var(--ws-glow), transparent 70%),
+    var(--ws-bg);
+  color: var(--ws-text);
+}
+.ws-auth-card {
+  border: 1px solid var(--ws-border);
+  border-radius: 20px;
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  box-shadow: var(--ws-pop-shadow);
+}
+.ws-auth-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  background: var(--ws-surface-2);
+  color: var(--ws-text);
+  font-size: 14px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+}
+.ws-auth-input::placeholder {
+  color: var(--ws-muted);
+  opacity: 0.75;
+}
+.ws-auth-input:hover:not(:disabled) {
+  border-color: var(--ws-primary);
+}
+.ws-auth-input:focus-visible {
+  outline: 2px solid var(--ws-primary);
+  outline-offset: 0;
+  border-color: var(--ws-primary);
+  background: var(--ws-surface);
+  box-shadow: 0 0 0 4px var(--ws-ring);
+}
+.ws-auth-input[aria-invalid='true'] {
+  border-color: var(--ws-bad-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-nav-link,
+  .ws-account-trigger,
+  .ws-btn,
+  .ws-bottom-link,
+  .ws-bottom-link-pill,
+  .ws-auth-input {
+    transition: none;
+  }
+}
+
+/* ---------- Mobile Bottom Navigation ---------- */
+
+.ws-bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  min-height: 64px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ws-border-subtle);
+  background: var(--ws-topbar);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -8px 24px #00000018;
+}
+.ws-bottom-link {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 112px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  color: var(--ws-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+.ws-bottom-link-pill {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  border-radius: 999px;
+  transition:
+    background 0.16s,
+    transform 0.16s;
+}
+.ws-bottom-link[aria-current='page'] {
+  color: var(--ws-primary-fg);
+  font-weight: 700;
+}
+.ws-bottom-link[aria-current='page'] .ws-bottom-link-pill {
+  background: var(--ws-selected);
+}
+
+/* ---------- Auth & Standalone Surface ---------- */
+
+.ws-auth-shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(
+      900px 420px at 50% -120px,
+      var(--ws-glow),
+      transparent 70%
+    ),
+    var(--ws-bg);
+  color: var(--ws-text);
+}
+.ws-auth-card {
+  border: 1px solid var(--ws-border);
+  border-radius: 20px;
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  box-shadow: var(--ws-pop-shadow);
+}
+.ws-auth-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  background: var(--ws-surface-2);
+  color: var(--ws-text);
+  font-size: 14px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+}
+.ws-auth-input::placeholder {
+  color: var(--ws-muted);
+  opacity: 0.75;
+}
+.ws-auth-input:hover:not(:disabled) {
+  border-color: var(--ws-primary);
+}
+.ws-auth-input:focus-visible {
+  outline: 2px solid var(--ws-primary);
+  outline-offset: 0;
+  border-color: var(--ws-primary);
+  background: var(--ws-surface);
+  box-shadow: 0 0 0 4px var(--ws-ring);
+}
+.ws-auth-input[aria-invalid='true'] {
+  border-color: var(--ws-bad-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-nav-link,
+  .ws-account-trigger,
+  .ws-btn,
+  .ws-bottom-link,
+  .ws-bottom-link-pill,
+  .ws-auth-input {
+    transition: none;
   }
 }

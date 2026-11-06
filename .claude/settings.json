@@ -36,7 +36,6 @@
       "Read(**/.env.test.local)",
       "Read(**/.env.certs/**)"
     ],
-    "ask": ["Bash(npm run db:migrate:*)"],
     "deny": [
       "Bash(git push:*)",
       "Bash(git commit:*)",
@@ -49,6 +48,12 @@
       "Bash(npm run db:seed:admin:*)",
       "Bash(npm run db:recover:admin:*)",
       "Bash(npm run db:cleanup:access:*)"
+    ],
+    "ask": [
+      "Bash(npm run db:migrate:*)"
     ]
+  },
+  "enabledPlugins": {
+    "android-skills@android-skills": true
   }
 }

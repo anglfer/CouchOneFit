@@ -97,12 +97,17 @@ class TrainingNotice extends StatelessWidget {
 /// reduced motion, or a single frame, it shows a still image.
 class ExerciseAnimation extends StatefulWidget {
   const ExerciseAnimation(
-      {super.key, required this.images, required this.label, this.size});
+      {super.key,
+      required this.images,
+      required this.label,
+      this.size,
+      this.paused = false});
   final List<String> images;
   final String label;
 
   /// Thumbnail size; null fills the available width as a square.
   final double? size;
+  final bool paused;
   @override
   State<ExerciseAnimation> createState() => _ExerciseAnimationState();
 }
@@ -124,13 +129,27 @@ class _ExerciseAnimationState extends State<ExerciseAnimation>
         weight: 20),
   ]).animate(_controller);
 
+  void _syncAnimation() {
+    final animate = !widget.paused &&
+        widget.images.length > 1 &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (animate && !_controller.isAnimating) _controller.repeat();
+    if (!animate && _controller.isAnimating) _controller.stop();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animate =
-        widget.images.length > 1 && !MediaQuery.disableAnimationsOf(context);
-    if (animate && !_controller.isAnimating) _controller.repeat();
-    if (!animate) _controller.stop();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExerciseAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.paused != widget.paused ||
+        oldWidget.images.length != widget.images.length) {
+      _syncAnimation();
+    }
   }
 
   @override
@@ -241,19 +260,20 @@ class TrainingChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
             color: colors.surfaceContainerHighest,
+            border: Border.all(color: colors.outline.withValues(alpha: 0.65)),
             borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[
-            Icon(icon, size: 15, color: colors.onSurfaceVariant),
-            const SizedBox(width: 6)
+            Icon(icon, size: 14, color: colors.secondary),
+            const SizedBox(width: 5)
           ],
           Flexible(
               child: Text(text,
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: colors.onSurfaceVariant))),
         ]));
@@ -543,27 +563,54 @@ class TrendChart extends StatelessWidget {
   const TrendChart(
       {super.key,
       required this.values,
-      required this.label,
-      this.height = 44,
-      this.axis = false});
+      this.label = 'Tendencia',
+      this.height = 54,
+      this.axis = false,
+      this.firstLabel,
+      this.lastLabel});
   final List<double> values;
   final String label;
   final double height;
 
   /// Shows min/max guides with their values.
   final bool axis;
+  final String? firstLabel, lastLabel;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final chart = SizedBox(
+        height: height,
+        child: CustomPaint(
+            size: Size.infinite,
+            painter: _TrendPainter(values, colors.primary, colors.outline,
+                colors.onSurfaceVariant, axis)));
     return Semantics(
         image: true,
         label: label,
-        child: SizedBox(
-            height: height,
-            child: CustomPaint(
-                size: Size.infinite,
-                painter: _TrendPainter(values, colors.primary, colors.outline,
-                    colors.onSurfaceVariant, axis))));
+        child: firstLabel == null && lastLabel == null
+            ? chart
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                chart,
+                const SizedBox(height: 4),
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                          child: Text(firstLabel ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: colors.onSurfaceVariant))),
+                      Flexible(
+                          child: Text(lastLabel ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: colors.onSurfaceVariant))),
+                    ]),
+              ]));
   }
 }
 
@@ -578,22 +625,25 @@ class _TrendPainter extends CustomPainter {
     final lo = values.reduce((a, b) => a < b ? a : b);
     final hi = values.reduce((a, b) => a > b ? a : b);
     final span = hi - lo == 0 ? 1 : hi - lo;
-    final left = axis ? 36.0 : 0.0, top = 6.0, bottom = size.height - 6;
-    final width = size.width - left - 6;
+    final left = axis ? 38.0 : 4.0, top = 7.0, bottom = size.height - 7;
+    final width = (size.width - left - 6).clamp(1.0, double.infinity);
     Offset at(int i) => Offset(
         left +
             (values.length == 1 ? width / 2 : width * i / (values.length - 1)),
         bottom - (values[i] - lo) / span * (bottom - top));
     if (axis) {
       final guide = Paint()
-        ..color = grid
+        ..color = grid.withValues(alpha: 0.65)
         ..strokeWidth = 1;
       for (final (y, v) in [(top, hi), (bottom, lo)]) {
         canvas.drawLine(Offset(left, y), Offset(size.width, y), guide);
         (TextPainter(
                 text: TextSpan(
                     text: trainingDecimal(v),
-                    style: TextStyle(fontSize: 11, color: text)),
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: text)),
                 textDirection: TextDirection.ltr)
               ..layout(maxWidth: left - 4))
             .paint(canvas, Offset(0, y - 7));
@@ -614,7 +664,7 @@ class _TrendPainter extends CustomPainter {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                line.withValues(alpha: .28),
+                line.withValues(alpha: .32),
                 line.withValues(alpha: 0)
               ]).createShader(Rect.fromLTRB(0, top, size.width, bottom)));
     canvas.drawPath(
@@ -622,9 +672,18 @@ class _TrendPainter extends CustomPainter {
         Paint()
           ..color = line
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5
+          ..strokeWidth = 2.6
+          ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round);
-    canvas.drawCircle(at(values.length - 1), 4, Paint()..color = line);
+    if (values.length <= 12) {
+      for (var i = 0; i < values.length - 1; i++) {
+        canvas.drawCircle(
+            at(i), 2.5, Paint()..color = line.withValues(alpha: 0.75));
+      }
+    }
+    final end = at(values.length - 1);
+    canvas.drawCircle(end, 6, Paint()..color = line.withValues(alpha: 0.28));
+    canvas.drawCircle(end, 3.8, Paint()..color = line);
   }
 
   @override

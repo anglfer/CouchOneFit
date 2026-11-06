@@ -60,7 +60,14 @@ class ClientBaseMeasurements extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
               gradient: BrandColors.gradient,
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+              boxShadow: [
+                BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.24),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6))
+              ]),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
                 padding: const EdgeInsets.all(8),

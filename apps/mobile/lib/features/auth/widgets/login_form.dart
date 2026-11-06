@@ -175,9 +175,7 @@ class _LoginFormState extends State<LoginForm> {
                 textInputAction: TextInputAction.next,
                 autocorrect: false,
                 decoration: InputDecoration(
-                  fillColor: isDark
-                      ? const Color(0xFF1C1733)
-                      : const Color(0xFFF3F6FD),
+                  fillColor: scheme.surfaceContainerHighest,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   labelText: 'Usuario o correo',
@@ -222,9 +220,7 @@ class _LoginFormState extends State<LoginForm> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _handleSubmit(),
                 decoration: InputDecoration(
-                  fillColor: isDark
-                      ? const Color(0xFF1C1733)
-                      : const Color(0xFFF3F6FD),
+                  fillColor: scheme.surfaceContainerHighest,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   labelText: 'Contraseña',
