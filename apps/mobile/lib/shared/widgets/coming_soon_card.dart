@@ -1,5 +1,23 @@
 import 'package:flutter/material.dart';
 
+/// Swipeable row of [ComingSoonCard]s: planned modules stay visible without
+/// pushing the person's real data further down the screen.
+class ComingSoonRow extends StatelessWidget {
+  const ComingSoonRow({super.key, required this.cards});
+  final List<ComingSoonCard> cards;
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final card in cards)
+          Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: SizedBox(width: 252, child: card)),
+      ])));
+}
+
 /// Reserved slot for a module that is planned but not built yet. It never
 /// shows sample data: only what the section will hold.
 class ComingSoonCard extends StatelessWidget {

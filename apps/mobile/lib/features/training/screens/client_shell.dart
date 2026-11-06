@@ -304,7 +304,10 @@ class _ClientShellState extends State<ClientShell> {
                           child: LayoutBuilder(builder: (context, constraints) {
                             final gutter =
                                 constraints.maxWidth < 360 ? 16.0 : 20.0;
+                            // Each tab keeps its own scroll; switching starts
+                            // at the top instead of mid-page.
                             return ListView(
+                                key: PageStorageKey('client-tab-$_selected'),
                                 padding:
                                     EdgeInsets.fromLTRB(gutter, 16, gutter, 32),
                                 physics: const AlwaysScrollableScrollPhysics(),

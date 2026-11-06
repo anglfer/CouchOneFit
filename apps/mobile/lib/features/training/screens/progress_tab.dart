@@ -63,16 +63,18 @@ class _ProgressTabState extends State<ProgressTab> {
       const SizedBox(height: 24),
       const TrainingEyebrow('Muy pronto'),
       const SizedBox(height: 10),
-      const ComingSoonCard(
-          icon: Icons.monitor_weight_outlined,
-          title: 'Peso corporal',
-          description:
-              'Tu tendencia de peso con lo que registres en el check-in diario.'),
-      const ComingSoonCard(
-          icon: Icons.straighten_outlined,
-          title: 'Medidas y evaluaciones',
-          description:
-              'Tu evolución de medidas cuando tu profesional registre evaluaciones.'),
+      const ComingSoonRow(cards: [
+        ComingSoonCard(
+            icon: Icons.monitor_weight_outlined,
+            title: 'Peso corporal',
+            description:
+                'Tu tendencia de peso con lo que registres en el check-in diario.'),
+        ComingSoonCard(
+            icon: Icons.straighten_outlined,
+            title: 'Medidas y evaluaciones',
+            description:
+                'Tu evolución de medidas cuando tu profesional registre evaluaciones.'),
+      ]),
     ]);
   }
 
@@ -141,8 +143,14 @@ class _ProgressTabState extends State<ProgressTab> {
         SizedBox(height: showOverview ? 24 : 4),
         const TrainingEyebrow('Tus ejercicios'),
         const SizedBox(height: 8),
-        for (final e in exercises.take(showOverview ? 8 : exercises.length))
+        for (final e in exercises.take(showOverview ? 4 : exercises.length))
           _exerciseRow(context, e),
+        if (showOverview && exercises.length > 4)
+          TextButton.icon(
+              onPressed: () =>
+                  setState(() => _section = _ProgressSection.lifts),
+              icon: const Icon(Icons.fitness_center, size: 18),
+              label: Text('Ver los ${exercises.length} ejercicios')),
       ] else if (_section == _ProgressSection.lifts &&
           h.sessions.isNotEmpty) ...[
         const TrainingNotice(
@@ -356,7 +364,7 @@ class _ProgressTabState extends State<ProgressTab> {
             style: TextStyle(color: colors.onSurfaceVariant))
       else ...[
         MuscleMap(
-            height: 196,
+            height: 260,
             fill: {
               for (final g in groups)
                 g.key:

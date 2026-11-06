@@ -65,22 +65,24 @@ class _HomeTabState extends State<HomeTab> {
       ],
       const SizedBox(height: 22),
       const TrainingEyebrow('Muy pronto en tu app'),
-      const SizedBox(height: 8),
-      const ComingSoonCard(
-          icon: Icons.monitor_weight_outlined,
-          title: 'Check-in diario y peso',
-          description:
-              'Registra tu peso corporal, sueño, energía y estrés, y mira tu tendencia.'),
-      const ComingSoonCard(
-          icon: Icons.restaurant_outlined,
-          title: 'Alimentación de hoy',
-          description:
-              'Tus comidas, cantidades e indicaciones del plan de tu profesional.'),
-      const ComingSoonCard(
-          icon: Icons.straighten_outlined,
-          title: 'Evaluaciones',
-          description:
-              'Medidas y composición corporal registradas por tu profesional.'),
+      const SizedBox(height: 10),
+      const ComingSoonRow(cards: [
+        ComingSoonCard(
+            icon: Icons.monitor_weight_outlined,
+            title: 'Check-in diario y peso',
+            description:
+                'Registra tu peso corporal, sueño, energía y estrés, y mira tu tendencia.'),
+        ComingSoonCard(
+            icon: Icons.restaurant_outlined,
+            title: 'Alimentación de hoy',
+            description:
+                'Tus comidas, cantidades e indicaciones del plan de tu profesional.'),
+        ComingSoonCard(
+            icon: Icons.straighten_outlined,
+            title: 'Evaluaciones',
+            description:
+                'Medidas y composición corporal registradas por tu profesional.'),
+      ]),
     ]);
   }
 
@@ -553,7 +555,7 @@ class _HomeTabState extends State<HomeTab> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            RecoveryBody(items: items, height: 200),
+                            RecoveryBody(items: items, height: 260),
                             const SizedBox(height: 16),
                             ...recoveryRows(items, limit: 3),
                           ])),

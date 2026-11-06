@@ -73,7 +73,9 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   late final DateTime _started = widget.clock();
   Timer? _ticker;
   final _exerciseKeys = <String, GlobalKey>{};
-  final _expandedMedia = <String>{};
+  // Demo media starts open while focusing one exercise, as thumbnails in
+  // the list; the person's choice per exercise wins afterwards.
+  final _mediaOpen = <String, bool>{};
   final _pausedMedia = <String>{};
   int _activeExercise = 0;
   bool _focusMode = true;
@@ -550,15 +552,17 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         },
         child: Scaffold(
             appBar: AppBar(
-                leading: Padding(
-                    padding: const EdgeInsets.only(left: 8),
+                leadingWidth: 60,
+                leading: Center(
                     child: IconButton(
                         tooltip: 'Salir del registro',
                         style: IconButton.styleFrom(
-                            backgroundColor: colors.surfaceContainerHighest),
+                            backgroundColor: colors.surfaceContainerHighest,
+                            fixedSize: const Size(44, 44),
+                            minimumSize: const Size(44, 44)),
                         icon: const Icon(Icons.keyboard_arrow_down_rounded),
                         onPressed: () => Navigator.maybePop(context))),
-                titleSpacing: 8,
+                titleSpacing: 4,
                 title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -626,25 +630,27 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                   OutlinedButton(
                                       onPressed: _busy ? null : _reviewConflict,
                                       child: const Text('Ver lo guardado')),
-                                if (singleFocus) ...[
-                                  _exercise(_exercises[activeIdx], activeIdx),
-                                  _focusNav(activeIdx),
-                                ] else
+                                if (singleFocus)
+                                  _exercise(_exercises[activeIdx], activeIdx)
+                                else
                                   for (var i = 0; i < _exercises.length; i++)
                                     _exercise(_exercises[i], i),
                                 Padding(
                                     padding:
                                         const EdgeInsets.fromLTRB(4, 4, 4, 0),
                                     child: Text(
-                                        'Toca ✓ al terminar cada serie; si dejas un campo vacío usamos la sugerencia. Toca la marca anterior para copiarla y el número de serie para más opciones.',
+                                        'Toca ✓ al terminar cada serie; un campo vacío usa la sugerencia. Toca la marca anterior para copiarla y el número de serie para más opciones.',
                                         style: TextStyle(
                                             fontSize: 12,
                                             height: 1.35,
                                             color: colors.onSurfaceVariant))),
                               ])))
                 ])),
-            bottomNavigationBar:
-                _restLeft != null ? _restBar() : _actionBar()));
+            bottomNavigationBar: _restLeft != null
+                ? _restBar()
+                : _actionBar(singleFocus && activeIdx < _exercises.length - 1
+                    ? activeIdx + 1
+                    : null)));
   }
 
   /// Live progress bar + compact session metrics.
@@ -792,30 +798,6 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                         : colors.onSurfaceVariant)))))));
   }
 
-  Widget _focusNav(int activeIdx) {
-    return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child:
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton.icon(
-              onPressed: activeIdx > 0 ? () => _go(activeIdx - 1) : null,
-              icon: const Icon(Icons.chevron_left),
-              label: const Text('Anterior')),
-          Text('${activeIdx + 1} / ${_exercises.length}',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
-          TextButton.icon(
-              onPressed: activeIdx < _exercises.length - 1
-                  ? () => _go(activeIdx + 1)
-                  : null,
-              iconAlignment: IconAlignment.end,
-              icon: const Icon(Icons.chevron_right),
-              label: const Text('Siguiente')),
-        ]));
-  }
-
   Widget _exercise(TrainingExercise exercise, int exerciseIndex) {
     final colors = Theme.of(context).colorScheme;
     final last = _last(exercise);
@@ -826,196 +808,216 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final complete = exercise.sets.every((s) => _captures[s.id]!.state != null);
     final rpe = _rpeMode[exercise.id]!;
     final hasImages = exercise.images.isNotEmpty;
-    final expanded = hasImages && _expandedMedia.contains(exercise.id);
+    final singleFocus = _focusMode && _exercises.length > 1;
+    final expanded = hasImages && (_mediaOpen[exercise.id] ?? singleFocus);
     final paused = _pausedMedia.contains(exercise.id);
     void detail() => Navigator.push(
         context,
         MaterialPageRoute<void>(
             builder: (_) => ExerciseDetailScreen(exercise: exercise)));
+    void togglePause() => setState(() {
+          if (!_pausedMedia.remove(exercise.id)) _pausedMedia.add(exercise.id);
+        });
+    final facts = [
+      TrainingChip(exercise.summary, icon: Icons.flag_outlined),
+      if (exercise.restLabel != null)
+        TrainingChip(exercise.restLabel!, icon: Icons.timer_outlined),
+      if (best != null)
+        TrainingChip(
+            'Mejor: ${exercise.bodyweight ? '${best.round()} reps' : '${trainingDecimal(best)} kg'}',
+            icon: Icons.emoji_events_outlined),
+      if (last != null)
+        TrainingChip('Última vez: ${shortDate(last.$1)}', icon: Icons.history),
+    ];
     return Card(
         key: _exerciseKeys.putIfAbsent(exercise.id, GlobalKey.new),
         margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (expanded) ...[
-                    ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: ColoredBox(
-                            color: Colors.white,
-                            child: Stack(children: [
-                              Center(
-                                  child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                          maxHeight: 230, maxWidth: 230),
-                                      child: ExerciseAnimation(
-                                          images: exercise.images,
-                                          label: exercise.name,
-                                          paused: paused))),
-                              Positioned(
-                                  left: 10,
-                                  bottom: 10,
-                                  child: _mediaOverlayPill(
-                                      icon: Icons.close_fullscreen_rounded,
-                                      label: 'Minimizar',
-                                      onTap: () => setState(() =>
-                                          _expandedMedia.remove(exercise.id)))),
-                              if (exercise.images.length > 1)
-                                Positioned(
-                                    right: 10,
-                                    bottom: 10,
-                                    child: _mediaOverlayPill(
-                                        icon: paused
-                                            ? Icons.play_arrow_rounded
-                                            : Icons.pause_rounded,
-                                        label: paused ? 'Reanudar' : 'Pausar',
-                                        onTap: () => setState(() {
-                                              if (paused) {
-                                                _pausedMedia
-                                                    .remove(exercise.id);
-                                              } else {
-                                                _pausedMedia.add(exercise.id);
-                                              }
-                                            }))),
-                            ]))),
-                    const SizedBox(height: 12),
-                  ],
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    if (!expanded) ...[
-                      InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: hasImages
-                              ? () => setState(
-                                  () => _expandedMedia.add(exercise.id))
-                              : detail,
-                          child: ExerciseAnimation(
-                              images: exercise.images,
-                              label: exercise.name,
-                              size: 52)),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(exercise.name,
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
-                                  color: colors.onSurface)),
-                          const SizedBox(height: 2),
-                          Text(
-                              [
-                                ...groups.take(2),
-                                if (exercise.equipment.isNotEmpty)
-                                  exercise.equipment.first
-                                else
-                                  exercise.bodyweight
-                                      ? 'Peso corporal'
-                                      : 'Con carga',
-                              ].join(' · '),
-                              style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: colors.secondary)),
+        clipBehavior: Clip.antiAlias,
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (expanded)
+            // Large looping demo, as in a coach's video: tap pauses it.
+            GestureDetector(
+                onTap: exercise.images.length > 1 ? togglePause : null,
+                child: ColoredBox(
+                    color: Colors.white,
+                    child: Stack(children: [
+                      Center(
+                          child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 250),
+                              child: ExerciseAnimation(
+                                  images: exercise.images,
+                                  label: exercise.name,
+                                  paused: paused))),
+                      Positioned(
+                          left: 10,
+                          bottom: 10,
+                          child: _mediaOverlayPill(
+                              icon: Icons.close_fullscreen_rounded,
+                              label: 'Minimizar',
+                              onTap: () => setState(
+                                  () => _mediaOpen[exercise.id] = false))),
+                      if (exercise.images.length > 1)
+                        Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: _mediaOverlayPill(
+                                icon: paused
+                                    ? Icons.play_arrow_rounded
+                                    : Icons.pause_rounded,
+                                label: paused ? 'Reanudar' : 'Pausar',
+                                onTap: togglePause)),
+                    ]))),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 12, 10),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!expanded) ...[
+                            InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: hasImages
+                                    ? () => setState(
+                                        () => _mediaOpen[exercise.id] = true)
+                                    : detail,
+                                child: ExerciseAnimation(
+                                    images: exercise.images,
+                                    label: exercise.name,
+                                    size: 52)),
+                            const SizedBox(width: 12),
+                          ],
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Text(exercise.name,
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        height: 1.15,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                        color: colors.onSurface)),
+                                const SizedBox(height: 3),
+                                Text(
+                                    [
+                                      ...groups.take(2),
+                                      if (exercise.equipment.isNotEmpty)
+                                        exercise.equipment.first
+                                      else
+                                        exercise.bodyweight
+                                            ? 'Peso corporal'
+                                            : 'Con carga',
+                                    ].join(' · '),
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.secondary)),
+                              ])),
+                          if (complete)
+                            const Padding(
+                                padding: EdgeInsets.only(left: 4, top: 6),
+                                child: Icon(Icons.check_circle,
+                                    color: BrandColors.success,
+                                    semanticLabel: 'Ejercicio completo')),
+                          IconButton(
+                              tooltip: 'Ver técnica',
+                              style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      colors.surfaceContainerHighest),
+                              onPressed: detail,
+                              icon: const Icon(Icons.more_horiz_rounded,
+                                  size: 20)),
+                        ]),
+                    const SizedBox(height: 10),
+                    // One swipeable row keeps the set table close to the top.
+                    SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(children: [
+                          for (final chip in facts)
+                            Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: chip),
                         ])),
-                    if (complete)
-                      const Padding(
-                          padding: EdgeInsets.only(left: 4, top: 6),
-                          child: Icon(Icons.check_circle,
-                              color: BrandColors.success,
-                              semanticLabel: 'Ejercicio completo')),
-                    IconButton(
-                        tooltip: 'Ver técnica',
-                        style: IconButton.styleFrom(
-                            backgroundColor: colors.surfaceContainerHighest),
-                        onPressed: detail,
-                        icon: const Icon(Icons.more_horiz_rounded, size: 20)),
-                  ]),
-                  if (exercise.instructions.isNotEmpty)
-                    Container(
-                        margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(
-                            color:
-                                colors.primaryContainer.withValues(alpha: .7),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: colors.primary.withValues(alpha: .28))),
-                        child: Text(exercise.instructions,
-                            style: TextStyle(
-                                fontSize: 13,
-                                height: 1.35,
-                                color: colors.onPrimaryContainer))),
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 6, runSpacing: 6, children: [
-                    TrainingChip(exercise.summary, icon: Icons.flag_outlined),
-                    if (exercise.restLabel != null)
-                      TrainingChip(exercise.restLabel!,
-                          icon: Icons.timer_outlined),
-                    if (best != null)
-                      TrainingChip(
-                          'Mejor: ${exercise.bodyweight ? '${best.round()} reps' : '${trainingDecimal(best)} kg'}',
-                          icon: Icons.emoji_events_outlined),
-                    if (last != null)
-                      TrainingChip('Última vez: ${shortDate(last.$1)}',
-                          icon: Icons.history),
-                  ]),
-                  if (hint != null)
-                    Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                  padding: EdgeInsets.only(top: 2),
-                                  child: Icon(Icons.trending_up_rounded,
-                                      size: 17, color: BrandColors.success)),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                  child: Text(hint,
-                                      style: const TextStyle(
-                                          fontSize: 12.5,
-                                          height: 1.3,
-                                          color: BrandColors.success,
-                                          fontWeight: FontWeight.w700))),
-                            ])),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(builder: (context, constraints) {
-                    final compactMode = constraints.maxWidth < 300 ||
-                        MediaQuery.textScalerOf(context).scale(14) > 19.5;
-                    return Container(
-                        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
-                        decoration: innerPanelDecoration(context, radius: 16),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _captureHeader(exercise, rpe, compactMode),
-                              const SizedBox(height: 4),
-                              for (var i = 0; i < exercise.sets.length; i++)
-                                _setRow(exercise, i, compactMode),
-                            ]));
-                  }),
-                  const SizedBox(height: 4),
-                  Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                          key: ValueKey('effort-mode-${exercise.id}'),
-                          style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact),
-                          onPressed: () =>
-                              setState(() => _rpeMode[exercise.id] = !rpe),
-                          icon: const Icon(Icons.swap_vert, size: 17),
-                          label: Text(
-                              rpe
-                                  ? 'Esfuerzo en RPE · cambiar a RIR'
-                                  : 'Esfuerzo en RIR · cambiar a RPE',
-                              style: const TextStyle(fontSize: 12.5)))),
-                ])));
+                    if (exercise.instructions.isNotEmpty)
+                      Container(
+                          margin: const EdgeInsets.only(top: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(
+                              color:
+                                  colors.primaryContainer.withValues(alpha: .7),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color:
+                                      colors.primary.withValues(alpha: .28))),
+                          child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.campaign_outlined,
+                                    size: 17, color: colors.secondary),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                    child: Text(exercise.instructions,
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            height: 1.35,
+                                            color: colors.onPrimaryContainer))),
+                              ])),
+                    if (hint != null)
+                      Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Icon(Icons.trending_up_rounded,
+                                        size: 17, color: BrandColors.success)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                    child: Text(hint,
+                                        style: const TextStyle(
+                                            fontSize: 12.5,
+                                            height: 1.3,
+                                            color: BrandColors.success,
+                                            fontWeight: FontWeight.w700))),
+                              ])),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(builder: (context, constraints) {
+                      final compactMode = constraints.maxWidth < 300 ||
+                          MediaQuery.textScalerOf(context).scale(14) > 19.5;
+                      return Container(
+                          padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+                          decoration: innerPanelDecoration(context, radius: 16),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _captureHeader(exercise, rpe, compactMode),
+                                const SizedBox(height: 4),
+                                for (var i = 0; i < exercise.sets.length; i++)
+                                  _setRow(exercise, i, compactMode),
+                              ]));
+                    }),
+                    const SizedBox(height: 4),
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                            key: ValueKey('effort-mode-${exercise.id}'),
+                            style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact),
+                            onPressed: () =>
+                                setState(() => _rpeMode[exercise.id] = !rpe),
+                            icon: const Icon(Icons.swap_vert, size: 17),
+                            label: Text(
+                                rpe
+                                    ? 'Esfuerzo en RPE · cambiar a RIR'
+                                    : 'Esfuerzo en RIR · cambiar a RPE',
+                                style: const TextStyle(fontSize: 12.5)))),
+                  ])),
+        ]));
   }
 
   Widget _mediaOverlayPill(
@@ -1367,32 +1369,41 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       runSpacing: 2,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                          _targetText(
-                              prescribed, c, skipped, comparison, colors),
+                          _targetText(e, index, c, skipped, comparison, colors),
                           previousChip,
                           effortTrigger(inline: false),
                         ])
                   : Row(children: [
                       Expanded(
                           child: _targetText(
-                              prescribed, c, skipped, comparison, colors)),
+                              e, index, c, skipped, comparison, colors)),
                       previousChip,
                     ])),
         ]));
   }
 
-  Widget _targetText(PrescribedSet prescribed, _Capture c, bool skipped,
+  /// The target shows once per run of identical sets, so the table reads
+  /// as numbers rather than repeated captions.
+  Widget _targetText(TrainingExercise e, int index, _Capture c, bool skipped,
       String? comparison, ColorScheme colors) {
+    final prescribed = e.sets[index];
+    final repeated = index > 0 &&
+        e.sets[index - 1].target == prescribed.target &&
+        e.sets[index - 1].kind == prescribed.kind;
     return Text.rich(
         TextSpan(children: [
           TextSpan(
               text: c.error ??
                   (skipped
                       ? 'No hecha · sin reps ni carga'
-                      : 'Objetivo: ${prescribed.target}')),
+                      : repeated
+                          ? ''
+                          : 'Objetivo: ${prescribed.target}')),
           if (comparison != null)
             TextSpan(
-                text: '  $comparison',
+                text: repeated && c.error == null && !skipped
+                    ? comparison
+                    : '  $comparison',
                 style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: comparison.startsWith('+')
@@ -1570,16 +1581,41 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                   constraints: const BoxConstraints(maxWidth: 560),
                   child: child))));
 
-  Widget _actionBar() {
+  /// Save is always at hand; the main action walks to [next] exercise while
+  /// focusing one, and finishes on the last (the header keeps Finalizar too).
+  Widget _actionBar(int? next) {
+    if (next != null) {
+      return _barShell(Row(children: [
+        Expanded(
+            child: OutlinedButton(
+                onPressed: _busy || _conflict ? null : () => _save(false),
+                child: Text(
+                    _busy
+                        ? 'Guardando…'
+                        : _finalized
+                            ? 'Guardar corrección'
+                            : 'Guardar avance',
+                    textAlign: TextAlign.center))),
+        const SizedBox(width: 10),
+        Expanded(
+            child: FilledButton.icon(
+                onPressed: () => _go(next),
+                iconAlignment: IconAlignment.end,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('Siguiente'))),
+      ]));
+    }
     return _barShell(Row(children: [
       Expanded(
           child: OutlinedButton(
               onPressed: _busy || _conflict ? null : () => _save(false),
-              child: Text(_busy
-                  ? 'Guardando…'
-                  : _finalized
-                      ? 'Guardar corrección'
-                      : 'Guardar avance'))),
+              child: Text(
+                  _busy
+                      ? 'Guardando…'
+                      : _finalized
+                          ? 'Guardar corrección'
+                          : 'Guardar avance',
+                  textAlign: TextAlign.center))),
       const SizedBox(width: 10),
       Expanded(
           child: FilledButton(

@@ -532,28 +532,36 @@ class StatTile extends StatelessWidget {
                             Icon(icon,
                                 size: 16, color: colors.onSurfaceVariant),
                             const SizedBox(width: 6),
+                            // Narrow tiles shrink one-word labels and values
+                            // instead of breaking them mid-word.
                             Expanded(
-                                child: Text(label,
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: colors.onSurfaceVariant))),
+                                child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(label,
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: colors.onSurfaceVariant)))),
                           ]),
                           const SizedBox(height: 8),
-                          Text(value,
-                              style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.5,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
-                                  // Darker green keeps AA contrast on white.
-                                  color: highlight
-                                      ? Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? BrandColors.success
-                                          : const Color(0xFF0A7D56)
-                                      : colors.onSurface)),
+                          FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(value,
+                                  style: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.5,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      // Darker green keeps AA contrast on white.
+                                      color: highlight
+                                          ? Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? BrandColors.success
+                                              : const Color(0xFF0A7D56)
+                                          : colors.onSurface))),
                         ])))));
   }
 }
@@ -720,14 +728,21 @@ class ChoiceBar<T> extends StatelessWidget {
                 selected: {selected},
                 onSelectionChanged:
                     onChanged == null ? null : (v) => onChanged!(v.first))
-            : Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final (value, label) in options)
-                  ChoiceChip(
-                      label: Text(label),
-                      showCheckmark: false,
-                      selected: value == selected,
-                      onSelected:
-                          onChanged == null ? null : (_) => onChanged!(value)),
-              ]));
+            // One swipeable line: a wrapped row would orphan the last tab.
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: Row(children: [
+                  for (final (value, label) in options)
+                    Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                            label: Text(label),
+                            showCheckmark: false,
+                            selected: value == selected,
+                            onSelected: onChanged == null
+                                ? null
+                                : (_) => onChanged!(value))),
+                ])));
   }
 }

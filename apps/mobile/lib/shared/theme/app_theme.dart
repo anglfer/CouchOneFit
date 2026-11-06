@@ -61,30 +61,30 @@ BoxDecoration innerPanelDecoration(BuildContext context,
     color: colors.surfaceContainerHighest,
     borderRadius: BorderRadius.circular(radius),
     border: Border.all(
-      color: borderColor ??
-          colors.outline.withValues(alpha: dark ? 0.85 : 0.7),
+      color: borderColor ?? colors.outline.withValues(alpha: dark ? 0.85 : 0.7),
     ),
   );
 }
 
 ThemeData mobileTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  // Night theme: deep purple-black surfaces (#07050F / #120E20 / #20182F)
-  // paired with vivid violet (#7357FF) and luminous lavender (#A78BFA).
-  final primary = dark ? const Color(0xFF7357FF) : BrandColors.primary;
-  final hover = dark ? const Color(0xFF8870FF) : const Color(0xFF3128D9);
-  final secondary = dark ? const Color(0xFFA78BFA) : BrandColors.violet;
-  final background = dark ? const Color(0xFF07050F) : const Color(0xFFF6F6FB);
-  final surface = dark ? const Color(0xFF120E20) : Colors.white;
+  // Night theme: near-black with a deep purple cast (#06040C base, #110D1C
+  // cards, #1B1529 nested panels), violet accents (#7C5CFF) and lavender
+  // (#B4A0FF) for secondary emphasis. Borders stay hairline-subtle.
+  final primary = dark ? const Color(0xFF7C5CFF) : BrandColors.primary;
+  final hover = dark ? const Color(0xFF9075FF) : const Color(0xFF3128D9);
+  final secondary = dark ? const Color(0xFFB4A0FF) : BrandColors.violet;
+  final background = dark ? const Color(0xFF06040C) : const Color(0xFFF6F6FB);
+  final surface = dark ? const Color(0xFF110D1C) : Colors.white;
   final surfaceSecondary =
-      dark ? const Color(0xFF20182F) : const Color(0xFFEEF0FB);
-  final selected = dark ? const Color(0xFF2E2252) : const Color(0xFFEAE8FF);
-  final text = dark ? const Color(0xFFF5F3FF) : const Color(0xFF070C21);
+      dark ? const Color(0xFF1B1529) : const Color(0xFFEEF0FB);
+  final selected = dark ? const Color(0xFF2B2050) : const Color(0xFFEAE8FF);
+  final text = dark ? const Color(0xFFF6F3FF) : const Color(0xFF070C21);
   final textSecondary =
-      dark ? const Color(0xFFD0C8EC) : const Color(0xFF222F64);
-  final muted = dark ? const Color(0xFF948BB4) : const Color(0xFF626A90);
-  final border = dark ? const Color(0xFF261E3D) : const Color(0xFFE1E4F3);
-  final navigation = dark ? const Color(0xFF0B0915) : Colors.white;
+      dark ? const Color(0xFFCBC2EA) : const Color(0xFF222F64);
+  final muted = dark ? const Color(0xFF8F86B0) : const Color(0xFF626A90);
+  final border = dark ? const Color(0xFF231C36) : const Color(0xFFE1E4F3);
+  final navigation = dark ? const Color(0xFF0A0713) : Colors.white;
   final navigationActive = dark ? secondary : BrandColors.primary;
   final navigationInactive =
       dark ? const Color(0xFF857CA6) : const Color(0xFF8D99C0);

@@ -115,6 +115,46 @@ class SessionSummaryScreen extends StatelessWidget {
                                       highlight: records > 0)),
                             ]),
                             const SizedBox(height: 24),
+                            if (groups.isNotEmpty) ...[
+                              const TrainingEyebrow('Músculos trabajados'),
+                              const SizedBox(height: 10),
+                              Card(
+                                  margin: EdgeInsets.zero,
+                                  child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            MuscleMap(
+                                                height: 260,
+                                                // More sets, stronger tint.
+                                                fill: {
+                                                  for (final g in groups)
+                                                    g.key: colors.primary
+                                                        .withValues(
+                                                            alpha: .35 +
+                                                                .65 *
+                                                                    g.value /
+                                                                    groups.first
+                                                                        .value)
+                                                },
+                                                semanticsLabel:
+                                                    'Figura muscular con ${groups.map((g) => g.key).join(', ')}'),
+                                            const SizedBox(height: 14),
+                                            Wrap(
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: [
+                                                  for (final g in groups)
+                                                    TrainingChip(
+                                                        '${g.key} · ${trainingCount(g.value, 'serie', 'series')}',
+                                                        icon: Icons
+                                                            .accessibility_new),
+                                                ]),
+                                          ]))),
+                            ],
+                            const SizedBox(height: 24),
                             const TrainingEyebrow('Cómo te fue'),
                             const SizedBox(height: 8),
                             for (final e in exercises)
@@ -167,46 +207,6 @@ class SessionSummaryScreen extends StatelessWidget {
                                                       ? BrandColors.success
                                                       : colors
                                                           .onSurfaceVariant)))),
-                            if (groups.isNotEmpty) ...[
-                              const SizedBox(height: 18),
-                              const TrainingEyebrow('Músculos trabajados'),
-                              const SizedBox(height: 10),
-                              Card(
-                                  margin: EdgeInsets.zero,
-                                  child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            MuscleMap(
-                                                height: 200,
-                                                // More sets, stronger tint.
-                                                fill: {
-                                                  for (final g in groups)
-                                                    g.key: colors.primary
-                                                        .withValues(
-                                                            alpha: .35 +
-                                                                .65 *
-                                                                    g.value /
-                                                                    groups.first
-                                                                        .value)
-                                                },
-                                                semanticsLabel:
-                                                    'Figura muscular con ${groups.map((g) => g.key).join(', ')}'),
-                                            const SizedBox(height: 14),
-                                            Wrap(
-                                                spacing: 8,
-                                                runSpacing: 8,
-                                                children: [
-                                                  for (final g in groups)
-                                                    TrainingChip(
-                                                        '${g.key} · ${trainingCount(g.value, 'serie', 'series')}',
-                                                        icon: Icons
-                                                            .accessibility_new),
-                                                ]),
-                                          ]))),
-                            ],
                             const SizedBox(height: 28),
                             FilledButton(
                                 onPressed: () => Navigator.pop(context),
