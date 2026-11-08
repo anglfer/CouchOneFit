@@ -56,6 +56,34 @@ async function findDuplicates(
 async function serverCopy(
   operation: Operation
 ): Promise<Record<string, unknown> | null> {
+  if (operation.kind.startsWith('training.') && operation.readEndpoint) {
+    try {
+      const response = await freshRequest<{
+        versions: Record<string, unknown>[];
+        activeRevision: number;
+        timeZone: string;
+        clientRevision: number;
+      }>(operation.readEndpoint);
+      if (operation.kind === 'training.zone')
+        return {
+          timeZone: response.timeZone,
+          revision: response.clientRevision,
+        };
+      const versionId =
+        operation.body.versionId ??
+        operation.endpoint.match(/\/versions\/([^/]+)/)?.[1];
+      const version = response.versions.find((v) => v.id === versionId);
+      return version
+        ? {
+            ...version,
+            activeRevision: response.activeRevision,
+            prescription: version,
+          }
+        : null;
+    } catch {
+      return null;
+    }
+  }
   if (!operation.clientId) return null;
   try {
     const { client } = await freshRequest<{
@@ -73,7 +101,10 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
     return 'offline';
   }
   if (error instanceof ApiError) {
-    if (error.status === 409 && error.code === 'CLIENT_RECORD_CONFLICT') {
+    if (
+      error.status === 409 &&
+      ['CLIENT_RECORD_CONFLICT', 'TRAINING_CONFLICT'].includes(error.code)
+    ) {
       await updateOperation(operation.id, {
         state: 'conflict',
         error: error.message,
@@ -123,7 +154,7 @@ async function attempt(operation: Operation): Promise<Outcome> {
     error: undefined,
   });
   try {
-    await sessionMutation(
+    const response = await sessionMutation<unknown>(
       operation.endpoint,
       operation.body,
       operation.method,
@@ -131,6 +162,31 @@ async function attempt(operation: Operation): Promise<Outcome> {
         'Idempotency-Key': operation.id,
       }
     );
+    if (
+      operation.kind === 'training.save' &&
+      response &&
+      typeof response === 'object' &&
+      'version' in response
+    ) {
+      const version = response.version;
+      if (
+        version &&
+        typeof version === 'object' &&
+        'revision' in version &&
+        typeof version.revision === 'number'
+      ) {
+        const next = getOperations().find(
+          (op) =>
+            op.entityKey === operation.entityKey &&
+            op.dependsOn?.includes(operation.id) &&
+            op.attempts === 0
+        );
+        if (next && typeof next.body.revision === 'number')
+          await updateOperation(next.id, {
+            body: { ...next.body, revision: version.revision },
+          });
+      }
+    }
     await removeOperation(operation.id);
     return 'applied';
   } catch (error) {
@@ -146,7 +202,15 @@ async function run(): Promise<void> {
     for (const operation of getOperations().filter(
       (item) => item.state === 'pending'
     )) {
-      const outcome = await attempt(operation);
+      if (
+        operation.dependsOn?.some((id) =>
+          getOperations().some((op) => op.id === id)
+        )
+      )
+        continue;
+      const latest = getOperations().find((item) => item.id === operation.id);
+      if (!latest || latest.state !== 'pending') continue;
+      const outcome = await attempt(latest);
       if (outcome === 'applied') changed = true;
       if (outcome === 'offline' || outcome === 'stop') break;
     }
@@ -201,6 +265,15 @@ export async function retryOperation(id: string): Promise<void> {
 
 /** Quita el cambio pendiente sin enviarlo (lo decide la persona). */
 export async function discardOperation(id: string): Promise<void> {
+  for (const operation of getOperations().filter((op) =>
+    op.dependsOn?.includes(id)
+  )) {
+    await updateOperation(operation.id, {
+      state: 'failed',
+      error:
+        'Se descartó un cambio necesario. Revisa esta rutina antes de reenviar.',
+    });
+  }
   await removeOperation(id);
 }
 
@@ -212,6 +285,33 @@ export async function reapplyOnServerVersion(id: string): Promise<void> {
   const operation = find(id);
   if (!operation) return;
   const server = operation.server ?? (await serverCopy(operation));
+  if (operation.kind.startsWith('training.')) {
+    if (
+      !server ||
+      typeof server.revision !== 'number' ||
+      (server.published === true && operation.kind === 'training.save')
+    ) {
+      await updateOperation(id, {
+        error:
+          'La versión ya está publicada o no está disponible. Abre Entrenamiento y crea un borrador nuevo; tu captura sigue aquí.',
+      });
+      return;
+    }
+    await updateOperation(id, {
+      body: {
+        ...operation.body,
+        revision: server.revision,
+        ...(operation.kind === 'training.activate'
+          ? { activeRevision: server.activeRevision }
+          : {}),
+      },
+      server,
+      state: 'pending',
+      error: undefined,
+    });
+    await flushOutbox();
+    return;
+  }
   if (!server || typeof server.version !== 'number') {
     await updateOperation(id, {
       error: 'No pudimos consultar la versión actual. Inténtalo con conexión.',

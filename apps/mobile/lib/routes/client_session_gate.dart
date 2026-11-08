@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../shared/animations/premium_route.dart';
+import '../features/training/services/training_service.dart';
+import '../features/training/screens/client_shell.dart';
+import '../features/settings/services/settings_controller.dart';
 
 import '../features/auth/models/session_models.dart';
 import '../features/auth/screens/login_screen.dart';
@@ -16,17 +19,23 @@ class ClientSessionGate extends StatefulWidget {
     required this.onThemeChanged,
     required this.authService,
     required this.profileService,
+    this.trainingService,
+    this.settings,
   });
 
   final ValueChanged<ThemeMode> onThemeChanged;
   final AuthService authService;
   final ClientProfileService profileService;
+  final TrainingService? trainingService;
+  final SettingsController? settings;
 
   @override
   State<ClientSessionGate> createState() => _ClientSessionGateState();
 }
 
 class _ClientSessionGateState extends State<ClientSessionGate> {
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
   ClientProfile? _profile;
   bool _loadingProfile = true;
   bool _hasSession = false;
@@ -45,6 +54,8 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
         premiumRoute((_) =>
             AccountAccessScreen(mode: mode, authService: widget.authService)));
     if (!mounted || result == null) return;
+    await widget.trainingService?.cache.clear();
+    if (!mounted) return;
     if (result == 'activated') {
       await _restoreSession();
     } else {
@@ -89,6 +100,8 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
           validateSession ? await widget.authService.restoreSession() : null;
       if (!mounted || epoch != _epoch) return;
       if (validateSession && account == null) {
+        await widget.trainingService?.cache.clear();
+        if (!mounted || epoch != _epoch) return;
         setState(() {
           _hasSession = false;
           _profile = null;
@@ -115,6 +128,23 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       });
     } on AuthApiException catch (error) {
       if (!mounted || epoch != _epoch) return;
+      if (TrainingService.denied(error)) {
+        await widget.trainingService?.cache.clear();
+      }
+      final cached = TrainingService.disconnected(error)
+          ? await widget.trainingService?.cache
+              .read(clientId: _expectedClientId)
+          : null;
+      if (!mounted || epoch != _epoch) return;
+      if (cached != null) {
+        setState(() {
+          _profile = cached.profile;
+          _expectedClientId = cached.profile.id;
+          _hasSession = true;
+          _queryFailed = false;
+        });
+        return;
+      }
       setState(() {
         _profile = null;
         if (_definitive(error)) {
@@ -153,6 +183,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       _statusMessage = null;
     });
     try {
+      await widget.trainingService?.cache.clear();
       final account = await widget.authService
           .login(identifier: identifier, password: password);
       if (!mounted) return;
@@ -194,6 +225,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     });
     try {
       await widget.authService.logout();
+      await widget.trainingService?.cache.clear();
       if (!mounted) return;
       setState(() {
         _profile = null;
@@ -220,6 +252,24 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
   @override
   Widget build(BuildContext context) {
     final activeProfile = _profile;
+    if (activeProfile != null &&
+        !_loadingProfile &&
+        !_queryFailed &&
+        widget.trainingService != null) {
+      return ClientShell(
+          key: ValueKey(activeProfile.id),
+          profile: activeProfile,
+          service: widget.trainingService!,
+          settings: _settings,
+          account: ClientProfileScreen(
+              profile: activeProfile,
+              onRefresh: _handleRefreshProfile,
+              onLogout: _handleLogout,
+              isRefreshing: _isRefreshing,
+              errorMessage: _errorMessage,
+              onCredentials: () => _openAccess(AccountAccessMode.credentials),
+              settings: _settings));
+    }
 
     return Scaffold(
       appBar: AppBar(

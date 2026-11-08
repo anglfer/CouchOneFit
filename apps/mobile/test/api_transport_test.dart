@@ -11,6 +11,11 @@ void main() {
   test(
       'activation distinguishes refused transport from an actual API rejection',
       () async {
+    // flutter_test_config initializes the test binding, whose HttpClient mock
+    // answers 400; this test needs the real loopback transport.
+    final overrides = HttpOverrides.current;
+    HttpOverrides.global = null;
+    addTearDown(() => HttpOverrides.global = overrides);
     final reservation = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final port = reservation.port;
     await reservation.close(force: true);

@@ -46,9 +46,28 @@ const show = (value: unknown) =>
       ? 'Activo'
       : value === 'inactive'
         ? 'Inactivo'
-        : String(value);
+        : typeof value === 'object'
+          ? JSON.stringify(value, null, 2)
+          : String(value);
 
 function Comparison({ operation }: { operation: Operation }): ReactElement {
+  if (operation.kind.startsWith('training.'))
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <h3>Tu captura</h3>
+          <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-xs">
+            {show(operation.body)}
+          </pre>
+        </div>
+        <div>
+          <h3>En el servidor</h3>
+          <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-xs">
+            {show(operation.server)}
+          </pre>
+        </div>
+      </div>
+    );
   const mine = Object.entries(operation.body).filter(
     ([key]) => key !== 'version'
   );

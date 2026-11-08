@@ -6,6 +6,9 @@ import 'routes/client_session_gate.dart';
 import 'shared/services/api_client.dart';
 import 'shared/services/api_config.dart';
 import 'shared/theme/app_theme.dart';
+import 'features/training/services/training_service.dart';
+import 'features/settings/models/app_settings.dart';
+import 'features/settings/services/settings_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,12 +35,12 @@ class CouchOneFitApp extends StatefulWidget {
 }
 
 class _CouchOneFitAppState extends State<CouchOneFitApp> {
-  // shortcut: la elección dura esta sesión; persistir al incorporar ajustes locales.
-  ThemeMode _themeMode = ThemeMode.system;
+  final _settings = SettingsController();
   late final SessionStorage _sessionStorage;
   late final ApiClient _apiClient;
   late final AuthService _authService;
   late final ClientProfileService _profileService;
+  late final TrainingService _trainingService;
 
   @override
   void initState() {
@@ -46,25 +49,36 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
     _apiClient = widget.apiClient ?? ApiClient(sessionStorage: _sessionStorage);
     _authService = widget.authService ??
         AuthService(apiClient: _apiClient, sessionStorage: _sessionStorage);
+    _trainingService = TrainingService(apiClient: _apiClient);
     _profileService =
         widget.profileService ?? ClientProfileService(apiClient: _apiClient);
+    _settings.load();
+  }
+
+  @override
+  void dispose() {
+    _settings.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CouchOne Fit',
-      debugShowCheckedModeBanner: false,
-      theme: mobileTheme(Brightness.light),
-      darkTheme: mobileTheme(Brightness.dark),
-      themeMode: _themeMode,
-      home: ClientSessionGate(
-        authService: _authService,
-        profileService: _profileService,
-        onThemeChanged: (themeMode) => setState(() {
-          _themeMode = themeMode;
-        }),
-      ),
-    );
+    return ValueListenableBuilder<AppSettings>(
+        valueListenable: _settings,
+        builder: (context, settings, _) => MaterialApp(
+              title: 'CouchOne Fit',
+              debugShowCheckedModeBanner: false,
+              theme: mobileTheme(Brightness.light),
+              darkTheme: mobileTheme(Brightness.dark),
+              themeMode: settings.themeMode,
+              home: ClientSessionGate(
+                authService: _authService,
+                profileService: _profileService,
+                trainingService: _trainingService,
+                settings: _settings,
+                onThemeChanged: (themeMode) =>
+                    _settings.update(settings.copyWith(themeMode: themeMode)),
+              ),
+            ));
   }
 }

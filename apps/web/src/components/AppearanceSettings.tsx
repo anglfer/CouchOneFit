@@ -77,7 +77,7 @@ export default function AppearanceSettings(): ReactElement {
               <div
                 className={`mb-3 flex h-12 w-full overflow-hidden rounded-md border ${
                   isDarkPreview
-                    ? 'border-[#21305b] bg-[#050a1a]'
+                    ? 'border-[#2a2347] bg-[#07050f]'
                     : 'border-[#d9dff6] bg-[#eef1fc]'
                 }`}
                 aria-hidden="true"
@@ -85,19 +85,19 @@ export default function AppearanceSettings(): ReactElement {
                 <div
                   className={`w-6 shrink-0 border-r ${
                     isDarkPreview
-                      ? 'border-[#21305b] bg-[#081126]'
+                      ? 'border-[#2a2347] bg-[#0b0817]'
                       : 'border-[#d9dff6] bg-white'
                   }`}
                 />
                 <div className="flex-1 space-y-1 p-1.5">
                   <div
                     className={`h-1.5 w-1/2 rounded-full ${
-                      isDarkPreview ? 'bg-[#6f67ff]/50' : 'bg-[#4037f7]/40'
+                      isDarkPreview ? 'bg-[#7357ff]/60' : 'bg-[#4037f7]/40'
                     }`}
                   />
                   <div
                     className={`h-2.5 w-full rounded ${
-                      isDarkPreview ? 'bg-[#121f43]' : 'bg-white'
+                      isDarkPreview ? 'bg-[#1c1733]' : 'bg-white'
                     }`}
                   />
                 </div>

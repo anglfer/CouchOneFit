@@ -17,9 +17,9 @@ class JourneySurface extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-              Color(0xFF151D46),
-              Color(0xFF25225C),
-              Color(0xFF4933AA)
+              Color(0xFF120B2B),
+              Color(0xFF2A1A5E),
+              Color(0xFF5A34C8)
             ],
                 stops: [
               0,
@@ -91,7 +91,7 @@ class _JourneyPainter extends CustomPainter {
         Offset.zero & size,
         Paint()
           ..shader = const LinearGradient(
-              colors: [Color(0xC7151D46), Color(0x00151D46)],
+              colors: [Color(0xC7120B2B), Color(0x00120B2B)],
               stops: [0, 0.82]).createShader(Offset.zero & size));
   }
 

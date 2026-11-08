@@ -105,6 +105,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Enters client profile (expediente)
+    if (find.text('Cuenta').evaluate().isNotEmpty &&
+        find.text('Mi expediente').evaluate().isEmpty) {
+      await tester.tap(find.text('Cuenta'));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Mi expediente'), findsOneWidget);
     expect(find.text('Sofía Cliente'), findsOneWidget);
     expect(find.text('@sofia.fit'), findsOneWidget);
@@ -214,6 +219,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(refreshCallCount, 1);
+    if (find.text('Cuenta').evaluate().isNotEmpty &&
+        find.text('Mi expediente').evaluate().isEmpty) {
+      await tester.tap(find.text('Cuenta'));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Mi expediente'), findsOneWidget);
     expect((await storage.readSession())?.accessToken, 'rotated.access.token');
 
@@ -383,6 +393,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    if (find.text('Cuenta').evaluate().isNotEmpty &&
+        find.text('Mi expediente').evaluate().isEmpty) {
+      await tester.tap(find.text('Cuenta'));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Mi expediente'), findsOneWidget);
 
     // 1. Network fails during logout: session remains active and storage is preserved
@@ -390,6 +405,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('logout_button')));
     await tester.pumpAndSettle();
 
+    if (find.text('Cuenta').evaluate().isNotEmpty &&
+        find.text('Mi expediente').evaluate().isEmpty) {
+      await tester.tap(find.text('Cuenta'));
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Mi expediente'), findsOneWidget);
     expect(
       find.text(

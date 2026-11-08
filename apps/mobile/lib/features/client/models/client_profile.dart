@@ -25,6 +25,20 @@ class ClientProfile {
   final double? heightCm;
   final double? baseWeightKg;
 
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'userId': userId,
+        'professionalId': professionalId,
+        'fullName': fullName,
+        'goal': goal,
+        'status': status,
+        'username': username,
+        'email': email,
+        'birthDate': birthDate,
+        'heightCm': heightCm,
+        'baseWeightKg': baseWeightKg
+      };
+
   factory ClientProfile.fromJson(Map<String, Object?> json) {
     return ClientProfile(
       id: (json['id'] as String?) ?? '',

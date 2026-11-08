@@ -98,3 +98,4 @@ Navegación mediante anclas; menú móvil con Escape y retorno de foco. «Elegir
 - La vista interactiva explica el producto; las pantallas funcionales usan datos del backend y sus estados de carga, vacío y error.
 - Mantener expedientes y prescripciones bajo control profesional. El código vincula una cuenta con un expediente existente una sola vez.
 - Foco visible, objetivos táctiles de al menos 44px, contraste AA y respeto a movimiento reducido.
+- Confirmar acciones destructivas o la pérdida de cambios con `confirmDialog()` (`src/services/confirm.ts`), que muestra el `<dialog>` propio de `ConfirmHost`; nunca `window.confirm`/`window.alert`. Preguntar solo cuando de verdad se pierde algo.

@@ -167,7 +167,7 @@ export default function ClientStatusAction({
         type="button"
         disabled={disabled || pending || !!snapshot}
         onClick={() => void load()}
-        className="px-4 py-2 border rounded-lg"
+        className="ws-btn"
       >
         {pending && !snapshot
           ? 'Consultando estado…'

@@ -9,6 +9,8 @@ export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 // Solo lecturas del panel. Quedan fuera a propósito: soporte de administración
 // (auditado), recuperación asistida, pagos e invitaciones (docs/architecture/pwa-offline.md §2.2).
 const CACHEABLE = [
+  /^\/api\/training\/(templates|exercises)(\?.*)?$/,
+  /^\/api\/clients\/[^/?]+\/training-plans$/,
   /^\/api\/auth\/session$/,
   /^\/api\/admin\/session$/,
   /^\/api\/professional\/profile$/,

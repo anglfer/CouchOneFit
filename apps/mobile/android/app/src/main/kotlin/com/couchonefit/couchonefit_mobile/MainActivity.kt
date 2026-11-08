@@ -30,11 +30,12 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "couchonefit/secure_session").setMethodCallHandler { call, result ->
-            if (call.argument<String>("key") != "cof_client_session") {
+            val cache = call.argument<String>("key") == "cof_client_training_cache"
+            if (!cache && call.argument<String>("key") != "cof_client_session") {
                 result.error("INVALID_STORAGE_KEY", "La sesión no está disponible.", null)
                 return@setMethodCallHandler
             }
-            val preferences = getSharedPreferences("couchonefit_secure_session", MODE_PRIVATE)
+            val preferences = getSharedPreferences(if (cache) "couchonefit_training_cache" else "couchonefit_secure_session", MODE_PRIVATE)
             try {
                 when (call.method) {
                     "read" -> {
@@ -50,7 +51,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "write" -> {
                         val value = call.argument<String>("value")
-                        if (value == null || value.length > 16384) {
+                        if (value == null || value.length > (if (cache) 2097152 else 16384)) {
                             result.error("INVALID_SESSION", "La sesión no tiene un formato válido.", null)
                         } else {
                             val cipher = Cipher.getInstance("AES/GCM/NoPadding")

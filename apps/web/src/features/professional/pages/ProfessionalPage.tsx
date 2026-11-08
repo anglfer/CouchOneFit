@@ -24,10 +24,12 @@ import RecoveryPanel from '../../auth/components/RecoveryPanel';
 import ProfessionalHome from '../components/ProfessionalHome';
 import PendingOperations from '../components/PendingOperations';
 import { confirmLeaveWithPending } from '../../../services/offline/leave';
+import TrainingPage from '../../training/pages/TrainingPage';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
   { href: '/app/clientes', label: 'Clientes', icon: 'users' },
+  { href: '/app/entrenamiento', label: 'Rutinas', icon: 'layers' },
 ];
 
 const accountMenu: WorkspaceNavItem[] = [
@@ -70,7 +72,15 @@ export default function ProfessionalPage(): ReactElement {
   const isSubscriptionPage = pathname === '/app/suscripcion';
   const isRecoveryPage = pathname === '/app/recuperacion';
   const isPendingPage = pathname === '/app/pendientes';
+  const trainingClientId = pathname.match(
+    /^\/app\/clientes\/([^/]+)\/entrenamiento$/
+  )?.[1];
+  const isTrainingPage =
+    pathname === '/app/entrenamiento' ||
+    pathname === '/app/entrenamiento/plantillas' ||
+    !!trainingClientId;
   const knownRoute =
+    isTrainingPage ||
     isHome ||
     isPendingPage ||
     isProfilePage ||
@@ -234,17 +244,21 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = isPendingPage
-    ? 'Pendientes de enviar'
-    : isSubscriptionPage
-      ? 'Mi suscripción'
-      : isClientsPage
-        ? 'Clientes'
-        : isRecoveryPage
-          ? 'Recuperación asistida'
-          : isProfilePage
-            ? 'Mi perfil'
-            : 'Inicio';
+  const pageTitle = trainingClientId
+    ? 'Clientes'
+    : isTrainingPage
+      ? 'Rutinas'
+      : isPendingPage
+        ? 'Pendientes de enviar'
+        : isSubscriptionPage
+          ? 'Mi suscripción'
+          : isClientsPage
+            ? 'Clientes'
+            : isRecoveryPage
+              ? 'Recuperación asistida'
+              : isProfilePage
+                ? 'Mi perfil'
+                : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -304,7 +318,7 @@ export default function ProfessionalPage(): ReactElement {
               subscription={subscription}
               onSubscriptionChange={setSubscription}
             />
-          ) : (isClientsPage || isRecoveryPage) &&
+          ) : (isClientsPage || isRecoveryPage || isTrainingPage) &&
             subscription?.status !== 'active' ? (
             <section className="ws-card ws-empty" role="status">
               <h2 className="ws-card-title text-lg!">
@@ -322,6 +336,11 @@ export default function ProfessionalPage(): ReactElement {
                 Ir a Mi suscripción
               </Link>
             </section>
+          ) : isTrainingPage ? (
+            <TrainingPage
+              key={`${account.id}:${trainingClientId ?? 'hub'}`}
+              clientId={trainingClientId}
+            />
           ) : isClientsPage ? (
             selectedClientId ? (
               <ClientRecordView
@@ -336,7 +355,7 @@ export default function ProfessionalPage(): ReactElement {
                 <PageHeader
                   eyebrow="Cartera"
                   title="Clientes"
-                  lead="Crea expedientes, entrega invitaciones y administra el acceso de cada persona."
+                  lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
                   actions={
                     <Link to="/app/recuperacion" className="ws-btn">
                       Recuperación asistida

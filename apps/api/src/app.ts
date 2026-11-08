@@ -14,6 +14,7 @@ import { AuthError } from './features/auth/types/errors.js';
 import { clientRoutes } from './features/client/routes/client.js';
 import { clientRecordRoutes } from './features/client/routes/record.js';
 import { professionalRoutes } from './features/professional/routes/professional.js';
+import { trainingRoutes } from './features/training/routes/training.js';
 
 export interface AppOptions {
   now?: () => Date;
@@ -23,6 +24,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
   const app = express();
   const now = options?.now;
   app.disable('x-powered-by');
+  app.use('/api', trainingRoutes(database, now));
   app.use(express.json({ limit: '16kb' }));
   app.get('/api/health', (_req, res) => {
     res.json({

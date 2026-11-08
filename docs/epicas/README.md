@@ -35,3 +35,5 @@ La asignación a sprints permanece en [el plan de trabajo](../../plan/PLAN_TRABA
 EP-02 incorpora [SaaS y administración — HU-010 a HU-014](ep-02-saas-y-administracion/README.md), con contratos, matriz de cumplimiento y evidencia.
 
 EP-03 incorpora [Cartera y expediente](ep-03-cartera-y-expediente/README.md): [HU-015](ep-03-cartera-y-expediente/hu-015/README.md), [HU-007 — Invitación](ep-03-cartera-y-expediente/hu-007/README.md), [HU-008 — Activación móvil](ep-03-cartera-y-expediente/hu-008/README.md), [HU-016](ep-03-cartera-y-expediente/hu-016/README.md), [HU-017](ep-03-cartera-y-expediente/hu-017/README.md), [HU-018](ep-03-cartera-y-expediente/hu-018/README.md), [HU-019 (parcial)](ep-03-cartera-y-expediente/hu-019/README.md) y [HU-020 (perfil base)](ep-03-cartera-y-expediente/hu-020/README.md), con [estado e integración](ep-03-cartera-y-expediente/estado-e-integracion.md). Las historias de otras épicas no se crean hasta que entren en alcance.
+
+EP-06 incorpora [Entrenamiento](ep-06-entrenamiento/README.md): HU-028 a HU-031 (rutina, historial, activación móvil y registro por serie con RPE/RIR), con la decisión del usuario del 04-nov-2026 que amplía DEC-006.
