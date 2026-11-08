@@ -89,3 +89,19 @@ Pendiente: recorrido en navegador con API real.
   indefinidamente. Ahora el motivo se muestra en la tarjeta y queda en el log.
 - Pendiente: aplicar la migración con el rol propietario (no el de ejecución) y
   confirmar que la bandeja se vacía.
+
+### Minimizar la sesión móvil sin perderla (08-nov-2026)
+
+- **R** La flecha ↓ de la sesión cerraba el entrenamiento en lugar de minimizarlo.
+- **E** Causa: la sesión era una ruta y la flecha hacía `Navigator.pop`; al
+  desmontarse se perdían la captura sin guardar, el descanso y la duración.
+- Cambio: `ClientShell` mantiene la sesión montada (`Offstage`); la flecha y
+  «atrás» la minimizan y aparece la barra «Entrenamiento en curso» para volver o
+  descartarla. Al finalizar se cierra y se abre el resumen. Una sesión a la vez.
+
+| Tipo | Comprobación | Resultado |
+| --- | --- | --- |
+| T | `training_test.dart`: «minimizing keeps the live workout until it is discarded» | Mismo `State` tras minimizar/volver; «atrás» minimiza; descartar la cierra. |
+| T | `dart format`, `flutter analyze`, `flutter test` | Sin incidencias; 65/65. |
+
+Pendiente: recorrido manual en dispositivo (minimizar durante un descanso).

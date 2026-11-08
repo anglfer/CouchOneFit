@@ -37,6 +37,10 @@ class _ClientShellState extends State<ClientShell> {
   DateTime? _cachedAt;
   String? _error;
   bool _loading = true, _opening = false, _historyFailed = false;
+  // Live workout kept mounted while minimized, until it is finalized.
+  Widget? _session;
+  String? _sessionName;
+  bool _minimized = false;
 
   @override
   void initState() {
@@ -109,6 +113,8 @@ class _ClientShellState extends State<ClientShell> {
       _data != null && _data!.canWrite && _cachedAt == null && !_opening;
 
   Future<void> _openSession(String date) async {
+    // shortcut: one live workout at a time; finalize or discard it first.
+    if (_session != null) return setState(() => _minimized = false);
     setState(() {
       _opening = true;
       _error = null;
@@ -132,16 +138,18 @@ class _ClientShellState extends State<ClientShell> {
             : 'Esa fecha corresponde a un descanso.');
         return;
       }
-      await Navigator.push<void>(
-          context,
-          MaterialPageRoute(
-              builder: (_) => TrainingSessionScreen(
-                  contextData: data,
-                  service: widget.service,
-                  history: _history,
-                  settings: _settings.value,
-                  onShowProgress: () => setState(() => _selected = 2))));
-      if (mounted) await _load();
+      setState(() {
+        _sessionName = data.day!.name;
+        _minimized = false;
+        _session = TrainingSessionScreen(
+            contextData: data,
+            service: widget.service,
+            history: _history,
+            settings: _settings.value,
+            onShowProgress: () => setState(() => _selected = 2),
+            onMinimize: () => setState(() => _minimized = true),
+            onClose: _closeSession);
+      });
     } catch (error) {
       if (TrainingService.denied(error)) await widget.service.cache.clear();
       if (mounted) {
@@ -154,8 +162,56 @@ class _ClientShellState extends State<ClientShell> {
     }
   }
 
+  void _closeSession() {
+    if (!mounted) return;
+    setState(() => _session = null);
+    _load();
+  }
+
+  Future<void> _discardSession() async {
+    final discard = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+                title: const Text('¿Descartar el entrenamiento?'),
+                content: const Text(
+                    'Se pierde lo que no hayas guardado. El avance guardado se conserva.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Seguir entrenando')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text('Descartar'))
+                ]));
+    if (discard == true) _closeSession();
+  }
+
+  Widget _activeBar(bool wide) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+        color: colors.primaryContainer,
+        child: SafeArea(
+            top: false,
+            bottom: wide,
+            child: ListTile(
+                leading: Icon(Icons.fitness_center,
+                    color: colors.onPrimaryContainer),
+                title: const Text('Entrenamiento en curso',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('${_sessionName ?? ''} · Toca para volver',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                textColor: colors.onPrimaryContainer,
+                onTap: () => setState(() => _minimized = false),
+                trailing: IconButton(
+                    tooltip: 'Descartar entrenamiento',
+                    color: colors.onPrimaryContainer,
+                    onPressed: _discardSession,
+                    icon: const Icon(Icons.close)))));
+  }
+
   /// Center button: today's workout directly, otherwise the recent days.
   void _start() {
+    if (_session != null) return setState(() => _minimized = false);
     final data = _data, plan = data?.plan;
     String? problem;
     if (data == null || plan == null) {
@@ -271,7 +327,10 @@ class _ClientShellState extends State<ClientShell> {
       (Icons.insights_outlined, Icons.insights, 'Progreso'),
       (Icons.person_outline, Icons.person, 'Cuenta'),
     ];
-    return Scaffold(
+    final session = _session;
+    final open = session != null && !_minimized;
+    final bar = session != null && _minimized;
+    final shell = Scaffold(
         body: DecoratedBox(
             decoration: brandGlow(context),
             child: SafeArea(
@@ -320,7 +379,22 @@ class _ClientShellState extends State<ClientShell> {
                                 ]);
                           })))
             ]))),
-        bottomNavigationBar: wide ? null : _bottomBar(items));
+        bottomNavigationBar: wide && !bar
+            ? null
+            : Column(mainAxisSize: MainAxisSize.min, children: [
+                if (bar) _activeBar(wide),
+                if (!wide) _bottomBar(items),
+              ]));
+    // Back minimizes the open workout instead of closing it.
+    return PopScope(
+        canPop: !open,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && open) setState(() => _minimized = true);
+        },
+        child: Stack(fit: StackFit.expand, children: [
+          ExcludeSemantics(excluding: open, child: shell),
+          if (session != null) Offstage(offstage: _minimized, child: session),
+        ]));
   }
 
   Widget _bottomBar(List<(IconData, IconData, String)> items) {

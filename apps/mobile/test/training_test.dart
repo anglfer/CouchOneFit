@@ -457,6 +457,35 @@ void main() {
         '40');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('minimizing keeps the live workout until it is discarded',
+      (tester) async {
+    await tester.pumpWidget(host(
+        ClientShell(
+            profile: profile,
+            service: TrainingService(apiClient: api(routed(fixture))),
+            account: const Text('Cuenta')),
+        Brightness.light));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Empezar entrenamiento'));
+    await tester.pumpAndSettle();
+    final live = tester.state(find.byType(TrainingSessionScreen));
+    await tester.tap(find.byTooltip('Minimizar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(find.text('Entrenamiento en curso'), findsOneWidget);
+    await tester.tap(find.text('Entrenamiento en curso'));
+    await tester.pumpAndSettle();
+    // Same State: captures, timers and duration survived.
+    expect(tester.state(find.byType(TrainingSessionScreen)), same(live));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Entrenamiento en curso'), findsOneWidget);
+    await tester.tap(find.byTooltip('Descartar entrenamiento'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Descartar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+  });
   testWidgets('offline read is explicit and never enables execution',
       (tester) async {
     final cache = TrainingCache();

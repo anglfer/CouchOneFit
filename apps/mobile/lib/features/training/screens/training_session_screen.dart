@@ -48,8 +48,14 @@ class TrainingSessionScreen extends StatefulWidget {
       this.history,
       this.settings = const AppSettings(),
       this.clock = DateTime.now,
-      this.onShowProgress});
+      this.onShowProgress,
+      this.onMinimize,
+      this.onClose});
   final TrainingContext contextData;
+
+  /// Set when the shell keeps the session alive: hiding it keeps captures
+  /// and timers until the workout is finalized; [onClose] then removes it.
+  final VoidCallback? onMinimize, onClose;
   final TrainingService service;
 
   /// Own log used for "last time", suggestions and records. Optional.
@@ -611,19 +617,25 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             : 'Avance guardado. Puedes continuar después.';
       });
       if (_finalized && !wasFinalized) {
-        await Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(
-                builder: (_) => SessionSummaryScreen(
-                    dayName: _context.day!.name,
-                    date: _context.localDate,
-                    duration: widget.clock().difference(_started),
-                    sets:
-                        results.where((r) => r['state'] == 'performed').length,
-                    volume: _volume,
-                    exercises: _summary(results),
-                    groups: _groups(),
-                    onShowProgress: widget.onShowProgress)));
+        final summary = MaterialPageRoute<void>(
+            builder: (_) => SessionSummaryScreen(
+                dayName: _context.day!.name,
+                date: _context.localDate,
+                duration: widget.clock().difference(_started),
+                sets: results.where((r) => r['state'] == 'performed').length,
+                volume: _volume,
+                exercises: _summary(results),
+                groups: _groups(),
+                onShowProgress: widget.onShowProgress));
+        final close = widget.onClose;
+        if (close == null) {
+          await Navigator.pushReplacement(context, summary);
+          return;
+        }
+        // Embedded in the shell: replacing would drop the shell route.
+        final navigator = Navigator.of(context);
+        close();
+        await navigator.push(summary);
         return;
       }
       if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -699,8 +711,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final activeIdx = _activeExercise.clamp(0, _exercises.length - 1);
     final singleFocus = _focusMode && _exercises.length > 1;
     return PopScope(
-        canPop: !_dirty && !_busy,
+        // The shell owns back while embedded: it minimizes instead.
+        canPop: widget.onMinimize != null || (!_dirty && !_busy),
         onPopInvokedWithResult: (didPop, result) async {
+          if (widget.onMinimize != null) return;
           if (!didPop && await _leave() && context.mounted) {
             setState(() => _dirty = false);
             if (context.mounted) Navigator.pop(context);
@@ -711,13 +725,16 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                 leadingWidth: 60,
                 leading: Center(
                     child: IconButton(
-                        tooltip: 'Salir del registro',
+                        tooltip: widget.onMinimize == null
+                            ? 'Salir del registro'
+                            : 'Minimizar entrenamiento',
                         style: IconButton.styleFrom(
                             backgroundColor: colors.surfaceContainerHighest,
                             fixedSize: const Size(44, 44),
                             minimumSize: const Size(44, 44)),
                         icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        onPressed: () => Navigator.maybePop(context))),
+                        onPressed: widget.onMinimize ??
+                            () => Navigator.maybePop(context))),
                 titleSpacing: 4,
                 title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
