@@ -49,7 +49,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
     });
   });
   app.use(
-    (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    (error: unknown, req: Request, res: Response, _next: NextFunction) => {
       res.set('Cache-Control', 'no-store');
       if (error instanceof AuthError) {
         res
@@ -67,6 +67,18 @@ export function createApp(database: Pool, options?: AppOptions): Express {
         typeof error === 'object' && error !== null && 'status' in error
           ? error.status
           : 500;
+      // Sin esto un fallo inesperado solo llega al cliente como 503 y no deja rastro.
+      if (status !== 400 && status !== 413) {
+        const { code, constraint, table } = (error ?? {}) as Record<
+          string,
+          unknown
+        >;
+        console.error(
+          `Solicitud fallida: ${req.method} ${req.path}`,
+          { code, constraint, table },
+          error instanceof Error ? error.stack : error
+        );
+      }
       res.status(status === 400 || status === 413 ? status : 503).json({
         error: {
           code:

@@ -241,7 +241,11 @@ test('al iniciar otra cuenta se descarta lo guardado de la anterior', async () =
   const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
   await session.sessionRequest('/api/auth/session');
   await session.sessionRequest('/api/professional/profile');
-  await settle();
+  // The read is saved in the background; under load 20 ms is not always enough.
+  for (let i = 0; i < 100; i++) {
+    if ((await memory().keys('readCache')).length >= 2) break;
+    await settle();
+  }
   assert.ok((await memory().keys('readCache')).length >= 2);
   current = 'pro-b';
   await session.sessionRequest('/api/auth/session');

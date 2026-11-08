@@ -210,6 +210,18 @@ export async function trainingWrite(
   const related = getOperations().filter(
     (op) => op.entityKey === spec.entityKey
   );
+  // Encolar detrás de un cambio bloqueado crea otro que nunca podrá enviarse.
+  if (related.some((op) => op.state === 'failed' || op.state === 'conflict'))
+    throw new Error(
+      'Esta rutina tiene un cambio sin enviar que necesita tu decisión. Resuélvelo en «Pendientes de enviar»; tu captura sigue aquí.'
+    );
+  if (
+    !object(spec.body.prescription) &&
+    related.some((op) => op.kind === spec.kind && op.endpoint === spec.endpoint)
+  )
+    throw new Error(
+      'Ya hay un cambio igual pendiente de enviar. Revísalo en «Pendientes de enviar».'
+    );
   const last = related.at(-1);
   if (
     last &&

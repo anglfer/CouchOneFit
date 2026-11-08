@@ -189,6 +189,7 @@ test('si se cae la red a la mitad: se detiene y no se pierde nada', async () => 
     ]
   );
   assert.equal(writesMade().length, 1, 'no insiste con el resto');
+  assert.match(outbox.getOperations()[0].error, /Failed to fetch/);
 });
 
 test('conflicto de versión: queda a decisión; «aplicar el mío» usa la versión nueva', async () => {
@@ -287,6 +288,7 @@ test('sesión vencida o servidor caído: se conserva y se reintenta después', a
       : apiError(500, 'BOOM');
   await sync.flushOutbox();
   assert.equal(outbox.getOperations()[0].state, 'pending');
+  assert.match(outbox.getOperations()[0].error, /500/, 'dice por qué no salió');
   assert.equal(typeof connection.isConnectionFailure, 'function');
 });
 
@@ -458,4 +460,82 @@ test('training: lost response preserves key, conflicts block activation and acco
   await cache.noteAccount('pro-b');
   await outbox.loadOutbox('pro-b');
   assert.equal(outbox.getOperations().length, 0);
+});
+
+test('training: discarding a change takes its dependents along (after confirming) and blocked routines refuse new writes', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: false },
+    configurable: true,
+  });
+  const save = {
+    kind: 'training.save',
+    method: 'POST',
+    endpoint: '/api/clients/c1/training-plans',
+    body: { id: 'p1', versionId: 'v1', prescription: { name: 'Nueva rutina' } },
+    label: 'Guardar rutina: Nueva rutina',
+    clientId: 'c1',
+    clientName: 'Ana',
+    entityKey: 'p1',
+    readEndpoint: '/api/clients/c1/training-plans',
+  };
+  await training.trainingWrite(save);
+  await training.trainingWrite({
+    ...save,
+    kind: 'training.activate',
+    endpoint: '/api/clients/c1/training-plans/p1/versions/v1/activate',
+    body: { revision: 1, activeRevision: 0 },
+  });
+  const [created, activation] = outbox.getOperations();
+  assert.deepEqual(activation.dependsOn, [created.id]);
+  await outbox.updateOperation(created.id, { state: 'failed', error: 'x' });
+  await assert.rejects(training.trainingWrite(save), /Pendientes de enviar/);
+  assert.equal(outbox.getOperations().length, 2, 'no new doomed item');
+  confirm.setConfirmHandler(async () => false);
+  await sync.discardOperation(created.id);
+  assert.equal(outbox.getOperations().length, 2, 'declining keeps everything');
+  confirm.setConfirmHandler(async () => true);
+  await sync.discardOperation(created.id);
+  confirm.setConfirmHandler(null);
+  assert.equal(outbox.getOperations().length, 0);
+});
+
+test('un cambio encolado mientras ya se está sincronizando se envía en esa misma pasada', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: true },
+    configurable: true,
+  });
+  let late;
+  handler = async (url) => {
+    if (url.startsWith('/api/clients?')) return json({ clients: [] });
+    if (!late) {
+      late = await outbox.enqueue({ ...editSpec(), id: crypto.randomUUID() });
+      void sync.flushOutbox();
+    }
+    return json({ client: { id: 'ok' } });
+  };
+  await outbox.enqueue({ ...spec(), id: crypto.randomUUID() });
+  await sync.flushOutbox();
+  assert.equal(writesMade().length, 2, 'no espera al siguiente ciclo de 30 s');
+  assert.equal(outbox.getOperations().length, 0);
+});
+
+test('training: una acción igual ya pendiente no se encola dos veces', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: false },
+    configurable: true,
+  });
+  const activate = {
+    kind: 'training.activate',
+    method: 'POST',
+    endpoint: '/api/clients/c1/training-plans/p1/versions/v1/activate',
+    body: { revision: 1, activeRevision: 0 },
+    label: 'Activar rutina: Nueva rutina',
+    clientId: 'c1',
+    clientName: 'Ana',
+    entityKey: 'p1',
+    readEndpoint: '/api/clients/c1/training-plans',
+  };
+  await training.trainingWrite(activate);
+  await assert.rejects(training.trainingWrite(activate), /Ya hay/);
+  assert.equal(outbox.getOperations().length, 1);
 });

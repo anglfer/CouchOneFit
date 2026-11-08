@@ -98,7 +98,7 @@ Migración: archivo nuevo `docs/database/migrations/YYYYMMDDHHMM_idempotency_key
 
 - Indicador de conexión y de pendientes en la barra superior y en el menú de cuenta.
 - Aviso actual de «Sin conexión» reescrito: _«Estás sin conexión. Puedes seguir consultando y registrando; se enviará al volver la conexión.»_
-- Pantalla **Pendientes de enviar** (`/app/pendientes`): elementos con su estado, reintentar, descartar y resolver conflictos.
+- Pantalla **Pendientes de enviar** (`/app/pendientes`): elementos con su estado, reintentar, descartar y resolver conflictos. Descartar un cambio de rutina del que dependen otros (p. ej. guardar → activar) pide confirmar y los descarta juntos, porque el servidor los rechazaría siempre; mientras una rutina tenga un cambio fallido o en conflicto, no se encolan cambios nuevos de esa rutina. Tampoco se encola dos veces la misma acción (p. ej. activar la misma versión): se avisa que ya hay una igual pendiente. Un cambio que espera a otro anterior lo indica en vez de «se enviará en unos segundos», y lo encolado mientras ya se está sincronizando sale en esa misma pasada.
 - Etiqueta «Pendiente de enviar» en lo creado o editado sin conexión.
 - Conflicto de versión: se muestra lo del servidor frente a lo capturado; la persona elige **conservar el del servidor** o **reaplicar el suyo sobre la versión nueva**. Por defecto no se sobrescribe nada.
 

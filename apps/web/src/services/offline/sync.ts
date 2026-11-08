@@ -1,4 +1,5 @@
 import { ApiError } from '../api';
+import { confirmDialog } from '../confirm';
 import {
   freshRequest,
   sessionMutation,
@@ -95,9 +96,22 @@ async function serverCopy(
   }
 }
 
+// Lo que se reintenta solo guarda el motivo: un «Por enviar» sin explicación no se puede diagnosticar.
+const retryLater = (error: unknown) =>
+  `No se pudo enviar (${
+    error instanceof ApiError
+      ? `${error.status}: ${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error)
+  }). Se reintentará solo.`;
+
 async function settle(operation: Operation, error: unknown): Promise<Outcome> {
   if (isConnectionFailure(error)) {
-    await updateOperation(operation.id, { state: 'pending' });
+    await updateOperation(operation.id, {
+      state: 'pending',
+      error: retryLater(error),
+    });
     return 'offline';
   }
   if (error instanceof ApiError) {
@@ -118,7 +132,10 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
       error.code === 'IDEMPOTENCY_IN_PROGRESS'
     ) {
       // Sesión vencida o servidor ocupado: se conserva y se reintenta más tarde.
-      await updateOperation(operation.id, { state: 'pending' });
+      await updateOperation(operation.id, {
+        state: 'pending',
+        error: retryLater(error),
+      });
       return 'stop';
     }
     await updateOperation(operation.id, {
@@ -127,7 +144,10 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
     });
     return 'blocked';
   }
-  await updateOperation(operation.id, { state: 'pending' });
+  await updateOperation(operation.id, {
+    state: 'pending',
+    error: retryLater(error),
+  });
   return 'stop';
 }
 
@@ -223,12 +243,18 @@ async function run(): Promise<void> {
 }
 
 let flushing: Promise<void> | null = null;
+let again = false;
 export function flushOutbox(): Promise<void> {
-  flushing ??= run()
-    .catch(console.error)
-    .finally(() => {
-      flushing = null;
-    });
+  // Una pasada en curso no ve lo encolado después: se repite al terminar en vez de esperar 30 s.
+  if (flushing) again = true;
+  flushing ??= (async () => {
+    do {
+      again = false;
+      await run().catch(console.error);
+    } while (again);
+  })().finally(() => {
+    flushing = null;
+  });
   return flushing;
 }
 
@@ -265,15 +291,20 @@ export async function retryOperation(id: string): Promise<void> {
 
 /** Quita el cambio pendiente sin enviarlo (lo decide la persona). */
 export async function discardOperation(id: string): Promise<void> {
-  for (const operation of getOperations().filter((op) =>
-    op.dependsOn?.includes(id)
-  )) {
-    await updateOperation(operation.id, {
-      state: 'failed',
-      error:
-        'Se descartó un cambio necesario. Revisa esta rutina antes de reenviar.',
-    });
-  }
+  // Lo encadenado se armó sobre este cambio: sin él, el servidor lo rechaza siempre (404/409).
+  const dependents = getOperations().filter((op) => op.dependsOn?.includes(id));
+  if (
+    dependents.length &&
+    !(await confirmDialog({
+      title: '¿Descartar también los cambios que dependen de este?',
+      message: `${dependents.length === 1 ? 'Hay 1 cambio posterior' : `Hay ${dependents.length} cambios posteriores`} de esta rutina que no pueden enviarse sin este. Se descartarán juntos.`,
+      confirmLabel: 'Descartar todo',
+      cancelLabel: 'Conservar',
+      danger: true,
+    }))
+  )
+    return;
+  for (const operation of dependents) await removeOperation(operation.id);
   await removeOperation(id);
 }
 
