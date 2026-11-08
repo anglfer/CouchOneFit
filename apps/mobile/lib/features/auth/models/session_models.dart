@@ -107,4 +107,3 @@ class AuthApiException implements Exception {
   @override
   String toString() => 'AuthApiException($statusCode, $code): $message';
 }
-

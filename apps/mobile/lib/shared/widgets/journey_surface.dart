@@ -1,16 +1,18 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Las líneas recorren una pista una sola vez al aparecer la tarjeta.
+/// Superficie firma de CouchOne Fit: las líneas de una pista recorren el fondo
+/// una sola vez al aparecer. Se reserva para lo principal de cada pantalla.
 class JourneySurface extends StatelessWidget {
-  const JourneySurface({super.key, required this.child});
+  const JourneySurface({super.key, required this.child, this.radius = 24});
   final Widget child;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(radius),
       child: DecoratedBox(
         decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -41,8 +43,10 @@ class JourneySurface extends StatelessWidget {
                     CustomPaint(painter: _JourneyPainter(value)),
               ),
             ))),
-            DefaultTextStyle.merge(
-                style: const TextStyle(color: Colors.white), child: child),
+            IconTheme.merge(
+                data: const IconThemeData(color: Colors.white),
+                child: DefaultTextStyle.merge(
+                    style: const TextStyle(color: Colors.white), child: child)),
           ],
         ),
       ),
@@ -81,18 +85,18 @@ class _JourneyPainter extends CustomPainter {
             Paint()
               ..style = PaintingStyle.stroke
               ..strokeCap = StrokeCap.round
-              ..strokeWidth = 3
-              ..color = const Color(0xFFC9BEFF));
+              ..strokeWidth = 2.5
+              ..color = const Color(0x8CC9BEFF));
       }
     }
     canvas.restore();
-    // Despeja el lado de lectura sin cubrir la ilustración a la derecha.
+    // Despeja el lado de lectura sin cubrir las líneas de la derecha.
     canvas.drawRect(
         Offset.zero & size,
         Paint()
           ..shader = const LinearGradient(
-              colors: [Color(0xC7120B2B), Color(0x00120B2B)],
-              stops: [0, 0.82]).createShader(Offset.zero & size));
+              colors: [Color(0xE6120B2B), Color(0x00120B2B)],
+              stops: [0.3, 0.95]).createShader(Offset.zero & size));
   }
 
   @override

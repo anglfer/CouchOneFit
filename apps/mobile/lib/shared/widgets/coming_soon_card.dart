@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'icon_badge.dart';
+
 /// Swipeable row of [ComingSoonCard]s: planned modules stay visible without
 /// pushing the person's real data further down the screen.
 class ComingSoonRow extends StatelessWidget {
@@ -32,30 +34,18 @@ class ComingSoonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final dark = theme.brightness == Brightness.dark;
     return Semantics(
         label: '$title. Próximamente. $description',
         child: ExcludeSemantics(
             child: Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                color: colors.surface.withValues(alpha: dark ? 0.72 : 0.88),
+                margin: EdgeInsets.zero,
                 child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 12),
                     child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                  color: colors.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(11),
-                                  border: Border.all(
-                                      color: colors.outline
-                                          .withValues(alpha: 0.7))),
-                              child: Icon(icon,
-                                  size: 19, color: colors.secondary)),
+                          IconBadge(icon, size: 40),
                           const SizedBox(width: 12),
                           Expanded(
                               child: Column(
@@ -77,16 +67,14 @@ class ComingSoonCard extends StatelessWidget {
                                           decoration: BoxDecoration(
                                               color: colors
                                                   .surfaceContainerHighest,
-                                              border: Border.all(
-                                                  color: colors.outline),
                                               borderRadius:
                                                   BorderRadius.circular(99)),
                                           child: Text('Próximamente',
                                               style: TextStyle(
-                                                  fontSize: 10.5,
+                                                  fontSize: 11,
                                                   fontWeight: FontWeight.w700,
-                                                  letterSpacing: 0.2,
-                                                  color: theme.hintColor))),
+                                                  color: colors
+                                                      .onSurfaceVariant))),
                                     ]),
                                 const SizedBox(height: 3),
                                 Text(description,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:couchonefit_mobile/features/auth/models/session_models.dart';
 import 'package:couchonefit_mobile/features/auth/services/session_storage.dart';
@@ -259,6 +260,37 @@ void main() {
     final second = SettingsController();
     await second.load();
     expect([second.value.restTimer, second.value.loadStep], [false, 5.0]);
+  });
+  testWidgets('screen readers can activate custom navigation and week days',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(
+        ClientShell(
+            profile: profile,
+            service: TrainingService(apiClient: api(routed(fixture))),
+            account: const Text('Expediente existente')),
+        Brightness.dark));
+    await tester.pumpAndSettle();
+    for (final label in [
+      RegExp(r'^Planes$'),
+      RegExp(r'^Entrenar$'),
+      RegExp(r'^martes 3 de noviembre'),
+    ]) {
+      expect(
+          tester
+              .getSemantics(find.bySemanticsLabel(label))
+              .getSemanticsData()
+              .hasAction(SemanticsAction.tap),
+          isTrue,
+          reason: '$label');
+    }
+    tester.semantics.tap(find.semantics.byLabel(RegExp(r'^Planes$')));
+    await tester.pumpAndSettle();
+    expect(find.text('Fuerza y equilibrio'), findsOneWidget);
+    handle.dispose();
   });
   for (final width in [320.0, 390.0, 768.0]) {
     for (final theme in Brightness.values) {

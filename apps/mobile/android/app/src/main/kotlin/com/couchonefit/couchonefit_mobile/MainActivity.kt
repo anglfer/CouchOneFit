@@ -31,11 +31,16 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "couchonefit/secure_session").setMethodCallHandler { call, result ->
             val cache = call.argument<String>("key") == "cof_client_training_cache"
-            if (!cache && call.argument<String>("key") != "cof_client_session") {
-                result.error("INVALID_STORAGE_KEY", "La sesión no está disponible.", null)
-                return@setMethodCallHandler
+            val file = when (call.argument<String>("key")) {
+                "cof_client_session" -> "couchonefit_secure_session"
+                "cof_client_training_cache" -> "couchonefit_training_cache"
+                "cof_app_settings" -> "couchonefit_app_settings"
+                else -> {
+                    result.error("INVALID_STORAGE_KEY", "La sesión no está disponible.", null)
+                    return@setMethodCallHandler
+                }
             }
-            val preferences = getSharedPreferences(if (cache) "couchonefit_training_cache" else "couchonefit_secure_session", MODE_PRIVATE)
+            val preferences = getSharedPreferences(file, MODE_PRIVATE)
             try {
                 when (call.method) {
                     "read" -> {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/animations/reveal_in.dart';
 import '../../../shared/animations/tactile_bounce.dart';
 import '../../../shared/widgets/brand_header.dart';
+import '../../../shared/widgets/notice_banner.dart';
 import '../widgets/login_form.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -24,76 +25,62 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final gutter = MediaQuery.sizeOf(context).width < 360 ? 16.0 : 24.0;
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.fromLTRB(
-          MediaQuery.sizeOf(context).width < 360 ? 16 : 24,
-          12,
-          MediaQuery.sizeOf(context).width < 360 ? 16 : 24,
-          28),
+      padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 28),
       child: Center(
           child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const BrandHeader(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           RevealIn(
               child: Semantics(
                   header: true,
                   child: Text('Qué bueno\nverte de vuelta.',
-                      style: TextStyle(
-                          fontSize: 36,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1.4,
-                          color: scheme.onSurface)))),
-          const SizedBox(height: 12),
+                      style: Theme.of(context)
+                          .textTheme
+                          .displaySmall
+                          ?.copyWith(fontSize: 34, height: 1.1)))),
+          const SizedBox(height: 10),
           Text('Entra a tu cuenta y continúa donde lo dejaste.',
               style: TextStyle(
                   fontSize: 15, height: 1.5, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 28),
-          if (statusMessage != null) ...[
-            Semantics(
-                liveRegion: true,
-                child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                        color: scheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(16)),
-                    child: Text(statusMessage!,
-                        style: TextStyle(
-                            height: 1.5, color: scheme.onPrimaryContainer)))),
-            const SizedBox(height: 16),
-          ],
+          const SizedBox(height: 24),
+          if (statusMessage != null)
+            NoticeBanner(
+                text: statusMessage!,
+                icon: Icons.verified_user_outlined,
+                margin: const EdgeInsets.only(bottom: 14)),
           RevealIn(
               delay: const Duration(milliseconds: 90),
               child: LoginForm(
                   isSubmitting: isSubmitting,
                   errorMessage: errorMessage,
-                  onSubmit: onSubmit)),
-          Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                  onPressed: isSubmitting ? null : onRecover,
-                  child: const Text('Recuperar mi acceso'))),
-          const SizedBox(height: 20),
-          Divider(color: scheme.outlineVariant),
-          const SizedBox(height: 20),
-          Text('¿Es tu primera vez?',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 10),
+                  onSubmit: onSubmit,
+                  onRecover: onRecover)),
+          const SizedBox(height: 28),
+          Row(children: [
+            const Expanded(child: Divider()),
+            Flexible(
+                flex: 3,
+                child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('¿Es tu primera vez?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurfaceVariant)))),
+            const Expanded(child: Divider()),
+          ]),
+          const SizedBox(height: 14),
           TactileBounce(
               enabled: !isSubmitting,
               child: OutlinedButton.icon(
                   onPressed: isSubmitting ? null : onActivate,
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: scheme.onSurface,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16))),
                   icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
                   label: const Text('Activar mi cuenta'))),
         ]),

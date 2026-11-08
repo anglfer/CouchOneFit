@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../models/session_models.dart';
 import '../services/auth_service.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
+import '../../../shared/widgets/notice_banner.dart';
+import '../../../shared/widgets/section_title.dart';
 
 enum AccountAccessMode { activation, credentials, recovery }
 
@@ -121,33 +124,20 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
   }
 
   List<Widget> _messages() => [
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        ],
-        if (_status != null) ...[
-          const SizedBox(height: 12),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _status!,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-        ],
+        if (_error != null)
+          NoticeBanner(
+              text: _error!,
+              tone: NoticeTone.error,
+              margin: const EdgeInsets.only(top: 12)),
+        if (_status != null)
+          NoticeBanner(
+              text: _status!,
+              tone: NoticeTone.success,
+              margin: const EdgeInsets.only(top: 12)),
       ];
 
   Widget _field(String name, String label,
       {bool secret = false, String? autofill, TextInputType? keyboard}) {
-    final scheme = Theme.of(context).colorScheme;
     final icon = switch (name) {
       'code' => Icons.confirmation_number_outlined,
       'username' => Icons.person_outline_rounded,
@@ -155,7 +145,7 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
       _ => Icons.lock_outline_rounded,
     };
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         key: Key('access-$name'),
         controller: _controller(name),
@@ -175,24 +165,6 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                       : Icons.visibility_outlined),
                 )
               : null,
-          filled: true,
-          fillColor: scheme.surface.withValues(alpha: 0.76),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: scheme.outlineVariant),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: scheme.outlineVariant),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: scheme.primary, width: 1.6),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: scheme.error),
-          ),
         ),
         obscureText: secret && !_passwordVisible,
         autocorrect: false,
@@ -238,307 +210,198 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final title = _activation
         ? 'Activar mi cuenta'
         : _credentials
             ? 'Cambiar mis credenciales'
             : 'Recuperar mi acceso';
+    final heading = _activation
+        ? 'Tu espacio de bienestar empieza aquí'
+        : _credentials
+            ? 'Mantén segura tu cuenta'
+            : 'Volvamos a conectarte';
+    final explanation = _activation
+        ? 'Completa estos datos para abrir tu expediente preparado, sin volver a capturar tu información física.'
+        : _credentials
+            ? 'Confirma tu contraseña actual. Al guardar, se cerrarán tus otras sesiones.'
+            : 'Solicita a tu profesional un código de recuperación válido por 30 minutos. Saber tu correo o usuario no basta para obtenerlo.';
+    Widget section(String text) => Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 12),
+        child: SectionTitle(text));
     return PopScope(
       canPop: !_busy,
-      child: Scaffold(
-        appBar: AppBar(
-            title: Text(title,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            scrolledUnderElevation: 0),
-        body: DecoratedBox(
-          decoration:
-              BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor),
-          child: SafeArea(
-            top: false,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Form(
-                    key: _form,
+      child: DetailScaffold(
+        title: Text(title, style: const TextStyle(fontSize: 16)),
+        maxWidth: 440,
+        children: [
+          Form(
+            key: _form,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Semantics(
+                    header: true,
+                    child: Text(heading,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(fontSize: 28, height: 1.12))),
+                const SizedBox(height: 10),
+                Text(explanation,
+                    style: TextStyle(
+                        fontSize: 15,
+                        height: 1.45,
+                        color: colors.onSurfaceVariant)),
+                const SizedBox(height: 20),
+                if (!_credentials) ...[
+                  _field(
+                    'code',
+                    _activation
+                        ? 'Código de invitación'
+                        : 'Código de recuperación',
+                  ),
+                  if (_activation)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : _checkCode,
+                        icon: const Icon(Icons.verified_outlined),
+                        label: const Text('Comprobar código'),
+                      ),
+                    ),
+                  if (_fromCodeCheck) ...[
+                    ..._messages(),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+                if (_activation || _credentials) ...[
+                  section('Tu cuenta'),
+                  _field('username', 'Usuario',
+                      autofill: AutofillHints.username),
+                ],
+                if (_activation) ...[
+                  _field('email', 'Correo',
+                      autofill: AutofillHints.email,
+                      keyboard: TextInputType.emailAddress),
+                  _field('emailConfirmation', 'Confirmar correo',
+                      keyboard: TextInputType.emailAddress),
+                ],
+                section('Tu contraseña'),
+                if (_credentials)
+                  _field('currentPassword', 'Contraseña actual',
+                      secret: true, autofill: AutofillHints.password),
+                _field('password', 'Nueva contraseña',
+                    secret: true, autofill: AutofillHints.newPassword),
+                _field('passwordConfirmation', 'Confirmar contraseña',
+                    secret: true, autofill: AutofillHints.newPassword),
+                _PasswordLength(controller: _controller('password')),
+                if (_activation) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                    decoration: innerPanelDecoration(context),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _AccessHeader(
-                          activation: _activation,
-                          credentials: _credentials,
-                        ),
-                        const SizedBox(height: 22),
-                        Container(
-                          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant),
+                        const Text('Información de registro',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Versión 2026-10-15.1. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            height: 1.4,
+                            color: colors.onSurfaceVariant,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                _activation
-                                    ? 'Invitación de tu profesional'
-                                    : _credentials
-                                        ? 'Protege tu cuenta'
-                                        : 'Recupera tu acceso',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _activation
-                                    ? 'Completa estos datos para abrir tu expediente preparado, sin volver a capturar tu información física.'
-                                    : _credentials
-                                        ? 'Confirma tu contraseña actual. Al guardar, se cerrarán tus otras sesiones.'
-                                        : 'Solicita a tu profesional un código de recuperación válido por 30 minutos. Saber tu correo o usuario no basta para obtenerlo.',
-                                style: TextStyle(
-                                  height: 1.45,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              if (!_credentials) ...[
-                                _field(
-                                  'code',
-                                  _activation
-                                      ? 'Código de invitación'
-                                      : 'Código de recuperación',
-                                ),
-                                if (_activation)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton.icon(
-                                      onPressed: _busy ? null : _checkCode,
-                                      icon: const Icon(Icons.verified_outlined),
-                                      label: const Text('Comprobar código'),
-                                    ),
-                                  ),
-                                if (_fromCodeCheck) ...[
-                                  ..._messages(),
-                                  const SizedBox(height: 16),
-                                ],
-                              ],
-                              if (_activation || _credentials)
-                                _field('username', 'Usuario',
-                                    autofill: AutofillHints.username),
-                              if (_activation) ...[
-                                _field('email', 'Correo',
-                                    autofill: AutofillHints.email,
-                                    keyboard: TextInputType.emailAddress),
-                                _field('emailConfirmation', 'Confirmar correo',
-                                    keyboard: TextInputType.emailAddress),
-                              ],
-                              if (_credentials)
-                                _field('currentPassword', 'Contraseña actual',
-                                    secret: true,
-                                    autofill: AutofillHints.password),
-                              _field('password', 'Nueva contraseña',
-                                  secret: true,
-                                  autofill: AutofillHints.newPassword),
-                              _field('passwordConfirmation',
-                                  'Confirmar contraseña',
-                                  secret: true,
-                                  autofill: AutofillHints.newPassword),
-                              Container(
-                                padding: const EdgeInsets.all(13),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(Icons.shield_outlined, size: 19),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        'Usa de 15 a 128 caracteres. Los espacios cuentan.',
-                                        style: TextStyle(height: 1.35),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (_activation) ...[
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(15),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.055),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withValues(alpha: 0.10),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Row(
-                                        children: [
-                                          Icon(Icons.verified_user_outlined,
-                                              size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Información de registro',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.w800)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Versión 2026-10-15.1. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
-                                        style: TextStyle(
-                                          height: 1.4,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Material(
-                                        color: Colors.transparent,
-                                        child: CheckboxListTile(
-                                          contentPadding: EdgeInsets.zero,
-                                          controlAffinity:
-                                              ListTileControlAffinity.leading,
-                                          value: _acceptsNotice,
-                                          onChanged: _busy
-                                              ? null
-                                              : (value) => setState(() =>
-                                                  _acceptsNotice =
-                                                      value ?? false),
-                                          title: const Text(
-                                            'Leí y confirmo esta información',
-                                            style: TextStyle(fontSize: 13),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              if (!_fromCodeCheck) ..._messages(),
-                              const SizedBox(height: 18),
-                              GradientActionButton(
-                                label: _activation
-                                    ? 'Activar mi cuenta'
-                                    : 'Guardar cambios',
-                                onPressed: _submit,
-                                busy: _busy,
-                                busyLabel: 'Procesando…',
-                              ),
-                            ],
+                        ),
+                        Material(
+                          color: Colors.transparent,
+                          child: CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            value: _acceptsNotice,
+                            onChanged: _busy
+                                ? null
+                                : (value) => setState(
+                                    () => _acceptsNotice = value ?? false),
+                            title: const Text(
+                              'Leí y confirmo esta información',
+                              style: TextStyle(fontSize: 14),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+                if (!_fromCodeCheck) ..._messages(),
+                const SizedBox(height: 20),
+                GradientActionButton(
+                  label: _activation ? 'Activar mi cuenta' : 'Guardar cambios',
+                  onPressed: _submit,
+                  busy: _busy,
+                  busyLabel: 'Procesando…',
                 ),
-              ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _AccessHeader extends StatelessWidget {
-  const _AccessHeader({required this.activation, required this.credentials});
-
-  final bool activation;
-  final bool credentials;
+/// Live length check, so the 15-character rule shows before submitting.
+class _PasswordLength extends StatelessWidget {
+  const _PasswordLength({required this.controller});
+  final TextEditingController controller;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final title = activation
-        ? 'Tu espacio de bienestar empieza aquí'
-        : credentials
-            ? 'Mantén segura tu cuenta'
-            : 'Volvamos a conectarte';
-    final subtitle = activation
-        ? 'Unos pasos sencillos para continuar con tu profesional.'
-        : credentials
-            ? 'Actualiza tus datos de acceso con tranquilidad.'
-            : 'Recupera el acceso a tu expediente de forma segura.';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: BrandColors.gradient,
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.24),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Icon(
-            activation
-                ? Icons.favorite_rounded
-                : credentials
-                    ? Icons.lock_reset_rounded
-                    : Icons.key_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.08,
-                      letterSpacing: -0.5,
-                    ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.35,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    final colors = Theme.of(context).colorScheme;
+    return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          final length = value.text.runes.length;
+          final valid = length >= 15 && length <= 128;
+          final tone = valid ? BrandColors.success : colors.secondary;
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                        minHeight: 4,
+                        value: (length / 15).clamp(0, 1).toDouble(),
+                        color: tone)),
+                const SizedBox(height: 8),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(
+                      valid
+                          ? Icons.check_circle_rounded
+                          : Icons.shield_outlined,
+                      size: 17,
+                      color: statusInk(context, tone)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(
+                          'Usa de 15 a 128 caracteres. Los espacios cuentan.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: colors.onSurfaceVariant))),
+                  if (length > 0) ...[
+                    const SizedBox(width: 8),
+                    Text('$length',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: colors.onSurfaceVariant)),
+                  ],
+                ]),
+              ]);
+        });
   }
 }

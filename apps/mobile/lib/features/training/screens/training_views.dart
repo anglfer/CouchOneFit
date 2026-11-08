@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/detail_scaffold.dart';
+import '../../../shared/widgets/group_card.dart';
+import '../../../shared/widgets/section_title.dart';
+import '../../../shared/widgets/status_view.dart';
 import '../models/training.dart';
+import '../models/training_progress.dart';
 
 const _weekdays = [
   'lunes',
@@ -45,52 +50,6 @@ String clockLabel(Duration d) {
 String longDate(String date) {
   final d = trainingDate(date);
   return '${weekdayName(date)} ${d.day} de ${_months[d.month - 1]}';
-}
-
-/// Section caption used across the client screens (matches "Mi expediente").
-class TrainingEyebrow extends StatelessWidget {
-  const TrainingEyebrow(this.text, {super.key});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: TextStyle(
-          color: Theme.of(context).colorScheme.secondary,
-          fontSize: 11,
-          letterSpacing: 1.6,
-          fontWeight: FontWeight.w800));
-}
-
-class TrainingNotice extends StatelessWidget {
-  const TrainingNotice(
-      {super.key,
-      required this.text,
-      this.icon = Icons.info_outline,
-      this.error = false});
-  final String text;
-  final IconData icon;
-  final bool error;
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final foreground =
-        error ? colors.onErrorContainer : colors.onSecondaryContainer;
-    return Semantics(
-        liveRegion: true,
-        child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-                color:
-                    error ? colors.errorContainer : colors.secondaryContainer,
-                borderRadius: BorderRadius.circular(14)),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(icon, color: foreground, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Text(text,
-                      style: TextStyle(color: foreground, height: 1.35)))
-            ])));
-  }
 }
 
 /// Catalog media is [still thumbnail, animated GIF]. The GIF plays over the
@@ -196,7 +155,7 @@ class SetBadge extends StatelessWidget {
             style: TextStyle(
                 fontSize: radius * .9,
                 fontWeight: FontWeight.w800,
-                color: done ? Colors.white : colors.onSurface)));
+                color: done ? BrandColors.onSuccess : colors.onSurface)));
   }
 }
 
@@ -229,7 +188,7 @@ class TrainingChip extends StatelessWidget {
   }
 }
 
-/// Exercise row with thumbnail, name and prescription summary.
+/// Exercise row with thumbnail, order, name and prescription summary.
 class ExerciseTile extends StatelessWidget {
   const ExerciseTile(
       {super.key, required this.exercise, required this.index, this.onTap});
@@ -240,13 +199,12 @@ class ExerciseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            padding: const EdgeInsets.all(12),
             child: Row(children: [
               ExerciseAnimation(
-                  images: exercise.images, label: exercise.name, size: 56),
+                  images: exercise.images, label: exercise.name, size: 60),
               const SizedBox(width: 14),
               Expanded(
                   child: Column(
@@ -254,20 +212,40 @@ class ExerciseTile extends StatelessWidget {
                       children: [
                     Text('${index + 1}. ${exercise.name}',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
-                    const SizedBox(height: 2),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15.5,
+                            height: 1.25)),
+                    const SizedBox(height: 3),
                     Text(
                         [
                           exercise.summary,
                           if (exercise.restLabel != null) exercise.restLabel!
                         ].join(' · '),
                         style: TextStyle(
-                            color: colors.onSurfaceVariant, fontSize: 13)),
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                            height: 1.35)),
                   ])),
               if (onTap != null)
-                Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+                Icon(Icons.chevron_right_rounded,
+                    color: colors.onSurfaceVariant),
             ])));
   }
+}
+
+/// Titled block of the exercise detail.
+class _DetailSection extends StatelessWidget {
+  const _DetailSection(this.title, this.children);
+  final String title;
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SectionTitle(title),
+        const SizedBox(height: 12),
+        ...children,
+      ]));
 }
 
 class ExerciseDetailScreen extends StatelessWidget {
@@ -277,108 +255,111 @@ class ExerciseDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
-    return Scaffold(
-        appBar: AppBar(title: const Text('Ejercicio')),
-        body: SafeArea(
-            child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                children: [
-              Center(
+    return DetailScaffold(
+        title: const Text('Ejercicio'),
+        maxWidth: 520,
+        children: [
+          // White stage: the catalog art is drawn on white.
+          Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: exercise.images.isEmpty
+                      ? colors.surfaceContainerHighest
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(24)),
+              child: Center(
                   child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Center(
-                                child: ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 320),
-                                    child: ExerciseAnimation(
-                                        images: exercise.images,
-                                        label: exercise.name))),
-                            const SizedBox(height: 20),
-                            Text(exercise.name,
-                                style: text.headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800)),
-                            const SizedBox(height: 10),
-                            Wrap(spacing: 8, runSpacing: 8, children: [
-                              TrainingChip(
-                                  trainingCount(
-                                      exercise.sets.length, 'serie', 'series'),
-                                  icon: Icons.repeat),
-                              TrainingChip(
-                                  exercise.bodyweight
-                                      ? 'Peso corporal'
-                                      : 'Con carga (kg)',
-                                  icon: Icons.fitness_center),
-                              if (exercise.restLabel != null)
-                                TrainingChip(exercise.restLabel!,
-                                    icon: Icons.timer_outlined),
-                              for (final e in exercise.equipment)
-                                TrainingChip(e, icon: Icons.handyman_outlined),
-                            ]),
-                            if (exercise.muscles.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              const TrainingEyebrow('Músculos principales'),
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 8, runSpacing: 8, children: [
-                                for (final m in exercise.muscles)
-                                  TrainingChip(m,
-                                      icon: Icons.accessibility_new),
-                              ]),
-                            ],
-                            const SizedBox(height: 24),
-                            const TrainingEyebrow('Tu prescripción'),
-                            const SizedBox(height: 8),
-                            Card(
-                                margin: EdgeInsets.zero,
-                                child: Column(children: [
-                                  for (final entry
-                                      in exercise.sets.asMap().entries)
-                                    ListTile(
-                                        leading: SetBadge(
-                                            radius: 15,
-                                            kind: entry.value.kind,
-                                            text: exercise.badgeFor(entry.key)),
-                                        title: Text(entry.value.target)),
-                                ])),
-                            if (exercise.instructions.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              const TrainingEyebrow(
-                                  'Indicaciones de tu profesional'),
-                              const SizedBox(height: 8),
-                              Text(exercise.instructions,
-                                  style: const TextStyle(height: 1.45)),
-                            ],
-                            if (exercise.guidance.isNotEmpty) ...[
-                              const SizedBox(height: 24),
-                              const TrainingEyebrow('Técnica paso a paso'),
-                              for (final entry
-                                  in exercise.guidance.asMap().entries)
-                                Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${entry.key + 1}.',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w700)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                              child: Text(entry.value,
-                                                  style: const TextStyle(
-                                                      height: 1.45))),
-                                        ])),
-                              const SizedBox(height: 24),
-                              Text(
-                                  'Animaciones de ejercicios: © Gym visual · gymvisual.com',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: colors.onSurfaceVariant)),
-                            ],
-                          ])))
-            ])));
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      child: ExerciseAnimation(
+                          images: exercise.images, label: exercise.name)))),
+          const SizedBox(height: 20),
+          Semantics(
+              header: true,
+              child: Text(exercise.name, style: text.headlineSmall)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            TrainingChip(trainingCount(exercise.sets.length, 'serie', 'series'),
+                icon: Icons.repeat),
+            TrainingChip(
+                exercise.bodyweight ? 'Peso corporal' : 'Con carga (kg)',
+                icon: Icons.fitness_center),
+            if (exercise.restLabel != null)
+              TrainingChip(exercise.restLabel!, icon: Icons.timer_outlined),
+            for (final e in exercise.equipment)
+              TrainingChip(e, icon: Icons.handyman_outlined),
+          ]),
+          if (exercise.muscles.isNotEmpty)
+            _DetailSection('Músculos principales', [
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final m in exercise.muscles)
+                  TrainingChip(m, icon: Icons.accessibility_new),
+              ]),
+            ]),
+          _DetailSection('Tu prescripción', [
+            GroupCard(indent: 56, children: [
+              for (final entry in exercise.sets.asMap().entries)
+                Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(children: [
+                      SetBadge(
+                          radius: 15,
+                          kind: entry.value.kind,
+                          text: exercise.badgeFor(entry.key)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(entry.value.target,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600))),
+                    ])),
+            ]),
+          ]),
+          if (exercise.instructions.isNotEmpty)
+            _DetailSection('Indicaciones de tu profesional', [
+              Text(exercise.instructions, style: const TextStyle(height: 1.45)),
+            ]),
+          if (exercise.guidance.isNotEmpty) ...[
+            _DetailSection('Técnica paso a paso', [
+              for (final entry in exercise.guidance.asMap().entries)
+                Padding(
+                    padding: EdgeInsets.only(top: entry.key == 0 ? 0 : 12),
+                    child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _StepNumber(entry.key + 1),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Padding(
+                                  padding: const EdgeInsets.only(top: 3),
+                                  child: Text(entry.value,
+                                      style: const TextStyle(height: 1.45)))),
+                        ])),
+            ]),
+            const SizedBox(height: 16),
+            Text('Animaciones de ejercicios: © Gym visual · gymvisual.com',
+                style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+          ],
+        ]);
+  }
+}
+
+class _StepNumber extends StatelessWidget {
+  const _StepNumber(this.number);
+  final int number;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+            shape: BoxShape.circle, color: colors.primaryContainer),
+        child: Text('$number',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: colors.onPrimaryContainer)));
   }
 }
 
@@ -386,40 +367,50 @@ class TrainingDayScreen extends StatelessWidget {
   const TrainingDayScreen({super.key, required this.day});
   final TrainingDay day;
   @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: Text(day.name)),
-      body: SafeArea(
-          child: ListView(padding: const EdgeInsets.all(20), children: [
-        Center(
-            child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (day.kind == 'rest')
-                        const TrainingNotice(
-                            icon: Icons.spa_outlined,
-                            text:
-                                'Día de descanso programado. No hay series por registrar.')
-                      else ...[
-                        TrainingEyebrow(
-                            '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}'),
-                        const SizedBox(height: 8),
-                        for (final entry in day.exercises.asMap().entries)
-                          ExerciseTile(
-                              exercise: entry.value,
-                              index: entry.key,
-                              onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                      builder: (_) => ExerciseDetailScreen(
-                                          exercise: entry.value)))),
-                      ],
-                    ])))
-      ])));
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    if (day.kind == 'rest') {
+      return Scaffold(
+          appBar: AppBar(title: Text(day.name)),
+          body: const SafeArea(
+              child: StatusView(
+                  icon: Icons.bedtime_outlined,
+                  title: 'Día de descanso',
+                  message:
+                      'Día de descanso programado. No hay series por registrar: recuperar también es parte del plan.')));
+    }
+    final groups = dayGroups(day);
+    return DetailScaffold(title: Text(day.name), maxWidth: 520, children: [
+      Text(
+          '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}',
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: colors.onSurfaceVariant)),
+      if (groups.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final g in groups)
+            TrainingChip(g, icon: Icons.accessibility_new),
+        ]),
+      ],
+      const SizedBox(height: 20),
+      GroupCard(indent: 86, children: [
+        for (final entry in day.exercises.asMap().entries)
+          ExerciseTile(
+              exercise: entry.value,
+              index: entry.key,
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                      builder: (_) =>
+                          ExerciseDetailScreen(exercise: entry.value)))),
+      ]),
+    ]);
+  }
 }
 
-/// Large tab title with subtitle and an optional action (theme toggle…).
+/// Large tab title with its context underneath and an optional action.
 class ScreenHeader extends StatelessWidget {
   const ScreenHeader(
       {super.key, required this.title, required this.subtitle, this.trailing});
@@ -429,8 +420,8 @@ class ScreenHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        padding: const EdgeInsets.fromLTRB(2, 4, 0, 18),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,74 +436,106 @@ class ScreenHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(subtitle,
                     style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        height: 1.3,
                         color: colors.onSurfaceVariant)),
               ])),
-          if (trailing != null) trailing!,
+          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
         ]));
   }
 }
 
-/// Number tile for the progress grid.
+/// One metric cell: label on top, the number as the loudest element.
 class StatTile extends StatelessWidget {
   const StatTile(
       {super.key,
       required this.icon,
       required this.label,
       required this.value,
-      this.highlight = false});
+      this.highlight = false,
+      this.large = false});
   final IconData icon;
   final String label, value;
-  final bool highlight;
+  final bool highlight, large;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final tone = highlight
+        ? statusInk(context, BrandColors.success)
+        : colors.onSurfaceVariant;
     return Semantics(
         label: '$label: $value',
         child: ExcludeSemantics(
-            child: Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Icon(icon,
-                                size: 16, color: colors.onSurfaceVariant),
-                            const SizedBox(width: 6),
-                            // Narrow tiles shrink one-word labels and values
-                            // instead of breaking them mid-word.
-                            Expanded(
-                                child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(label,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color: colors.onSurfaceVariant)))),
-                          ]),
-                          const SizedBox(height: 8),
-                          FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(value,
-                                  style: TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
-                                      // Darker green keeps AA contrast on white.
-                                      color: highlight
-                                          ? Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? BrandColors.success
-                                              : const Color(0xFF0A7D56)
-                                          : colors.onSurface))),
-                        ])))));
+            child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Icon(icon, size: 16, color: tone),
+                        const SizedBox(width: 6),
+                        // Narrow tiles shrink one-word labels and values
+                        // instead of breaking them mid-word.
+                        Expanded(
+                            child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(label,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.onSurfaceVariant)))),
+                      ]),
+                      const SizedBox(height: 6),
+                      FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(value,
+                              style: TextStyle(
+                                  fontSize: large ? 34 : 24,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: large ? -0.8 : -0.4,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                  color: highlight ? tone : colors.onSurface))),
+                    ]))));
+  }
+}
+
+/// Metrics that belong together in one card, two per row; they stack when
+/// narrow or with large text.
+class StatPanel extends StatelessWidget {
+  const StatPanel({super.key, required this.tiles, this.lead});
+  final List<StatTile> tiles;
+
+  /// Optional full-width metric above the grid.
+  final StatTile? lead;
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final stacked = constraints.maxWidth < 280 ||
+          MediaQuery.textScalerOf(context).scale(14) > 22;
+      return GroupCard(children: [
+        if (lead != null) lead!,
+        if (stacked)
+          ...tiles
+        else
+          for (var i = 0; i < tiles.length; i += 2)
+            IntrinsicHeight(
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                  Expanded(child: tiles[i]),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                      child: i + 1 < tiles.length
+                          ? tiles[i + 1]
+                          : const SizedBox.shrink()),
+                ])),
+      ]);
+    });
   }
 }
 
@@ -649,35 +672,100 @@ class _TrendPainter extends CustomPainter {
       old.values != values || old.line != line;
 }
 
-/// Single choice: a segmented control when the labels fit in one row,
-/// wrapping chips otherwise (narrow screens or large text).
+/// Single choice: a pill track when the labels fit in one row, swipeable
+/// chips otherwise (narrow screens or large text).
 class ChoiceBar<T> extends StatelessWidget {
   const ChoiceBar(
       {super.key,
       required this.options,
       required this.selected,
-      required this.onChanged});
+      required this.onChanged,
+      this.icons});
   final List<(T, String)> options;
   final T selected;
   final ValueChanged<T>? onChanged;
+
+  /// Optional icon per option, track layout only.
+  final List<IconData>? icons;
+
+  Widget _segment(BuildContext context, int index) {
+    final colors = Theme.of(context).colorScheme;
+    final (value, label) = options[index];
+    final on = value == selected;
+    final enabled = onChanged != null;
+    final tone = !enabled
+        ? Theme.of(context).hintColor
+        : on
+            ? Colors.white
+            : colors.onSurfaceVariant;
+    return Semantics(
+        button: true,
+        selected: on,
+        enabled: enabled,
+        label: label,
+        excludeSemantics: true,
+        // Excluding the child also drops its tap: expose it here.
+        onTap: enabled ? () => onChanged!(value) : null,
+        child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: enabled ? () => onChanged!(value) : null,
+            child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: AnimatedContainer(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: on
+                            ? enabled
+                                ? actionFill(context)
+                                : colors.surface
+                            : null,
+                        borderRadius: BorderRadius.circular(11),
+                        border: on && !enabled
+                            ? Border.all(color: colors.outline)
+                            : null),
+                    child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (icons != null) ...[
+                            Icon(icons![index], size: 17, color: tone),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(label,
+                              maxLines: 1,
+                              style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight:
+                                      on ? FontWeight.w800 : FontWeight.w600,
+                                  color: tone)),
+                        ]))))));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scale = MediaQuery.textScalerOf(context).scale(14);
-    // Segments share the width equally, so the longest label decides.
-    final longest =
-        options.fold<int>(0, (m, o) => o.$2.length > m ? o.$2.length : m);
-    final needed = options.length * (longest * scale * .55 + 36);
+    final scale = MediaQuery.textScalerOf(context).scale(13.5);
+    final characters = options.fold<int>(0, (t, o) => t + o.$2.length);
+    final needed =
+        characters * scale * .56 + options.length * (icons == null ? 22 : 44);
     return LayoutBuilder(
         builder: (context, c) => needed <= c.maxWidth
-            ? SegmentedButton<T>(
-                showSelectedIcon: false,
-                segments: [
-                  for (final (value, label) in options)
-                    ButtonSegment(value: value, label: Text(label))
-                ],
-                selected: {selected},
-                onSelectionChanged:
-                    onChanged == null ? null : (v) => onChanged!(v.first))
+            ? DecoratedBox(
+                decoration: innerPanelDecoration(context, radius: 14),
+                child: Material(
+                    type: MaterialType.transparency,
+                    child: Row(children: [
+                      // Wider labels get more room: equal shares would force
+                      // the swipeable chips much sooner.
+                      for (var i = 0; i < options.length; i++)
+                        Expanded(
+                            flex: options[i].$2.length + 4,
+                            child: _segment(context, i)),
+                    ])))
             // One swipeable line: a wrapped row would orphan the last tab.
             : SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -694,5 +782,53 @@ class ChoiceBar<T> extends StatelessWidget {
                                 ? null
                                 : (_) => onChanged!(value))),
                 ])));
+  }
+}
+
+/// Heading of a summary card: badge, title and an optional link that drops
+/// below the title when the row would squeeze it (narrow or large text).
+class CardTitle extends StatelessWidget {
+  const CardTitle(
+      {super.key,
+      required this.icon,
+      required this.title,
+      this.action,
+      this.onAction});
+  final IconData icon;
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+  @override
+  Widget build(BuildContext context) {
+    final heading = Row(children: [
+      Icon(icon, size: 18, color: Theme.of(context).colorScheme.secondary),
+      const SizedBox(width: 8),
+      Expanded(
+          child: Semantics(
+              header: true,
+              child: Text(title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontSize: 15, fontWeight: FontWeight.w800)))),
+    ]);
+    if (action == null) return heading;
+    final link = TextButton(
+        onPressed: onAction,
+        style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(child: Text(action!, overflow: TextOverflow.ellipsis)),
+          const Icon(Icons.chevron_right_rounded, size: 18),
+        ]));
+    return LayoutBuilder(
+        builder: (context, c) => c.maxWidth >= 300 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 19.5
+            ? Row(children: [Expanded(child: heading), link])
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                heading,
+                Align(alignment: Alignment.centerLeft, child: link),
+              ]));
   }
 }

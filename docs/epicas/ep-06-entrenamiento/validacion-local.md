@@ -105,3 +105,34 @@ Pendiente: recorrido en navegador con API real.
 | T | `dart format`, `flutter analyze`, `flutter test` | Sin incidencias; 65/65. |
 
 Pendiente: recorrido manual en dispositivo (minimizar durante un descanso).
+
+### Mejora integral de UI/UX móvil (08-nov-2026)
+
+- **R** Petición de elevar la calidad visual y la consistencia de toda la app móvil, sin alterar lógica ni contratos.
+- Cambio: tema ampliado (tipografía, `ListTile`, campos, checkbox, chips, slider, diálogos, hojas) y transición de pantallas única; piezas compartidas `NoticeBanner`, `StatusView`, `SheetHeader`/`SheetOption`, `IconBadge`, `CardTitle` y `ChoiceBar` rediseñado. Se elimina `HomeScreen`, sin consumidores. Paleta y radios sin cambios.
+- **T** Las pruebas nuevas detectaron que 7 controles propios (navegación inferior, «Entrenar», días de la semana, pasos de ejercicio, serie, esfuerzo y marca anterior) se anunciaban como botón sin acción semántica: un lector de pantalla no podía activarlos. Corregido con `onTap` en su `Semantics`.
+
+| Tipo | Comprobación | Resultado |
+| --- | --- | --- |
+| T | `dart format`, `flutter analyze`, `flutter test` | Sin incidencias; 73/73 (8 nuevas en `shared_ui_test.dart` y `training_test.dart`). |
+| T | Capturas 390 px de widget tests (temporales, no versionadas) en claro y oscuro: bienvenida, acceso, activación, error de sesión, Inicio, Planes, Progreso, Cuenta, día, ejercicio, sesión, descanso, resumen, hojas y barra minimizada | Revisadas por el agente; defectos encontrados corregidos. Datos sintéticos, sin ilustraciones de red. |
+| T | Pruebas de widgets a 320/390/768 px con texto 1,8× | Sin desbordes. |
+| T | APK debug en emulador Android (API 37), sesión existente y sin API local: carga, lectura guardada, Inicio, Planes, Progreso con error y reintento, Cuenta, día de descanso y volver, en claro y oscuro | Sin errores en logcat. Solo lectura: no se registró nada ni se cerró sesión. |
+
+Pendiente: recorrido con API (login, activación, registrar y finalizar una sesión) en dispositivo, GIF reales, TalkBack, `integration_test/` y revisión humana del resultado visual.
+
+### Rediseño visual móvil (08-nov-2026)
+
+- **R** Petición de un lenguaje visual premium, deportivo y consistente en toda la app, conservando funciones y contratos.
+- Cambio: superficie de pista como firma, una sola acción principal, sin tarjetas anidadas ni etiquetas en mayúsculas, barra inferior con «Entrenar» acoplado, tabla de series sin panel interior y estados vacíos propios. Reglas en «Lenguaje visual móvil» de [DESIGN.md](../../../DESIGN.md).
+- **T** Tres defectos encontrados y corregidos: los iconos de la barra de estado eran blancos sobre fondo claro con cabeceras transparentes; el texto blanco sobre `#7C5CFF` no llegaba a AA; y en Android no se guardaban las preferencias, porque el canal nativo rechazaba `cof_app_settings`, aunque la app decía que se guardaban en el teléfono. `MainActivity.kt` ahora admite esa clave, en su propio archivo.
+
+| Tipo | Comprobación | Resultado |
+| --- | --- | --- |
+| T | `dart format`, `flutter analyze`, `flutter test` | Sin incidencias; 76/76 (3 nuevas en `shared_ui_test.dart`). |
+| T | Capturas de widget tests (temporales, no versionadas) en claro y oscuro: 34 escenarios a 320/390/768 px con datos sintéticos y sin ilustraciones de red | Revisadas por el agente. |
+| T | APK debug en emulador Android (API 37), con la app real y la API simulada en un punto de entrada temporal no versionado: bienvenida, cambio de tema, acceso, Inicio, inicio de entrenamiento, marcar serie y descanso, minimizar, Planes, Progreso, Cuenta, descartar y cerrar sesión | Sin incidencias visibles; barra de estado legible en ambos temas. |
+| T | Mismo APK: elegir tema oscuro, forzar cierre y volver a abrir | El tema se conserva. |
+| T | APK debug normal reinstalado en el emulador, con la sesión ya guardada y `API_BASE_URL` productiva: solo se abrió, una lectura | La API no respondió; se muestra «No pudimos abrir tu expediente» con «Reintentar consulta». Sin errores de Flutter en logcat. No acredita el recorrido con API. |
+
+Pendiente: recorrido con API real, finalizar una sesión en dispositivo (solo cubierto por pruebas de widgets), teclado en pantalla (el emulador no lo mostró), GIF reales, TalkBack, `integration_test/` y revisión humana del resultado visual.

@@ -138,7 +138,7 @@ mobile/
     └── main.dart
 ```
 
-La pantalla inicial se encuentra en `features/home/screens/home_screen.dart`. `main.dart` inicia la aplicación y configura su tema; la pantalla recibe el cambio de tema mediante callback y conserva su interfaz. El tema es un recurso transversal en `shared/theme/`.
+`main.dart` inicia la aplicación, configura su tema y abre `routes/client_session_gate.dart`, que decide entre bienvenida, acceso y el shell del cliente (`features/training/screens/client_shell.dart`). El tema (incluida la transición de pantallas) es un recurso transversal en `shared/theme/`; los componentes reutilizables (avisos, estados, hojas inferiores, insignias) viven en `shared/widgets/`.
 
 ---
 

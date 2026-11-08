@@ -20,7 +20,8 @@ class InMemorySessionStorage implements SessionStorage {
   static const String _sessionKey = 'cof_client_session';
   final Map<String, String> _entries = <String, String>{};
 
-  Map<String, String> get rawEntries => Map<String, String>.unmodifiable(_entries);
+  Map<String, String> get rawEntries =>
+      Map<String, String>.unmodifiable(_entries);
 
   @override
   Future<StoredSession?> readSession() async {

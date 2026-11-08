@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/coming_soon_card.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
+import '../../../shared/widgets/group_card.dart';
+import '../../../shared/widgets/icon_badge.dart';
+import '../../../shared/widgets/journey_surface.dart';
+import '../../../shared/widgets/sheet_parts.dart';
+import '../../../shared/widgets/status_view.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../widgets/muscle_map.dart';
 import 'progress_tab.dart';
+import '../../../shared/widgets/section_title.dart';
 import 'training_views.dart';
 
 /// Inicio: a browsable week, the selected day's workout, recovery and what
@@ -51,7 +57,7 @@ class _HomeTabState extends State<HomeTab> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (plan != null) ...[
         _weekCard(context, plan),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _weekStats(context, plan),
         ..._missed(context, plan),
         if (recentSessions.isNotEmpty) ...[
@@ -62,10 +68,14 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 12),
           _recoveryCard(context, recoveries),
         ],
-      ],
-      const SizedBox(height: 22),
-      const TrainingEyebrow('Muy pronto en tu app'),
-      const SizedBox(height: 10),
+      ] else
+        const StatusView(
+            icon: Icons.event_note_outlined,
+            title: 'Todavía no tienes una rutina asignada',
+            message: 'Tu profesional la compartirá aquí cuando esté lista.'),
+      const SizedBox(height: 24),
+      const SectionTitle('Muy pronto en tu app'),
+      const SizedBox(height: 12),
       const ComingSoonRow(cards: [
         ComingSoonCard(
             icon: Icons.monitor_weight_outlined,
@@ -97,74 +107,57 @@ class _HomeTabState extends State<HomeTab> {
       _ => 'Semana del ${shortDate(monday)}',
     };
     final awayFromToday = _week != 0 || selected != data.today;
-    return Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    IconButton(
-                        tooltip: 'Semana anterior',
-                        onPressed:
-                            _week <= -12 ? null : () => setState(() => _week--),
-                        icon: const Icon(Icons.chevron_left)),
-                    Expanded(
-                        child: GestureDetector(
-                            onTap: awayFromToday
-                                ? () => setState(() {
-                                      _week = 0;
-                                      _selected = data.today;
-                                    })
-                                : null,
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(title,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          color: colors.onSurface)),
-                                  if (awayFromToday)
-                                    Text('Volver a hoy',
-                                        style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: colors.secondary)),
-                                ]))),
-                    IconButton(
-                        tooltip: 'Semana siguiente',
-                        onPressed:
-                            _week >= 4 ? null : () => setState(() => _week++),
-                        icon: const Icon(Icons.chevron_right)),
-                  ]),
-                  const SizedBox(height: 2),
-                  Row(children: [
-                    for (var i = 0; i < 7; i++)
-                      Expanded(
-                          child: _weekCell(context, plan, shiftDate(monday, i),
-                              i, selected)),
-                  ]),
-                  const SizedBox(height: 12),
-                  Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: _dayPanel(context, plan, selected)),
-                  if (plan.days.where((d) => d.kind == 'training').length >
-                      1) ...[
-                    const SizedBox(height: 8),
-                    Center(
-                        child: TextButton.icon(
-                            style: TextButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6)),
-                            onPressed: () => _pickPlanDay(context, plan),
-                            icon:
-                                const Icon(Icons.swap_horiz_rounded, size: 18),
-                            label: const Text('Ver otro día de tu rutina'))),
-                  ],
-                ])));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        IconButton(
+            tooltip: 'Semana anterior',
+            onPressed: _week <= -12 ? null : () => setState(() => _week--),
+            icon: const Icon(Icons.chevron_left)),
+        Expanded(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: colors.onSurface)),
+          if (awayFromToday)
+            TextButton(
+                style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w700)),
+                onPressed: () => setState(() {
+                      _week = 0;
+                      _selected = data.today;
+                    }),
+                child: const Text('Volver a hoy')),
+        ])),
+        IconButton(
+            tooltip: 'Semana siguiente',
+            onPressed: _week >= 4 ? null : () => setState(() => _week++),
+            icon: const Icon(Icons.chevron_right)),
+      ]),
+      const SizedBox(height: 4),
+      Row(children: [
+        for (var i = 0; i < 7; i++)
+          Expanded(
+              child:
+                  _weekCell(context, plan, shiftDate(monday, i), i, selected)),
+      ]),
+      const SizedBox(height: 14),
+      _dayPanel(context, plan, selected),
+      if (plan.days.where((d) => d.kind == 'training').length > 1) ...[
+        const SizedBox(height: 6),
+        Center(
+            child: TextButton.icon(
+                onPressed: () => _pickPlanDay(context, plan),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                label: const Text('Ver otro día de tu rutina'))),
+      ],
+    ]);
   }
 
   void _pickPlanDay(BuildContext context, TrainingPlan plan) {
@@ -173,66 +166,38 @@ class _HomeTabState extends State<HomeTab> {
     showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
-        builder: (sheet) {
-          final colors = Theme.of(sheet).colorScheme;
-          return SafeArea(
-              child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(children: [
-                          const Expanded(
-                              child: Text('Días de esta semana',
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800))),
-                          IconButton(
-                              tooltip: 'Cerrar',
-                              onPressed: () => Navigator.pop(sheet),
-                              icon: const Icon(Icons.close, size: 20)),
-                        ]),
-                        Text(
-                            'Selecciona un día para consultar sus ejercicios o iniciar sesión si corresponde.',
-                            style: TextStyle(color: colors.onSurfaceVariant)),
-                        const SizedBox(height: 12),
-                        for (final d in dates)
-                          Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: DecoratedBox(
-                                  decoration:
-                                      innerPanelDecoration(sheet, radius: 14),
-                                  child: Material(
-                                      type: MaterialType.transparency,
-                                      borderRadius: BorderRadius.circular(14),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: ListTile(
-                                          leading: Icon(
-                                              plan.dayFor(d)?.kind == 'training'
-                                                  ? Icons.fitness_center
-                                                  : Icons.bedtime_outlined,
-                                              color: plan.dayFor(d)?.kind ==
-                                                      'training'
-                                                  ? colors.secondary
-                                                  : colors.onSurfaceVariant),
-                                          title: Text(
-                                              plan.dayFor(d)?.kind == 'rest'
-                                                  ? 'Día de descanso'
-                                                  : plan.dayFor(d)?.name ??
-                                                      'Sin entrenamiento',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w700)),
-                                          subtitle: Text(
-                                              '${capitalized(longDate(d))}${d == data.today ? ' · Hoy' : ''}'),
-                                          trailing:
-                                              const Icon(Icons.chevron_right),
-                                          onTap: () {
-                                            Navigator.pop(sheet);
-                                            setState(() => _selected = d);
-                                          })))),
-                      ])));
-        });
+        isScrollControlled: true,
+        builder: (sheet) => SafeArea(
+            child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SheetHeader('Días de esta semana',
+                          subtitle:
+                              'Selecciona un día para consultar sus ejercicios o iniciar sesión si corresponde.'),
+                      for (final d in dates)
+                        SheetOption(
+                            selected: d == (_selected ?? data.today),
+                            leading: IconBadge(
+                                plan.dayFor(d)?.kind == 'training'
+                                    ? Icons.fitness_center
+                                    : Icons.bedtime_outlined,
+                                filled: plan.dayFor(d)?.kind == 'training',
+                                tint: Theme.of(sheet)
+                                    .colorScheme
+                                    .onSurfaceVariant),
+                            title: plan.dayFor(d)?.kind == 'rest'
+                                ? 'Día de descanso'
+                                : plan.dayFor(d)?.name ?? 'Sin entrenamiento',
+                            subtitle:
+                                '${capitalized(longDate(d))}${d == data.today ? ' · Hoy' : ''}',
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              setState(() => _selected = d);
+                            }),
+                    ]))));
   }
 
   Widget _weekCell(BuildContext context, TrainingPlan plan, String date, int i,
@@ -249,74 +214,78 @@ class _HomeTabState extends State<HomeTab> {
             : day.kind == 'rest'
                 ? 'descanso'
                 : day.name;
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final ink = chosen
+        ? Colors.white
+        : day?.kind == 'rest' || day == null
+            ? colors.onSurfaceVariant
+            : colors.onSurface;
     return Semantics(
         button: true,
         selected: chosen,
         label: '${longDate(date)}${current ? ', hoy' : ''}: $status',
+        onTap: () => setState(() => _selected = date),
         child: ExcludeSemantics(
-            child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => setState(() => _selected = date),
-                child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(children: [
-                      Text(weekdayInitials[i],
-                          style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
-                              color: chosen
-                                  ? colors.secondary
-                                  : colors.onSurfaceVariant)),
-                      const SizedBox(height: 6),
-                      Container(
-                          width: 38,
-                          height: 38,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: chosen ? BrandColors.gradient : null,
-                              boxShadow: chosen
-                                  ? [
-                                      BoxShadow(
-                                          color: colors.primary
-                                              .withValues(alpha: 0.38),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 3))
-                                    ]
-                                  : null,
-                              border: current && !chosen
-                                  ? Border.all(color: colors.primary, width: 2)
-                                  : null),
-                          child: FittedBox(
-                              child: Text('${trainingDate(date).day}',
+            child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => setState(() => _selected = date),
+                        child: AnimatedContainer(
+                            duration: disableAnim
+                                ? Duration.zero
+                                : const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                                color: chosen ? actionFill(context) : null,
+                                borderRadius: BorderRadius.circular(14),
+                                border: current && !chosen
+                                    ? Border.all(
+                                        color: colors.primary, width: 1.5)
+                                    : null),
+                            child: Column(children: [
+                              Text(weekdayInitials[i],
                                   style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
                                       color: chosen
-                                          ? Colors.white
-                                          : day?.kind == 'rest'
-                                              ? colors.onSurfaceVariant
-                                              : colors.onSurface)))),
-                      const SizedBox(height: 5),
-                      SizedBox(
-                          height: 12,
-                          child: done
-                              ? const Icon(Icons.check_circle,
-                                  size: 12, color: BrandColors.success)
-                              : day?.kind == 'training'
-                                  ? Center(
-                                      child: Container(
-                                          width: 6,
-                                          height: 6,
-                                          decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: chosen
-                                                  ? colors.secondary
-                                                  : colors.primary
-                                                      .withValues(alpha: .65))))
-                                  : null),
-                    ])))));
+                                          ? const Color(0xE6FFFFFF)
+                                          : colors.onSurfaceVariant)),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                  child: Text('${trainingDate(date).day}',
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures()
+                                          ],
+                                          color: ink))),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                  height: 12,
+                                  child: done
+                                      ? Icon(Icons.check_circle,
+                                          size: 12,
+                                          color: chosen
+                                              ? Colors.white
+                                              : statusInk(
+                                                  context, BrandColors.success))
+                                      : day?.kind == 'training'
+                                          ? Center(
+                                              child: Container(
+                                                  width: 5,
+                                                  height: 5,
+                                                  decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: chosen
+                                                          ? Colors.white
+                                                          : colors.secondary)))
+                                          : null),
+                            ])))))));
   }
 
   Widget _dayPanel(BuildContext context, TrainingPlan plan, String date) {
@@ -336,102 +305,113 @@ class _HomeTabState extends State<HomeTab> {
                 ? 'Mañana'
                 : capitalized('${weekdayName(date)} ${trainingDate(date).day}');
     final groups = training ? dayGroups(day!) : const <String>[];
-    return Container(
-        padding: const EdgeInsets.all(15),
-        decoration: innerPanelDecoration(context, radius: 16),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                    gradient: training ? BrandColors.gradient : null,
-                    color: training ? null : colors.surface,
-                    borderRadius: BorderRadius.circular(13),
-                    boxShadow: training
-                        ? [
-                            BoxShadow(
-                                color: colors.primary.withValues(alpha: 0.28),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3))
-                          ]
-                        : null),
-                child: Icon(
+    if (!training) {
+      return Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                IconBadge(
                     day?.kind == 'rest'
                         ? Icons.bedtime_outlined
-                        : day == null
-                            ? Icons.event_busy_outlined
-                            : Icons.fitness_center,
-                    size: 21,
-                    color: training ? Colors.white : colors.onSurfaceVariant)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  TrainingEyebrow(label),
-                  const SizedBox(height: 1),
-                  Text(
-                      day?.kind == 'rest'
-                          ? 'Día de descanso'
-                          : day?.name ?? 'Sin entrenamiento',
-                      style: const TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3)),
-                  const SizedBox(height: 2),
-                  Text(
-                      training
-                          ? '${trainingCount(day!.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}'
-                          : day?.kind == 'rest'
+                        : Icons.event_busy_outlined,
+                    size: 46,
+                    tint: colors.onSurfaceVariant),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(
+                          '$label · ${day?.kind == 'rest' ? 'Día de descanso' : 'Sin entrenamiento'}',
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text(
+                          day?.kind == 'rest'
                               ? 'Recuperar también es parte del plan.'
                               : 'No hay nada programado.',
-                      style: TextStyle(
-                          fontSize: 13.5, color: colors.onSurfaceVariant)),
-                ])),
-            if (session?.status == 'finalized')
-              const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.check_circle,
-                      color: BrandColors.success, semanticLabel: 'Registrado')),
-          ]),
-          if (groups.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              for (final g in groups.take(4))
-                TrainingChip(g, icon: Icons.accessibility_new),
-            ]),
-          ],
-          if (training) ...[
-            const SizedBox(height: 13),
-            if (loggable)
-              GradientActionButton(
-                  label: session == null
-                      ? 'Empezar entrenamiento'
-                      : session.status == 'draft'
-                          ? 'Continuar entrenamiento'
-                          : 'Ver o corregir registro',
-                  busy: widget.opening,
-                  busyLabel: 'Abriendo…',
-                  icon: Icons.play_arrow_rounded,
-                  onPressed: widget.canLog ? () => widget.onStart(date) : null)
-            else if (session != null)
-              OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                          builder: (_) =>
-                              SessionDetailScreen(session: session))),
-                  icon: const Icon(Icons.receipt_long_outlined),
-                  label: const Text('Ver lo que registraste'))
-            else
-              OutlinedButton.icon(
-                  onPressed: () => widget.onShowDay(day!),
-                  icon: const Icon(Icons.list_alt),
-                  label: const Text('Ver ejercicios')),
-          ],
-        ]));
+                          style: TextStyle(
+                              fontSize: 13.5, color: colors.onSurfaceVariant)),
+                    ])),
+              ])));
+    }
+    const soft = Color(0xE6FFFFFF);
+    return JourneySurface(
+        child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: const Color(0x2EFFFFFF),
+                            borderRadius: BorderRadius.circular(99)),
+                        child: Text(label,
+                            style: const TextStyle(
+                                fontSize: 12.5, fontWeight: FontWeight.w700))),
+                    const Spacer(),
+                    if (session?.status == 'finalized')
+                      const Icon(Icons.check_circle,
+                          color: BrandColors.success,
+                          semanticLabel: 'Registrado'),
+                  ]),
+                  const SizedBox(height: 14),
+                  Text(day!.name,
+                      style: const TextStyle(
+                          fontSize: 30,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6)),
+                  const SizedBox(height: 6),
+                  Text(
+                      '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}',
+                      style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: soft)),
+                  if (groups.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(groups.take(4).join(' · '),
+                        style: const TextStyle(
+                            fontSize: 13.5, height: 1.35, color: soft)),
+                  ],
+                  const SizedBox(height: 18),
+                  if (loggable)
+                    GradientActionButton(
+                        inverse: true,
+                        label: session == null
+                            ? 'Empezar entrenamiento'
+                            : session.status == 'draft'
+                                ? 'Continuar entrenamiento'
+                                : 'Ver o corregir registro',
+                        busy: widget.opening,
+                        busyLabel: 'Abriendo…',
+                        icon: Icons.play_arrow_rounded,
+                        onPressed:
+                            widget.canLog ? () => widget.onStart(date) : null)
+                  else
+                    OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0x66FFFFFF))),
+                        onPressed: session != null
+                            ? () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        SessionDetailScreen(session: session)))
+                            : () => widget.onShowDay(day),
+                        icon: Icon(session != null
+                            ? Icons.receipt_long_outlined
+                            : Icons.list_alt),
+                        label: Text(session != null
+                            ? 'Ver lo que registraste'
+                            : 'Ver ejercicios')),
+                ])));
   }
 
   Widget _weekStats(BuildContext context, TrainingPlan plan) {
@@ -447,31 +427,19 @@ class _HomeTabState extends State<HomeTab> {
             return s != null && sessionPerformed(s) > 0;
           }).length;
     final streak = h == null ? null : TrainingStats(h, data.today).weekStreak;
-    return LayoutBuilder(builder: (context, constraints) {
-      final stacked = constraints.maxWidth < 310 ||
-          MediaQuery.textScalerOf(context).scale(14) > 22;
-      final first = StatTile(
+    return StatPanel(tiles: [
+      StatTile(
           icon: Icons.event_available_outlined,
           label: 'Esta semana',
           value: done == null ? '—' : '$done de $planned',
-          highlight: done != null && planned > 0 && done >= planned);
-      final second = StatTile(
+          highlight: done != null && planned > 0 && done >= planned),
+      StatTile(
           icon: Icons.local_fire_department_outlined,
           label: 'Racha semanal',
           value:
               streak == null ? '—' : trainingCount(streak, 'semana', 'semanas'),
-          highlight: (streak ?? 0) > 1);
-      if (stacked) {
-        return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [first, const SizedBox(height: 10), second]);
-      }
-      return Row(children: [
-        Expanded(child: first),
-        const SizedBox(width: 10),
-        Expanded(child: second),
-      ]);
-    });
+          highlight: (streak ?? 0) > 1),
+    ]);
   }
 
   Widget _volumeCard(BuildContext context, List<HistorySession> recent) {
@@ -483,21 +451,16 @@ class _HomeTabState extends State<HomeTab> {
     return Card(
         margin: EdgeInsets.zero,
         child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 14),
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(children: [
-                    Expanded(
-                        child: Text('Volumen acumulado',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: colors.onSurfaceVariant))),
-                    Flexible(
-                        child: TextButton(
-                            onPressed: widget.onOpenProgress,
-                            child: const Text('Historial ›'))),
-                  ]),
+                  CardTitle(
+                      icon: Icons.bar_chart_rounded,
+                      title: 'Volumen acumulado',
+                      action: 'Historial',
+                      onAction: widget.onOpenProgress),
+                  const SizedBox(height: 6),
                   Wrap(
                       spacing: 10,
                       runSpacing: 4,
@@ -505,8 +468,8 @@ class _HomeTabState extends State<HomeTab> {
                       children: [
                         Text('${trainingThousands(stats.volume)} kg',
                             style: const TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
                                 letterSpacing: -0.6,
                                 fontFeatures: [FontFeature.tabularFigures()])),
                         Padding(
@@ -514,9 +477,9 @@ class _HomeTabState extends State<HomeTab> {
                             child: Text(
                                 '${trainingCount(stats.total, 'sesión', 'sesiones')} registradas',
                                 style: TextStyle(
-                                    fontSize: 12.5,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: colors.secondary))),
+                                    color: colors.onSurfaceVariant))),
                       ]),
                   if (hasVolume && values.length >= 2) ...[
                     const SizedBox(height: 10),
@@ -531,25 +494,19 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _recoveryCard(BuildContext context, List<GroupRecovery> items) {
-    final colors = Theme.of(context).colorScheme;
     return Card(
         margin: EdgeInsets.zero,
         child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(children: [
-                    Expanded(
-                        child: Text('Recuperación muscular',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: colors.onSurfaceVariant))),
-                    Flexible(
-                        child: TextButton(
-                            onPressed: widget.onOpenProgress,
-                            child: const Text('Ver progreso'))),
-                  ]),
+                  CardTitle(
+                      icon: Icons.self_improvement_rounded,
+                      title: 'Recuperación muscular',
+                      action: 'Ver progreso',
+                      onAction: widget.onOpenProgress),
+                  const SizedBox(height: 8),
                   Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Column(
@@ -571,30 +528,25 @@ class _HomeTabState extends State<HomeTab> {
           offset
     ];
     if (pending.isEmpty) return const [];
-    final colors = Theme.of(context).colorScheme;
     return [
       const SizedBox(height: 20),
-      const TrainingEyebrow('¿Olvidaste registrar?'),
-      const SizedBox(height: 8),
-      for (final offset in pending)
-        Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-                enabled: widget.canLog,
-                leading: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(11)),
-                    child: Icon(Icons.history, color: colors.secondary)),
-                title: Text(
-                    '${offset == 1 ? 'Ayer' : 'Anteayer'} · ${plan.dayFor(shiftDate(data.today, -offset))!.name}',
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(
-                    '${shortDate(shiftDate(data.today, -offset))} · ${history?.on(shiftDate(data.today, -offset)) == null ? 'Sin registrar' : 'En progreso'}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => widget.onStart(shiftDate(data.today, -offset)))),
+      const SectionTitle('¿Olvidaste registrar?'),
+      const SizedBox(height: 10),
+      GroupCard(indent: 68, children: [
+        for (final offset in pending)
+          ListTile(
+              enabled: widget.canLog,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              leading: const IconBadge(Icons.history,
+                  tint: BrandColors.warning, size: 40),
+              title: Text(
+                  '${offset == 1 ? 'Ayer' : 'Anteayer'} · ${plan.dayFor(shiftDate(data.today, -offset))!.name}'),
+              subtitle: Text(
+                  '${shortDate(shiftDate(data.today, -offset))} · ${history?.on(shiftDate(data.today, -offset)) == null ? 'Sin registrar' : 'En progreso'}'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => widget.onStart(shiftDate(data.today, -offset))),
+      ]),
     ];
   }
 }

@@ -138,8 +138,11 @@ mobile-light:
   border: "#E1E4F3"
   navigation-background: "#FFFFFF"
   navigation-active: "#4037F7"
-  navigation-inactive: "#8D99C0"
+  navigation-inactive: "#626A90"
 ```
+
+`navigation-inactive` pasó de `#8D99C0` a `#626A90` el 08-nov-2026: la barra lleva
+texto de 11,5 unidades y el tono anterior no alcanzaba AA sobre blanco.
 
 ### mobile-dark
 
@@ -165,8 +168,39 @@ mobile-dark:
   navigation-inactive: "#8A82A8"
 ```
 
+**Diferencia pendiente de decidir (08-nov-2026):** `app_theme.dart` y
+`test/widget_test.dart` fijan el tema nocturno en `primary #7C5CFF`, `background
+#06040C` y `surface #110D1C`, no en los valores de esta tabla. Blanco sobre
+`#7C5CFF` da 4,3:1; por eso todo fondo con texto blanco en oscuro usa
+`nightAction #6A4CF0` (5,6:1), que es el mismo tono un paso más oscuro.
+
 Las pestañas del cliente llevan un brillo radial suave de `primary` en la
 parte superior (26 % de opacidad en oscuro, 7 % en claro).
+
+### Lenguaje visual móvil
+
+Vigente desde el 08-nov-2026. Se aplica en todas las pantallas de Flutter:
+
+- **Superficie de pista (`JourneySurface`):** la firma de la marca. Es un fondo
+  violeta nocturno con líneas de pista que se trazan una vez. Solo la lleva lo
+  principal de cada pantalla: bienvenida, entrenamiento del día, objetivo y
+  entrenamiento en curso. Conserva su color en ambos temas.
+- **Una sola acción principal:** `GradientActionButton` usa un único tono de
+  arriba abajo. Sobre la superficie de pista se invierte a blanco (`inverse`). El
+  degradado de marca no se usa en controles ni en selecciones.
+- **Sin tarjetas anidadas:** lo relacionado va en una tarjeta con filas separadas
+  por líneas (`GroupCard`) y las métricas en `StatPanel`.
+- **Títulos de sección en frase normal (`SectionTitle`):** no se usan etiquetas en
+  mayúsculas sobre un título. Las mayúsculas quedan solo para encabezados de
+  columna de una tabla.
+- **Estado:** `TonePill` para etiquetas y `statusInk` para texto de estado; el
+  tema claro usa una tinta más oscura para alcanzar AA. Sobre `success` el texto
+  es `onSuccess #052E22`, no blanco.
+- **Navegación:** barra inferior con línea de acento sobre el destino activo y
+  «Entrenar» como botón circular acoplado al borde superior.
+- **Movimiento:** cada pantalla tiene un solo momento propio: el trazo de la pista,
+  el avance de la barra de series o el pequeño rebote al marcar una serie. Todo se
+  desactiva con movimiento reducido.
 
 ## Estados compartidos
 
@@ -215,6 +249,6 @@ Validar contraste por combinación y tamaño; los HEX por sí solos no certifica
 
 - Web: marca y estados en `apps/web/src/index.css`; marketing claro/oscuro en `apps/web/src/features/marketing/marketing.css`; acceso/registro en `apps/web/src/features/auth/registration.css`.
 - Panel y administración: estructura compartida `apps/web/src/layouts/WorkspaceLayout.tsx`, componentes en `apps/web/src/components/` (incluido `ui.tsx`: PageHeader, Card, Badge, Meter), tokens `--ws-*` y clases `ws-*` en `apps/web/src/workspace.css` y tokens globales en `apps/web/src/index.css`, sin dependencia visual del marketing.
-- Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas.
+- Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas. Componentes compartidos en `apps/mobile/lib/shared/widgets/` (`NoticeBanner`, `StatusView`, `SheetHeader`/`SheetOption`, `IconBadge`, `GradientActionButton`, `JourneySurface`, `GroupCard`, `SectionTitle`, `TonePill`, `DetailScaffold`) y en `features/training/screens/training_views.dart` (`ChoiceBar`, `CardTitle`, `StatTile`, `StatPanel`, `ScreenHeader`).
 - Las vistas conceptuales de marketing conservan su contenido de ejemplo. Las pantallas reales usan la API y conservan comprobación de sesión, redirección por rol, reintento y cierre de sesión.
 - Esta decisión no añade agenda, chat, notificaciones (las rachas de entrenamiento se activaron en móvil por decisión del usuario del 04-nov-2026, ver EP-06), fotografías, reportes, bibliotecas multimedia ni reglas comerciales. Permisos y suscripciones siguen las HU/DEC y la API.

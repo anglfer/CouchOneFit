@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../shared/animations/premium_route.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/status_view.dart';
 import '../features/training/services/training_service.dart';
 import '../features/training/screens/client_shell.dart';
 import '../features/settings/services/settings_controller.dart';
@@ -272,6 +274,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     }
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: activeProfile == null
             ? null
@@ -288,10 +291,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
                 }),
               )
             : null,
-        backgroundColor: activeProfile == null
-            ? Theme.of(context).scaffoldBackgroundColor
-            : null,
-        scrolledUnderElevation: activeProfile == null ? 0 : null,
+        backgroundColor: Colors.transparent,
         actions: [
           Builder(builder: (context) {
             final dark = Theme.of(context).brightness == Brightness.dark;
@@ -317,91 +317,95 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
           }),
         ],
       ),
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: _loadingProfile ||
-                  _queryFailed ||
-                  activeProfile == null ||
-                  MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 320),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          layoutBuilder: (current, previous) => Stack(
-            fit: StackFit.expand,
-            children: [
-              for (final child in previous)
-                ExcludeSemantics(child: IgnorePointer(child: child)),
-              if (current != null) current,
-            ],
-          ),
-          transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                  position: Tween<Offset>(
-                          begin: const Offset(0, 0.025), end: Offset.zero)
-                      .animate(animation),
-                  child: child)),
-          child: _loadingProfile
-              ? Center(
-                  key: const ValueKey('record-loading'),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const CircularProgressIndicator(),
-                    Text(_isRefreshing
+      body: DecoratedBox(
+        decoration: brandGlow(context),
+        child: SafeArea(
+          child: AnimatedSwitcher(
+            duration: _loadingProfile ||
+                    _queryFailed ||
+                    activeProfile == null ||
+                    MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (current, previous) => Stack(
+              fit: StackFit.expand,
+              children: [
+                for (final child in previous)
+                  ExcludeSemantics(child: IgnorePointer(child: child)),
+                if (current != null) current,
+              ],
+            ),
+            transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                    position: Tween<Offset>(
+                            begin: const Offset(0, 0.025), end: Offset.zero)
+                        .animate(animation),
+                    child: child)),
+            child: _loadingProfile
+                ? StatusView(
+                    key: const ValueKey('record-loading'),
+                    loading: true,
+                    title: _isRefreshing
                         ? 'Cerrando sesión…'
-                        : 'Consultando tu expediente…')
-                  ]))
-              : _queryFailed
-                  ? Center(
-                      key: const ValueKey('record-query-error'),
-                      child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            Semantics(
-                                liveRegion: true,
-                                child: Text(_errorMessage ??
-                                    'No pudimos consultar tu expediente.')),
-                            TextButton(
+                        : 'Consultando tu expediente…',
+                    message: _isRefreshing
+                        ? 'Estamos cerrando tu sesión de forma segura.'
+                        : 'Preparamos tu espacio con lo último de tu profesional.')
+                : _queryFailed
+                    ? StatusView(
+                        key: const ValueKey('record-query-error'),
+                        icon: Icons.error_outline_rounded,
+                        tint: BrandColors.error,
+                        title: 'No pudimos abrir tu expediente',
+                        message: _errorMessage ??
+                            'No pudimos consultar tu expediente.',
+                        actions: [
+                            FilledButton.icon(
                                 onPressed: () => _loadProfile(),
-                                child: const Text('Reintentar consulta')),
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Reintentar consulta')),
                             if (_hasSession)
-                              TextButton(
+                              OutlinedButton.icon(
                                   onPressed: _handleLogout,
-                                  child: const Text('Cerrar sesión')),
-                          ])))
-                  : activeProfile == null
-                      ? _showWelcome &&
-                              _errorMessage == null &&
-                              _statusMessage == null
-                          ? WelcomeScreen(
-                              key: const ValueKey('welcome-screen'),
-                              onLogin: () =>
-                                  setState(() => _showWelcome = false),
-                              onActivate: () =>
-                                  _openAccess(AccountAccessMode.activation),
-                            )
-                          : LoginScreen(
-                              key: const ValueKey('login-screen'),
-                              isSubmitting: _isSubmitting,
-                              errorMessage: _errorMessage,
-                              statusMessage: _statusMessage,
-                              onSubmit: _handleLogin,
-                              onActivate: () =>
-                                  _openAccess(AccountAccessMode.activation),
-                              onRecover: () =>
-                                  _openAccess(AccountAccessMode.recovery),
-                            )
-                      : ClientProfileScreen(
-                          key: const ValueKey('profile-screen'),
-                          profile: activeProfile,
-                          isRefreshing: _isRefreshing,
-                          errorMessage: _errorMessage,
-                          onRefresh: _handleRefreshProfile,
-                          onLogout: _handleLogout,
-                          onCredentials: () =>
-                              _openAccess(AccountAccessMode.credentials),
-                        ),
+                                  icon: const Icon(Icons.logout_rounded),
+                                  label: const Text('Cerrar sesión')),
+                          ])
+                    : activeProfile == null
+                        ? _showWelcome &&
+                                _errorMessage == null &&
+                                _statusMessage == null
+                            ? WelcomeScreen(
+                                key: const ValueKey('welcome-screen'),
+                                onLogin: () =>
+                                    setState(() => _showWelcome = false),
+                                onActivate: () =>
+                                    _openAccess(AccountAccessMode.activation),
+                              )
+                            : LoginScreen(
+                                key: const ValueKey('login-screen'),
+                                isSubmitting: _isSubmitting,
+                                errorMessage: _errorMessage,
+                                statusMessage: _statusMessage,
+                                onSubmit: _handleLogin,
+                                onActivate: () =>
+                                    _openAccess(AccountAccessMode.activation),
+                                onRecover: () =>
+                                    _openAccess(AccountAccessMode.recovery),
+                              )
+                        : ClientProfileScreen(
+                            key: const ValueKey('profile-screen'),
+                            profile: activeProfile,
+                            isRefreshing: _isRefreshing,
+                            errorMessage: _errorMessage,
+                            onRefresh: _handleRefreshProfile,
+                            onLogout: _handleLogout,
+                            onCredentials: () =>
+                                _openAccess(AccountAccessMode.credentials),
+                          ),
+          ),
         ),
       ),
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/journey_surface.dart';
 import '../models/client_profile.dart';
 
 /// Goal and base values the professional prepared, read only.
@@ -55,47 +55,32 @@ class ClientBaseMeasurements extends StatelessWidget {
       ),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // Goal as the hero card, like the target card in nutrition apps.
-      Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-              gradient: BrandColors.gradient,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-              boxShadow: [
-                BoxShadow(
-                    color: colors.primary.withValues(alpha: 0.24),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6))
-              ]),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .18),
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.flag_rounded, color: Colors.white)),
-            const SizedBox(width: 14),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('Objetivo',
-                      style: TextStyle(
-                          color: Color(0xDDFFFFFF),
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(
-                      goal != null && goal.isNotEmpty
-                          ? profile.goal!
-                          : 'Sin objetivo registrado aún.',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          height: 1.25,
-                          fontWeight: FontWeight.w800)),
-                ])),
-          ])),
+      // The goal is what the whole record is for: it gets the brand surface.
+      JourneySurface(
+          radius: 20,
+          child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Row(children: [
+                      Icon(Icons.flag_rounded, size: 18),
+                      SizedBox(width: 6),
+                      Text('Objetivo',
+                          style: TextStyle(
+                              color: Color(0xE6FFFFFF),
+                              fontWeight: FontWeight.w700)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(
+                        goal != null && goal.isNotEmpty
+                            ? profile.goal!
+                            : 'Sin objetivo registrado aún.',
+                        style: const TextStyle(
+                            fontSize: 20,
+                            height: 1.25,
+                            fontWeight: FontWeight.w800)),
+                  ]))),
       const SizedBox(height: 12),
       Card(
           margin: EdgeInsets.zero,
@@ -106,10 +91,8 @@ class ClientBaseMeasurements extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: Semantics(
                     header: true,
-                    child: Text('Datos base preparados',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: colors.onSurfaceVariant)))),
+                    child: const Text('Datos base preparados',
+                        style: TextStyle(fontWeight: FontWeight.w800)))),
             for (final (index, (label, value, extra, icon))
                 in values.indexed) ...[
               if (index > 0)
@@ -128,7 +111,7 @@ class ClientBaseMeasurements extends StatelessWidget {
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600))),
                             const SizedBox(width: 8),
-                            Flexible(
+                            Expanded(
                                 child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [

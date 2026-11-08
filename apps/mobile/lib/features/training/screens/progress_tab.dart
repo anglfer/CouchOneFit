@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/coming_soon_card.dart';
+import '../../../shared/widgets/detail_scaffold.dart';
+import '../../../shared/widgets/group_card.dart';
+import '../../../shared/widgets/icon_badge.dart';
+import '../../../shared/widgets/notice_banner.dart';
+import '../../../shared/widgets/status_view.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../services/training_service.dart';
 import '../widgets/load_tools.dart';
 import '../widgets/muscle_map.dart';
+import '../../../shared/widgets/section_title.dart';
 import 'training_views.dart';
 
 /// Progreso: own log turned into numbers, activity, muscle balance,
@@ -44,26 +51,18 @@ class _ProgressTabState extends State<ProgressTab> {
   Widget build(BuildContext context) {
     final h = widget.history;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (h == null && widget.failed) ...[
-        const TrainingNotice(
-            error: true,
-            text: 'No pudimos consultar tu historial. Revisa tu conexión.'),
-        Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-                onPressed: widget.onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reintentar'))),
-      ] else if (h == null)
-        const Center(
-            child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator()))
+      if (h == null && widget.failed)
+        NoticeBanner(
+            tone: NoticeTone.error,
+            text: 'No pudimos consultar tu historial. Revisa tu conexión.',
+            onRetry: widget.onRetry)
+      else if (h == null)
+        const StatusView(loading: true, title: 'Consultando tu historial…')
       else
         ..._content(context, h),
       const SizedBox(height: 24),
-      const TrainingEyebrow('Muy pronto'),
-      const SizedBox(height: 10),
+      const SectionTitle('Muy pronto'),
+      const SizedBox(height: 12),
       const ComingSoonRow(cards: [
         ComingSoonCard(
             icon: Icons.monitor_weight_outlined,
@@ -83,6 +82,15 @@ class _ProgressTabState extends State<ProgressTab> {
     final stats = TrainingStats(h, widget.today);
     final exercises = exerciseProgress(h);
     final showOverview = _section == _ProgressSection.overview;
+    if (h.sessions.isEmpty) {
+      return const [
+        StatusView(
+            icon: Icons.insights_outlined,
+            title: 'Aún no hay entrenamientos registrados',
+            message:
+                'Cuando registres tu primera sesión verás aquí tu progreso.'),
+      ];
+    }
     return [
       ChoiceBar<_ProgressSection>(options: const [
         (_ProgressSection.overview, 'Resumen'),
@@ -92,80 +100,68 @@ class _ProgressTabState extends State<ProgressTab> {
       ], selected: _section, onChanged: (v) => setState(() => _section = v)),
       const SizedBox(height: 14),
       if (showOverview) ...[
-        Row(children: [
-          Expanded(
-              child: StatTile(
+        StatPanel(
+            lead: StatTile(
+                icon: Icons.emoji_events_outlined,
+                label: 'Levantado en total',
+                large: true,
+                value: '${trainingThousands(stats.volume)} kg'),
+            tiles: [
+              StatTile(
                   icon: Icons.fitness_center,
                   label: 'Entrenamientos',
-                  value: '${stats.total}')),
-          const SizedBox(width: 10),
-          Expanded(
-              child: StatTile(
+                  value: '${stats.total}'),
+              StatTile(
                   icon: Icons.calendar_month_outlined,
                   label: 'Este mes',
-                  value: '${stats.thisMonth}')),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-              child: StatTile(
+                  value: '${stats.thisMonth}'),
+              StatTile(
                   icon: Icons.local_fire_department_outlined,
                   label: 'Racha semanal',
                   value: trainingCount(stats.weekStreak, 'semana', 'semanas'),
-                  highlight: stats.weekStreak > 1)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: StatTile(
+                  highlight: stats.weekStreak > 1),
+              StatTile(
                   icon: Icons.repeat,
                   label: 'Series hechas',
                   value: trainingThousands(
-                      h.sessions.fold(0, (t, s) => t + sessionPerformed(s))))),
-        ]),
-        const SizedBox(height: 10),
-        StatTile(
-            icon: Icons.emoji_events_outlined,
-            label: 'Levantado en total',
-            value: '${trainingThousands(stats.volume)} kg'),
+                      h.sessions.fold(0, (t, s) => t + sessionPerformed(s)))),
+            ]),
         const SizedBox(height: 12),
         _activity(context, h),
       ],
-      if (h.sessions.isEmpty) ...[
-        const SizedBox(height: 12),
-        const TrainingNotice(
-            icon: Icons.insights_outlined,
-            text:
-                'Aún no hay entrenamientos registrados. Cuando registres tu primera sesión verás aquí tu progreso.'),
-      ] else if (showOverview || _section == _ProgressSection.muscles) ...[
+      if (showOverview || _section == _ProgressSection.muscles) ...[
         if (showOverview) const SizedBox(height: 12),
         _analysisCard(context, h, exercises),
       ],
       if (exercises.isNotEmpty &&
           (showOverview || _section == _ProgressSection.lifts)) ...[
         SizedBox(height: showOverview ? 24 : 4),
-        const TrainingEyebrow('Tus ejercicios'),
-        const SizedBox(height: 8),
-        for (final e in exercises.take(showOverview ? 4 : exercises.length))
-          _exerciseRow(context, e),
+        const SectionTitle('Tus ejercicios'),
+        const SizedBox(height: 10),
+        GroupCard(children: [
+          for (final e in exercises.take(showOverview ? 4 : exercises.length))
+            _exerciseRow(context, e),
+        ]),
         if (showOverview && exercises.length > 4)
           TextButton.icon(
               onPressed: () =>
                   setState(() => _section = _ProgressSection.lifts),
               icon: const Icon(Icons.fitness_center, size: 18),
               label: Text('Ver los ${exercises.length} ejercicios')),
-      ] else if (_section == _ProgressSection.lifts &&
-          h.sessions.isNotEmpty) ...[
-        const TrainingNotice(
+      ] else if (_section == _ProgressSection.lifts) ...[
+        const NoticeBanner(
             icon: Icons.fitness_center,
             text:
                 'Registra series completadas para ver el avance por ejercicio.'),
       ],
-      if (h.sessions.isNotEmpty &&
-          (showOverview || _section == _ProgressSection.sessions)) ...[
+      if (showOverview || _section == _ProgressSection.sessions) ...[
         SizedBox(height: showOverview ? 24 : 4),
-        const TrainingEyebrow('Últimas sesiones'),
-        const SizedBox(height: 8),
-        for (final s in h.sessions.take(showOverview ? 3 : 10))
-          SessionRow(session: s),
+        const SectionTitle('Últimas sesiones'),
+        const SizedBox(height: 10),
+        GroupCard(children: [
+          for (final s in h.sessions.take(showOverview ? 3 : 10))
+            SessionRow(session: s),
+        ]),
         TextButton.icon(
             onPressed: () => Navigator.push(
                 context,
@@ -200,11 +196,10 @@ class _ProgressTabState extends State<ProgressTab> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Actividad · últimos 4 meses',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: colors.onSurfaceVariant)),
-                  const SizedBox(height: 10),
+                  const CardTitle(
+                      icon: Icons.calendar_view_month_rounded,
+                      title: 'Actividad · últimos 4 meses'),
+                  const SizedBox(height: 12),
                   ChoiceBar<bool>(
                       options: const [(false, 'Series'), (true, 'Volumen')],
                       selected: _volume,
@@ -418,7 +413,7 @@ class _ProgressTabState extends State<ProgressTab> {
                                 ClipRRect(
                                     borderRadius: BorderRadius.circular(99),
                                     child: LinearProgressIndicator(
-                                        minHeight: 9,
+                                        minHeight: 8,
                                         value: g.value / max,
                                         backgroundColor:
                                             colors.surfaceContainerHighest)),
@@ -435,7 +430,7 @@ class _ProgressTabState extends State<ProgressTab> {
                               child: ClipRRect(
                                   borderRadius: BorderRadius.circular(99),
                                   child: LinearProgressIndicator(
-                                      minHeight: 10,
+                                      minHeight: 8,
                                       value: g.value / max,
                                       backgroundColor:
                                           colors.surfaceContainerHighest))),
@@ -515,64 +510,64 @@ class _ProgressTabState extends State<ProgressTab> {
   Widget _exerciseRow(BuildContext context, ExerciseProgress e) {
     final colors = Theme.of(context).colorScheme;
     final change = e.change;
-    return Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                    builder: (_) => ExerciseProgressScreen(progress: e))),
-            child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text(e.name,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 2),
-                        Text(
-                            'Mejor: ${e.format(e.best)} · ${trainingCount(e.points.length, 'sesión', 'sesiones')}',
-                            style: TextStyle(color: colors.onSurfaceVariant)),
-                        if (e.points.length > 1)
-                          Row(children: [
-                            Icon(
-                                change > 0
-                                    ? Icons.trending_up
-                                    : change < 0
-                                        ? Icons.trending_down
-                                        : Icons.trending_flat,
-                                size: 18,
-                                color: change > 0
-                                    ? BrandColors.success
-                                    : colors.onSurfaceVariant),
-                            const SizedBox(width: 4),
-                            Flexible(
-                                child: Text(
-                                    change == 0
-                                        ? 'Estable desde el inicio'
-                                        : '${change > 0 ? '+' : '−'}${e.format(change.abs())} desde el inicio',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: change > 0
-                                            ? BrandColors.success
-                                            : colors.onSurfaceVariant))),
-                          ]),
-                      ])),
-                  if (e.points.length > 1) ...[
-                    const SizedBox(width: 12),
-                    SizedBox(
-                        width: 72,
-                        child: TrendChart(
-                            values: e.values,
-                            label:
-                                'Tendencia de ${e.name}: de ${e.format(e.values.first)} a ${e.format(e.values.last)}')),
-                  ],
-                  Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
-                ]))));
+    final tone = change > 0
+        ? statusInk(context, BrandColors.success)
+        : colors.onSurfaceVariant;
+    return InkWell(
+        onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+                builder: (_) => ExerciseProgressScreen(progress: e))),
+        child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 8, 13),
+            child: Row(children: [
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(e.name,
+                        style: const TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(
+                        'Mejor: ${e.format(e.best)} · ${trainingCount(e.points.length, 'sesión', 'sesiones')}',
+                        style: TextStyle(
+                            fontSize: 13, color: colors.onSurfaceVariant)),
+                    if (e.points.length > 1) ...[
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Icon(
+                            change > 0
+                                ? Icons.trending_up
+                                : change < 0
+                                    ? Icons.trending_down
+                                    : Icons.trending_flat,
+                            size: 16,
+                            color: tone),
+                        const SizedBox(width: 4),
+                        Flexible(
+                            child: Text(
+                                change == 0
+                                    ? 'Estable desde el inicio'
+                                    : '${change > 0 ? '+' : '−'}${e.format(change.abs())} desde el inicio',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: tone))),
+                      ]),
+                    ],
+                  ])),
+              if (e.points.length > 1) ...[
+                const SizedBox(width: 12),
+                SizedBox(
+                    width: 72,
+                    child: TrendChart(
+                        values: e.values,
+                        label:
+                            'Tendencia de ${e.name}: de ${e.format(e.values.first)} a ${e.format(e.values.last)}')),
+              ],
+              Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+            ])));
   }
 }
 
@@ -661,26 +656,26 @@ class SessionRow extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final s = session;
     final finalized = s.status == 'finalized';
-    return Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            leading: Icon(
-                finalized ? Icons.check_circle : Icons.timelapse_outlined,
-                color:
-                    finalized ? BrandColors.success : colors.onSurfaceVariant,
-                semanticLabel: finalized ? 'Finalizado' : 'En progreso'),
-            title: Text(s.dayName,
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-                '${capitalized(longDate(s.localDate))}\n${trainingCount(sessionPerformed(s), 'serie', 'series')} · ${trainingThousands(sessionVolume(s))} kg'),
-            isThreeLine: true,
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                    builder: (_) => SessionDetailScreen(session: s)))));
+    return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        leading: Semantics(
+            label: finalized ? 'Finalizado' : 'En progreso',
+            child: IconBadge(
+                finalized
+                    ? Icons.check_circle_rounded
+                    : Icons.timelapse_outlined,
+                tint:
+                    finalized ? BrandColors.success : colors.onSurfaceVariant)),
+        title: Text(s.dayName),
+        subtitle: Text(
+            '${capitalized(longDate(s.localDate))}\n${trainingCount(sessionPerformed(s), 'serie', 'series')} · ${trainingThousands(sessionVolume(s))} kg'),
+        isThreeLine: true,
+        trailing:
+            Icon(Icons.chevron_right_rounded, color: colors.onSurfaceVariant),
+        onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+                builder: (_) => SessionDetailScreen(session: s))));
   }
 }
 
@@ -714,27 +709,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: const Text('Historial')),
-      body: SafeArea(
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-        Center(
-            child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_history.sessions.isEmpty)
-                        const TrainingNotice(
-                            text: 'Aún no hay entrenamientos registrados.'),
-                      for (final s in _history.sessions) SessionRow(session: s),
-                      if (_history.nextOffset != null && widget.service != null)
-                        OutlinedButton(
-                            onPressed: _loading ? null : _more,
-                            child: Text(
-                                _loading ? 'Cargando…' : 'Ver más sesiones')),
-                    ])))
-      ])));
+  Widget build(BuildContext context) => DetailScaffold(
+          title: const Text('Historial'),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            if (_history.sessions.isEmpty)
+              const Padding(
+                  padding: EdgeInsets.only(top: 48),
+                  child: StatusView(
+                      icon: Icons.history_rounded,
+                      title: 'Tu historial está vacío',
+                      message: 'Aún no hay entrenamientos registrados.'))
+            else
+              GroupCard(children: [
+                for (final s in _history.sessions) SessionRow(session: s),
+              ]),
+            if (_history.nextOffset != null && widget.service != null)
+              Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton.icon(
+                      onPressed: _loading ? null : _more,
+                      icon: _loading
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.expand_more_rounded),
+                      label:
+                          Text(_loading ? 'Cargando…' : 'Ver más sesiones'))),
+          ]);
 }
 
 class ExerciseProgressScreen extends StatelessWidget {
@@ -744,103 +746,82 @@ class ExerciseProgressScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = progress;
     final colors = Theme.of(context).colorScheme;
-    return Scaffold(
-        appBar: AppBar(title: Text(e.name)),
-        body: SafeArea(
-            child: ListView(padding: const EdgeInsets.all(20), children: [
-          Center(
-              child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(children: [
-                          Expanded(
-                              child: StatTile(
-                                  icon: Icons.emoji_events_outlined,
-                                  label: 'Mejor marca',
-                                  value: e.format(e.best),
-                                  highlight: true)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                              child: StatTile(
-                                  icon: Icons.history,
-                                  label: 'Última vez',
-                                  value: e.format(e.values.last))),
+    return DetailScaffold(title: Text(e.name), children: [
+      StatPanel(
+          lead: e.estimates.isEmpty
+              ? null
+              : StatTile(
+                  icon: Icons.bolt_outlined,
+                  label: '1RM estimado (última sesión)',
+                  large: true,
+                  value: '${e.estimates.last.round()} kg'),
+          tiles: [
+            StatTile(
+                icon: Icons.emoji_events_outlined,
+                label: 'Mejor marca',
+                value: e.format(e.best),
+                highlight: true),
+            StatTile(
+                icon: Icons.history,
+                label: 'Última vez',
+                value: e.format(e.values.last)),
+          ]),
+      if (!e.bodyweight) ...[
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+            key: const ValueKey('one-rep-max'),
+            onPressed: () => showOneRepMaxCalculator(context,
+                kg: e.points.last.top.loadKg, reps: e.points.last.top.reps),
+            icon: const Icon(Icons.calculate_outlined),
+            label: const Text('Calculadora 1RM')),
+      ],
+      const SizedBox(height: 14),
+      Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        e.bodyweight
+                            ? 'Mejores repeticiones por sesión'
+                            : 'Mayor carga por sesión (kg)',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 12),
+                    TrendChart(
+                        values: e.values,
+                        axis: true,
+                        height: 160,
+                        label:
+                            '${e.name}: ${e.points.length} sesiones, de ${e.format(e.values.first)} a ${e.format(e.values.last)}'),
+                    const SizedBox(height: 6),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(shortDate(e.points.first.date),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.onSurfaceVariant)),
+                          Text(shortDate(e.points.last.date),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.onSurfaceVariant)),
                         ]),
-                        if (e.estimates.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          StatTile(
-                              icon: Icons.bolt_outlined,
-                              label: '1RM estimado (última sesión)',
-                              value: '${e.estimates.last.round()} kg'),
-                        ],
-                        if (!e.bodyweight) ...[
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                              key: const ValueKey('one-rep-max'),
-                              onPressed: () => showOneRepMaxCalculator(context,
-                                  kg: e.points.last.top.loadKg,
-                                  reps: e.points.last.top.reps),
-                              icon: const Icon(Icons.calculate_outlined),
-                              label: const Text('Calculadora 1RM')),
-                        ],
-                        const SizedBox(height: 12),
-                        Card(
-                            margin: EdgeInsets.zero,
-                            child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          e.bodyweight
-                                              ? 'Mejores repeticiones por sesión'
-                                              : 'Mayor carga por sesión (kg)',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: colors.onSurfaceVariant)),
-                                      const SizedBox(height: 12),
-                                      TrendChart(
-                                          values: e.values,
-                                          axis: true,
-                                          height: 160,
-                                          label:
-                                              '${e.name}: ${e.points.length} sesiones, de ${e.format(e.values.first)} a ${e.format(e.values.last)}'),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(shortDate(e.points.first.date),
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: colors
-                                                        .onSurfaceVariant)),
-                                            Text(shortDate(e.points.last.date),
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: colors
-                                                        .onSurfaceVariant)),
-                                          ]),
-                                    ]))),
-                        const SizedBox(height: 24),
-                        const TrainingEyebrow('Sesiones'),
-                        const SizedBox(height: 8),
-                        for (final p in e.points.reversed)
-                          Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                  title: Text(capitalized(longDate(p.date)),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
-                                  subtitle: Text(p.exercise.sets
-                                      .whereType<SetResult>()
-                                      .map(setShort)
-                                      .join(' · ')))),
-                      ])))
-        ])));
+                  ]))),
+      const SizedBox(height: 22),
+      const SectionTitle('Sesiones'),
+      const SizedBox(height: 10),
+      GroupCard(children: [
+        for (final p in e.points.reversed)
+          ListTile(
+              title: Text(capitalized(longDate(p.date))),
+              subtitle: Text(p.exercise.sets
+                  .whereType<SetResult>()
+                  .map(setShort)
+                  .join(' · '))),
+      ]),
+    ]);
   }
 }
 
@@ -850,67 +831,63 @@ class SessionDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Scaffold(
-        appBar: AppBar(
-            title:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    final finalized = session.status == 'finalized';
+    return DetailScaffold(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(session.dayName,
               style:
                   const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           Text(capitalized(longDate(session.localDate)),
               style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-        ])),
-        body: SafeArea(
-            child: ListView(padding: const EdgeInsets.all(20), children: [
-          Center(
-              child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Wrap(spacing: 8, runSpacing: 8, children: [
-                          TrainingChip(
-                              session.status == 'finalized'
-                                  ? 'Finalizado'
-                                  : 'En progreso',
-                              icon: Icons.flag_outlined),
-                          TrainingChip(
-                              trainingCount(
-                                  sessionPerformed(session), 'serie', 'series'),
-                              icon: Icons.repeat),
-                          TrainingChip(
-                              '${trainingThousands(sessionVolume(session))} kg',
-                              icon: Icons.bar_chart_rounded),
-                        ]),
-                        for (final e in session.exercises)
-                          Card(
-                              margin: const EdgeInsets.only(top: 12),
-                              child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(e.name,
-                                            style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w800)),
-                                        for (final entry
-                                            in e.sets.asMap().entries)
-                                          Padding(
-                                              padding:
-                                                  const EdgeInsets.only(top: 8),
-                                              child: Text(
-                                                  'Serie ${entry.key + 1}: ${entry.value == null ? 'Pendiente' : setLabel(entry.value!)}',
-                                                  style: TextStyle(
-                                                      color: entry.value
-                                                                  ?.state ==
-                                                              'performed'
-                                                          ? colors.onSurface
-                                                          : colors
-                                                              .onSurfaceVariant))),
-                                      ]))),
-                      ])))
-        ])));
+        ]),
+        children: [
+          Align(
+              alignment: Alignment.centerLeft,
+              child: TonePill(finalized ? 'Finalizado' : 'En progreso',
+                  tone: finalized ? BrandColors.success : null,
+                  icon: finalized
+                      ? Icons.check_circle_rounded
+                      : Icons.timelapse_outlined)),
+          const SizedBox(height: 12),
+          StatPanel(tiles: [
+            StatTile(
+                icon: Icons.repeat,
+                label: 'Series',
+                value: '${sessionPerformed(session)}'),
+            StatTile(
+                icon: Icons.bar_chart_rounded,
+                label: 'Volumen',
+                value: '${trainingThousands(sessionVolume(session))} kg'),
+          ]),
+          for (final e in session.exercises)
+            Card(
+                margin: const EdgeInsets.only(top: 12),
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e.name,
+                              style: Theme.of(context).textTheme.titleMedium),
+                          for (final entry in e.sets.asMap().entries)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Row(children: [
+                                  SetBadge(
+                                      text: '${entry.key + 1}',
+                                      kind: 'normal',
+                                      done: entry.value?.state == 'performed'),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                      child: Text(
+                                          'Serie ${entry.key + 1}: ${entry.value == null ? 'Pendiente' : setLabel(entry.value!)}',
+                                          style: TextStyle(
+                                              color: entry.value?.state ==
+                                                      'performed'
+                                                  ? colors.onSurface
+                                                  : colors.onSurfaceVariant))),
+                                ])),
+                        ]))),
+        ]);
   }
 }

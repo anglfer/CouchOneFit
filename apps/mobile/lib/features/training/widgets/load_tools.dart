@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/sheet_parts.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 
@@ -38,17 +39,6 @@ Future<void> showOneRepMaxCalculator(BuildContext context,
         showDragHandle: true,
         isScrollControlled: true,
         builder: (_) => _OneRepMaxSheet(kg: kg, reps: reps));
-
-Widget _sheetTitle(BuildContext context, String title) => Row(children: [
-      Expanded(
-          child: Text(title,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
-      IconButton(
-          tooltip: 'Cerrar',
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close, size: 20)),
-    ]);
 
 String _signed(double v) => '${v > 0 ? '+' : '−'}${trainingDecimal(v.abs())}';
 
@@ -113,12 +103,9 @@ class _LoadPickerSheetState extends State<_LoadPickerSheet> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _sheetTitle(context, 'Peso de trabajo'),
-                      Text(
-                          '${widget.exerciseName} · desliza o toca para ajustar.',
-                          style: TextStyle(
-                              fontSize: 13, color: colors.onSurfaceVariant)),
-                      const SizedBox(height: 18),
+                      SheetHeader('Peso de trabajo',
+                          subtitle:
+                              '${widget.exerciseName} · desliza o toca para ajustar.'),
                       Row(children: [
                         round(
                             Icons.remove_rounded,
@@ -198,7 +185,7 @@ class _LoadPickerSheetState extends State<_LoadPickerSheet> {
                                 height: 1.35,
                                 fontWeight: share >= 1 ? FontWeight.w700 : null,
                                 color: share >= 1
-                                    ? colors.error
+                                    ? statusInk(context, colors.error)
                                     : colors.onSurfaceVariant)),
                       ],
                       const SizedBox(height: 16),
@@ -278,13 +265,9 @@ class _OneRepMaxSheetState extends State<_OneRepMaxSheet> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _sheetTitle(context, 'Calculadora 1RM'),
-                          Text(
-                              'Escribe el peso y las reps de una serie reciente hecha con buena técnica.',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: colors.onSurfaceVariant)),
-                          const SizedBox(height: 16),
+                          const SheetHeader('Calculadora 1RM',
+                              subtitle:
+                                  'Escribe el peso y las reps de una serie reciente hecha con buena técnica.'),
                           Row(children: [
                             Expanded(
                                 child: field(

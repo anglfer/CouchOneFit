@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/auth/services/session_storage.dart';
 import 'features/client/services/client_profile_service.dart';
@@ -71,6 +72,13 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
               theme: mobileTheme(Brightness.light),
               darkTheme: mobileTheme(Brightness.dark),
               themeMode: settings.themeMode,
+              // Tabs have no AppBar: status bar icons must follow the theme.
+              builder: (context, child) =>
+                  AnnotatedRegion<SystemUiOverlayStyle>(
+                      value: Theme.of(context).brightness == Brightness.dark
+                          ? SystemUiOverlayStyle.light
+                          : SystemUiOverlayStyle.dark,
+                      child: child!),
               home: ClientSessionGate(
                 authService: _authService,
                 profileService: _profileService,

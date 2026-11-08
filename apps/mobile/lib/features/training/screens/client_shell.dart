@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/icon_badge.dart';
+import '../../../shared/widgets/journey_surface.dart';
+import '../../../shared/widgets/notice_banner.dart';
+import '../../../shared/widgets/sheet_parts.dart';
 import '../../auth/models/session_models.dart';
 import '../../client/models/client_profile.dart';
 import '../../settings/services/settings_controller.dart';
@@ -172,6 +176,8 @@ class _ClientShellState extends State<ClientShell> {
     final discard = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: BrandColors.error),
                 title: const Text('¿Descartar el entrenamiento?'),
                 content: const Text(
                     'Se pierde lo que no hayas guardado. El avance guardado se conserva.'),
@@ -180,33 +186,39 @@ class _ClientShellState extends State<ClientShell> {
                       onPressed: () => Navigator.pop(dialog, false),
                       child: const Text('Seguir entrenando')),
                   TextButton(
+                      style: TextButton.styleFrom(
+                          foregroundColor: BrandColors.error),
                       onPressed: () => Navigator.pop(dialog, true),
                       child: const Text('Descartar'))
                 ]));
     if (discard == true) _closeSession();
   }
 
+  /// "Now playing" strip for the minimized workout, clear of the center button.
   Widget _activeBar(bool wide) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-        color: colors.primaryContainer,
-        child: SafeArea(
-            top: false,
-            bottom: wide,
-            child: ListTile(
-                leading: Icon(Icons.fitness_center,
-                    color: colors.onPrimaryContainer),
-                title: const Text('Entrenamiento en curso',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('${_sessionName ?? ''} · Toca para volver',
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                textColor: colors.onPrimaryContainer,
-                onTap: () => setState(() => _minimized = false),
-                trailing: IconButton(
-                    tooltip: 'Descartar entrenamiento',
-                    color: colors.onPrimaryContainer,
-                    onPressed: _discardSession,
-                    icon: const Icon(Icons.close)))));
+    return Padding(
+        padding: EdgeInsets.fromLTRB(12, 8, 12, wide ? 8 : 34),
+        child: JourneySurface(
+            radius: 18,
+            child: Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                    contentPadding: const EdgeInsets.fromLTRB(14, 2, 6, 2),
+                    leading: const Icon(Icons.fitness_center,
+                        color: Colors.white, size: 22),
+                    title: const Text('Entrenamiento en curso',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w800)),
+                    subtitle: Text('${_sessionName ?? ''} · Toca para volver',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(0xE6FFFFFF))),
+                    onTap: () => setState(() => _minimized = false),
+                    trailing: IconButton(
+                        tooltip: 'Descartar entrenamiento',
+                        color: Colors.white,
+                        onPressed: _discardSession,
+                        icon: const Icon(Icons.close_rounded))))));
   }
 
   /// Center button: today's workout directly, otherwise the recent days.
@@ -239,80 +251,32 @@ class _ClientShellState extends State<ClientShell> {
     showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
-        builder: (sheet) {
-          final colors = Theme.of(sheet).colorScheme;
-          return SafeArea(
-              child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(children: [
-                          Expanded(
-                              child: Text(
-                                  data.day?.kind == 'rest'
-                                      ? 'Hoy toca descansar'
-                                      : 'Hoy no tienes entrenamiento programado',
-                                  style: const TextStyle(
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w800))),
-                          IconButton(
-                              tooltip: 'Cerrar',
-                              onPressed: () => Navigator.pop(sheet),
-                              icon: const Icon(Icons.close, size: 20)),
-                        ]),
-                        const SizedBox(height: 4),
-                        Text(
-                            recent.isEmpty
-                                ? 'Disfruta tu recuperación; tu siguiente sesión aparecerá en Inicio.'
-                                : '¿Quieres registrar un día anterior?',
-                            style: TextStyle(color: colors.onSurfaceVariant)),
-                        if (recent.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          for (final date in recent)
-                            Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: DecoratedBox(
-                                    decoration:
-                                        innerPanelDecoration(sheet, radius: 14),
-                                    child: Material(
-                                        type: MaterialType.transparency,
-                                        borderRadius: BorderRadius.circular(14),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: ListTile(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 14,
-                                                    vertical: 2),
-                                            leading: Container(
-                                                width: 38,
-                                                height: 38,
-                                                decoration: BoxDecoration(
-                                                    gradient:
-                                                        BrandColors.gradient,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10)),
-                                                child: const Icon(Icons.history,
-                                                    color: Colors.white,
-                                                    size: 20)),
-                                            title: Text(
-                                                plan!.dayFor(date)!.name,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w700)),
-                                            subtitle: Text(
-                                                capitalized(longDate(date))),
-                                            trailing:
-                                                const Icon(Icons.chevron_right),
-                                            onTap: () {
-                                              Navigator.pop(sheet);
-                                              _openSession(date);
-                                            })))),
-                        ],
-                      ])));
-        });
+        isScrollControlled: true,
+        builder: (sheet) => SafeArea(
+            child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SheetHeader(
+                          data.day?.kind == 'rest'
+                              ? 'Hoy toca descansar'
+                              : 'Hoy no tienes entrenamiento programado',
+                          subtitle: recent.isEmpty
+                              ? 'Disfruta tu recuperación; tu siguiente sesión aparecerá en Inicio.'
+                              : '¿Quieres registrar un día anterior?'),
+                      for (final date in recent)
+                        SheetOption(
+                            leading: const IconBadge(Icons.history,
+                                filled: true, size: 40),
+                            title: plan!.dayFor(date)!.name,
+                            subtitle: capitalized(longDate(date)),
+                            onTap: () {
+                              Navigator.pop(sheet);
+                              _openSession(date);
+                            }),
+                    ]))));
   }
 
   void _showDay(TrainingDay day) => Navigator.push(context,
@@ -331,60 +295,66 @@ class _ClientShellState extends State<ClientShell> {
     final open = session != null && !_minimized;
     final bar = session != null && _minimized;
     final shell = Scaffold(
+        floatingActionButton: wide ? null : _trainButton(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         body: DecoratedBox(
             decoration: brandGlow(context),
             child: SafeArea(
+                bottom: wide,
                 child: Row(children: [
-              if (wide)
-                NavigationRail(
-                    labelType: NavigationRailLabelType.all,
-                    selectedIndex: _selected,
-                    leading: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: FloatingActionButton(
-                            tooltip: 'Entrenar',
-                            elevation: 0,
-                            onPressed: _opening ? null : _start,
-                            child: const Icon(Icons.play_arrow_rounded))),
-                    onDestinationSelected: (index) =>
-                        setState(() => _selected = index),
-                    destinations: [
-                      for (final (icon, selected, label) in items)
-                        NavigationRailDestination(
-                            icon: Icon(icon),
-                            selectedIcon: Icon(selected),
-                            label: Text(label))
-                    ]),
-              Expanded(
-                  child: _selected == 3
-                      ? widget.account
-                      : RefreshIndicator(
-                          onRefresh: _load,
-                          child: LayoutBuilder(builder: (context, constraints) {
-                            final gutter =
-                                constraints.maxWidth < 360 ? 16.0 : 20.0;
-                            // Each tab keeps its own scroll; switching starts
-                            // at the top instead of mid-page.
-                            return ListView(
-                                key: PageStorageKey('client-tab-$_selected'),
-                                padding:
-                                    EdgeInsets.fromLTRB(gutter, 16, gutter, 32),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                children: [
-                                  Center(
-                                      child: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                              maxWidth: 560),
-                                          child: _content()))
-                                ]);
-                          })))
-            ]))),
-        bottomNavigationBar: wide && !bar
-            ? null
-            : Column(mainAxisSize: MainAxisSize.min, children: [
-                if (bar) _activeBar(wide),
-                if (!wide) _bottomBar(items),
-              ]));
+                  if (wide)
+                    NavigationRail(
+                        labelType: NavigationRailLabelType.all,
+                        selectedIndex: _selected,
+                        leading: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: FloatingActionButton(
+                                tooltip: 'Entrenar',
+                                elevation: 0,
+                                onPressed: _opening ? null : _start,
+                                child: const Icon(Icons.play_arrow_rounded))),
+                        onDestinationSelected: (index) =>
+                            setState(() => _selected = index),
+                        destinations: [
+                          for (final (icon, selected, label) in items)
+                            NavigationRailDestination(
+                                icon: Icon(icon),
+                                selectedIcon: Icon(selected),
+                                label: Text(label))
+                        ]),
+                  Expanded(
+                      child: Column(children: [
+                    Expanded(
+                        child: _selected == 3
+                            ? widget.account
+                            : RefreshIndicator(
+                                onRefresh: _load,
+                                child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                  final gutter =
+                                      constraints.maxWidth < 360 ? 16.0 : 20.0;
+                                  // Each tab keeps its own scroll; switching
+                                  // starts at the top instead of mid-page.
+                                  return ListView(
+                                      key: PageStorageKey(
+                                          'client-tab-$_selected'),
+                                      padding: EdgeInsets.fromLTRB(
+                                          gutter, 16, gutter, 44),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      children: [
+                                        Center(
+                                            child: ConstrainedBox(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                        maxWidth: 560),
+                                                child: _content()))
+                                      ]);
+                                }))),
+                    if (bar) _activeBar(wide),
+                  ])),
+                ]))),
+        bottomNavigationBar: wide ? null : _bottomBar(items));
     // Back minimizes the open workout instead of closing it.
     return PopScope(
         canPop: !open,
@@ -397,136 +367,120 @@ class _ClientShellState extends State<ClientShell> {
         ]));
   }
 
-  Widget _bottomBar(List<(IconData, IconData, String)> items) {
+  /// Raised center action, docked over the bar's top edge.
+  Widget _trainButton() {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Semantics(
+        button: true,
+        label: 'Entrenar',
+        onTap: _opening ? null : _start,
+        child: ExcludeSemantics(
+            child: Container(
+                width: 64,
+                height: 64,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).navigationBarTheme.backgroundColor,
+                    boxShadow: [
+                      BoxShadow(
+                          color:
+                              colors.primary.withValues(alpha: dark ? .4 : .28),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6))
+                    ]),
+                child: Material(
+                    color: actionFill(context),
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                        onTap: _opening ? null : _start,
+                        child: _opening
+                            ? const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.4, color: Colors.white))
+                            : const Icon(Icons.play_arrow_rounded,
+                                color: Colors.white, size: 32))))));
+  }
+
+  Widget _bottomBar(List<(IconData, IconData, String)> items) {
     final navigation = Theme.of(context).navigationBarTheme;
-    final background = navigation.backgroundColor;
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
     Color tone(bool selected) => navigation.iconTheme!
         .resolve({if (selected) WidgetState.selected})!.color!;
+    Widget label(String text, Color color, bool strong) => Text(text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+            color: color));
     Widget item(int index) {
-      final (icon, selectedIcon, label) = items[index];
+      final (icon, selectedIcon, text) = items[index];
       final selected = _selected == index;
       final color = tone(selected);
-      final disableAnim = MediaQuery.disableAnimationsOf(context);
       return Expanded(
           child: Semantics(
               button: true,
               selected: selected,
-              label: label,
+              label: text,
+              onTap: () => setState(() => _selected = index),
               child: ExcludeSemantics(
                   child: InkWell(
                       onTap: () => setState(() => _selected = index),
                       child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.only(bottom: 8),
                           child:
                               Column(mainAxisSize: MainAxisSize.min, children: [
+                            // Accent line on the bar's edge marks the place.
                             AnimatedContainer(
                                 duration: disableAnim
                                     ? Duration.zero
-                                    : const Duration(milliseconds: 180),
+                                    : const Duration(milliseconds: 200),
                                 curve: Curves.easeOutCubic,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 3),
+                                width: selected ? 28 : 0,
+                                height: 3,
                                 decoration: BoxDecoration(
-                                    color: selected
-                                        ? colors.primaryContainer
-                                            .withValues(alpha: 0.85)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(99)),
-                                child: Icon(selected ? selectedIcon : icon,
-                                    size: 22, color: color)),
+                                    color: color,
+                                    borderRadius: const BorderRadius.vertical(
+                                        bottom: Radius.circular(3)))),
+                            const SizedBox(height: 7),
+                            Icon(selected ? selectedIcon : icon,
+                                size: 24, color: color),
                             const SizedBox(height: 3),
-                            Text(label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: selected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: color)),
+                            label(text, color, selected),
                           ]))))));
     }
 
     // Labels must fit 320 px; content keeps full text scaling.
     return MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.3,
-        child: Container(
+        child: DecoratedBox(
             decoration: BoxDecoration(
-                color: background,
-                border: Border(top: BorderSide(color: colors.outlineVariant)),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(
-                          alpha: Theme.of(context).brightness == Brightness.dark
-                              ? 0.45
-                              : 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, -4))
-                ]),
+                color: navigation.backgroundColor,
+                border: Border(
+                    top: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant))),
             child: SafeArea(
                 top: false,
-                child: Row(children: [
+                child:
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   item(0),
                   item(1),
+                  // Announced by the button above it.
                   Expanded(
-                      child: Semantics(
-                          button: true,
-                          label: 'Entrenar',
-                          child: ExcludeSemantics(
-                              child: InkWell(
-                                  onTap: _opening ? null : _start,
-                                  child: Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 4, bottom: 6),
-                                      child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                                width: 50,
-                                                height: 50,
-                                                decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    gradient:
-                                                        BrandColors.gradient,
-                                                    border: Border.all(
-                                                        width: 1.5,
-                                                        color: Colors.white
-                                                            .withValues(
-                                                                alpha: .22)),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                          color: colors.primary
-                                                              .withValues(
-                                                                  alpha: .52),
-                                                          blurRadius: 18,
-                                                          spreadRadius: 1,
-                                                          offset: const Offset(
-                                                              0, 4))
-                                                    ]),
-                                                child: _opening
-                                                    ? const Padding(
-                                                        padding:
-                                                            EdgeInsets.all(14),
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                                strokeWidth: 2,
-                                                                color: Colors
-                                                                    .white))
-                                                    : const Icon(
-                                                        Icons
-                                                            .play_arrow_rounded,
-                                                        color: Colors.white,
-                                                        size: 29)),
-                                            const SizedBox(height: 2),
-                                            Text('Entrenar',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                    fontSize: 11.5,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: tone(true))),
-                                          ])))))),
+                      child: ExcludeSemantics(
+                          child: InkWell(
+                              onTap: _opening ? null : _start,
+                              child: Padding(
+                                  padding:
+                                      const EdgeInsets.only(top: 37, bottom: 8),
+                                  child: Center(
+                                      heightFactor: 1,
+                                      child: label(
+                                          'Entrenar', tone(true), true)))))),
                   item(2),
                   item(3),
                 ]))));
@@ -573,32 +527,22 @@ class _ClientShellState extends State<ClientShell> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       header,
       if (_loading && data == null)
-        const Center(
-            child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator()))
+        const _LoadingCard()
       else ...[
-        if (_error != null) ...[
-          TrainingNotice(text: _error!, error: true),
-          Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                  onPressed: _loading ? null : _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'))),
-        ],
+        if (_error != null)
+          NoticeBanner(
+              text: _error!,
+              tone: NoticeTone.error,
+              onRetry: _loading ? null : _load),
         if (_cachedAt != null)
-          TrainingNotice(
+          NoticeBanner(
               icon: Icons.cloud_off_outlined,
+              tone: NoticeTone.warning,
               text:
                   'Lectura guardada · actualizada ${_cachedAt!.toLocal().toString().substring(0, 16)}. Conéctate para actualizar o registrar series.'),
-        if (data != null && plan == null)
-          const TrainingNotice(
-              icon: Icons.event_note_outlined,
-              text:
-                  'Todavía no tienes una rutina asignada. Tu profesional la compartirá aquí cuando esté lista.'),
         if (data != null && plan != null && !data.canWrite)
-          const TrainingNotice(
+          const NoticeBanner(
+              icon: Icons.pause_circle_outline_rounded,
               text:
                   'Puedes consultar tu rutina. El registro está pausado por ahora.'),
         if (data != null && _selected == 0)
@@ -614,5 +558,54 @@ class _ClientShellState extends State<ClientShell> {
           PlansTab(plan: plan, today: data.today, onShowDay: _showDay),
       ],
     ]);
+  }
+}
+
+/// Static placeholder shaped like the week card, so the first load does not
+/// jump from a lone spinner to a full layout.
+class _LoadingCard extends StatelessWidget {
+  const _LoadingCard();
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final block = colors.surfaceContainerHighest;
+    return Semantics(
+        label: 'Cargando tu rutina',
+        child: ExcludeSemantics(
+            child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(children: [
+                            for (var i = 0; i < 7; i++)
+                              Expanded(
+                                  child: Center(
+                                      child: Container(
+                                          width: 34,
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                              color: block,
+                                              shape: BoxShape.circle)))),
+                          ]),
+                          const SizedBox(height: 16),
+                          Container(
+                              height: 96,
+                              decoration: innerPanelDecoration(context)),
+                          const SizedBox(height: 14),
+                          Row(children: [
+                            const SizedBox.square(
+                                dimension: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Text('Cargando tu rutina…',
+                                    style: TextStyle(
+                                        color: colors.onSurfaceVariant))),
+                          ]),
+                        ])))));
   }
 }
