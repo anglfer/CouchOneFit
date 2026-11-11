@@ -14,6 +14,7 @@ let portfolioResponder,
   accountResponder,
   statusResponder,
   subscriptionResponder;
+let evaluationResponder;
 const page = (clients = [], hasClients = false, nextCursor = null) =>
   json({
     clients,
@@ -69,7 +70,12 @@ const unavailableSections = () =>
       'evaluations',
       'progress',
       'bodyWeightHistory',
-    ].map((key) => [key, { status: 'not_integrated' }])
+    ].map((key) => [
+      key,
+      key === 'evaluations'
+        ? { status: 'empty' }
+        : { status: 'not_integrated' },
+    ])
   );
 const composed = (profile = editableRecord, sections = unavailableSections()) =>
   json({ record: { profile, sections } });
@@ -225,9 +231,7 @@ test('professional deactivates a linked client account only after explicit confi
   portfolioResponder = () => page([linked('active')], true);
   await searchFor('Original');
   const accountWrites = () =>
-    requests.filter(
-      (r) => r.method === 'PATCH' && r.url.endsWith('/account')
-    );
+    requests.filter((r) => r.method === 'PATCH' && r.url.endsWith('/account'));
   await act(async () => button('Dar de baja la cuenta').click());
   assert.ok(document.querySelector('dialog[open]'));
   assert.equal(document.activeElement, button('Cancelar cambio de cuenta'));
@@ -243,7 +247,9 @@ test('professional deactivates a linked client account only after explicit confi
   assert.ok(document.querySelector('dialog[open]'));
   accountResponder = (body) => {
     assert.deepEqual(body, { status: 'inactive' });
-    return json({ account: { clientId: 'edit-id', accountStatus: 'inactive' } });
+    return json({
+      account: { clientId: 'edit-id', accountStatus: 'inactive' },
+    });
   };
   portfolioResponder = () => page([linked('inactive')], true);
   await act(async () => button('Confirmar baja de cuenta').click());
@@ -443,6 +449,7 @@ beforeEach(async () => {
   };
   subscriptionResponder = () =>
     json({ subscription: { status: 'active', used: 0, remaining: 10 } });
+  evaluationResponder = () => json({ error: { code: 'UNEXPECTED' } }, 500);
   window.history.replaceState({}, '', '/app/clientes');
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url, method: options.method || 'GET', body: options.body });
@@ -469,6 +476,8 @@ beforeEach(async () => {
       return accountResponder(JSON.parse(options.body));
     if (url.endsWith('/status') && options.method === 'PATCH')
       return statusResponder(JSON.parse(options.body));
+    if (url.endsWith('/evaluations') && options.method === 'POST')
+      return evaluationResponder(JSON.parse(options.body));
     if (url.startsWith('/api/clients/') && options.method === 'PATCH')
       return editResponder(JSON.parse(options.body));
     if (mode === 'profile-business' && url === '/api/professional/profile')
@@ -515,6 +524,10 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  const store = await vite.ssrLoadModule('/src/services/offline/store.ts');
+  const outbox = await vite.ssrLoadModule('/src/services/offline/outbox.ts');
+  store.setOfflineStore(undefined);
+  outbox.resetOutboxForTests();
 });
 
 function field(label) {
@@ -1160,6 +1173,16 @@ async function openComposedRecord(id) {
   });
 }
 
+async function openEvaluationForm() {
+  const link = (name) =>
+    [...document.querySelectorAll('a')].find((a) => a.textContent === name);
+  const tab = [
+    ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
+  ].find((a) => a.textContent.trim() === 'Evaluación');
+  if (tab) await act(async () => tab.click());
+  await act(async () => link('Nueva evaluación').click());
+}
+
 test('HU-019 composes the real profile once and labels all absent integrations without invented empty data or measurement dates', async () => {
   composedResponder = () =>
     composed({ ...editableRecord, id: 'record-a', goal: 'Actual base goal' });
@@ -1173,9 +1196,13 @@ test('HU-019 composes the real profile once and labels all absent integrations w
   assert.equal(
     document.body.textContent.match(/Esta sección todavía no está disponible/g)
       .length,
-    5
+    4
   );
-  assert.doesNotMatch(document.body.textContent, /Sin registros\./);
+  assert.equal(document.querySelector('form'), null);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /Nueva evaluación|Ver evaluaciones/
+  );
   assert.equal(
     requests.filter((r) => r.url === '/api/clients/record-a/record').length,
     1
@@ -1190,27 +1217,233 @@ test('HU-019 composes the real profile once and labels all absent integrations w
   );
 });
 
-test('HU-019 test-only reader states distinguish confirmed empty from query failure and retry only the read', async () => {
+test('HU-021 Web submits real measurements from the record and refreshes the dated history', async () => {
+  const previous = {
+    id: 'evaluation-previous',
+    clientId: 'record-a',
+    evaluationDate: '2026-11-08',
+    createdAt: '2026-11-08T12:00:00.000Z',
+    weightKg: 70.1,
+    waistCm: null,
+    hipCm: null,
+    measuredBodyFatPercentage: null,
+    pectoralSkinfoldMm: null,
+    abdominalSkinfoldMm: null,
+    tricepsSkinfoldMm: null,
+    suprailiacSkinfoldMm: null,
+    thighSkinfoldMm: null,
+  };
+  let saved = null;
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: 'record-a' },
+      {
+        ...unavailableSections(),
+        evaluations: {
+          status: 'available',
+          evaluations: saved ? [saved, previous] : [previous],
+        },
+      }
+    );
+  await openComposedRecord('record-a');
+  assert.match(document.body.textContent, /2026-11-08/);
+  await openEvaluationForm();
+  const input = field('Peso');
+  assert.ok(input);
+  assert.equal(
+    window.location.pathname,
+    '/app/clientes/record-a/evaluacion/nueva'
+  );
+  assert.equal(document.querySelector('dialog'), null);
+  assert.ok(
+    [...document.querySelectorAll('strong')].some(
+      (e) => e.textContent === 'Perímetros corporales'
+    )
+  );
+  await editField('Cintura', '80');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set.call(input, '70.4');
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  evaluationResponder = (body) => {
+    assert.deepEqual(body, {
+      method: 'perimetros',
+      effectiveDate: null,
+      equation: 'not_applicable',
+      measurements: { waistCm: 80, weightKg: 70.4 },
+    });
+    saved = {
+      id: 'evaluation-1',
+      clientId: 'record-a',
+      evaluationDate: '2026-11-09',
+      createdAt: '2026-11-09T12:00:00.000Z',
+      weightKg: 70.4,
+      waistCm: null,
+      hipCm: null,
+      measuredBodyFatPercentage: null,
+      pectoralSkinfoldMm: null,
+      abdominalSkinfoldMm: null,
+      tricepsSkinfoldMm: null,
+      suprailiacSkinfoldMm: null,
+      thighSkinfoldMm: null,
+    };
+    return json({ evaluation: saved }, 201);
+  };
+  await act(async () =>
+    document
+      .querySelector('form[aria-label="Registrar evaluación antropométrica"]')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+  assert.equal(
+    requests.filter(
+      (r) => r.method === 'POST' && r.url.endsWith('/evaluations')
+    ).length,
+    1
+  );
+  assert.match(
+    document.body.textContent,
+    /La evaluación se guardó correctamente/
+  );
+  await act(async () =>
+    [...document.querySelectorAll('a')]
+      .find((a) => a.textContent === 'Volver al historial')
+      .click()
+  );
+  assert.match(document.body.textContent, /Evaluación · 2026-11-09/);
+  assert.match(document.body.textContent, /2026-11-08/);
+  assert.match(document.body.textContent, /70.4 kg/);
+  assert.equal(document.querySelector('dialog[open]'), null);
+});
+
+test('HU-021 rejects empty and out-of-range or over-precision entries before sending', async () => {
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: 'record-a' },
+      { ...unavailableSections(), evaluations: { status: 'empty' } }
+    );
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  const form = () =>
+    document.querySelector(
+      'form[aria-label="Registrar evaluación antropométrica"]'
+    );
+  await act(async () =>
+    form().dispatchEvent(
+      new window.Event('submit', { bubbles: true, cancelable: true })
+    )
+  );
+  assert.match(document.body.textContent, /al menos una medición válida/);
+  const input = field('Peso');
+  for (const value of ['29.9', '70.25']) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value'
+      ).set.call(input, value);
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await act(async () =>
+      form().dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+    );
+    assert.match(
+      document.body.textContent,
+      /Revisa el rango y usa como máximo un decimal/
+    );
+  }
+  assert.equal(
+    requests.some((r) => r.method === 'POST' && r.url.endsWith('/evaluations')),
+    false
+  );
+  assert.equal(field('Peso').value, '70.25');
+  assert.equal(field('Peso').getAttribute('aria-invalid'), 'true');
+});
+
+test('HU-021 displays a queued offline evaluation as pending, not server-confirmed', async () => {
+  const store = await vite.ssrLoadModule('/src/services/offline/store.ts');
+  const readCache = await vite.ssrLoadModule(
+    '/src/services/offline/readCache.ts'
+  );
+  const outbox = await vite.ssrLoadModule('/src/services/offline/outbox.ts');
+  store.setOfflineStore(store.createMemoryStore());
+  outbox.resetOutboxForTests();
+  await readCache.noteAccount('pro-a');
+  await outbox.loadOutbox('pro-a');
   composedResponder = () =>
     composed(
       { ...editableRecord, id: 'record-a' },
       {
         ...unavailableSections(),
         evaluations: { status: 'empty' },
+      }
+    );
+  evaluationResponder = () => {
+    throw new TypeError('Failed to fetch');
+  };
+
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await editField('Peso', '70.4');
+  await editField('Cintura', '80');
+  await act(async () =>
+    document
+      .querySelector('form[aria-label="Registrar evaluación antropométrica"]')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+
+  for (
+    let attempt = 0;
+    attempt < 100 && !outbox.getOperations().length;
+    attempt++
+  ) {
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  }
+  assert.match(document.body.textContent, /pendiente de sincronización/);
+  assert.match(document.body.textContent, /fecha de creación se asignará/);
+  assert.equal(outbox.getOperations().length, 1);
+  assert.equal(document.querySelector('dialog[open]'), null);
+  store.setOfflineStore(undefined);
+  outbox.resetOutboxForTests();
+});
+
+test('HU-019 and HU-021 reader errors stay within their sections and retries do not write', async () => {
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: 'record-a' },
+      {
+        ...unavailableSections(),
+        evaluations: { status: 'error', code: 'QUERY_FAILED' },
         progress: { status: 'error', code: 'QUERY_FAILED' },
       }
     );
   await openComposedRecord('record-a');
-  assert.match(document.body.textContent, /Sin registros\./);
   assert.match(document.body.textContent, /No pudimos consultar esta sección/);
-  assert.equal(requests.filter((r) => r.url.endsWith('/record')).length, 1);
+  const tab = [
+    ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
+  ].find((a) => a.textContent.trim() === 'Evaluación');
+  await act(async () => tab.click());
+  assert.match(
+    document.body.textContent,
+    /No pudimos consultar las evaluaciones/
+  );
   composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
-  await act(async () => button('Actualizar expediente').click());
+  await act(async () => button('Reintentar lectura').click());
+  assert.match(
+    document.body.textContent,
+    /Aún no hay evaluaciones confirmadas/
+  );
   assert.doesNotMatch(
     document.body.textContent,
-    /Sin registros\.|No pudimos consultar esta sección/
+    /No pudimos consultar las evaluaciones/
   );
-  assert.equal(requests.filter((r) => r.url.endsWith('/record')).length, 2);
   assert.equal(writes().length, 0);
 });
 
@@ -1320,4 +1553,473 @@ test('HU-018 stale list action keeps the clicked intent when the initial GET alr
   );
   assert.equal(button('Confirmar reactivación'), undefined);
   assert.equal(statusWrites().length, 0);
+});
+
+test('HU-021 multimethod form preserves method drafts, previews device composition and exposes anatomical help', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await editField('Cintura', '80');
+  const choose = async (name) =>
+    act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.querySelector('strong')?.textContent === name)
+        .click()
+    );
+  await choose('Bioimpedancia');
+  await editField('Peso', '80');
+  await editField('Grasa corporal medida', '25');
+  assert.match(
+    document.querySelector('[aria-label="Resultados preliminares"]')
+      .textContent,
+    /20.0/
+  );
+  assert.match(
+    document.querySelector('svg[role="img"]').getAttribute('aria-label'),
+    /25.0/
+  );
+  assert.equal(field('Cintura'), null);
+  await choose('Perímetros corporales');
+  assert.equal(field('Cintura').value, '80');
+  await act(async () => field('Abdomen umbilical').focus());
+  assert.match(
+    document.querySelector('[aria-label="Referencia anatómica"]').textContent,
+    /no sustituye cintura/
+  );
+  assert.equal(field('Abdomen umbilical').value, '');
+  await choose('Pliegues cutáneos');
+  assert.ok(field('Pliegue bicipital'));
+  assert.ok(field('Pliegue subescapular'));
+  assert.match(document.body.textContent, /cálculo de grasa deshabilitado/);
+});
+
+test('HU-021 record evaluation preserves the current client without a selector', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await act(async () => {
+    window.history.pushState({}, '', '/app/clientes/record-a/evaluacion');
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+  });
+  const links = [...document.querySelectorAll('a')];
+  assert.ok(links.some((a) => a.getAttribute('href') === '/app/clientes'));
+  assert.ok(links.some((a) => a.getAttribute('href') === '/app/entrenamiento'));
+  assert.equal(document.querySelector('select'), null);
+  assert.equal(
+    document
+      .querySelector(
+        'nav[aria-label="Secciones del cliente"] a[aria-current="page"]'
+      )
+      .textContent.trim(),
+    'Evaluación'
+  );
+  assert.match(document.body.textContent, /Original client/);
+  assert.ok(document.querySelector('a[href="/app/clientes/record-a"]'));
+  assert.equal(writes().length, 0);
+});
+
+test('HU-021 previews independent reference ratios and mass arithmetic without enabling unverified formulas', async () => {
+  const { preview } = await vite.ssrLoadModule(
+    '/src/features/evaluations/types/assessment.ts'
+  );
+  assert.deepEqual(
+    preview({
+      method: 'perimetros',
+      equation: 'male',
+      effectiveDate: null,
+      measurements: {
+        waistCm: 80,
+        hipCm: 100,
+        heightCm: 200,
+        abdomenUmbilicalCm: 95,
+      },
+    }),
+    { waistHipRatio: 0.8, waistHeightRatio: 0.4 }
+  );
+  assert.deepEqual(
+    preview({
+      method: 'bioimpedancia',
+      equation: 'not_applicable',
+      effectiveDate: null,
+      measurements: {
+        weightKg: 80,
+        measuredBodyFatPercentage: 25,
+        waterLitres: 40,
+      },
+    }),
+    {
+      bodyFatPercentage: 25,
+      fatMassKg: 20,
+      fatFreeMassKg: 60,
+      approximateWaterPercentage: 50,
+    }
+  );
+  assert.deepEqual(
+    preview({
+      method: 'pliegues',
+      equation: 'male',
+      effectiveDate: null,
+      measurements: {
+        pectoralSkinfoldMm: 10,
+        abdominalSkinfoldMm: 15,
+        thighSkinfoldMm: 20,
+      },
+    }),
+    {}
+  );
+});
+
+test('HU-021 changing segment tissue requires explicit confirmation and clears incompatible draft values', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await act(async () =>
+    [...document.querySelectorAll('button')]
+      .find((b) => b.querySelector('strong')?.textContent === 'Bioimpedancia')
+      .click()
+  );
+  await editField('Brazo izquierdo', '2.5');
+  const tissue = [...document.querySelectorAll('select')].find((e) =>
+    [...e.options].some((o) => o.value === 'muscle_mass')
+  );
+  const confirm = await vite.ssrLoadModule('/src/services/confirm.ts');
+  const change = () =>
+    act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      ).set.call(tissue, 'fat_mass');
+      tissue.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  try {
+    confirm.setConfirmHandler(async () => false);
+    await change();
+    assert.equal(field('Brazo izquierdo').value, '2.5');
+    confirm.setConfirmHandler(async () => true);
+    await change();
+    assert.equal(field('Brazo izquierdo').value, '');
+    assert.equal(tissue.value, 'fat_mass');
+  } finally {
+    confirm.setConfirmHandler(null);
+  }
+});
+
+test('HU-021 third record tab is the only evaluation entry and there is no global evaluation menu', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  const tabs = [
+    ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
+  ];
+  assert.deepEqual(
+    tabs.map((a) => a.textContent.trim()),
+    ['Resumen', 'Entrenamiento', 'Evaluación']
+  );
+  assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
+  assert.equal(document.querySelector('form'), null);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /Ver evaluaciones|Abrir módulo|Nueva evaluación/
+  );
+  await act(async () => tabs[2].click());
+  assert.equal(window.location.pathname, '/app/clientes/record-a/evaluacion');
+  assert.equal(document.querySelector('select'), null);
+  assert.ok(
+    [...document.querySelectorAll('a')].find(
+      (a) => a.textContent === 'Nueva evaluación'
+    )
+  );
+});
+
+test('HU-021 pending migration preserves the form and never becomes an offline success', async () => {
+  const store = await vite.ssrLoadModule('/src/services/offline/store.ts');
+  const cache = await vite.ssrLoadModule('/src/services/offline/readCache.ts');
+  const outbox = await vite.ssrLoadModule('/src/services/offline/outbox.ts');
+  store.setOfflineStore(store.createMemoryStore());
+  outbox.resetOutboxForTests();
+  await cache.noteAccount('pro-a');
+  await outbox.loadOutbox('pro-a');
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await editField('Cintura', '80');
+  evaluationResponder = () =>
+    json(
+      {
+        error: {
+          code: 'EVALUATION_UPGRADE_REQUIRED',
+          message: 'El registro requiere una migración autorizada.',
+        },
+      },
+      503
+    );
+  await act(async () =>
+    document
+      .querySelector('form')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+  assert.match(document.body.textContent, /Migración pendiente/);
+  assert.match(document.body.textContent, /No se guardó ni se encoló/);
+  assert.equal(outbox.getOperations().length, 0);
+  assert.equal(field('Cintura').value, '80');
+  assert.doesNotMatch(
+    document.body.textContent,
+    /El servidor confirmó la persistencia/
+  );
+});
+
+test('HU-021 pending HTTP submission blocks double send and preserves capture on business error', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await editField('Cintura', '80');
+  let finish;
+  evaluationResponder = () =>
+    new Promise((done) => {
+      finish = done;
+    });
+  const form = document.querySelector('form');
+  await act(async () => {
+    form.dispatchEvent(
+      new window.Event('submit', { bubbles: true, cancelable: true })
+    );
+    form.dispatchEvent(
+      new window.Event('submit', { bubbles: true, cancelable: true })
+    );
+  });
+  assert.equal(
+    requests.filter(
+      (r) => r.method === 'POST' && r.url.endsWith('/evaluations')
+    ).length,
+    1
+  );
+  assert.ok(
+    document.querySelector('progress[aria-label="Guardando evaluación"]')
+  );
+  assert.equal(button('Guardando…').disabled, true);
+  await act(async () =>
+    finish(
+      json(
+        {
+          error: {
+            code: 'EVALUATION_FORBIDDEN',
+            message: 'No se permite registrar.',
+          },
+        },
+        403
+      )
+    )
+  );
+  assert.equal(field('Cintura').value, '80');
+  assert.match(document.body.textContent, /No se permite registrar/);
+  assert.equal(button('Guardar evaluación').disabled, false);
+});
+
+test('HU-021 leaving capture requires confirmation and cancellation keeps method drafts', async () => {
+  composedResponder = () => composed({ ...editableRecord, id: 'record-a' });
+  await openComposedRecord('record-a');
+  await openEvaluationForm();
+  await editField('Cintura', '80');
+  const confirm = await vite.ssrLoadModule('/src/services/confirm.ts');
+  const back = () =>
+    [...document.querySelectorAll('a')].find(
+      (a) => a.textContent === 'Volver a Evaluación'
+    );
+  try {
+    confirm.setConfirmHandler(async () => false);
+    await act(async () => back().click());
+    assert.match(window.location.pathname, /\/nueva$/);
+    assert.equal(field('Cintura').value, '80');
+    confirm.setConfirmHandler(async () => true);
+    await act(async () => back().click());
+    assert.equal(window.location.pathname, '/app/clientes/record-a/evaluacion');
+  } finally {
+    confirm.setConfirmHandler(null);
+  }
+});
+
+test('HU-021 StrictMode effect replay still handles server confirmation and exits saving', async () => {
+  const { default: Form } = await vite.ssrLoadModule(
+    '/src/features/evaluations/components/AssessmentForm.tsx'
+  );
+  let confirmed = 0;
+  await act(async () =>
+    root.render(
+      React.createElement(
+        React.StrictMode,
+        null,
+        React.createElement(Form, {
+          clientId: 'record-a',
+          clientName: 'Client QA',
+          onSaved: () => {
+            confirmed++;
+          },
+          onQueued: () => {
+            throw Error('Unexpected queue');
+          },
+        })
+      )
+    )
+  );
+  await editField('Cintura', '80');
+  evaluationResponder = () =>
+    json(
+      {
+        evaluation: {
+          id: 'strict-evaluation',
+          clientId: 'record-a',
+          evaluationDate: '2026-11-10',
+          createdAt: '2026-11-10T12:00:00.000Z',
+          weightKg: null,
+          waistCm: 80,
+          hipCm: null,
+          measuredBodyFatPercentage: null,
+          pectoralSkinfoldMm: null,
+          abdominalSkinfoldMm: null,
+          tricepsSkinfoldMm: null,
+          suprailiacSkinfoldMm: null,
+          thighSkinfoldMm: null,
+        },
+      },
+      201
+    );
+  await act(async () =>
+    document
+      .querySelector('form')
+      .dispatchEvent(
+        new window.Event('submit', { bubbles: true, cancelable: true })
+      )
+  );
+  assert.equal(confirmed, 1);
+  assert.match(
+    document.body.textContent,
+    /El servidor confirmó la persistencia/
+  );
+  assert.equal(document.querySelector('progress'), null);
+  assert.equal(button('Guardando…'), undefined);
+});
+
+test('HU-021 old client URLs redirect to record evaluation and capture without selecting another client', async () => {
+  const id = '12345678-1234-4234-8234-123456789012';
+  composedResponder = () => composed({ ...editableRecord, id });
+  for (const suffix of ['', '/nueva']) {
+    await act(async () => {
+      window.history.pushState(
+        {},
+        '',
+        `/app/evaluaciones/${id}${suffix}?return=https://example.invalid`
+      );
+      window.dispatchEvent(new window.PopStateEvent('popstate'));
+    });
+    assert.equal(
+      window.location.pathname,
+      `/app/clientes/${id}/evaluacion${suffix}`
+    );
+    assert.equal(window.location.search, '');
+    assert.equal(
+      document
+        .querySelector(
+          'nav[aria-label="Secciones del cliente"] a[aria-current="page"]'
+        )
+        .textContent.trim(),
+      'Evaluación'
+    );
+    if (suffix)
+      assert.ok(
+        document.querySelector(
+          'form[aria-label="Registrar evaluación antropométrica"]'
+        )
+      );
+    else assert.equal(document.querySelector('select'), null);
+  }
+  assert.equal(writes().length, 0);
+});
+
+test('HU-021 legacy global and malformed client URLs redirect to Clients without a guessed identity', async () => {
+  for (const path of [
+    '/app/evaluaciones',
+    '/app/evaluaciones/not-a-valid-id',
+    '/app/evaluaciones/%2Fmalformed/nueva',
+  ]) {
+    await act(async () => {
+      window.history.pushState({}, '', path);
+      window.dispatchEvent(new window.PopStateEvent('popstate'));
+    });
+    assert.equal(window.location.pathname, '/app/clientes');
+    assert.equal(
+      document.querySelector(
+        'form[aria-label="Registrar evaluación antropométrica"]'
+      ),
+      null
+    );
+  }
+  assert.equal(
+    requests.some((r) => r.url.endsWith('/record')),
+    false
+  );
+});
+
+test('HU-021 foreign record evaluation does not reveal a form or a client selector', async () => {
+  composedResponder = () => json({ error: { code: 'CLIENT_NOT_FOUND' } }, 404);
+  await act(async () => {
+    window.history.pushState({}, '', '/app/clientes/foreign/evaluacion/nueva');
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+  });
+  assert.match(
+    document.body.textContent,
+    /No pudimos consultar este expediente/
+  );
+  assert.equal(
+    document.querySelector(
+      'form[aria-label="Registrar evaluación antropométrica"]'
+    ),
+    null
+  );
+  assert.equal(document.querySelector('select'), null);
+  assert.equal(writes().length, 0);
+});
+
+test('HU-021 shared client tabs preserve Summary and Training navigation and return to the same evaluation', async () => {
+  composedResponder = () =>
+    composed({ ...editableRecord, id: 'record-a', goal: 'Original goal' });
+  await openComposedRecord('record-a');
+  const tab = (label) =>
+    [
+      ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
+    ].find((a) => a.textContent.trim() === label);
+  await act(async () => tab('Entrenamiento').click());
+  assert.equal(
+    window.location.pathname,
+    '/app/clientes/record-a/entrenamiento'
+  );
+  assert.equal(tab('Entrenamiento').getAttribute('aria-current'), 'page');
+  assert.ok(
+    document.querySelector('[aria-label="Secciones de entrenamiento"]')
+  );
+  await act(async () => tab('Evaluación').click());
+  assert.equal(window.location.pathname, '/app/clientes/record-a/evaluacion');
+  assert.equal(tab('Evaluación').getAttribute('aria-current'), 'page');
+  await act(async () => tab('Resumen').click());
+  assert.equal(window.location.pathname, '/app/clientes/record-a');
+  assert.match(document.body.textContent, /Original goal/);
+  assert.equal(writes().length, 0);
+});
+
+test('HU-021 inactive client keeps the evaluation tab/history but cannot open a capture form', async () => {
+  composedResponder = () =>
+    composed({ ...editableRecord, id: 'record-a', status: 'inactive' });
+  await act(async () => {
+    window.history.pushState({}, '', '/app/clientes/record-a/evaluacion/nueva');
+    window.dispatchEvent(new window.PopStateEvent('popstate'));
+  });
+  assert.match(document.body.textContent, /expediente está inactivo/);
+  assert.equal(document.querySelector('form'), null);
+  assert.equal(
+    document
+      .querySelector(
+        'nav[aria-label="Secciones del cliente"] a[aria-current="page"]'
+      )
+      .textContent.trim(),
+    'Evaluación'
+  );
+  assert.equal(writes().length, 0);
 });

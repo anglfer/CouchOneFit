@@ -100,3 +100,8 @@ Catálogo compartido: `professionals.plan_interest_id` / JSON `planInterestId` c
 ## Entrenamiento — EP-06
 
 Serie prescrita (`private.training_sets` / JSON `sets[]`): `kind`, `reps`, `repsMax`/`reps_max`, `rpe`, `rir`, `targetLoadKg`/`target_load_kg`. `kind` es el tipo de serie: `warmup` (Calentamiento), `working` (Efectiva, predeterminado), `top` (Top set), `backoff` (Back-off), `drop` (Drop set) y `failure` (Al fallo). La API acepta `kind` ausente como `working` para clientes antiguos y ediciones en cola sin conexión, y siempre lo devuelve. RIR = repeticiones en reserva (0 = fallo); RPE = esfuerzo percibido 1–10. [Contrato](../epicas/ep-06-entrenamiento/README.md).
+
+
+### HU-021 multimétodo — ampliación autorizada
+
+`client_evaluations.assessment` es el snapshot histórico opcional de composición corporal. NULL conserva un registro heredado de método desconocido. DTO: `perimetros`/`pliegues`/`bioimpedancia`; persistencia: `circumference`/`skinfolds`/`bioimpedance`. `waistCm` conserva cintura; `abdomenUmbilicalCm` es una medición independiente. Fecha efectiva y edad de referencia no sustituyen `created_at`. Navy/JP3 deshabilitados hasta cotejo. [Modelo y compatibilidad](../epicas/ep-04-antropometria/hu-021/multimethod.md).

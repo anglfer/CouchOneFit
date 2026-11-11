@@ -65,12 +65,15 @@ function ClientRecordContent({
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [statusSaved, setStatusSaved] = useState('');
+  const [evaluationSaved, setEvaluationSaved] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
   const requestKey = `${accountId}:${clientId}:${attempt}`;
   const loading = result.key !== requestKey;
   const stored = loading ? null : result.record;
   const pendingHere = useOperations().filter(
-    (operation) => operation.clientId === clientId
+    (operation) =>
+      operation.clientId === clientId &&
+      ['client.edit', 'client.status'].includes(operation.kind)
   );
   const hasPending = pendingHere.length > 0;
   const record =
@@ -179,7 +182,11 @@ function ClientRecordContent({
           ← Clientes
         </Link>
       )}
-      {[saved && 'Los cambios se guardaron correctamente.', statusSaved]
+      {[
+        saved && 'Los cambios se guardaron correctamente.',
+        evaluationSaved && 'La evaluación se guardó correctamente.',
+        statusSaved,
+      ]
         .filter(Boolean)
         .map((notice) => (
           <p
@@ -260,7 +267,19 @@ function ClientRecordContent({
                 </div>
               </Card>
             </div>
-            {sections && <ClientRecordSections sections={sections} />}
+            {sections && (
+              <ClientRecordSections
+                sections={sections}
+                clientId={clientId}
+                clientName={record.fullName}
+                clientStatus={record.status}
+                onRetryEvaluations={() => setAttempt((n) => n + 1)}
+                onEvaluationSaved={() => {
+                  setEvaluationSaved(true);
+                  setAttempt((n) => n + 1);
+                }}
+              />
+            )}
           </>
         ))
       )}

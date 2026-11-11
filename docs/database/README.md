@@ -160,3 +160,20 @@ La migración 202610280003_client_portfolio_order.sql agrega únicamente el índ
 - `202611020003_support_log_read.sql`: `support_log_page` (la bitácora se une a nombres de cliente mediante función definer).
 - `202611030001_idempotency_keys.sql`: `private.idempotency_keys` (DEC-018): claves de idempotencia por cuenta (RLS por `app.subject_id`) para repetir sin duplicar las escrituras hechas sin conexión; las filas se conservan 35 días.
 - La prueba de migraciones espera 21 migraciones y 15 tablas.
+
+
+## HU-021 multimétodo — migración preparada, no aplicada
+
+`202611090001_multimethod_evaluations.sql` amplía la tabla existente con un snapshot JSONB nullable, restricciones y una política restrictiva de propietario. No reescribe filas ni cambia columnas históricas; conserva grants previos y no otorga UPDATE/DELETE. Esquema integrado actualizado. Hay 28 archivos de migración en el checkout; esto no acredita su aplicación a ninguna base. [Contrato y despliegue](../epicas/ep-04-antropometria/hu-021/multimethod.md). La prueba de migraciones prepara ahora una cuarta base temporal propia para actualizar desde el esquema de 27 migraciones con una evaluación previa. Requiere autorización para el arnés y conexión local de preparación; no se ejecutó con runtime ni sobre desarrollo.
+
+
+## HU-021 — integridad del snapshot, 10-nov-2026
+
+`202611100001_evaluation_measurement_integrity.sql` añade únicamente un CHECK de mediciones del snapshot: campos por método, rangos/precisión, coherencia de masas/segmentos y equivalencia con las columnas originales. Conserva NULL heredado, datos, relaciones y permisos. No ejecuta fórmulas ni modifica snapshots incompatibles: rechaza la migración para revisión. Esquema integrado y prueba de migraciones actualizados: **29 migraciones, 28 tablas**.
+
+Las dos suites autorizadas pasaron 39/39 en bases temporales de PostgreSQL 17.11 local: instalación limpia, actualización con historia y RLS con rol ordinario. Roles globales y membresías se compararon antes/después sin cambios; recursos temporales eliminados. Esto no acredita aplicación en desarrollo/remoto: requiere autorización expresa y comprobación de su historial/checksums. [Evidencia HU-021](../epicas/ep-04-antropometria/hu-021/revision-final.md).
+
+
+## HU-021 — aplicación local controlada completada
+
+Tras autorización expresa y recuperación verificada del respaldo en una sola base nueva temporal (eliminada al finalizar), el migrador oficial aplicó únicamente 202611090001 y 202611100001 a **CouchOneFit_dev, PostgreSQL 17.11, 127.0.0.1:5433**. La inicial ya estaba registrada. Historial final 29/checksums válidos, datos privados anteriores y roles/membresías intactos; RLS/permisos mínimos verificados. Smoke posterior sobre QA autorizado añadió 3 evaluaciones, sin alterar los 2 clientes ni las 3 evaluaciones anteriores. No se modificó CouchOneFit_test, PG16, Supabase ni otra base existente. Esta evidencia es local: no acredita migración ni respaldo/restauración en producción. [Guía y evidencia final](../epicas/ep-04-antropometria/hu-021/COUCHONEFIT_HU021_HANDOFF.md).

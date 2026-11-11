@@ -253,3 +253,14 @@ test('al iniciar otra cuenta se descarta lo guardado de la anterior', async () =
   const profileA = await cache.recallRead('/api/professional/profile');
   assert.equal(profileA, null, 'el perfil de la cuenta anterior ya no está');
 });
+
+test('HU-021 historical evaluation pages use the existing encrypted account-scoped read cache', async () => {
+  assert.equal(
+    cache.isCacheableRead('/api/clients/c1/evaluations?offset=20'),
+    true
+  );
+  assert.equal(
+    cache.isCacheableRead('/api/clients/c1/evaluations?secret=anything'),
+    false
+  );
+});

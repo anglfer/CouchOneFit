@@ -19,7 +19,8 @@ export type OperationKind =
   | 'client.status'
   | 'training.save'
   | 'training.activate'
-  | 'training.zone';
+  | 'training.zone'
+  | 'evaluation.create';
 export type OperationState =
   'pending' | 'syncing' | 'failed' | 'conflict' | 'duplicate';
 

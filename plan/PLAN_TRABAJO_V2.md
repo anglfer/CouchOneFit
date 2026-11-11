@@ -1050,6 +1050,8 @@ Esta edición alinea README raíz, requisitos, arquitectura y despliegue con DEC
 
 #### HU-021 — Registrar una evaluación antropométrica fechada
 
+> **Ampliación de alcance autorizada por Pukzil en la sesión actual:** módulo multimétodo Perímetros/Pliegues/Bioimpedancia, pestaña Evaluación dentro del expediente (decisión posterior del supervisor comunicada por Pukzil) y preservación del contrato heredado. Navy y JP3 siguen deshabilitados hasta verificación documental. [Especificación e implementación incremental](../docs/epicas/ep-04-antropometria/hu-021/multimethod.md). No se reasignan HU ni responsabilidades de otras épicas; los criterios anteriores se conservan como base histórica.
+
 **Como:** profesional. **Quiero:** registrar peso, medidas y pliegues utilizados. **Para:** conservar una evaluación del cliente en una fecha.
 **Referencias:** RDF0501/0502/0503. **Responsable:** Pukzil. **Capas:** API, Web, BD.
 **Depende de:** HU-015/017, TT-010 y DEC-006. **Bloquea a:** HU-022/023 y evolución consolidada.

@@ -4,6 +4,7 @@ import { AuthError } from '../../auth/types/errors.js'
 import { readPortfolioRecord } from './portfolio.js'
 import type { ProfessionalRecord } from '../types/record.js'
 import { getActivity, getContext } from '../../training/services/training.js'
+import { getEvaluations } from '../../evaluations/services/evaluation.js'
 
 export async function readProfessionalRecord(
   pool: Pool,
@@ -28,13 +29,21 @@ export async function readProfessionalRecord(
     if (error instanceof AuthError && [400,401,403,404].includes(error.status)) throw error
     trainingPlan = { status: 'error', code: 'QUERY_FAILED' }
   }
+  let evaluations: ProfessionalRecord['sections']['evaluations']
+  try {
+    const rows = await getEvaluations(pool, identity, clientId)
+    evaluations = rows.length ? { status: 'available', evaluations: rows } : { status: 'empty' }
+  } catch (error) {
+    if (error instanceof AuthError && [400,401,403,404].includes(error.status)) throw error
+    evaluations = { status: 'error', code: 'QUERY_FAILED' }
+  }
   return {
     record: {
       profile: client,
       sections: {
         nutritionPlan: { status: 'not_integrated' },
         trainingPlan,
-        evaluations: { status: 'not_integrated' },
+        evaluations,
         progress: { status: 'not_integrated' },
         bodyWeightHistory: { status: 'not_integrated' }
       }

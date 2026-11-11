@@ -1045,3 +1045,176 @@ ALTER TABLE private.training_results ADD COLUMN rpe numeric(3,1) CONSTRAINT ck_t
 -- EP-06: prescribed set type (warm-up, working, top set, back-off, drop set, to failure).
 ALTER TABLE private.training_sets ADD COLUMN kind text NOT NULL DEFAULT 'working'
   CONSTRAINT ck_training_sets_kind CHECK(kind IN ('warmup','working','top','backoff','drop','failure'));
+
+-- EP-04 HU-021: append-only historical anthropometric evaluations.
+CREATE TABLE private.client_evaluations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL REFERENCES private.clients(id) ON DELETE RESTRICT,
+  evaluation_date date NOT NULL DEFAULT (timezone('UTC', clock_timestamp())::date),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  weight_kg numeric,
+  waist_cm numeric,
+  hip_cm numeric,
+  measured_body_fat_percentage numeric,
+  pectoral_skinfold_mm numeric,
+  abdominal_skinfold_mm numeric,
+  triceps_skinfold_mm numeric,
+  suprailiac_skinfold_mm numeric,
+  thigh_skinfold_mm numeric,
+  CONSTRAINT ck_client_evaluations_nonempty CHECK (num_nonnulls(
+    weight_kg, waist_cm, hip_cm, measured_body_fat_percentage,
+    pectoral_skinfold_mm, abdominal_skinfold_mm, triceps_skinfold_mm,
+    suprailiac_skinfold_mm, thigh_skinfold_mm
+  ) >= 1),
+  CONSTRAINT ck_client_evaluations_weight CHECK (
+    weight_kg IS NULL OR (weight_kg BETWEEN 30 AND 300 AND weight_kg = round(weight_kg, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_waist CHECK (
+    waist_cm IS NULL OR (waist_cm BETWEEN 40 AND 250 AND waist_cm = round(waist_cm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_hip CHECK (
+    hip_cm IS NULL OR (hip_cm BETWEEN 50 AND 250 AND hip_cm = round(hip_cm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_measured_body_fat CHECK (
+    measured_body_fat_percentage IS NULL OR (measured_body_fat_percentage BETWEEN 2 AND 60 AND measured_body_fat_percentage = round(measured_body_fat_percentage, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_pectoral_skinfold CHECK (
+    pectoral_skinfold_mm IS NULL OR (pectoral_skinfold_mm BETWEEN 1 AND 80 AND pectoral_skinfold_mm = round(pectoral_skinfold_mm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_abdominal_skinfold CHECK (
+    abdominal_skinfold_mm IS NULL OR (abdominal_skinfold_mm BETWEEN 1 AND 80 AND abdominal_skinfold_mm = round(abdominal_skinfold_mm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_triceps_skinfold CHECK (
+    triceps_skinfold_mm IS NULL OR (triceps_skinfold_mm BETWEEN 1 AND 80 AND triceps_skinfold_mm = round(triceps_skinfold_mm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_suprailiac_skinfold CHECK (
+    suprailiac_skinfold_mm IS NULL OR (suprailiac_skinfold_mm BETWEEN 1 AND 80 AND suprailiac_skinfold_mm = round(suprailiac_skinfold_mm, 1))
+  ),
+  CONSTRAINT ck_client_evaluations_thigh_skinfold CHECK (
+    thigh_skinfold_mm IS NULL OR (thigh_skinfold_mm BETWEEN 1 AND 80 AND thigh_skinfold_mm = round(thigh_skinfold_mm, 1))
+  )
+);
+CREATE INDEX ix_client_evaluations_client_date
+  ON private.client_evaluations(client_id, evaluation_date DESC, created_at DESC, id DESC);
+REVOKE ALL ON TABLE private.client_evaluations FROM PUBLIC, couchone_authentication;
+GRANT SELECT ON TABLE private.client_evaluations TO couchone_authentication;
+GRANT INSERT(
+  client_id, weight_kg, waist_cm, hip_cm, measured_body_fat_percentage,
+  pectoral_skinfold_mm, abdominal_skinfold_mm, triceps_skinfold_mm,
+  suprailiac_skinfold_mm, thigh_skinfold_mm
+) ON TABLE private.client_evaluations TO couchone_authentication;
+ALTER TABLE private.client_evaluations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY client_evaluations_read ON private.client_evaluations
+  FOR SELECT TO couchone_authentication
+  USING (EXISTS (
+    SELECT 1 FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
+    WHERE c.id=client_evaluations.client_id AND private.training_professional(p.user_id)
+  ));
+CREATE POLICY client_evaluations_insert ON private.client_evaluations
+  FOR INSERT TO couchone_authentication
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
+    WHERE c.id=client_evaluations.client_id AND c.status='active' AND private.training_professional(p.user_id)
+  ));
+-- HU-021 scope extension. Existing columns and historical rows retain their meaning.
+-- NULL assessment means legacy/unknown method; never infer provenance or recalculate it.
+ALTER TABLE private.client_evaluations ADD COLUMN assessment jsonb;
+ALTER TABLE private.client_evaluations DROP CONSTRAINT ck_client_evaluations_nonempty;
+ALTER TABLE private.client_evaluations ADD CONSTRAINT ck_client_evaluations_nonempty CHECK (
+  num_nonnulls(weight_kg,waist_cm,hip_cm,measured_body_fat_percentage,pectoral_skinfold_mm,
+    abdominal_skinfold_mm,triceps_skinfold_mm,suprailiac_skinfold_mm,thigh_skinfold_mm)>=1
+  OR assessment IS NOT NULL
+);
+ALTER TABLE private.client_evaluations ADD CONSTRAINT ck_client_evaluations_assessment CHECK (
+  assessment IS NULL OR COALESCE((
+    jsonb_typeof(assessment)='object'
+    AND assessment ?& ARRAY['protocol','method','effectiveDate','ownerId','version','calculationStatus','provenance','measurements','results','equation','birthDate','ageYears']
+    AND assessment->>'method' IN ('circumference','skinfolds','bioimpedance')
+    AND assessment->>'equation' IN ('male','female','not_applicable')
+    AND assessment->>'version'='composition-arithmetic-v1'
+    AND assessment->>'calculationStatus' IN ('available','partial','pending_verification')
+    AND assessment->>'provenance' IN ('device_reported','manual_measurements')
+    AND jsonb_typeof(assessment->'ownerId')='string'
+    AND jsonb_typeof(assessment->'protocol')='string'
+    AND assessment->>'protocol'<>''
+    AND jsonb_typeof(assessment->'measurements')='object'
+    AND assessment->'measurements'<>'{}'::jsonb
+    AND jsonb_typeof(assessment->'results')='object'
+    AND NOT jsonb_path_exists(assessment, '$.measurements.* ? (@.type() != "number" || @ <= 0)')
+    AND NOT jsonb_path_exists(assessment, '$.results.* ? (@.type() != "number")')
+    AND jsonb_typeof(assessment->'effectiveDate')='string'
+    AND (assessment->>'effectiveDate')::date <= timezone('UTC',clock_timestamp())::date
+    AND (assessment->>'method'='bioimpedance' OR (
+      assessment->>'calculationStatus'='pending_verification'
+      AND NOT (assessment->'results' ?| ARRAY['bodyFatPercentage','density','fatMassKg','fatFreeMassKg'])
+    ))
+  ), false)
+);
+GRANT INSERT(assessment) ON private.client_evaluations TO couchone_authentication;
+-- Restrictive policies complement the existing ownership/elegibility policies.
+CREATE POLICY client_evaluations_snapshot_owner ON private.client_evaluations AS RESTRICTIVE
+  FOR INSERT TO couchone_authentication
+  WITH CHECK (assessment IS NULL OR assessment->>'ownerId'=current_setting('app.subject_id',true));
+-- No UPDATE/DELETE grant. Original rows, date defaults, indices and read RLS preserved.
+
+-- HU-021: align snapshot measurement invariants with the authorized API contract.
+-- No data rewrite, formula execution, grants or policy changes. NULL remains legacy.
+-- Existing inconsistent snapshots cause migration rollback; never normalize history.
+ALTER TABLE private.client_evaluations
+  ADD CONSTRAINT ck_client_evaluations_snapshot_measurements CHECK (
+    assessment IS NULL OR COALESCE((
+      CASE assessment->>'method'
+      WHEN 'circumference' THEN (assessment->'measurements') - ARRAY['weightKg','heightCm','neckCm','waistCm','abdomenUmbilicalCm','hipCm'] = '{}'::jsonb
+      WHEN 'skinfolds' THEN (assessment->'measurements') - ARRAY['weightKg','heightCm','tricepsSkinfoldMm','bicepsSkinfoldMm','subscapularSkinfoldMm','suprailiacSkinfoldMm','pectoralSkinfoldMm','abdominalSkinfoldMm','thighSkinfoldMm'] = '{}'::jsonb
+      WHEN 'bioimpedance' THEN (assessment->'measurements') - ARRAY['weightKg','heightCm','measuredBodyFatPercentage','muscleMassKg','waterLitres','visceralFatIndex'] = '{}'::jsonb
+      ELSE false END
+      AND (assessment->'measurements') - ARRAY['weightKg','heightCm'] <> '{}'::jsonb
+      AND (NOT ((assessment->'measurements') ? 'abdomenUmbilicalCm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'abdomenUmbilicalCm')='number' THEN ((assessment->'measurements')->>'abdomenUmbilicalCm')::numeric > 0 AND ((assessment->'measurements')->>'abdomenUmbilicalCm')::numeric=round(((assessment->'measurements')->>'abdomenUmbilicalCm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'abdominalSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'abdominalSkinfoldMm')='number' THEN ((assessment->'measurements')->>'abdominalSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'abdominalSkinfoldMm')::numeric=round(((assessment->'measurements')->>'abdominalSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'bicepsSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'bicepsSkinfoldMm')='number' THEN ((assessment->'measurements')->>'bicepsSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'bicepsSkinfoldMm')::numeric=round(((assessment->'measurements')->>'bicepsSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'heightCm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'heightCm')='number' THEN ((assessment->'measurements')->>'heightCm')::numeric BETWEEN 100 AND 250 AND ((assessment->'measurements')->>'heightCm')::numeric=round(((assessment->'measurements')->>'heightCm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'hipCm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'hipCm')='number' THEN ((assessment->'measurements')->>'hipCm')::numeric BETWEEN 50 AND 250 AND ((assessment->'measurements')->>'hipCm')::numeric=round(((assessment->'measurements')->>'hipCm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'measuredBodyFatPercentage') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'measuredBodyFatPercentage')='number' THEN ((assessment->'measurements')->>'measuredBodyFatPercentage')::numeric BETWEEN 2 AND 60 AND ((assessment->'measurements')->>'measuredBodyFatPercentage')::numeric=round(((assessment->'measurements')->>'measuredBodyFatPercentage')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'muscleMassKg') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'muscleMassKg')='number' THEN ((assessment->'measurements')->>'muscleMassKg')::numeric > 0 AND ((assessment->'measurements')->>'muscleMassKg')::numeric=round(((assessment->'measurements')->>'muscleMassKg')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'neckCm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'neckCm')='number' THEN ((assessment->'measurements')->>'neckCm')::numeric > 0 AND ((assessment->'measurements')->>'neckCm')::numeric=round(((assessment->'measurements')->>'neckCm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'pectoralSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'pectoralSkinfoldMm')='number' THEN ((assessment->'measurements')->>'pectoralSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'pectoralSkinfoldMm')::numeric=round(((assessment->'measurements')->>'pectoralSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'subscapularSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'subscapularSkinfoldMm')='number' THEN ((assessment->'measurements')->>'subscapularSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'subscapularSkinfoldMm')::numeric=round(((assessment->'measurements')->>'subscapularSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'suprailiacSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'suprailiacSkinfoldMm')='number' THEN ((assessment->'measurements')->>'suprailiacSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'suprailiacSkinfoldMm')::numeric=round(((assessment->'measurements')->>'suprailiacSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'thighSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'thighSkinfoldMm')='number' THEN ((assessment->'measurements')->>'thighSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'thighSkinfoldMm')::numeric=round(((assessment->'measurements')->>'thighSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'tricepsSkinfoldMm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'tricepsSkinfoldMm')='number' THEN ((assessment->'measurements')->>'tricepsSkinfoldMm')::numeric BETWEEN 1 AND 80 AND ((assessment->'measurements')->>'tricepsSkinfoldMm')::numeric=round(((assessment->'measurements')->>'tricepsSkinfoldMm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'visceralFatIndex') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'visceralFatIndex')='number' THEN ((assessment->'measurements')->>'visceralFatIndex')::numeric > 0 AND ((assessment->'measurements')->>'visceralFatIndex')::numeric=round(((assessment->'measurements')->>'visceralFatIndex')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'waistCm') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'waistCm')='number' THEN ((assessment->'measurements')->>'waistCm')::numeric BETWEEN 40 AND 250 AND ((assessment->'measurements')->>'waistCm')::numeric=round(((assessment->'measurements')->>'waistCm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'waterLitres') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'waterLitres')='number' THEN ((assessment->'measurements')->>'waterLitres')::numeric > 0 AND ((assessment->'measurements')->>'waterLitres')::numeric=round(((assessment->'measurements')->>'waterLitres')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR CASE WHEN jsonb_typeof((assessment->'measurements')->'weightKg')='number' THEN ((assessment->'measurements')->>'weightKg')::numeric BETWEEN 30 AND 300 AND ((assessment->'measurements')->>'weightKg')::numeric=round(((assessment->'measurements')->>'weightKg')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT ((assessment->'measurements') ? 'muscleMassKg') OR ((assessment->'measurements')->>'muscleMassKg')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT ((assessment->'measurements') ? 'waterLitres') OR ((assessment->'measurements')->>'waterLitres')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT (assessment ? 'segmental') OR COALESCE((
+      assessment->>'method'='bioimpedance'
+      AND jsonb_typeof((assessment->'segmental'))='object'
+      AND (assessment->'segmental') - ARRAY['type','unit','values'] = '{}'::jsonb
+      AND (assessment->'segmental')->>'type' IN ('muscle_mass','fat_mass')
+      AND (assessment->'segmental')->>'unit'='kg'
+      AND jsonb_typeof(((assessment->'segmental')->'values'))='object'
+      AND ((assessment->'segmental')->'values') - ARRAY['leftArm','rightArm','trunk','leftLeg','rightLeg'] = '{}'::jsonb
+      AND (NOT (((assessment->'segmental')->'values') ? 'leftArm') OR CASE WHEN jsonb_typeof(((assessment->'segmental')->'values')->'leftArm')='number' THEN (((assessment->'segmental')->'values')->>'leftArm')::numeric > 0 AND (((assessment->'segmental')->'values')->>'leftArm')::numeric=round((((assessment->'segmental')->'values')->>'leftArm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT (((assessment->'segmental')->'values') ? 'leftArm') OR (((assessment->'segmental')->'values')->>'leftArm')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT (((assessment->'segmental')->'values') ? 'rightArm') OR CASE WHEN jsonb_typeof(((assessment->'segmental')->'values')->'rightArm')='number' THEN (((assessment->'segmental')->'values')->>'rightArm')::numeric > 0 AND (((assessment->'segmental')->'values')->>'rightArm')::numeric=round((((assessment->'segmental')->'values')->>'rightArm')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT (((assessment->'segmental')->'values') ? 'rightArm') OR (((assessment->'segmental')->'values')->>'rightArm')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT (((assessment->'segmental')->'values') ? 'trunk') OR CASE WHEN jsonb_typeof(((assessment->'segmental')->'values')->'trunk')='number' THEN (((assessment->'segmental')->'values')->>'trunk')::numeric > 0 AND (((assessment->'segmental')->'values')->>'trunk')::numeric=round((((assessment->'segmental')->'values')->>'trunk')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT (((assessment->'segmental')->'values') ? 'trunk') OR (((assessment->'segmental')->'values')->>'trunk')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT (((assessment->'segmental')->'values') ? 'leftLeg') OR CASE WHEN jsonb_typeof(((assessment->'segmental')->'values')->'leftLeg')='number' THEN (((assessment->'segmental')->'values')->>'leftLeg')::numeric > 0 AND (((assessment->'segmental')->'values')->>'leftLeg')::numeric=round((((assessment->'segmental')->'values')->>'leftLeg')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT (((assessment->'segmental')->'values') ? 'leftLeg') OR (((assessment->'segmental')->'values')->>'leftLeg')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+      AND (NOT (((assessment->'segmental')->'values') ? 'rightLeg') OR CASE WHEN jsonb_typeof(((assessment->'segmental')->'values')->'rightLeg')='number' THEN (((assessment->'segmental')->'values')->>'rightLeg')::numeric > 0 AND (((assessment->'segmental')->'values')->>'rightLeg')::numeric=round((((assessment->'segmental')->'values')->>'rightLeg')::numeric,1) ELSE false END)
+      AND (NOT ((assessment->'measurements') ? 'weightKg') OR NOT (((assessment->'segmental')->'values') ? 'rightLeg') OR (((assessment->'segmental')->'values')->>'rightLeg')::numeric <= ((assessment->'measurements')->>'weightKg')::numeric)
+    ),false))
+      AND (((assessment->'measurements')->>'weightKg')::numeric IS NOT DISTINCT FROM weight_kg)
+      AND (((assessment->'measurements')->>'waistCm')::numeric IS NOT DISTINCT FROM waist_cm)
+      AND (((assessment->'measurements')->>'hipCm')::numeric IS NOT DISTINCT FROM hip_cm)
+      AND (((assessment->'measurements')->>'measuredBodyFatPercentage')::numeric IS NOT DISTINCT FROM measured_body_fat_percentage)
+      AND (((assessment->'measurements')->>'pectoralSkinfoldMm')::numeric IS NOT DISTINCT FROM pectoral_skinfold_mm)
+      AND (((assessment->'measurements')->>'abdominalSkinfoldMm')::numeric IS NOT DISTINCT FROM abdominal_skinfold_mm)
+      AND (((assessment->'measurements')->>'tricepsSkinfoldMm')::numeric IS NOT DISTINCT FROM triceps_skinfold_mm)
+      AND (((assessment->'measurements')->>'suprailiacSkinfoldMm')::numeric IS NOT DISTINCT FROM suprailiac_skinfold_mm)
+      AND (((assessment->'measurements')->>'thighSkinfoldMm')::numeric IS NOT DISTINCT FROM thigh_skinfold_mm)
+    ),false)
+  );

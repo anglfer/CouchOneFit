@@ -1,3 +1,4 @@
+import { awaitConfirmation } from './writes';
 import { ApiError } from '../api';
 import { confirmDialog } from '../confirm';
 import {
@@ -116,6 +117,16 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
   }
   if (error instanceof ApiError) {
     if (
+      operation.kind === 'evaluation.create' &&
+      error.code === 'EVALUATION_UPGRADE_REQUIRED'
+    ) {
+      await updateOperation(operation.id, {
+        state: 'failed',
+        error: error.message,
+      });
+      return 'blocked';
+    }
+    if (
       error.status === 409 &&
       ['CLIENT_RECORD_CONFLICT', 'TRAINING_CONFLICT'].includes(error.code)
     ) {
@@ -174,13 +185,16 @@ async function attempt(operation: Operation): Promise<Outcome> {
     error: undefined,
   });
   try {
-    const response = await sessionMutation<unknown>(
-      operation.endpoint,
-      operation.body,
-      operation.method,
-      {
-        'Idempotency-Key': operation.id,
-      }
+    const response = await awaitConfirmation(
+      sessionMutation<unknown>(
+        operation.endpoint,
+        operation.body,
+        operation.method,
+        {
+          'Idempotency-Key': operation.id,
+        }
+      ),
+      operation.kind === 'evaluation.create' ? 20_000 : undefined
     );
     if (
       operation.kind === 'training.save' &&

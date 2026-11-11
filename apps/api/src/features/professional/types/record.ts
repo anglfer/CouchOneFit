@@ -1,4 +1,5 @@
 import type { TrainingActivity, TrainingVersion } from '../../training/types/training.js'
+import type { Evaluation } from '../../evaluations/types/evaluation.js'
 
 export interface ClientBaseRecord {
   id: string
@@ -21,12 +22,17 @@ export type RecordSection =
   | { status: 'empty' }
   | { status: 'error'; code: 'QUERY_FAILED' }
 
+export type EvaluationSection =
+  | { status: 'empty' }
+  | { status: 'available'; evaluations: Evaluation[] }
+  | { status: 'error'; code: 'QUERY_FAILED' }
+
 export interface ProfessionalRecord {
   profile: ClientBaseRecord
   sections: {
     nutritionPlan: RecordSection
     trainingPlan: RecordSection | { status: 'available'; plan: TrainingVersion; activeRevision: number; activity: TrainingActivity | null }
-    evaluations: RecordSection
+    evaluations: EvaluationSection
     progress: RecordSection
     bodyWeightHistory: RecordSection
   }

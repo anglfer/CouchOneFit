@@ -1,5 +1,6 @@
 import type { ClientBaseRecord } from './portfolio';
 import type { TrainingVersion } from '../../training/types/training';
+import type { EvaluationSection } from '../../evaluations/types/evaluation';
 
 // Availability only; module-specific data require their own integrated contract.
 export type RecordSection =
@@ -27,7 +28,7 @@ export interface ProfessionalRecord {
           activeRevision: number;
           activity?: TrainingActivity | null;
         };
-    evaluations: RecordSection;
+    evaluations: EvaluationSection;
     progress: RecordSection;
     bodyWeightHistory: RecordSection;
   };

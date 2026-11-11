@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { Pool } from 'pg';
 
@@ -18,9 +18,11 @@ test('migrations and the integrated schema produce the same English database', a
   const runtimeRole = `cof_migration_${randomBytes(6).toString('hex')}`;
   const databases: Pool[] = [];
   try {
+    assert.equal((await owner.query('SELECT 1 FROM pg_roles WHERE rolname=$1', [runtimeRole])).rowCount, 0);
     const urls = [];
-    for (const suffix of ['migration', 'schema', 'legacy']) {
+    for (const suffix of ['migration', 'schema', 'legacy', 'evaluation_upgrade']) {
       const name = `CouchOneFit_${suffix}_test_${randomBytes(6).toString('hex')}`;
+      assert.equal((await owner.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 0);
       await owner.query(`CREATE DATABASE "${name}"`);
       created.push(name);
       const target = new URL(value);
@@ -52,6 +54,9 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202610280004_client_record_version.sql/);
     assert.match(applied, /Applied: 202610290001_client_record_status_audit.sql/);
     assert.match(applied, /Applied: 202611030001_idempotency_keys.sql/);
+    assert.match(applied, /Applied: 202611080001_client_evaluations.sql/);
+    assert.match(applied, /Applied: 202611090001_multimethod_evaluations.sql/);
+    assert.match(applied, /Applied: 202611100001_evaluation_measurement_integrity.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -73,7 +78,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '26'
+      '29'
     );
     await databases[1].query(
       readFileSync(
@@ -191,7 +196,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '26'
+      '29'
     );
     assert.equal(
       (
@@ -282,8 +287,25 @@ test('migrations and the integrated schema produce the same English database', a
         queries.map(async (sql) => (await db.query(sql)).rows)
       );
     };
+    // Upgrade from the previous integrated schema with a real historical evaluation.
+    const previousSchema=readFileSync(new URL('../../../docs/database/schemas/identity_access.sql',import.meta.url),'utf8').split('-- HU-021 scope extension.')[0];
+    await databases[3].query(previousSchema);
+    await databases[3].query('CREATE SCHEMA migrations; CREATE TABLE migrations.history(filename text PRIMARY KEY,checksum text NOT NULL)');
+    const migrationDirectory=new URL('../../../docs/database/migrations/',import.meta.url);
+    for(const filename of readdirSync(migrationDirectory).filter(n=>/^\d{12}_.*\.sql$/.test(n)&&n<'202611090001_multimethod_evaluations.sql').sort()) {
+      await databases[3].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)',[filename,createHash('sha256').update(readFileSync(new URL(filename,migrationDirectory),'utf8')).digest('hex')]);
+    }
+    const upgradeUser=(await databases[3].query("INSERT INTO private.users(username,email,password_hash,role) VALUES('upgrade.eval','upgrade.eval@example.com','$argon2id$fixture','professional') RETURNING id")).rows[0].id;
+    const upgradeProfessional=(await databases[3].query("INSERT INTO private.professionals(user_id,full_name) VALUES($1,'Upgrade evaluation') RETURNING id",[upgradeUser])).rows[0].id;
+    const upgradeClient=(await databases[3].query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'Legacy evaluation client') RETURNING id",[upgradeProfessional])).rows[0].id;
+    const previousEvaluation=(await databases[3].query('INSERT INTO private.client_evaluations(client_id,weight_kg) VALUES($1,70.2) RETURNING *',[upgradeClient])).rows[0];
+    assert.match(migrate(urls[3]),/Applied: 202611090001_multimethod_evaluations.sql/);
+    const preserved=(await databases[3].query('SELECT * FROM private.client_evaluations WHERE id=$1',[previousEvaluation.id])).rows[0];
+    const {assessment,...originalColumns}=preserved;
+    assert.equal(assessment,null);
+    assert.deepEqual(originalColumns,previousEvaluation);
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 27);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 28);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

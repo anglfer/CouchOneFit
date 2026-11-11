@@ -1,5 +1,6 @@
 import type { ProfessionalRecord, RecordSection } from '../types/record';
 import { Card } from '../../../components/ui';
+import EvaluationSummary from '../../evaluations/components/EvaluationSummary';
 
 export function SectionState({ section }: { section: RecordSection }) {
   switch (section.status) {
@@ -33,19 +34,23 @@ export default function ClientRecordSections({
   sections,
 }: {
   sections: ProfessionalRecord['sections'];
+  clientId: string;
+  clientName: string;
+  clientStatus: 'active' | 'inactive';
+  onRetryEvaluations: () => void;
+  onEvaluationSaved: () => void;
 }) {
   return (
     <div className="client-hub-modules">
       <Card title="Alimentación" icon="bowl" labelId="record-plans-title">
         <SectionState section={sections.nutritionPlan} />
       </Card>
-      <Card
-        title="Evaluaciones"
-        icon="clipboard"
-        labelId="record-evaluations-title"
-      >
-        <SectionState section={sections.evaluations} />
-      </Card>
+      {sections.evaluations.status === 'available' &&
+        sections.evaluations.evaluations.length > 0 && (
+          <Card title="Última evaluación" icon="clipboard">
+            <EvaluationSummary section={sections.evaluations} />
+          </Card>
+        )}
       <Card title="Progreso" icon="chart" labelId="record-progress-title">
         <div className="space-y-3">
           <div>

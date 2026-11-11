@@ -20,6 +20,8 @@ let createdDatabase = false, createdRole = false
 const actors: Record<string, { id: string; session: string; professional?: string; client?: string; token?: string }> = {}
 
 before(async () => {
+  assert.equal((await owner.query('SELECT 1 FROM pg_database WHERE datname=$1', [databaseName])).rowCount, 0)
+  assert.equal((await owner.query('SELECT 1 FROM pg_roles WHERE rolname=$1', [runtimeRole])).rowCount, 0)
   await owner.query(`CREATE DATABASE "${databaseName}"`)
   createdDatabase = true
   const target = new URL(source!)
@@ -86,7 +88,7 @@ test('HU-019 composition reuses the real owned base profile and never fabricates
   assert.deepEqual(Object.keys(read.body), ['record'])
   assert.deepEqual(Object.keys(read.body.record).sort(), ['profile', 'sections'])
   assert.deepEqual(Object.keys(read.body.record.sections).sort(), ['bodyWeightHistory', 'evaluations', 'nutritionPlan', 'progress', 'trainingPlan'])
-  for (const [name,section] of Object.entries(read.body.record.sections)) assert.deepEqual(section, {status: name==='trainingPlan'?'empty':'not_integrated'})
+  for (const [name,section] of Object.entries(read.body.record.sections)) assert.deepEqual(section, {status: name==='trainingPlan'||name==='evaluations'?'empty':'not_integrated'})
   assert.equal(read.body.record.profile.id, id)
   assert.equal(read.body.record.profile.baseWeightKg, 70.2)
   assert.equal('createdAt' in read.body.record.profile, false)
@@ -159,6 +161,255 @@ test('each professional reads only their own portfolio and all foreign physical 
     assert.deepEqual(response.body.clients.map((c: { id: string }) => c.id), [actors[`client${own}`].client])
   }
   assert.equal((await runtime.query('SELECT * FROM private.clients')).rowCount, 0)
+})
+
+test('HU-021 evaluation rows are append-only, isolated by owner and readable for inactive owned records', async () => {
+  const { createEvaluation, getEvaluations } = await import('../src/features/evaluations/services/evaluation.js')
+  const identity = (name: 'proA' | 'proB') => ({
+    id: actors[name].id,
+    username: name.toLowerCase(),
+    email: `${name.toLowerCase()}@example.com`,
+    fullName: name,
+    role: 'professional' as const,
+    sessionId: actors[name].session,
+    expiresAt: new Date(Date.now() + 60_000),
+  })
+  const ownId = actors.clientA.client!
+  const baseBefore = (await database.query('SELECT base_weight_kg,waist_cm FROM private.clients WHERE id=$1', [ownId])).rows[0]
+  const first = await createEvaluation(runtime, identity('proA'), ownId, { pectoralSkinfoldMm: 12.3 })
+  const second = await createEvaluation(runtime, identity('proA'), ownId, { weightKg: 70.2 })
+  assert.notEqual(first.id, second.id)
+  assert.match(first.evaluationDate, /^\d{4}-\d{2}-\d{2}$/)
+  assert.match(second.evaluationDate, /^\d{4}-\d{2}-\d{2}$/)
+  const sameDay = '2000-01-01'
+  await database.query('INSERT INTO private.client_evaluations(client_id,evaluation_date,thigh_skinfold_mm) VALUES($1,$2,8.1),($1,$2,8.2)', [ownId, sameDay])
+  assert.equal((await database.query('SELECT count(*) FROM private.client_evaluations WHERE client_id=$1 AND evaluation_date=$2', [ownId, sameDay])).rows[0].count, '2')
+  assert.equal((await getEvaluations(runtime, identity('proA'), ownId)).length, 4)
+  assert.deepEqual((await database.query('SELECT base_weight_kg,waist_cm FROM private.clients WHERE id=$1', [ownId])).rows[0], baseBefore)
+  await assert.rejects(createEvaluation(runtime, identity('proB'), ownId, { weightKg: 70 }), (error: unknown) => error instanceof Error && 'status' in error && error.status === 404)
+  await assert.rejects(getEvaluations(runtime, identity('proB'), ownId), (error: unknown) => error instanceof Error && 'status' in error && error.status === 404)
+  await assert.rejects(asSubject(actors.proB.id, (client) => client.query(
+    'INSERT INTO private.client_evaluations(client_id,thigh_skinfold_mm) VALUES($1,8.1)', [ownId],
+  )), (error: unknown) => error instanceof Error && 'code' in error && error.code === '42501')
+  assert.deepEqual(await asSubject(actors.proB.id, async (client) => (await client.query(
+    'SELECT id FROM private.client_evaluations WHERE client_id=$1', [ownId],
+  )).rows), [])
+  assert.equal((await runtime.query('SELECT * FROM private.client_evaluations')).rowCount, 0)
+  const permissions = (await runtime.query("SELECT has_table_privilege(current_user,'private.client_evaluations','UPDATE') AS can_update,has_table_privilege(current_user,'private.client_evaluations','DELETE') AS can_delete")).rows[0]
+  assert.equal(permissions.can_update, false)
+  assert.equal(permissions.can_delete, false)
+  const datePrivileges = (await runtime.query(`SELECT
+    has_column_privilege(current_user,'private.client_evaluations','evaluation_date','INSERT') AS can_set_date,
+    has_column_privilege(current_user,'private.client_evaluations','created_at','INSERT') AS can_set_created_at,
+    has_column_privilege(current_user,'private.client_evaluations','weight_kg','INSERT') AS can_set_measurement`)).rows[0]
+  assert.equal(datePrivileges.can_set_date, false)
+  assert.equal(datePrivileges.can_set_created_at, false)
+  assert.equal(datePrivileges.can_set_measurement, true)
+  await assert.rejects(asSubject(actors.proA.id, (client) => client.query(
+    `INSERT INTO private.client_evaluations(client_id,evaluation_date,thigh_skinfold_mm)
+     VALUES($1,'2000-01-01',8.1)`, [ownId],
+  )), (error: unknown) => error instanceof Error && 'code' in error && error.code === '42501')
+  for (const values of [
+    [ownId, null, null, null, null, null, null, null, null, null],
+    [ownId, 300.1, null, null, null, null, null, null, null, null],
+    [ownId, 70.25, null, null, null, null, null, null, null, null],
+  ]) {
+    await assert.rejects(database.query(
+      `INSERT INTO private.client_evaluations(client_id,weight_kg,waist_cm,hip_cm,measured_body_fat_percentage,
+       pectoral_skinfold_mm,abdominal_skinfold_mm,triceps_skinfold_mm,suprailiac_skinfold_mm,thigh_skinfold_mm)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, values,
+    ), (error: unknown) => error instanceof Error && 'code' in error && error.code === '23514')
+  }
+
+  await database.query("UPDATE private.clients SET status='inactive' WHERE id=$1", [ownId])
+  try {
+    assert.equal((await getEvaluations(runtime, identity('proA'), ownId)).length, 4)
+    await assert.rejects(createEvaluation(runtime, identity('proA'), ownId, { thighSkinfoldMm: 8.1 }), (error: unknown) => error instanceof Error && 'status' in error && error.status === 403)
+  } finally {
+    await database.query("UPDATE private.clients SET status='active' WHERE id=$1", [ownId])
+  }
+  assert.equal((await database.query('SELECT count(*) FROM private.client_evaluations WHERE client_id=$1', [ownId])).rows[0].count, '4')
+})
+
+test('HU-021 HTTP creates idempotent dated evaluations, lists history and composes it only for the owning professional', async () => {
+  const clientId = (await database.query("INSERT INTO private.clients(professional_id,full_name,birth_date,height_cm,base_weight_kg) VALUES($1,'HU021 HTTP fixture','1990-05-20',170.5,70.2) RETURNING id", [actors.proA.professional])).rows[0].id as string
+  const csrf = await request(app).get('/api/auth/csrf').set('Origin', 'http://localhost:5000')
+  assert.equal(csrf.status, 200)
+  const cookies: unknown = csrf.headers['set-cookie']
+  assert.ok(Array.isArray(cookies))
+  const cookie = cookies.find((value: unknown): value is string => typeof value === 'string' && value.startsWith('cof_csrf='))?.split(';')[0]
+  assert.ok(cookie)
+  const create = (body: Record<string, unknown>, key = randomUUID()) => request(app).post(`/api/clients/${clientId}/evaluations`)
+    .set('Authorization', `Bearer ${actors.proA.token}`)
+    .set('Origin', 'http://localhost:5000').set('Cookie', cookie)
+    .set('X-CSRF-Token', csrf.body.csrfToken).set('Idempotency-Key', key).send(body)
+
+  assert.equal((await create({ weightKg: 72.1, evaluationDate: '2000-01-01', professionalId: actors.proB.id, clientId: actors.clientB.client })).status, 400)
+  assert.equal((await create({})).status, 400)
+  assert.equal((await create({ weightKg: 72.25 })).status, 400)
+  assert.equal((await request(app).post(`/api/clients/${clientId}/evaluations`).send({ weightKg: 72.1 })).status, 401)
+
+  const key = randomUUID()
+  const first = await create({ weightKg: 72.1, pectoralSkinfoldMm: 10.2 }, key)
+  assert.equal(first.status, 201)
+  assert.equal(first.body.evaluation.clientId, clientId)
+  assert.equal(first.body.evaluation.weightKg, 72.1)
+  assert.equal(first.body.evaluation.waistCm, null)
+  assert.match(first.body.evaluation.evaluationDate, /^\d{4}-\d{2}-\d{2}$/)
+  const expectedDate = (await database.query("SELECT timezone('UTC',clock_timestamp())::date::text AS date")).rows[0].date
+  assert.equal(first.body.evaluation.evaluationDate, expectedDate)
+  const replay = await create({ weightKg: 72.1, pectoralSkinfoldMm: 10.2 }, key)
+  assert.equal(replay.status, 201)
+  assert.equal(replay.headers['idempotent-replayed'], 'true')
+  assert.equal(replay.body.evaluation.id, first.body.evaluation.id)
+  const second = await create({ thighSkinfoldMm: 15.4 })
+  assert.equal(second.status, 201)
+  const listed = await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proA.token}`)
+  assert.equal(listed.status, 200)
+  assert.equal(listed.body.evaluations.length, 2)
+  assert.equal(listed.body.evaluations.some((item: {id:string}) => item.id === first.body.evaluation.id), true)
+  const originalHistory = listed.body.evaluations
+  const assertUnchangedHistory = async () => {
+    const response = await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proA.token}`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.body.evaluations, originalHistory)
+  }
+  const composed = await request(app).get(`/api/clients/${clientId}/record`).set('Authorization', `Bearer ${actors.proA.token}`)
+  assert.equal(composed.body.record.sections.evaluations.status, 'available')
+  assert.equal(composed.body.record.sections.evaluations.evaluations.length, 2)
+  const authHeaders = { Authorization: `Bearer ${actors.proA.token}`, Origin: 'http://localhost:5000', Cookie: cookie, 'X-CSRF-Token': csrf.body.csrfToken }
+  const base = (await request(app).get(`/api/clients/${clientId}`).set('Authorization', `Bearer ${actors.proA.token}`)).body.client
+  const edited = await request(app).patch(`/api/clients/${clientId}`).set(authHeaders).set('Idempotency-Key', randomUUID()).send({ version: base.version, baseWeightKg: 88.1 })
+  assert.equal(edited.status, 200)
+  await assertUnchangedHistory()
+  assert.equal((await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proA.token}`)).body.evaluations.length, 2)
+  const restored = await request(app).patch(`/api/clients/${clientId}`).set(authHeaders).set('Idempotency-Key', randomUUID()).send({ version: edited.body.client.version, baseWeightKg: base.baseWeightKg })
+  assert.equal(restored.status, 200)
+  const status = await request(app).patch(`/api/clients/${clientId}/status`).set(authHeaders).set('Idempotency-Key', randomUUID()).send({ status: 'inactive', version: restored.body.client.version })
+  assert.equal(status.status, 200)
+  await assertUnchangedHistory()
+  assert.equal((await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proA.token}`)).body.evaluations.length, 2)
+  assert.equal((await create({ weightKg: 75 })).status, 403)
+  const reactivated = await request(app).patch(`/api/clients/${clientId}/status`).set(authHeaders).set('Idempotency-Key', randomUUID()).send({ status: 'active', version: status.body.client.version })
+  assert.equal(reactivated.status, 200)
+  await assertUnchangedHistory()
+  assert.equal((await request(app).get(`/api/clients/${clientId}/record`).set('Authorization', `Bearer ${actors.proA.token}`)).body.record.sections.evaluations.evaluations.length, 2)
+  assert.equal((await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proB.token}`)).status, 404)
+  await database.query("UPDATE private.clients SET status='inactive' WHERE id=$1", [clientId])
+  assert.equal((await request(app).get(`/api/clients/${clientId}/evaluations`).set('Authorization', `Bearer ${actors.proA.token}`)).status, 200)
+  assert.equal((await create({ weightKg: 73 })).status, 403)
+  await database.query("UPDATE private.clients SET status='active' WHERE id=$1", [clientId])
+})
+
+test('HU-021 HTTP persists every offered method with server identity, dates and replay protection', async () => {
+  const clientId = actors.clientA.client!
+  const endpoint = `/api/clients/${clientId}/evaluations`
+  const headers = { Authorization: `Bearer ${actors.proA.token}` }
+  const csrf = await request(app).get('/api/auth/csrf').set('Origin', 'http://localhost:5000')
+  assert.equal(csrf.status, 200)
+  const cookies: unknown = csrf.headers['set-cookie']
+  assert.ok(Array.isArray(cookies))
+  const cookie = cookies.find((value: unknown): value is string => typeof value === 'string' && value.startsWith('cof_csrf='))?.split(';')[0]
+  assert.ok(cookie)
+  const csrfHeaders = { Origin: 'http://localhost:5000', Cookie: cookie, 'X-CSRF-Token': csrf.body.csrfToken }
+  const validBody = { method: 'pliegues', equation: 'not_applicable', measurements: { bicepsSkinfoldMm: 8.1 } }
+  assert.equal((await request(app).post(endpoint).set(headers).send(validBody)).status, 403)
+  for (const actor of ['admin', 'clientA']) {
+    assert.equal((await request(app).post(endpoint).set(csrfHeaders).set('Authorization', `Bearer ${actors[actor].token}`).send(validBody)).status, 403)
+  }
+  assert.equal((await request(app).post(`/api/clients/${randomUUID()}/evaluations`).set(csrfHeaders).set(headers).send(validBody)).status, 404)
+  for (const [method, measurements] of [
+    ['perimetros', { waistCm: 80.1, hipCm: 100, abdomenUmbilicalCm: 90.2 }],
+    ['pliegues', { bicepsSkinfoldMm: 8.1 }],
+    ['bioimpedancia', { muscleMassKg: 30.1 }],
+  ] as const) {
+    const body = { method, equation: 'not_applicable', effectiveDate: '2026-01-01', measurements }
+    const key = randomUUID()
+    const post = (payload: Record<string, unknown> = body, actor = actors.proA.token) => request(app)
+      .post(endpoint).set(csrfHeaders).set('Authorization', `Bearer ${actor}`).set('Idempotency-Key', key).send(payload)
+    const result = await post()
+    assert.equal(result.status, 201)
+    const evaluation = result.body.evaluation
+    assert.equal(evaluation.clientId, clientId)
+    assert.equal(evaluation.assessment.ownerId, actors.proA.id)
+    assert.equal(evaluation.assessment.effectiveDate, body.effectiveDate)
+    assert.equal(evaluation.evaluationDate, evaluation.createdAt.slice(0, 10))
+    assert.deepEqual(evaluation.assessment.measurements, measurements)
+    assert.equal(evaluation.weightKg, null)
+    const replay = await post()
+    assert.equal(replay.status, 201)
+    assert.deepEqual(replay.body, result.body)
+    assert.equal((await post({ ...body, professionalId: actors.proB.id })).status, 422)
+    const denied = await request(app).post(endpoint).set(csrfHeaders).set('Authorization', `Bearer ${actors.proB.token}`).send(body)
+    assert.equal(denied.status, 404)
+    const listed = await request(app).get(endpoint).set(headers)
+    assert.equal(listed.status, 200)
+    assert.ok(listed.body.evaluations.some((row: { id: string }) => row.id === evaluation.id))
+  }
+})
+
+test('HU-021 multimethod preserves server snapshots, legacy rows and foreign-client isolation', async () => {
+  const clientId=actors.clientA.client!;
+  const {createEvaluation,getEvaluations}=await import('../src/features/evaluations/services/evaluation.js');
+  const identity={id:actors.proA.id,username:'proa',email:'proa@example.com',fullName:'A',role:'professional' as const,sessionId:actors.proA.session,expiresAt:new Date(Date.now()+60000)};
+  const before=await getEvaluations(runtime,identity,clientId);
+  const row=await createEvaluation(runtime,identity,clientId,{method:'bioimpedancia',equation:'not_applicable',effectiveDate:'2026-01-01',measurements:{weightKg:80,measuredBodyFatPercentage:25,waterLitres:40}});
+  assert.equal(row.assessment?.results.fatMassKg,20);
+  assert.equal(row.assessment?.results.fatFreeMassKg,60);
+  assert.equal(row.assessment?.ageYears,35);
+  assert.equal(row.assessment?.ownerId,actors.proA.id);
+  assert.equal(row.assessment?.effectiveDate,'2026-01-01');
+  assert.equal(row.assessment?.method,'bioimpedancia');
+  const stored=(await database.query('SELECT assessment FROM private.client_evaluations WHERE id=$1',[row.id])).rows[0].assessment;
+  assert.equal(stored.method,'bioimpedance');
+  const legacy=await createEvaluation(runtime,identity,clientId,{weightKg:75});
+  assert.equal(legacy.assessment,undefined);
+  const after=await getEvaluations(runtime,identity,clientId);
+  assert.ok(after.some(e=>e.id===row.id));
+  for(const previous of before)assert.ok(after.some(e=>e.id===previous.id));
+  await asSubject(actors.proB.id,async c=>assert.equal((await c.query('SELECT id FROM private.client_evaluations WHERE id=$1',[row.id])).rowCount,0));
+});
+
+test('HU-021 runtime SQL cannot bypass snapshot bounds, precision, method shape or legacy measurement consistency', async () => {
+  const clientId = actors.clientA.client!
+  const { createEvaluation } = await import('../src/features/evaluations/services/evaluation.js')
+  const identity = { id: actors.proA.id, username: 'proa', email: 'proa@example.com', fullName: 'A', role: 'professional' as const, sessionId: actors.proA.session, expiresAt: new Date(Date.now() + 60000) }
+  const created = await createEvaluation(runtime, identity, clientId, { method: 'pliegues', equation: 'not_applicable', measurements: { bicepsSkinfoldMm: 8.1 } })
+  const original = (await database.query('SELECT assessment FROM private.client_evaluations WHERE id=$1', [created.id])).rows[0].assessment
+  const insert = (snapshot: Record<string, unknown>, weight: number | null = null) => asSubject(actors.proA.id, c => c.query('INSERT INTO private.client_evaluations(client_id,assessment,weight_kg) VALUES($1,$2::jsonb,$3)', [clientId, JSON.stringify(snapshot), weight]))
+  // A valid partial method succeeds and is rolled back by asSubject.
+  await insert(original)
+  for (const measurements of [
+    { bicepsSkinfoldMm: 80.1 },
+    { bicepsSkinfoldMm: 8.11 },
+    { bicepsSkinfoldMm: null },
+    { bicepsSkinfoldMm: '8.1' },
+    { bicepsSkinfoldMm: 8.1, neckCm: 40 },
+    { heightCm: 170 },
+  ]) {
+    await assert.rejects(insert({ ...original, measurements }), { code: '23514' })
+  }
+  await assert.rejects(insert(original, 70), { code: '23514' })
+  const bioimpedance = { ...original, method: 'bioimpedance', protocol: 'device-kg-litre-v1', provenance: 'device_reported', calculationStatus: 'partial', measurements: { muscleMassKg: 30 }, results: {} }
+  await insert(bioimpedance)
+  for (const measurements of [
+    { measuredBodyFatPercentage: 60.1 },
+    { waterLitres: 0 },
+    { muscleMassKg: 30.01 },
+    { weightKg: 80, waterLitres: 81 },
+  ]) {
+    const weight = 'weightKg' in measurements ? measurements.weightKg : null
+    await assert.rejects(insert({ ...bioimpedance, measurements }, weight ?? null), { code: '23514' })
+  }
+  for (const segmental of [
+    { type: 'muscle_mass', unit: '%', values: { leftArm: 2 } },
+    { type: 'muscle_mass', unit: 'kg', values: { leftArm: 2.01 } },
+    { type: 'muscle_mass', unit: 'kg', values: { unknown: 2 } },
+  ]) {
+    await assert.rejects(insert({ ...bioimpedance, segmental }), { code: '23514' })
+  }
+  await assert.rejects(insert({ ...original, ownerId: actors.proB.id }), { code: '42501' })
+  assert.deepEqual((await database.query('SELECT assessment FROM private.client_evaluations WHERE id=$1', [created.id])).rows[0].assessment, original)
 })
 
 test('each active client reads only their linked record even when the professional is suspended', async () => {
@@ -623,7 +874,7 @@ test('HU-020 vertical registration invitation activation and professional edit p
   assert.equal(listed.body.clients[0].invitationExpiresAt,null)
   const record=await get(`/api/clients/${id}/record`)
   assert.equal(record.status,200); assert.equal(record.body.record.profile.goal,'Objetivo actualizado HU020')
-  assert.equal(record.body.record.sections.evaluations.status,'not_integrated')
+  assert.equal(record.body.record.sections.evaluations.status,'empty')
   const inactive=await web('patch',`/api/clients/${id}/status`,{status:'inactive',version:(await statusSnapshot(id)).version})
   assert.equal(inactive.status,200)
   assert.equal((await get('/api/clients?search=&status=inactive&pageSize=20')).body.clients[0].id,id)

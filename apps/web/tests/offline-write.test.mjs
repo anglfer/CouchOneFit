@@ -122,6 +122,31 @@ test('sin conexión: queda guardado con LA MISMA clave que se intentó y cifrado
   );
 });
 
+test('HU-021 offline queues a client-bound evaluation and syncs once with its original idempotency key', async () => {
+  const id = crypto.randomUUID();
+  const pending = await outbox.enqueue({
+    id,
+    kind: 'evaluation.create',
+    method: 'POST',
+    endpoint: '/api/clients/client-1/evaluations',
+    body: { thighSkinfoldMm: 18.2 },
+    label: 'Registrar evaluación de Ana Torres',
+    clientId: 'client-1',
+    clientName: 'Ana Torres',
+  });
+  assert.equal(pending.kind, 'evaluation.create');
+  assert.equal(pending.clientId, 'client-1');
+  handler = () =>
+    json({ evaluation: { id: 'evaluation-1', clientId: 'client-1' } }, 201);
+  await sync.flushOutbox();
+  const sent = writesMade();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, '/api/clients/client-1/evaluations');
+  assert.equal(idOf(sent[0]), id);
+  assert.deepEqual(JSON.parse(sent[0].body), { thighSkinfoldMm: 18.2 });
+  assert.equal(outbox.getOperations().length, 0);
+});
+
 test('un rechazo del servidor no se encola; un 503 sí', async () => {
   const ApiError = (await vite.ssrLoadModule('/src/services/api.ts')).ApiError;
   await assert.rejects(
@@ -538,4 +563,79 @@ test('training: una acción igual ya pendiente no se encola dos veces', async ()
   await training.trainingWrite(activate);
   await assert.rejects(training.trainingWrite(activate), /Ya hay/);
   assert.equal(outbox.getOperations().length, 1);
+});
+
+test('HU-021 migration block is not queued; an existing operation becomes failed without deletion or endless retries', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: true },
+    configurable: true,
+  });
+  const { ApiError } = await vite.ssrLoadModule('/src/services/api.ts');
+  const evaluation = spec({
+    kind: 'evaluation.create',
+    endpoint: '/api/clients/c1/evaluations',
+    clientId: 'c1',
+    body: {
+      method: 'perimetros',
+      equation: 'not_applicable',
+      measurements: { waistCm: 80 },
+    },
+  });
+  await assert.rejects(
+    writes.submitWrite(evaluation, async () => {
+      throw new ApiError(
+        503,
+        'EVALUATION_UPGRADE_REQUIRED',
+        'Migración pendiente'
+      );
+    })
+  );
+  assert.equal(outbox.getOperations().length, 0);
+  const id = crypto.randomUUID();
+  await outbox.enqueue({ ...evaluation, id });
+  handler = () =>
+    apiError(503, 'EVALUATION_UPGRADE_REQUIRED', 'Migración pendiente');
+  await sync.flushOutbox();
+  const operation = outbox.getOperations()[0];
+  assert.equal(operation.id, id);
+  assert.equal(operation.state, 'failed');
+  assert.match(operation.error, /Migración pendiente/);
+  const attempts = operation.attempts;
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations()[0].attempts, attempts);
+});
+
+test('HU-021 a confirmation deadline preserves the original idempotency key despite a late successful response', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: true },
+    configurable: true,
+  });
+  const id = crypto.randomUUID();
+  let resolve, attempted;
+  const outcome = await writes.submitWrite(
+    spec({
+      kind: 'evaluation.create',
+      endpoint: '/api/clients/c1/evaluations',
+      clientId: 'c1',
+    }),
+    (headers) => {
+      attempted = headers['Idempotency-Key'];
+      return new Promise((done) => {
+        resolve = done;
+      });
+    },
+    { id, timeoutMs: 5 }
+  );
+  assert.equal(attempted, id);
+  assert.equal(outcome.status, 'queued');
+  assert.equal(outcome.operation.id, id);
+  resolve({ evaluation: { id: 'already-saved' } });
+  await Promise.resolve();
+  assert.equal(outbox.getOperations().length, 1);
+  handler = (_url, options) => {
+    assert.equal(new Headers(options.headers).get('Idempotency-Key'), id);
+    return json({ evaluation: { id: 'already-saved' } });
+  };
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations().length, 0);
 });
