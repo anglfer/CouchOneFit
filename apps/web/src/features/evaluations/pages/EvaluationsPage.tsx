@@ -1,4 +1,5 @@
 import ClientHeader from '../../professional/components/ClientHeader';
+import EvolutionSection from '../components/EvolutionSection';
 import AssessmentForm from '../components/AssessmentForm';
 import { navigate } from '../../../utils/navigation';
 import { useOnSynced } from '../../../hooks/useOperations';
@@ -12,8 +13,10 @@ import { isEvaluation, type Evaluation } from '../types/evaluation';
 export default function EvaluationsPage({
   clientId: initialClientId,
   capture = false,
+  accountId,
 }: {
   clientId: string;
+  accountId: string;
   capture?: boolean;
 }) {
   const clientId = initialClientId;
@@ -198,6 +201,14 @@ export default function EvaluationsPage({
       )}
       {clientId && !record && !error && (
         <p role="status">Cargando evaluaciones…</p>
+      )}
+      {record && record.profile.id === clientId && (
+        <EvolutionSection
+          key={`${accountId}:${clientId}`}
+          accountId={accountId}
+          clientId={clientId}
+          initialStatus={record.sections.progress.status}
+        />
       )}
       {record && combined && (
         <section className="ws-card space-y-4">

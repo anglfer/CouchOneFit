@@ -1,13 +1,25 @@
 import type { ProfessionalRecord, RecordSection } from '../types/record';
 import { Card } from '../../../components/ui';
+import type { EvolutionSection } from '../../evaluations/types/evolution';
+import EvolutionSummary from '../../evaluations/components/EvolutionSummary';
 import EvaluationSummary from '../../evaluations/components/EvaluationSummary';
 
-export function SectionState({ section }: { section: RecordSection }) {
+export function SectionState({
+  section,
+}: {
+  section: RecordSection | EvolutionSection;
+}) {
   switch (section.status) {
     case 'not_integrated':
       return (
         <p className="text-sm text-(--ws-muted)">
           Esta sección todavía no está disponible.
+        </p>
+      );
+    case 'available':
+      return (
+        <p className="text-sm">
+          Hay evaluaciones disponibles para consultar su evolución.
         </p>
       );
     case 'empty':
@@ -32,6 +44,7 @@ export function SectionState({ section }: { section: RecordSection }) {
 /** Modules that other epics connect to the record (training has its own card). */
 export default function ClientRecordSections({
   sections,
+  clientId,
 }: {
   sections: ProfessionalRecord['sections'];
   clientId: string;
@@ -55,7 +68,7 @@ export default function ClientRecordSections({
         <div className="space-y-3">
           <div>
             <h3 className="text-sm font-semibold">Seguimiento y evolución</h3>
-            <SectionState section={sections.progress} />
+            <EvolutionSummary section={sections.progress} clientId={clientId} />
           </div>
           <div>
             <h3 className="text-sm font-semibold">

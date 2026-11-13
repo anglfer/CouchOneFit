@@ -14,7 +14,7 @@ let portfolioResponder,
   accountResponder,
   statusResponder,
   subscriptionResponder;
-let evaluationResponder;
+let evaluationResponder, historyResponder;
 const page = (clients = [], hasClients = false, nextCursor = null) =>
   json({
     clients,
@@ -450,6 +450,7 @@ beforeEach(async () => {
   subscriptionResponder = () =>
     json({ subscription: { status: 'active', used: 0, remaining: 10 } });
   evaluationResponder = () => json({ error: { code: 'UNEXPECTED' } }, 500);
+  historyResponder = null;
   window.history.replaceState({}, '', '/app/clientes');
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url, method: options.method || 'GET', body: options.body });
@@ -476,6 +477,8 @@ beforeEach(async () => {
       return accountResponder(JSON.parse(options.body));
     if (url.endsWith('/status') && options.method === 'PATCH')
       return statusResponder(JSON.parse(options.body));
+    if (url.includes('/evaluation-history?') && historyResponder)
+      return historyResponder(url);
     if (url.endsWith('/evaluations') && options.method === 'POST')
       return evaluationResponder(JSON.parse(options.body));
     if (url.startsWith('/api/clients/') && options.method === 'PATCH')
@@ -1196,8 +1199,9 @@ test('HU-019 composes the real profile once and labels all absent integrations w
   assert.equal(
     document.body.textContent.match(/Esta sección todavía no está disponible/g)
       .length,
-    4
+    3
   );
+  assert.match(document.body.textContent, /La evolución aún no está integrada/);
   assert.equal(document.querySelector('form'), null);
   assert.doesNotMatch(
     document.body.textContent,
@@ -1425,7 +1429,10 @@ test('HU-019 and HU-021 reader errors stay within their sections and retries do 
       }
     );
   await openComposedRecord('record-a');
-  assert.match(document.body.textContent, /No pudimos consultar esta sección/);
+  assert.match(
+    document.body.textContent,
+    /No pudimos consultar el resumen de evolución/
+  );
   const tab = [
     ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
   ].find((a) => a.textContent.trim() === 'Evaluación');
@@ -1602,7 +1609,8 @@ test('HU-021 record evaluation preserves the current client without a selector',
   const links = [...document.querySelectorAll('a')];
   assert.ok(links.some((a) => a.getAttribute('href') === '/app/clientes'));
   assert.ok(links.some((a) => a.getAttribute('href') === '/app/entrenamiento'));
-  assert.equal(document.querySelector('select'), null);
+  assert.equal(document.querySelector('select[aria-label="Cliente"]'), null);
+  assert.doesNotMatch(document.body.textContent, /Selecciona un cliente/);
   assert.equal(
     document
       .querySelector(
@@ -1720,7 +1728,8 @@ test('HU-021 third record tab is the only evaluation entry and there is no globa
   );
   await act(async () => tabs[2].click());
   assert.equal(window.location.pathname, '/app/clientes/record-a/evaluacion');
-  assert.equal(document.querySelector('select'), null);
+  assert.equal(document.querySelector('select[aria-label="Cliente"]'), null);
+  assert.doesNotMatch(document.body.textContent, /Selecciona un cliente/);
   assert.ok(
     [...document.querySelectorAll('a')].find(
       (a) => a.textContent === 'Nueva evaluación'
@@ -1929,7 +1938,13 @@ test('HU-021 old client URLs redirect to record evaluation and capture without s
           'form[aria-label="Registrar evaluación antropométrica"]'
         )
       );
-    else assert.equal(document.querySelector('select'), null);
+    else {
+      assert.equal(
+        document.querySelector('select[aria-label="Cliente"]'),
+        null
+      );
+      assert.doesNotMatch(document.body.textContent, /Selecciona un cliente/);
+    }
   }
   assert.equal(writes().length, 0);
 });
@@ -1974,7 +1989,8 @@ test('HU-021 foreign record evaluation does not reveal a form or a client select
     ),
     null
   );
-  assert.equal(document.querySelector('select'), null);
+  assert.equal(document.querySelector('select[aria-label="Cliente"]'), null);
+  assert.doesNotMatch(document.body.textContent, /Selecciona un cliente/);
   assert.equal(writes().length, 0);
 });
 
@@ -2022,4 +2038,185 @@ test('HU-021 inactive client keeps the evaluation tab/history but cannot open a 
     'Evaluación'
   );
   assert.equal(writes().length, 0);
+});
+
+// HU-022 stage 2: contract compatibility only; no evolution table/chart yet.
+async function evolutionFixture() {
+  const { measurementFields } = await vite.ssrLoadModule(
+    '/src/features/evaluations/types/assessment.ts'
+  );
+  const id = '20000000-0000-4000-8000-000000000002';
+  const sample = {
+    id: '30000000-0000-4000-8000-000000000003',
+    clientId: id,
+    date: '2026-11-10',
+    dateBasis: 'legacy_evaluation_date',
+    createdAt: '2026-11-11T00:00:00.123456Z',
+    source: 'professional_evaluation',
+    method: null,
+    provenance: null,
+    protocol: null,
+    measurements: { weightKg: 80.1 },
+  };
+  return {
+    clientId: id,
+    period: { from: null, to: null },
+    method: null,
+    order: 'asc',
+    metricDefinitions: Object.fromEntries(
+      Object.entries(measurementFields).map(([key, meta]) => [
+        key,
+        { label: meta[0], unit: meta[1], decimalPlaces: 1 },
+      ])
+    ),
+    samples: [sample],
+    pageInfo: { pageSize: 20, hasMore: false, nextCursor: null },
+  };
+}
+
+test('HU-022 available progress contract is accepted by the existing record without breaking Summary/Training/Evaluation', async () => {
+  const history = await evolutionFixture();
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      { ...unavailableSections(), progress: { status: 'available', history } }
+    );
+  await openComposedRecord(history.clientId);
+  assert.match(
+    document.body.textContent,
+    /Hay evaluaciones disponibles para consultar su evolución/
+  );
+  assert.doesNotMatch(document.body.textContent, /No pudimos interpretar/);
+  assert.deepEqual(
+    [
+      ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
+    ].map((a) => a.textContent.trim()),
+    ['Resumen', 'Entrenamiento', 'Evaluación']
+  );
+  assert.equal(writes().length, 0);
+});
+
+test('HU-022 empty/error progress payloads preserve state semantics and old cached not_integrated remains compatible', async () => {
+  const history = await evolutionFixture();
+  history.samples = [];
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      { ...unavailableSections(), progress: { status: 'empty', history } }
+    );
+  await openComposedRecord(history.clientId);
+  assert.match(
+    document.body.textContent,
+    /Sin evaluaciones confirmadas en el expediente consultado/
+  );
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      {
+        ...unavailableSections(),
+        progress: { status: 'error', code: 'QUERY_FAILED' },
+      }
+    );
+  await openComposedRecord('temporary-switch');
+  await openComposedRecord(history.clientId);
+  assert.match(
+    document.body.textContent,
+    /No pudimos consultar el resumen de evolución/
+  );
+  assert.equal(writes().length, 0);
+});
+
+test('HU-022 Web rejects foreign samples, broken page metadata, invalid provenance and malformed record progress', async () => {
+  const { isEvolutionPage } = await vite.ssrLoadModule(
+    '/src/features/evaluations/types/evolution.ts'
+  );
+  const history = await evolutionFixture();
+  assert(isEvolutionPage(history, history.clientId));
+  for (const change of [
+    (p) => {
+      p.samples[0].clientId = '40000000-0000-4000-8000-000000000004';
+    },
+    (p) => {
+      p.samples[0].measurements.weightKg = null;
+    },
+    (p) => {
+      p.samples[0].measurements.constructor = 2;
+    },
+    (p) => {
+      p.samples[0].method = 'perimetros';
+    },
+    (p) => {
+      p.method = ['legacy'];
+    },
+    (p) => {
+      p.pageInfo.hasMore = true;
+    },
+    (p) => {
+      p.period.from = '2026-02-30';
+    },
+    (p) => {
+      p.samples.push({ ...p.samples[0] });
+    },
+  ]) {
+    const p = structuredClone(history);
+    change(p);
+    assert.equal(isEvolutionPage(p, history.clientId), false);
+  }
+  history.samples[0].clientId = '40000000-0000-4000-8000-000000000004';
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      { ...unavailableSections(), progress: { status: 'available', history } }
+    );
+  await openComposedRecord(history.clientId);
+  assert.doesNotMatch(
+    document.body.textContent,
+    /Hay evaluaciones disponibles/
+  );
+  assert.equal(writes().length, 0);
+});
+
+test('HU-022 an empty progress envelope without its authorized history is rejected, not treated as no data', async () => {
+  const history = await evolutionFixture();
+  const { fetchProfessionalRecord } = await vite.ssrLoadModule(
+    '/src/features/professional/services/record.ts'
+  );
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      { ...unavailableSections(), progress: { status: 'empty' } }
+    );
+  await assert.rejects(
+    () => fetchProfessionalRecord(history.clientId),
+    /Invalid evolution section/
+  );
+  assert.equal(writes().length, 0);
+});
+
+test('HU-022 Summary opens evolution inside the same client Evaluation tab and preserves HU-021 capture', async () => {
+  const history = await evolutionFixture();
+  historyResponder = () => json(history);
+  composedResponder = () =>
+    composed(
+      { ...editableRecord, id: history.clientId },
+      { ...unavailableSections(), progress: { status: 'available', history } }
+    );
+  await openComposedRecord(history.clientId);
+  await act(async () =>
+    [...document.querySelectorAll('a')]
+      .find((a) => a.textContent === 'Ver evolución')
+      .click()
+  );
+  assert.equal(
+    window.location.pathname,
+    `/app/clientes/${history.clientId}/evaluacion`
+  );
+  assert.equal(window.location.hash, '#evolucion-antropometrica');
+  assert.match(document.body.textContent, /Evolución antropométrica/);
+  assert.match(document.querySelector('table').textContent, /80.1/);
+  assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
+  assert.equal(writes().length, 0);
+  await openEvaluationForm();
+  assert.match(document.body.textContent, /Nueva evaluación antropométrica/);
+  assert.equal(document.querySelector('#evolucion-antropometrica'), null);
 });

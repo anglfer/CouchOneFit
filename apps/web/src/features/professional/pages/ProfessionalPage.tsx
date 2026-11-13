@@ -362,6 +362,7 @@ export default function ProfessionalPage(): ReactElement {
             <EvaluationsPage
               key={`${account.id}:${evaluationClientId ?? 'hub'}`}
               clientId={evaluationClientId}
+              accountId={account.id}
               capture={pathname.endsWith('/nueva')}
             />
           ) : isTrainingPage ? (

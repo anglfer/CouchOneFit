@@ -8,6 +8,22 @@ export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Solo lecturas del panel. Quedan fuera a propósito: soporte de administración
 // (auditado), recuperación asistida, pagos e invitaciones (docs/architecture/pwa-offline.md §2.2).
+const HISTORY_PATH = /^\/api\/clients\/[^/?#]+\/evaluation-history$/;
+function historyPath(endpoint: string): string | null {
+  const [path, query = ''] = endpoint.split('?');
+  if (!HISTORY_PATH.test(path) || endpoint.includes('#')) return null;
+  const params = new URLSearchParams(query);
+  const seen = new Set<string>();
+  for (const [key] of params) {
+    if (
+      !['from', 'to', 'method', 'pageSize', 'cursor'].includes(key) ||
+      seen.has(key)
+    )
+      return null;
+    seen.add(key);
+  }
+  return path;
+}
 const CACHEABLE = [
   /^\/api\/clients\/[^/?]+\/evaluations(\?offset=\d+)?$/,
   /^\/api\/training\/(templates|exercises)(\?.*)?$/,
@@ -23,11 +39,13 @@ const CACHEABLE = [
 ];
 
 export const isCacheableRead = (endpoint: string): boolean =>
+  historyPath(endpoint) !== null ||
   CACHEABLE.some((pattern) => pattern.test(endpoint));
 
 interface Entry {
   fetchedAt: number;
   payload: EncryptedPayload;
+  historyResource?: string;
 }
 
 export interface Recalled<T> {
@@ -106,16 +124,36 @@ export async function noteAccount(accountId: string): Promise<void> {
 
 export async function rememberRead(
   endpoint: string,
-  data: unknown
+  data: unknown,
+  expectedAccountId?: string,
+  isCurrent: () => boolean = () => true
 ): Promise<void> {
   const store = getStore();
   const account = activeAccountId;
-  if (!store || !account || !isCacheableRead(endpoint)) return;
+  if (
+    !store ||
+    !account ||
+    !isCacheableRead(endpoint) ||
+    (expectedAccountId !== undefined && expectedAccountId !== account) ||
+    !isCurrent()
+  )
+    return;
   try {
     const payload = await encryptJson(store, account, data);
     if (!payload) return;
-    const entry: Entry = { fetchedAt: Date.now(), payload };
+    const resource = historyPath(endpoint);
+    const historyResource = resource ? await fingerprint(resource) : null;
+    const entry: Entry = {
+      fetchedAt: Date.now(),
+      payload,
+      ...(historyResource ? { historyResource } : {}),
+    };
     const key = await slot(endpoint, account);
+    if (
+      expectedAccountId !== undefined &&
+      (activeAccountId !== expectedAccountId || !isCurrent())
+    )
+      return;
     if (key) await store.put('readCache', key, entry);
     if (isBaseClientList(endpoint)) {
       const base = await slot(BASE_LIST, account);
@@ -173,14 +211,24 @@ function deriveList<T>(endpoint: string, base: ListResponse): T | null {
 }
 
 export async function recallRead<T>(
-  endpoint: string
+  endpoint: string,
+  expectedAccountId?: string
 ): Promise<Recalled<T> | null> {
   const store = getStore();
   if (!store || !isCacheableRead(endpoint)) return null;
   try {
     const account = await resolveAccountId();
-    if (!account) return null;
+    if (
+      !account ||
+      (expectedAccountId !== undefined && expectedAccountId !== account)
+    )
+      return null;
     const exact = await read<T>(endpoint, account);
+    if (
+      expectedAccountId !== undefined &&
+      activeAccountId !== expectedAccountId
+    )
+      return null;
     if (exact) return exact;
     if (!isClientList(endpoint)) return null;
     const base = await read<ListResponse>(BASE_LIST, account);
@@ -246,5 +294,18 @@ export async function purgeExpired(): Promise<void> {
     }
   } catch (error) {
     console.error(error);
+  }
+}
+
+/** HU-022: invalidate only tagged history reads for the active account, never other modules/outbox. */
+export async function invalidateEvaluationHistoryReads(
+  accountId: string
+): Promise<void> {
+  const store = getStore();
+  if (!store || activeAccountId !== accountId) return;
+  for (const key of await store.keys('readCache')) {
+    if (!key.startsWith(`${accountId}|`)) continue;
+    const entry = await store.get<Entry>('readCache', key);
+    if (entry?.historyResource) await store.delete('readCache', key);
   }
 }

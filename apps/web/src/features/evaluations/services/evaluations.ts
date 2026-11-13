@@ -1,3 +1,4 @@
+import { invalidateEvolutionReads } from './evolution';
 import { ApiError } from '../../../services/api';
 import type { AssessmentInput } from '../types/assessment';
 import { sessionMutation } from '../../auth/services/session';
@@ -44,6 +45,7 @@ export async function createEvaluation(
         'EVALUATION_RESPONSE_UNCERTAIN',
         'No pudimos interpretar la confirmación. Reintenta con la misma operación para comprobar el resultado.'
       );
+    invalidateEvolutionReads();
     return { status: 'done', result: outcome.result.evaluation };
   }
   return outcome;
