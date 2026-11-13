@@ -1,9 +1,14 @@
 import type { RequestHandler } from 'express'
 import type { Pool } from 'pg'
 import * as service from '../services/evaluation.js'
+import { getEvaluationHistory } from '../services/evolution.js'
 
 export function evaluationControllers(pool: Pool, now: () => Date) {
-  const handle = (operation: (req: Parameters<RequestHandler>[0]) => Promise<unknown>, status = 200): RequestHandler =>
+  const handle =
+    (
+      operation: (req: Parameters<RequestHandler>[0]) => Promise<unknown>,
+      status = 200,
+    ): RequestHandler =>
     async (req, res, next) => {
       res.set('Cache-Control', 'no-store')
       try {
@@ -13,7 +18,34 @@ export function evaluationControllers(pool: Pool, now: () => Date) {
       }
     }
   return {
-    list: handle(async (req) => ({ evaluations: await service.getEvaluations(pool, req.identity!, req.params.clientId, req.query.offset ?? 0) })),
-    create: handle(async (req) => ({ evaluation: await service.createEvaluation(pool, req.identity!, req.params.clientId, req.body, now()) }), 201),
+    history: handle((req) =>
+      getEvaluationHistory(
+        pool,
+        req.identity!,
+        req.params.clientId,
+        req.query,
+        now(),
+      ),
+    ),
+    list: handle(async (req) => ({
+      evaluations: await service.getEvaluations(
+        pool,
+        req.identity!,
+        req.params.clientId,
+        req.query.offset ?? 0,
+      ),
+    })),
+    create: handle(
+      async (req) => ({
+        evaluation: await service.createEvaluation(
+          pool,
+          req.identity!,
+          req.params.clientId,
+          req.body,
+          now(),
+        ),
+      }),
+      201,
+    ),
   }
 }

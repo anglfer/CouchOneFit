@@ -1,4 +1,8 @@
-import type { TrainingActivity, TrainingVersion } from '../../training/types/training.js'
+import type {
+  TrainingActivity,
+  TrainingVersion,
+} from '../../training/types/training.js'
+import type { EvolutionSection } from '../../evaluations/types/evolution.js'
 import type { Evaluation } from '../../evaluations/types/evaluation.js'
 
 export interface ClientBaseRecord {
@@ -31,9 +35,16 @@ export interface ProfessionalRecord {
   profile: ClientBaseRecord
   sections: {
     nutritionPlan: RecordSection
-    trainingPlan: RecordSection | { status: 'available'; plan: TrainingVersion; activeRevision: number; activity: TrainingActivity | null }
+    trainingPlan:
+      | RecordSection
+      | {
+          status: 'available'
+          plan: TrainingVersion
+          activeRevision: number
+          activity: TrainingActivity | null
+        }
     evaluations: EvaluationSection
-    progress: RecordSection
+    progress: EvolutionSection
     bodyWeightHistory: RecordSection
   }
 }
