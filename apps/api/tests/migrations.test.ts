@@ -57,6 +57,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202611080001_client_evaluations.sql/);
     assert.match(applied, /Applied: 202611090001_multimethod_evaluations.sql/);
     assert.match(applied, /Applied: 202611100001_evaluation_measurement_integrity.sql/);
+    assert.match(applied, /Applied: 202611130001_evaluation_estimation_snapshots.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -78,7 +79,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '29'
+      '30'
     );
     await databases[1].query(
       readFileSync(
@@ -196,7 +197,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '29'
+      '30'
     );
     assert.equal(
       (

@@ -3719,8 +3719,64 @@
               "segmental": {
                 "type": "null",
                 "description": "Solo se admite ausente o null fuera de bioimpedancia."
+              },
+              "estimationRequest": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PendingEstimationRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CandidateEstimationRequest"
+                  }
+                ]
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": ["estimationRequest"],
+                  "properties": {
+                    "estimationRequest": {
+                      "properties": {
+                        "protocolId": {
+                          "const": "jp3-male-candidate"
+                        }
+                      },
+                      "required": ["protocolId"]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equation": {
+                      "enum": ["male", "not_applicable"]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": ["estimationRequest"],
+                  "properties": {
+                    "estimationRequest": {
+                      "properties": {
+                        "protocolId": {
+                          "const": "jp3-female-candidate"
+                        }
+                      },
+                      "required": ["protocolId"]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equation": {
+                      "enum": ["female", "not_applicable"]
+                    }
+                  }
+                }
+              }
+            ]
           },
           {
             "type": "object",
@@ -3891,7 +3947,7 @@
       },
       "AssessmentSnapshot": {
         "type": "object",
-        "description": "Snapshot calculado exclusivamente por API. Navy/JP3 pendientes. Incluye método, protocolo, fecha efectiva, propietario, edad/nacimiento, entradas, resultados y versión.",
+        "description": "Snapshot calculado exclusivamente por API. Navy/JP3 pendientes. Incluye método, protocolo, fecha efectiva, propietario, edad/nacimiento, entradas, resultados y versión. HU-023: solicitud opcional de referencia técnica pendiente; versión nueva exclusivamente unavailable y sin cálculos. La fecha de creación sigue siendo del servidor. Sin solicitud se conserva el snapshot anterior; no hay recálculo histórico. Requiere migración incremental; si falta, EVALUATION_UPGRADE_REQUIRED mantiene el registro anterior disponible sin estimación. Excepción HU-023: composition-candidate-v1 registra candidate_only solo para pruebas locales autorizadas, con versiones técnicas, entradas y resultado sin redondeo. No hay resultados científicamente aprobados; HU-022 conserva únicamente mediciones. Falta de habilitación o entradas produce unavailable; falta de migración produce EVALUATION_UPGRADE_REQUIRED.",
         "required": [
           "method",
           "protocol",
@@ -3914,7 +3970,11 @@
             "type": "string"
           },
           "version": {
-            "const": "composition-arithmetic-v1"
+            "enum": [
+              "composition-arithmetic-v1",
+              "composition-estimation-v1",
+              "composition-candidate-v1"
+            ]
           },
           "results": {
             "type": "object",
@@ -4001,8 +4061,174 @@
                 }
               }
             }
+          },
+          "estimation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PendingBodyFatEstimation"
+              },
+              {
+                "$ref": "#/components/schemas/CandidateBodyFatEstimation"
+              }
+            ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "version": {
+                  "const": "composition-estimation-v1"
+                }
+              }
+            },
+            "then": {
+              "required": ["estimation"],
+              "properties": {
+                "method": {
+                  "const": "pliegues"
+                },
+                "protocol": {
+                  "const": "jp3-sites-pending@technical-reference-v1"
+                },
+                "calculationStatus": {
+                  "const": "pending_verification"
+                },
+                "provenance": {
+                  "const": "manual_measurements"
+                },
+                "results": {
+                  "maxProperties": 0
+                },
+                "estimation": {
+                  "$ref": "#/components/schemas/PendingBodyFatEstimation"
+                }
+              }
+            },
+            "else": {
+              "if": {
+                "properties": {
+                  "version": {
+                    "const": "composition-candidate-v1"
+                  }
+                }
+              },
+              "then": {
+                "required": ["estimation"],
+                "properties": {
+                  "method": {
+                    "const": "pliegues"
+                  },
+                  "protocol": {
+                    "enum": [
+                      "jp3-male-candidate@technical-candidate-v1",
+                      "jp3-female-candidate@technical-candidate-v1"
+                    ]
+                  },
+                  "calculationStatus": {
+                    "const": "pending_verification"
+                  },
+                  "provenance": {
+                    "const": "manual_measurements"
+                  },
+                  "results": {
+                    "maxProperties": 0
+                  },
+                  "estimation": {
+                    "$ref": "#/components/schemas/CandidateBodyFatEstimation"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "male"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "protocol": {
+                          "const": "jp3-male-candidate@technical-candidate-v1"
+                        },
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "const": "male"
+                            },
+                            "protocol": {
+                              "properties": {
+                                "id": {
+                                  "const": "jp3-male-candidate"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "female"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "protocol": {
+                          "const": "jp3-female-candidate@technical-candidate-v1"
+                        },
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "const": "female"
+                            },
+                            "protocol": {
+                              "properties": {
+                                "id": {
+                                  "const": "jp3-female-candidate"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "not_applicable"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "type": "null"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": ["estimation"]
+                }
+              }
+            }
+          }
+        ]
       },
       "LegacyEvaluationInput": {
         "type": "object",
@@ -4423,6 +4649,719 @@
             "enum": ["test_approved", "test_declined", "test_error", null]
           }
         }
+      },
+      "PendingEstimationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["methodId", "protocolId", "protocolVersion"],
+        "properties": {
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "protocolId": {
+            "const": "jp3-sites-pending"
+          },
+          "protocolVersion": {
+            "const": "technical-reference-v1"
+          }
+        },
+        "description": "Referencia técnica cerrada y pendiente, no protocolo científicamente aprobado. Solo registra indisponibilidad; no activa JP3/Siri. Referencias desconocidas o flags de activación se rechazan con 400 INVALID_EVALUATION."
+      },
+      "PendingBodyFatEstimation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "methodId",
+          "variant",
+          "formulaVersion",
+          "domainPolicyVersion",
+          "protocol",
+          "provenance",
+          "inputs",
+          "status",
+          "result",
+          "reasons"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "variant": {
+            "enum": ["male", "female", null]
+          },
+          "formulaVersion": {
+            "type": "null"
+          },
+          "domainPolicyVersion": {
+            "type": "null"
+          },
+          "protocol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "const": "jp3-sites-pending"
+              },
+              "version": {
+                "const": "technical-reference-v1"
+              }
+            }
+          },
+          "provenance": {
+            "const": "server_estimation"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["effectiveDate", "ageYears", "unit", "skinfolds"],
+            "properties": {
+              "effectiveDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "ageYears": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "unit": {
+                "const": "mm"
+              },
+              "skinfolds": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "pectoralSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "abdominalSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "tricepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "bicepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "subscapularSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "suprailiacSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "thighSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "const": "unavailable"
+          },
+          "result": {
+            "type": "null"
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "fields"],
+              "properties": {
+                "code": {
+                  "const": "scientific_verification_pending"
+                },
+                "fields": {
+                  "const": []
+                }
+              }
+            }
+          }
+        },
+        "description": "Solo estado persistido no disponible, sin resultados numéricos ni versiones científicas. Los pliegues presentes son capturas, sin selección de tres sitios ni ejecución de fórmula. API y SQL verifican coincidencia de fecha/edad/entradas con assessment. No es diagnóstico.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "maxProperties": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CandidateEstimationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["methodId", "protocolId", "protocolVersion"],
+        "properties": {
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "protocolId": {
+            "enum": ["jp3-male-candidate", "jp3-female-candidate"]
+          },
+          "protocolVersion": {
+            "const": "technical-candidate-v1"
+          }
+        },
+        "description": "Solicitud técnica opcional para pruebas locales. No habilita el motor por sí sola: servidor exige HU023_LOCAL_CANDIDATES_ENABLED=true, NODE_ENV development/test y conexión PostgreSQL loopback verificada, con el puerto efectivo de DATABASE_URL (o PGPORT/predeterminado del controlador si se omite). Variante incompatible se rechaza. No aprobación científica."
+      },
+      "CandidateBodyFatEstimation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "methodId",
+          "variant",
+          "formulaVersion",
+          "domainPolicyVersion",
+          "protocol",
+          "provenance",
+          "inputs",
+          "status",
+          "result",
+          "reasons",
+          "technicalFormulaVersion",
+          "technicalDomainVersion",
+          "scientificStatus",
+          "activationAllowed",
+          "blockers"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "variant": {
+            "enum": ["male", "female", null]
+          },
+          "formulaVersion": {
+            "type": "null"
+          },
+          "domainPolicyVersion": {
+            "type": "null"
+          },
+          "protocol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "enum": ["jp3-male-candidate", "jp3-female-candidate"]
+              },
+              "version": {
+                "const": "technical-candidate-v1"
+              }
+            }
+          },
+          "provenance": {
+            "const": "server_estimation"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["effectiveDate", "ageYears", "unit", "skinfolds"],
+            "properties": {
+              "effectiveDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "ageYears": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "unit": {
+                "const": "mm"
+              },
+              "skinfolds": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "pectoralSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "abdominalSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "tricepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "bicepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "subscapularSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "suprailiacSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "thighSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "enum": ["candidate_only", "unavailable"]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sumSkinfoldMm",
+                  "bodyDensityGPerMl",
+                  "estimatedBodyFatPercentage"
+                ],
+                "properties": {
+                  "sumSkinfoldMm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "bodyDensityGPerMl": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "estimatedBodyFatPercentage": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 100
+                  }
+                }
+              }
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "fields"],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "candidate_execution_disabled",
+                    "invalid_input",
+                    "equation_not_selected",
+                    "invalid_effective_date",
+                    "invalid_birth_date",
+                    "age_unavailable",
+                    "outside_reference_age_range",
+                    "invalid_measurements",
+                    "missing_measurements",
+                    "non_finite_calculation",
+                    "invalid_density",
+                    "invalid_estimated_percentage"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "technicalFormulaVersion": {
+            "const": "jp3-siri-arithmetic-candidate-v1"
+          },
+          "technicalDomainVersion": {
+            "const": "jp3-reference-ranges-candidate-v1"
+          },
+          "scientificStatus": {
+            "const": "not_validated"
+          },
+          "activationAllowed": {
+            "const": false
+          },
+          "blockers": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "scientific_verification_pending",
+                "domain_approval_pending",
+                "protocol_approval_pending",
+                "independent_reference_cases_pending",
+                "female_equation_original_pending",
+                "female_over_40_caution_pending"
+              ]
+            }
+          }
+        },
+        "description": "Snapshot técnico candidato, nunca resultado científicamente disponible. Solo para desarrollo y pruebas locales. Lecturas fuera de habilitación local devuelven unavailable y result null sin alterar la fila. Inputs de un resultado contienen solo tres sitios utilizados; captura parcial conserva sus mediciones. API/SQL verifican coherencia con el snapshot padre; JSON Schema no expresa todas las comparaciones entre campos.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "maxProperties": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "variant": {
+                  "enum": ["male", "female"]
+                },
+                "result": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sumSkinfoldMm",
+                    "bodyDensityGPerMl",
+                    "estimatedBodyFatPercentage"
+                  ],
+                  "properties": {
+                    "sumSkinfoldMm": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "bodyDensityGPerMl": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "estimatedBodyFatPercentage": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 100
+                    }
+                  }
+                },
+                "reasons": {
+                  "maxItems": 0
+                },
+                "inputs": {
+                  "properties": {
+                    "ageYears": {
+                      "type": "integer",
+                      "minimum": 18,
+                      "maximum": 61
+                    },
+                    "skinfolds": {
+                      "maxProperties": 3
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "result": {
+                  "type": "null"
+                },
+                "reasons": {
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "male"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "protocol": {
+                  "properties": {
+                    "id": {
+                      "const": "jp3-male-candidate"
+                    }
+                  }
+                },
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "male"
+                },
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "required": [
+                        "pectoralSkinfoldMm",
+                        "abdominalSkinfoldMm",
+                        "thighSkinfoldMm"
+                      ]
+                    },
+                    "ageYears": {
+                      "maximum": 61
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "protocol": {
+                  "properties": {
+                    "id": {
+                      "const": "jp3-female-candidate"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                },
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "required": [
+                        "tricepsSkinfoldMm",
+                        "suprailiacSkinfoldMm",
+                        "thighSkinfoldMm"
+                      ]
+                    },
+                    "ageYears": {
+                      "maximum": 55
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                },
+                "inputs": {
+                  "properties": {
+                    "ageYears": {
+                      "type": "number",
+                      "exclusiveMinimum": 40
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending",
+                    "female_equation_original_pending",
+                    "female_over_40_caution_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                }
+              }
+            },
+            "then": {
+              "if": {
+                "properties": {
+                  "inputs": {
+                    "properties": {
+                      "ageYears": {
+                        "type": "number",
+                        "exclusiveMinimum": 40
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "blockers": {
+                    "const": [
+                      "scientific_verification_pending",
+                      "domain_approval_pending",
+                      "protocol_approval_pending",
+                      "independent_reference_cases_pending",
+                      "female_equation_original_pending",
+                      "female_over_40_caution_pending"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "blockers": {
+                    "const": [
+                      "scientific_verification_pending",
+                      "domain_approval_pending",
+                      "protocol_approval_pending",
+                      "independent_reference_cases_pending",
+                      "female_equation_original_pending"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {

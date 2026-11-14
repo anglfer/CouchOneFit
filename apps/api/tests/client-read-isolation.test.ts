@@ -1009,3 +1009,162 @@ test('HU-018 last-place competition, no-op at full capacity and DEC-004 suspende
   assert.equal(noPlan.status,403); assert.equal(noPlan.body.error.code,'PLAN_REQUIRED')
   assert.deepEqual(await statusSnapshot(winner),before)
 })
+
+// HU-023: prepared physical regression. Run only with separately authorized isolated harness.
+test('HU-023 runtime permits only owned pending snapshots; numeric/candidate states fail SQL and history survives rollback', async () => {
+  const { assessmentInput } =
+    await import('../src/features/evaluations/validators/assessment.js');
+  const { pendingEstimation } =
+    await import('../src/features/evaluations/domain/pending-estimation.js');
+  const { ageAt } =
+    await import('../src/features/evaluations/domain/assessment.js');
+  const { PENDING_ESTIMATION_REFERENCE } =
+    await import('../src/features/evaluations/types/estimation.js');
+  const today = (
+    await database.query(
+      "SELECT timezone('UTC',clock_timestamp())::date::text AS day"
+    )
+  ).rows[0].day;
+  const own = actors.clientA.client!;
+  const before = (
+    await database.query(
+      'SELECT id,assessment FROM private.client_evaluations ORDER BY id'
+    )
+  ).rows;
+  const birth = (
+    await database.query(
+      'SELECT birth_date::text AS birth FROM private.clients WHERE id=$1',
+      [own]
+    )
+  ).rows[0].birth;
+  const input = assessmentInput(
+    {
+      method: 'pliegues',
+      equation: 'male',
+      measurements: { pectoralSkinfoldMm: 10.1 },
+      estimationRequest: {
+        methodId: 'jackson-pollock-3-siri',
+        protocolId: PENDING_ESTIMATION_REFERENCE.id,
+        protocolVersion: PENDING_ESTIMATION_REFERENCE.version,
+      },
+    },
+    today
+  );
+  const { estimationRequest: _request, ...capture } = input;
+  const snapshot = {
+    ...capture,
+    method: 'skinfolds',
+    protocol: 'jp3-sites-pending@technical-reference-v1',
+    effectiveDate: today,
+    ownerId: actors.proA.id,
+    birthDate: birth,
+    ageYears: ageAt(birth, today),
+    version: 'composition-estimation-v1',
+    calculationStatus: 'pending_verification',
+    provenance: 'manual_measurements',
+    results: {},
+    estimation: pendingEstimation(input, today, ageAt(birth, today)),
+  };
+  const insert = (subject: string, value: unknown = snapshot) =>
+    asSubject(subject, async (c) =>
+      c.query(
+        'INSERT INTO private.client_evaluations(client_id,pectoral_skinfold_mm,assessment) VALUES($1,10.1,$2::jsonb) RETURNING assessment',
+        [own, JSON.stringify(value)]
+      )
+    );
+  assert.equal(
+    (await insert(actors.proA.id)).rows[0].assessment.estimation.result,
+    null
+  );
+  await assert.rejects(() => insert(actors.proB.id));
+  await assert.rejects(() => insert(actors.clientA.id));
+  for (const patch of [
+    { status: 'available', result: { estimatedBodyFatPercentage: 20 } },
+    { status: 'candidate_only' },
+    { formulaVersion: 'invented-approved' },
+    { protocol: { id: 'unknown', version: 'unknown' } },
+  ]) {
+    await assert.rejects(
+      () =>
+        insert(actors.proA.id, {
+          ...snapshot,
+          estimation: { ...snapshot.estimation, ...patch },
+        }),
+      (error: unknown) =>
+        !!error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === '23514'
+    );
+  }
+  // Prepared only: reuse this suite's existing isolated fixture/rollback helper.
+  const { candidateEstimation } =
+    await import('../src/features/evaluations/domain/candidate-estimation.js');
+  const candidateInput = assessmentInput(
+    {
+      method: 'pliegues',
+      equation: 'male',
+      measurements: {
+        pectoralSkinfoldMm: 10.1,
+        abdominalSkinfoldMm: 15,
+        thighSkinfoldMm: 20,
+      },
+      estimationRequest: {
+        methodId: 'jackson-pollock-3-siri',
+        protocolId: 'jp3-male-candidate',
+        protocolVersion: 'technical-candidate-v1',
+      },
+    },
+    today
+  );
+  const candidate = {
+    ...snapshot,
+    version: 'composition-candidate-v1',
+    protocol: 'jp3-male-candidate@technical-candidate-v1',
+    measurements: candidateInput.measurements,
+    estimation: candidateEstimation(candidateInput, birth, today, true),
+  };
+  assert.equal(candidate.estimation.status, 'candidate_only');
+  const insertCandidate = (subject: string, value: unknown = candidate) =>
+    asSubject(subject, (c) =>
+      c.query(
+        'INSERT INTO private.client_evaluations(client_id,pectoral_skinfold_mm,abdominal_skinfold_mm,thigh_skinfold_mm,assessment) VALUES($1,10.1,15,20,$2::jsonb) RETURNING assessment',
+        [own, JSON.stringify(value)]
+      )
+    );
+  assert.equal(
+    (await insertCandidate(actors.proA.id)).rows[0].assessment.estimation
+      .scientificStatus,
+    'not_validated'
+  );
+  await assert.rejects(() => insertCandidate(actors.proB.id));
+  await assert.rejects(() => insertCandidate(actors.clientA.id));
+  for (const patch of [
+    { status: 'available' },
+    { activationAllowed: true },
+    { scientificStatus: 'approved' },
+    { formulaVersion: 'approved-v1' },
+    { result: null },
+  ]) {
+    await assert.rejects(
+      () =>
+        insertCandidate(actors.proA.id, {
+          ...candidate,
+          estimation: { ...candidate.estimation, ...patch },
+        }),
+      (error: unknown) =>
+        !!error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === '23514'
+    );
+  }
+  assert.deepEqual(
+    (
+      await database.query(
+        'SELECT id,assessment FROM private.client_evaluations ORDER BY id'
+      )
+    ).rows,
+    before
+  );
+});
