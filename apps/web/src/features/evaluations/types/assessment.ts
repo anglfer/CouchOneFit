@@ -1,9 +1,16 @@
+import type { PendingEstimation, CandidateEstimation } from './estimation';
 export type Method = 'perimetros' | 'pliegues' | 'bioimpedancia';
 export interface AssessmentInput {
   method: Method;
   effectiveDate: string | null;
   equation: 'male' | 'female' | 'not_applicable';
   measurements: Record<string, number>;
+  estimationRequest?: {
+    methodId: 'jackson-pollock-3-siri';
+    protocolId:
+      'jp3-sites-pending' | 'jp3-male-candidate' | 'jp3-female-candidate';
+    protocolVersion: 'technical-reference-v1' | 'technical-candidate-v1';
+  };
   segmental?: {
     type: 'muscle_mass' | 'fat_mass';
     unit: 'kg';
@@ -13,6 +20,7 @@ export interface AssessmentInput {
   };
 }
 export interface Assessment extends AssessmentInput {
+  estimation?: PendingEstimation | CandidateEstimation;
   protocol: string;
   ownerId: string;
   ageYears: number | null;

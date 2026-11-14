@@ -1,3 +1,9 @@
+import {
+  isPendingEstimation,
+  pendingEstimationVersion,
+  isCandidateEstimation,
+  candidateEstimationVersion,
+} from './estimation';
 import type { Assessment } from './assessment';
 export const EVALUATION_FIELDS = [
   ['weightKg', 'Peso', 'kg', 30, 300],
@@ -52,6 +58,11 @@ export function isEvaluation(
       )
     )
       return false;
+    if (snapshot.version === pendingEstimationVersion) {
+      if (!isPendingEstimation(snapshot.estimation, snapshot)) return false;
+    } else if (snapshot.version === candidateEstimationVersion) {
+      if (!isCandidateEstimation(snapshot.estimation, snapshot)) return false;
+    } else if (snapshot.estimation !== undefined) return false;
     for (const key of ['measurements', 'results']) {
       const values = snapshot[key];
       if (

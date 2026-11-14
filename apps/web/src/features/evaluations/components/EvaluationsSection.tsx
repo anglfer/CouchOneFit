@@ -1,3 +1,4 @@
+import EstimationDetails from './EstimationDetails';
 import { measurementFields, type MeasurementField } from '../types/assessment';
 import { Link } from '../../../components/Link';
 import CompositionResults from './CompositionResults';
@@ -157,7 +158,14 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
                 )
               )}
             </dl>
-            <CompositionResults results={evaluation.assessment.results} />
+            {evaluation.assessment.estimation ? (
+              <EstimationDetails
+                estimation={evaluation.assessment.estimation}
+                effectiveDate={evaluation.assessment.effectiveDate!}
+              />
+            ) : (
+              <CompositionResults results={evaluation.assessment.results} />
+            )}
             {evaluation.assessment.segmental && (
               <div aria-label="Valores segmentales">
                 {Object.entries(evaluation.assessment.segmental.values).map(

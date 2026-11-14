@@ -1,5 +1,5 @@
 const labels: Record<string, string> = {
-  bodyFatPercentage: 'Grasa corporal (%)',
+  bodyFatPercentage: 'Grasa corporal informada (%)',
   fatMassKg: 'Masa grasa (kg)',
   fatFreeMassKg: 'Masa libre de grasa (kg)',
   waistHipRatio: 'ICC · cintura/cadera',

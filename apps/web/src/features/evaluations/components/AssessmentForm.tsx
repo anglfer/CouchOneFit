@@ -1,3 +1,9 @@
+import EstimationDetails from './EstimationDetails';
+import {
+  pendingEstimationReference,
+  candidateProtocols,
+  candidateProtocolVersion,
+} from '../types/estimation';
 import { useOperations } from '../../../hooks/useOperations';
 import { guardNavigation } from '../../../utils/navigation';
 import { Link } from '../../../components/Link';
@@ -40,6 +46,17 @@ export default function AssessmentForm({
   const [equation, setEquation] =
     useState<AssessmentInput['equation']>('not_applicable');
   const [date, setDate] = useState('');
+  const [requestPendingEstimation, setRequestPendingEstimation] =
+    useState(false);
+  const [requestCandidateEstimation, setRequestCandidateEstimation] =
+    useState(false);
+  const [candidateDismissed, setCandidateDismissed] = useState(false);
+  const localCandidates =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1', '[::1]', '::1'].includes(
+      window.location.hostname
+    );
   const [active, setActive] = useState<MeasurementField | null>(null);
   const [phase, setPhase] = useState<
     | 'draft'
@@ -107,6 +124,19 @@ export default function AssessmentForm({
     effectiveDate: date || null,
     measurements,
   };
+  if (method === 'pliegues' && requestPendingEstimation)
+    body.estimationRequest = { ...pendingEstimationReference };
+  if (
+    method === 'pliegues' &&
+    requestCandidateEstimation &&
+    localCandidates &&
+    equation !== 'not_applicable'
+  )
+    body.estimationRequest = {
+      methodId: 'jackson-pollock-3-siri',
+      protocolId: candidateProtocols[equation],
+      protocolVersion: candidateProtocolVersion,
+    };
   if (method === 'bioimpedancia' && Object.values(segments).some(Boolean))
     body.segmental = {
       type: segmentType,
@@ -242,9 +272,16 @@ export default function AssessmentForm({
           <select
             className="block w-full min-h-11 rounded-lg border p-2"
             value={equation}
-            onChange={(e) =>
-              setEquation(e.target.value as AssessmentInput['equation'])
-            }
+            aria-describedby="candidate-estimation-notice"
+            onChange={(e) => {
+              const next = e.target.value as AssessmentInput['equation'];
+              setEquation(next);
+              if (next === 'not_applicable')
+                setRequestCandidateEstimation(false);
+              setCandidateDismissed(
+                next === 'not_applicable' && requestCandidateEstimation
+              );
+            }}
             disabled={locked}
           >
             <option value="not_applicable">
@@ -253,6 +290,15 @@ export default function AssessmentForm({
             <option value="male">Ecuación masculina</option>
             <option value="female">Ecuación femenina</option>
           </select>
+          <p
+            id="candidate-estimation-notice"
+            role="status"
+            className="text-sm text-(--ws-muted)"
+          >
+            {candidateDismissed &&
+              method === 'pliegues' &&
+              'No se realizará una estimación candidata. Las mediciones capturadas se conservan.'}
+          </p>
         </label>
       </div>
       <fieldset disabled={locked}>
@@ -301,9 +347,55 @@ export default function AssessmentForm({
       {method !== 'bioimpedancia' && (
         <p className="ws-alert" data-tone="warn">
           {method === 'perimetros' ? 'Navy' : 'Jackson–Pollock 3P y Siri'}:
-          cálculo de grasa deshabilitado hasta verificar las fuentes y el
-          protocolo. Se conservan las mediciones originales.
+          cálculo de grasa deshabilitado para uso aprobado hasta verificar las
+          fuentes y el protocolo. Se conservan las mediciones originales. Los
+          candidatos solo pueden solicitarse en desarrollo local con
+          habilitación del servidor.
         </p>
+      )}
+      {method === 'pliegues' && (
+        <label className="flex items-start gap-3 rounded-lg border border-(--ws-border) p-4">
+          <input
+            type="checkbox"
+            checked={requestPendingEstimation}
+            disabled={locked}
+            onChange={(event) => {
+              setRequestPendingEstimation(event.target.checked);
+              if (event.target.checked) setRequestCandidateEstimation(false);
+              dirty.current = true;
+            }}
+          />
+          <span>
+            Registrar el estado de estimación pendiente
+            <span className="block text-sm text-(--ws-muted)">
+              Conserva la referencia técnica. No activa un protocolo aprobado ni
+              calcula grasa corporal.
+            </span>
+          </span>
+        </label>
+      )}
+      {method === 'pliegues' && localCandidates && (
+        <label className="flex items-start gap-3 rounded-lg border border-(--ws-border) p-4">
+          <input
+            type="checkbox"
+            checked={requestCandidateEstimation}
+            disabled={locked || equation === 'not_applicable'}
+            onChange={(event) => {
+              setRequestCandidateEstimation(event.target.checked);
+              if (event.target.checked) setRequestPendingEstimation(false);
+              dirty.current = true;
+            }}
+          />
+          <span>
+            Solicitar cálculo candidato para pruebas locales
+            <span className="block text-sm text-(--ws-muted)">
+              Selecciona variante masculina (pecho, abdomen, muslo; 18–61 años)
+              o femenina (tríceps, suprailiaco, muslo; 18–55 años). Intervalos
+              técnicos provisionales. El servidor debe habilitarlo; no implica
+              validación científica.
+            </span>
+          </span>
+        </label>
       )}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]">
         <div className="space-y-4">
@@ -437,6 +529,14 @@ export default function AssessmentForm({
           )}
         </div>
         <aside className="space-y-5 xl:sticky xl:top-4">
+          {phase === 'saved' && confirmed?.assessment?.estimation && (
+            <EstimationDetails
+              effectiveDate={
+                confirmed.assessment.effectiveDate ?? confirmed.evaluationDate
+              }
+              estimation={confirmed.assessment.estimation}
+            />
+          )}
           <CompositionResults
             preliminary={phase !== 'saved'}
             results={
