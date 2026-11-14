@@ -264,3 +264,47 @@ No se ejecutó PostgreSQL, migraciones ni preparación de infraestructura. No ha
 revisión visual nueva ni aprobación científica o D0. La implementación técnica
 candidata queda preparada para revisión y autorización separada de commits,
 conservando los pendientes de persistencia física y aceptación independiente.
+
+## Publicación para revisión: aceptación del riesgo residual
+
+**R — Autorización expresa de la persona usuaria:** publicar los cuatro commits
+locales de HU-023 y un commit documental en `feature/ep04-antropometria`, aceptando
+el riesgo residual de automatizaciones externas no verificadas. Esta autorización
+no permite modificar servicios externos, ejecutar migraciones, activar candidatos
+en producción ni crear un PR. Este registro documenta la autorización; no acredita
+que el push o un despliegue se hayan ejecutado.
+
+**E — Hechos confirmados en archivos versionados:**
+
+- La [documentación de despliegue](../../../architecture/despliegue.md) identifica
+  la API productiva en Render y la Web en Vercel, y documenta auto-deploy desde Git.
+- El [rewrite Web](../../../../apps/web/vercel.json) dirige `/api` hacia
+  `https://api.ferkxo.tech/api/:path*`, sin separar Preview de Production.
+- El cálculo candidato de HU-023 permanece desactivado por defecto y bloqueado
+  en producción; la aceptación de este riesgo no cambia esos controles.
+
+**Riesgos posibles, no ejecuciones confirmadas:** no se han verificado las ramas,
+reglas de despliegue, variables ni comandos efectivos en los paneles externos.
+Un push a `feature/ep04-antropometria` podría activar despliegues u otras
+automatizaciones externas. Un preview Vercel podría dirigir solicitudes a la API
+productiva por el rewrite `/api`, dependiendo de su configuración efectiva y de
+`VITE_API_URL`. Crear un preview no demuestra por sí solo una escritura de datos;
+utilizarlo podría enviar solicitudes a producción sujetas a sus controles.
+No se afirma que los servicios estén seguros ni que haya ocurrido un despliegue.
+
+**Verificaciones pendientes antes de habilitar HU-023 para usuarios reales:**
+
+- Revisar en Render la rama conectada, Auto-Deploy y comandos de build,
+  pre-deploy y arranque; en Vercel, la rama productiva, reglas de previews y
+  destino efectivo de `/api`.
+- Comprobar variables de entorno por entorno, manteniendo deshabilitados los
+  candidatos en producción; revisar integraciones y webhooks externos.
+- Verificar la migración incremental, persistencia física, restricciones, RLS,
+  autorización y compatibilidad antes de cualquier aplicación compartida.
+- Completar validaciones científicas, revisión visual y revisión independiente
+  D0 documentadas en esta guía y en [condiciones de desbloqueo](condiciones-desbloqueo.md).
+
+Publicar código para revisión no constituye aprobación científica de HU-023,
+aceptación D0, autorización de despliegue ni permiso para habilitarlo a usuarios
+reales. Se acepta la incertidumbre sobre efectos automáticos del push; no se
+autoriza un despliegue manual ni se certifica la configuración externa.
