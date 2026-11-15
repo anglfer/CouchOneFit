@@ -28,9 +28,7 @@ export default function AnatomicalGuide({
     >
       <h3 className="font-semibold">Referencia anatómica</h3>
       <p className="text-sm text-(--ws-muted)">
-        Esquema orientativo. Los puntos no sustituyen un protocolo técnico de
-        medición. Navy y el uso aprobado de JP3 siguen deshabilitados. Los
-        candidatos JP3 solo se permiten en pruebas locales autorizadas.
+        Esquema orientativo. Selecciona un punto para ir a su campo de medición.
       </p>
       <div className="grid grid-cols-2 gap-2">
         {(['front', 'back'] as const).map((side) => (

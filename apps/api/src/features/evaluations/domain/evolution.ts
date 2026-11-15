@@ -8,7 +8,7 @@ import {
 } from '../types/evolution.js'
 import { evolutionTimestamp, isEvolutionDate } from '../validators/evolution.js'
 
-/** Pure projection of persisted inputs only: no profile, plans, calculations or duplicate sources. */
+/** Projects saved data from the evaluation DTO, after candidate visibility is applied. */
 export function evolutionSample(evaluation: Evaluation): EvolutionSample {
   const assessment = evaluation.assessment
   const date = assessment ? assessment.effectiveDate : evaluation.evaluationDate
@@ -21,6 +21,7 @@ export function evolutionSample(evaluation: Evaluation): EvolutionSample {
     if (typeof value === 'number' && Number.isFinite(value))
       measurements[metric] = value
   }
+  const estimation = assessment?.estimation
   return {
     id: evaluation.id,
     clientId: evaluation.clientId,
@@ -32,6 +33,15 @@ export function evolutionSample(evaluation: Evaluation): EvolutionSample {
     provenance: assessment?.provenance ?? null,
     protocol: assessment?.protocol ?? null,
     measurements,
+    ...(estimation?.status === 'candidate_only' && estimation.result
+      ? {
+          candidateBodyFat: {
+            percentage: estimation.result.estimatedBodyFatPercentage,
+            formulaVersion: estimation.technicalFormulaVersion,
+            domainVersion: estimation.technicalDomainVersion,
+          },
+        }
+      : {}),
   }
 }
 export function compareEvolutionPositions(

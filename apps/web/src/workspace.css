@@ -533,6 +533,32 @@
 
 /* ---------- Ficha y cartera de clientes ---------- */
 
+html:has(.client-hub) {
+  scrollbar-gutter: stable;
+}
+
+.client-hub-panel {
+  min-block-size: calc(100svh - 10rem);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .client-hub-panel {
+    animation: client-panel-enter 160ms ease-out;
+  }
+
+  .client-hub-header .training-tabs > a {
+    transition:
+      color 160ms ease-out,
+      border-color 160ms ease-out;
+  }
+
+  @keyframes client-panel-enter {
+    from {
+      opacity: 0.65;
+    }
+  }
+}
+
 .client-hub-header {
   display: grid;
   gap: 16px;
@@ -1183,11 +1209,7 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(
-      900px 420px at 50% -120px,
-      var(--ws-glow),
-      transparent 70%
-    ),
+    radial-gradient(900px 420px at 50% -120px, var(--ws-glow), transparent 70%),
     var(--ws-bg);
   color: var(--ws-text);
 }

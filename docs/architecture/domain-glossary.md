@@ -105,3 +105,5 @@ Serie prescrita (`private.training_sets` / JSON `sets[]`): `kind`, `reps`, `reps
 ### HU-021 multimétodo — ampliación autorizada
 
 `client_evaluations.assessment` es el snapshot histórico opcional de composición corporal. NULL conserva un registro heredado de método desconocido. DTO: `perimetros`/`pliegues`/`bioimpedancia`; persistencia: `circumference`/`skinfolds`/`bioimpedance`. `waistCm` conserva cintura; `abdomenUmbilicalCm` es una medición independiente. Fecha efectiva y edad de referencia no sustituyen `created_at`. Navy/JP3 deshabilitados hasta cotejo. [Modelo y compatibilidad](../epicas/ep-04-antropometria/hu-021/multimethod.md).
+
+`EvolutionSample.candidateBodyFat` es la proyección opcional del porcentaje candidato guardado en una evaluación por pliegues, con las versiones técnicas de fórmula y dominio. Solo aparece cuando el servidor local permite candidatos. `measurements.measuredBodyFatPercentage` conserva el porcentaje medido como dato independiente. La lectura histórica recupera el valor guardado con su precisión original.

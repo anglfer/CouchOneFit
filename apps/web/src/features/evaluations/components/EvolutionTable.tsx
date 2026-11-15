@@ -1,10 +1,14 @@
-import type { EvolutionMetric, EvolutionSample } from '../types/evolution';
-import { measurementFields } from '../types/assessment';
+import {
+  evolutionMetrics,
+  type EvolutionMetric,
+  type EvolutionSample,
+} from '../types/evolution';
 import {
   evolutionDate,
   evolutionValue,
   evolutionMethod,
   evolutionProvenance,
+  readEvolutionValue,
 } from '../utils/evolution';
 export default function EvolutionTable({
   samples,
@@ -13,7 +17,7 @@ export default function EvolutionTable({
   samples: EvolutionSample[];
   metric: EvolutionMetric;
 }) {
-  const [label, unit] = measurementFields[metric];
+  const [label, unit] = evolutionMetrics[metric];
   return (
     <div
       className="overflow-x-auto rounded-xl border border-(--ws-border)"
@@ -41,46 +45,58 @@ export default function EvolutionTable({
           </tr>
         </thead>
         <tbody>
-          {samples.map((s) => (
-            <tr key={s.id} className="border-t border-(--ws-border)">
-              <th scope="row" className="px-3 py-3 font-normal">
-                <time dateTime={s.date}>{evolutionDate(s.date)}</time>
-                <span className="block text-xs text-(--ws-muted)">
-                  {s.dateBasis === 'effective_date'
-                    ? 'Fecha efectiva'
-                    : 'Fecha heredada de evaluación'}
-                </span>
-                <details className="mt-1">
-                  <summary className="flex min-h-11 cursor-pointer items-center py-1">
-                    Identificador
-                  </summary>
-                  <code className="block max-w-44 break-all text-xs">
-                    {s.id}
-                  </code>
-                  <span className="block text-xs">Creada: {s.createdAt}</span>
-                </details>
-              </th>
-              <td className="px-3 py-3 tabular-nums">
-                {s.measurements[metric] === undefined ? (
-                  <span>Sin medición</span>
-                ) : (
-                  <>
-                    {evolutionValue(s.measurements[metric])} {unit}
-                  </>
-                )}
-              </td>
-              <td className="px-3 py-3">
-                {evolutionMethod(s.method)}
-                {s.protocol && (
+          {samples.map((s) => {
+            const value = readEvolutionValue(s, metric);
+            return (
+              <tr key={s.id} className="border-t border-(--ws-border)">
+                <th scope="row" className="px-3 py-3 font-normal">
+                  <time dateTime={s.date}>{evolutionDate(s.date)}</time>
                   <span className="block text-xs text-(--ws-muted)">
-                    Protocolo: {s.protocol}
+                    {s.dateBasis === 'effective_date'
+                      ? 'Fecha efectiva'
+                      : 'Fecha heredada de evaluación'}
                   </span>
-                )}
-              </td>
-              <td className="px-3 py-3">Evaluación profesional</td>
-              <td className="px-3 py-3">{evolutionProvenance(s.provenance)}</td>
-            </tr>
-          ))}
+                  <details className="mt-1">
+                    <summary className="flex min-h-11 cursor-pointer items-center py-1">
+                      Datos de la evaluación
+                    </summary>
+                    <code className="block max-w-44 break-all text-xs">
+                      {s.id}
+                    </code>
+                    <span className="block text-xs">Creada: {s.createdAt}</span>
+                    {s.protocol && (
+                      <span className="block break-all text-xs">
+                        Protocolo: {s.protocol}
+                      </span>
+                    )}
+                    {metric === 'candidateBodyFat' && value !== undefined && (
+                      <span className="block break-all text-xs">
+                        Versión: {s.candidateBodyFat?.formulaVersion}
+                      </span>
+                    )}
+                  </details>
+                </th>
+                <td className="px-3 py-3 tabular-nums">
+                  {value === undefined ? (
+                    <span>
+                      {metric === 'candidateBodyFat'
+                        ? 'Sin estimación'
+                        : 'Sin medición'}
+                    </span>
+                  ) : (
+                    <>
+                      {evolutionValue(value)} {unit}
+                    </>
+                  )}
+                </td>
+                <td className="px-3 py-3">{evolutionMethod(s.method)}</td>
+                <td className="px-3 py-3">Evaluación profesional</td>
+                <td className="px-3 py-3">
+                  {evolutionProvenance(s.provenance)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

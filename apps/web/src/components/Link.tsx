@@ -4,6 +4,7 @@ import { navigate } from '../utils/navigation';
 export interface LinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   to: string;
   replace?: boolean;
+  preventScrollReset?: boolean;
 }
 
 /**
@@ -12,6 +13,7 @@ export interface LinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
 export function Link({
   to,
   replace,
+  preventScrollReset,
   onClick,
   target,
   children,
@@ -34,7 +36,12 @@ export function Link({
 
     if (to.startsWith('/') || to.startsWith('#')) {
       event.preventDefault();
-      navigate(to, { replace });
+      if (
+        preventScrollReset &&
+        event.currentTarget.href === window.location.href
+      )
+        return;
+      navigate(to, { replace, preventScrollReset });
     }
   }
 

@@ -17,7 +17,9 @@ describe(
     if (!source) throw Error('Separate setup connection required')
     const url = new URL(source)
     assert.equal(url.hostname, '127.0.0.1')
-    assert.equal(url.port, '5433')
+    const port = Number(url.port)
+    assert.ok(port > 0 && port !== 5432, 'Use an explicit isolated PostgreSQL port')
+    assert.equal(url.search, '')
     assert.equal(url.pathname, '/postgres')
     const name = `cof_hu022_${randomBytes(10).toString('hex')}`
     assert.match(name, /^cof_hu022_[0-9a-f]{20}$/)
@@ -75,9 +77,9 @@ describe(
         )
       ).rows[0]
       assert.equal(row.host, '127.0.0.1')
-      assert.equal(row.port, 5433)
+      assert.equal(row.port, port)
       assert.equal(row.db, database)
-      assert.ok(row.version >= 170000 && row.version < 180000)
+      assert.ok(row.version >= 170000)
     }
     before(async () => {
       await target(owner, 'postgres')
@@ -579,6 +581,67 @@ describe(
         )
       }
       assert.equal(await fingerprint(), before)
+    })
+    test('physical evolution reads saved local candidates and omits them when disabled', async () => {
+      const endpoint = `/api/clients/${actors.clientA.client}/evaluations`
+      const post = (key: string, measurements: Record<string, number>) =>
+        request(app)
+          .post(endpoint)
+          .set(csrfHeaders)
+          .set('Authorization', `Bearer ${actors.proA.token}`)
+          .set('Idempotency-Key', key)
+          .send({
+            method: 'pliegues',
+            equation: 'male',
+            effectiveDate: '2026-09-03',
+            measurements,
+            estimationRequest: {
+              methodId: 'jackson-pollock-3-siri',
+              protocolId: 'jp3-male-candidate',
+              protocolVersion: 'technical-candidate-v1',
+            },
+          })
+      const originalFlag = process.env.HU023_LOCAL_CANDIDATES_ENABLED
+      const originalMode = process.env.NODE_ENV
+      process.env.HU023_LOCAL_CANDIDATES_ENABLED = 'true'
+      try {
+        const input = { pectoralSkinfoldMm: 12, abdominalSkinfoldMm: 18, thighSkinfoldMm: 11 }
+        const key = randomUUID()
+        const created = await post(key, input)
+        assert.equal(created.status, 201)
+        const { id, assessment } = created.body.evaluation
+        assert.equal(assessment.estimation.status, 'candidate_only')
+        assert.deepEqual((await post(key, input)).body.evaluation, created.body.evaluation)
+        const missing = await post(randomUUID(), { thighSkinfoldMm: 11 })
+        assert.equal(missing.status, 201)
+        assert.equal(missing.body.evaluation.assessment.estimation.result, null)
+        const history = () => get(path() + '?from=2026-09-03&to=2026-09-03')
+        const available = await history()
+        assert.equal(available.status, 200)
+        assert.equal(available.body.samples.length, 2)
+        const projected = available.body.samples.find((row: { id: string }) => row.id === id)
+        assert.deepEqual(projected.measurements, input)
+        assert.deepEqual(projected.candidateBodyFat, {
+          percentage: assessment.estimation.result.estimatedBodyFatPercentage,
+          formulaVersion: assessment.estimation.technicalFormulaVersion,
+          domainVersion: assessment.estimation.technicalDomainVersion,
+        })
+        assert.equal(available.body.samples.find((row: { id: string }) => row.id !== id).candidateBodyFat, undefined)
+        const persisted = await fingerprint()
+        for (const [flag, mode] of [['false', 'test'], ['true', 'production']]) {
+          process.env.HU023_LOCAL_CANDIDATES_ENABLED = flag
+          process.env.NODE_ENV = mode
+          const response = await history()
+          assert.equal(response.status, 200)
+          assert.equal(response.body.samples.length, 2)
+          assert.ok(response.body.samples.every((sample: { candidateBodyFat?: unknown }) => sample.candidateBodyFat === undefined))
+        }
+        assert.equal(await fingerprint(), persisted)
+      } finally {
+        if (originalFlag === undefined) delete process.env.HU023_LOCAL_CANDIDATES_ENABLED
+        else process.env.HU023_LOCAL_CANDIDATES_ENABLED = originalFlag
+        process.env.NODE_ENV = originalMode
+      }
     })
   },
 )

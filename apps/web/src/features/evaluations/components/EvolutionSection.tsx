@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from '../../../components/Link';
-import { measurementFields } from '../types/assessment';
-import type { EvolutionMetric } from '../types/evolution';
+import { canShowCandidateEstimation } from '../types/estimation';
+import { evolutionMetrics, type EvolutionMetric } from '../types/evolution';
 import {
   ALL_EVOLUTION,
   quickEvolutionPeriod,
   validateEvolutionFilters,
   evolutionDate,
   evolutionValue,
+  readEvolutionValue,
+  hasEvolutionMeasurement,
   type EvolutionFilters,
 } from '../utils/evolution';
 import { useEvolution } from '../hooks/useEvolution';
@@ -23,7 +25,9 @@ export default function EvolutionSection({
   accountId: string;
   initialStatus: 'available' | 'empty' | 'error' | 'not_integrated';
 }) {
-  const [metric, setMetric] = useState<EvolutionMetric>('weightKg'),
+  const [selectedMetric, setSelectedMetric] = useState<EvolutionMetric | null>(
+      null
+    ),
     [draft, setDraft] = useState<EvolutionFilters>(ALL_EVOLUTION),
     [filters, setFilters] = useState<EvolutionFilters>(ALL_EVOLUTION),
     [filterError, setFilterError] = useState(''),
@@ -36,9 +40,27 @@ export default function EvolutionSection({
     }
   }, []);
   const enabled = started || initialStatus !== 'not_integrated';
-  const state = useEvolution(clientId, accountId, filters, metric, enabled);
-  const unit = measurementFields[metric][1],
-    points = state.samples.filter((s) => s.measurements[metric] !== undefined);
+  const showCandidate = canShowCandidateEstimation();
+  const defaultMetric = 'measuredBodyFatPercentage';
+  const state = useEvolution(
+    clientId,
+    accountId,
+    filters,
+    selectedMetric ?? defaultMetric,
+    enabled
+  );
+  const metric =
+    selectedMetric ??
+    (showCandidate &&
+    state.samples.some((sample) =>
+      hasEvolutionMeasurement(sample, 'candidateBodyFat')
+    )
+      ? 'candidateBodyFat'
+      : defaultMetric);
+  const [label, unit] = evolutionMetrics[metric];
+  const points = state.samples.filter((s) =>
+    hasEvolutionMeasurement(s, metric)
+  );
   function apply(next: EvolutionFilters) {
     const error = validateEvolutionFilters(next);
     setFilterError(error ?? '');
@@ -65,8 +87,8 @@ export default function EvolutionSection({
           Evolución antropométrica
         </h2>
         <p className="mt-1 text-sm text-(--ws-muted)">
-          Compara mediciones confirmadas de este cliente. La fecha efectiva o
-          heredada se conserva sin completar valores ausentes.
+          Consulta el porcentaje de grasa por fecha de evaluación. El peso de
+          esta vista corresponde a las evaluaciones del profesional.
         </p>
       </header>
       <form
@@ -84,13 +106,18 @@ export default function EvolutionSection({
             <select
               className="ws-input mt-1 w-full min-h-11"
               value={metric}
-              onChange={(e) => setMetric(e.target.value as EvolutionMetric)}
+              onChange={(e) =>
+                setSelectedMetric(e.target.value as EvolutionMetric)
+              }
             >
-              {Object.entries(measurementFields).map(([key, meta]) => (
-                <option key={key} value={key}>
-                  {meta[0]} ({meta[1]})
-                </option>
-              ))}
+              {Object.entries(evolutionMetrics)
+                .filter(([key]) => key !== 'candidateBodyFat' || showCandidate)
+                .map(([key, meta]) => (
+                  <option key={key} value={key}>
+                    {key === 'weightKg' ? 'Peso de evaluación' : meta[0]} (
+                    {meta[1]})
+                  </option>
+                ))}
             </select>
           </label>
           <label className="block text-sm font-medium">
@@ -187,6 +214,12 @@ export default function EvolutionSection({
           )}
         </div>
       </form>
+      {metric === 'candidateBodyFat' && (
+        <p className="ws-alert" data-tone="warn">
+          Estimación preliminar con Jackson–Pollock y Siri, pendiente de
+          validación.
+        </p>
+      )}
       {!enabled && (
         <p role="status">
           La evolución aún no está integrada en el expediente guardado. Usa
@@ -227,7 +260,7 @@ export default function EvolutionSection({
             {filters.from ? evolutionDate(filters.from) : 'sin inicio'} —{' '}
             {filters.to ? evolutionDate(filters.to) : 'sin fin'}.{' '}
             {state.samples.length} evaluaciones cargadas · {points.length}{' '}
-            valores de {measurementFields[metric][0].toLowerCase()}.
+            valores de {label.toLowerCase()}.
           </p>
           {state.page.pageInfo.hasMore && (
             <p role="status" className="ws-alert" data-tone="warn">
@@ -252,7 +285,8 @@ export default function EvolutionSection({
                 >
                   Una sola medición:{' '}
                   <strong>
-                    {evolutionValue(points[0].measurements[metric]!)} {unit}
+                    {evolutionValue(readEvolutionValue(points[0], metric)!)}{' '}
+                    {unit}
                   </strong>{' '}
                   · {evolutionDate(points[0].date)}. Todavía no hay suficientes
                   registros cargados para comparar una evolución.

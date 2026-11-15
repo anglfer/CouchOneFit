@@ -1,6 +1,14 @@
-import { measurementFields, type Method } from './assessment';
+import {
+  measurementFields,
+  type MeasurementField,
+  type Method,
+} from './assessment';
 
-export type EvolutionMetric = keyof typeof measurementFields;
+export const evolutionMetrics = {
+  ...measurementFields,
+  candidateBodyFat: ['Grasa corporal estimada', '%'],
+} as const;
+export type EvolutionMetric = keyof typeof evolutionMetrics;
 export interface EvolutionSample {
   id: string;
   clientId: string;
@@ -11,7 +19,12 @@ export interface EvolutionSample {
   method: Method | null;
   provenance: 'device_reported' | 'manual_measurements' | null;
   protocol: string | null;
-  measurements: Partial<Record<EvolutionMetric, number>>;
+  measurements: Partial<Record<MeasurementField, number>>;
+  candidateBodyFat?: {
+    percentage: number;
+    formulaVersion: string;
+    domainVersion: string;
+  };
 }
 export interface EvolutionPage {
   clientId: string;
@@ -19,7 +32,7 @@ export interface EvolutionPage {
   method: Method | 'legacy' | null;
   order: 'asc';
   metricDefinitions: Record<
-    EvolutionMetric,
+    MeasurementField,
     { label: string; unit: string; decimalPlaces: 1 }
   >;
   samples: EvolutionSample[];
@@ -43,6 +56,10 @@ const uuid = (v: unknown): v is string =>
     v
   );
 const methods = ['perimetros', 'pliegues', 'bioimpedancia'];
+const candidateProtocols = [
+  'jp3-male-candidate@technical-candidate-v1',
+  'jp3-female-candidate@technical-candidate-v1',
+];
 const timestamp = (v: unknown): v is string =>
   typeof v === 'string' &&
   /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?Z$/.test(
@@ -154,6 +171,23 @@ export function isEvolutionPage(
           Number.isFinite(n) &&
           Number.isInteger(n * 10)
       )
+    )
+      return false;
+    const candidate = s.candidateBodyFat;
+    if (
+      candidate !== undefined &&
+      (!object(candidate) ||
+        Object.keys(candidate).length !== 3 ||
+        s.method !== 'pliegues' ||
+        s.provenance !== 'manual_measurements' ||
+        typeof s.protocol !== 'string' ||
+        !candidateProtocols.includes(s.protocol) ||
+        typeof candidate.percentage !== 'number' ||
+        !Number.isFinite(candidate.percentage) ||
+        candidate.percentage <= 0 ||
+        candidate.percentage >= 100 ||
+        candidate.formulaVersion !== 'jp3-siri-arithmetic-candidate-v1' ||
+        candidate.domainVersion !== 'jp3-reference-ranges-candidate-v1')
     )
       return false;
     const [whole, fraction = ''] = s.createdAt.slice(0, -1).split('.');

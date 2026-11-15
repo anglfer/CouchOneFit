@@ -185,6 +185,10 @@ test('stable ordering preserves microseconds, repeated dates and unique IDs', ()
 });
 test('zero evaluations never draw a fictitious graph', async () => {
   await render(section());
+  assert.equal(
+    document.querySelector('select').value,
+    'measuredBodyFatPercentage'
+  );
   assert.match(
     document.body.textContent,
     /Sin evaluaciones confirmadas en este periodo/
@@ -194,6 +198,7 @@ test('zero evaluations never draw a fictitious graph', async () => {
 test('one value shows date and unit without a trend', async () => {
   responder = () => json(page([sample(1)]));
   await render(section());
+  await select(0, 'weightKg');
   assert.match(document.body.textContent, /Una sola medición: 80.1 kg/);
   assert.match(document.body.textContent, /no hay suficientes registros/);
   assert.equal(document.querySelectorAll('svg [role="button"]').length, 1);
@@ -203,6 +208,7 @@ test('accessible table preserves missing values and same-day SVG points', async 
   responder = () =>
     json(page([sample(1), sample(2, {}), sample(3, { weightKg: 79.2 })]));
   await render(section());
+  await select(0, 'weightKg');
   assert.ok(document.querySelector('table caption'));
   assert.equal(document.querySelectorAll('tbody tr').length, 3);
   assert.match(document.body.textContent, /Sin medición/);
@@ -267,35 +273,52 @@ test('late responses after changing client cannot expose old samples', async () 
   responder = (url) =>
     url.includes(otherId)
       ? json(
-          page([sample(9, { weightKg: 62.2 }, { clientId: otherId })], {
-            clientId: otherId,
-          })
+          page(
+            [
+              sample(
+                9,
+                { measuredBodyFatPercentage: 22.2 },
+                { clientId: otherId }
+              ),
+            ],
+            {
+              clientId: otherId,
+            }
+          )
         )
       : new Promise((r) => {
           release = r;
         });
   await render(section());
   await render(section({ clientId: otherId }));
-  await act(async () => release(json(page([sample(1)]))));
+  await act(async () =>
+    release(json(page([sample(1, { measuredBodyFatPercentage: 30.1 })])))
+  );
   await settle();
-  assert.match(document.querySelector('table').textContent, /62.2/);
-  assert.doesNotMatch(document.querySelector('table').textContent, /80.1/);
+  assert.match(document.querySelector('table').textContent, /22\.2 %/);
+  assert.doesNotMatch(document.querySelector('table').textContent, /30\.1 %/);
 });
 test('obsolete filter responses are ignored', async () => {
   let release;
   responder = (url) =>
     url.includes('method=legacy')
-      ? json(page([sample(2, { weightKg: 71.2 })], { method: 'legacy' }))
+      ? json(
+          page([sample(2, { measuredBodyFatPercentage: 21.2 })], {
+            method: 'legacy',
+          })
+        )
       : new Promise((r) => {
           release = r;
         });
   await render(section());
   await select(1, 'legacy');
   await click('Aplicar filtros');
-  await act(async () => release(json(page([sample(1)]))));
+  await act(async () =>
+    release(json(page([sample(1, { measuredBodyFatPercentage: 30.1 })])))
+  );
   await settle();
-  assert.match(document.querySelector('table').textContent, /71.2/);
-  assert.doesNotMatch(document.querySelector('table').textContent, /80.1/);
+  assert.match(document.querySelector('table').textContent, /21\.2 %/);
+  assert.doesNotMatch(document.querySelector('table').textContent, /30\.1 %/);
 });
 test('recoverable errors retry and denial never appears as empty', async () => {
   responder = () =>
@@ -337,6 +360,77 @@ test('offline cache is labelled and unavailable periods are not invented', async
     /este periodo o página no está guardado/
   );
   assert.equal(document.querySelector('table'), null);
+});
+test('cached older evaluation pages can be reopened offline only for the same account', async () => {
+  const { sessionRequest } = await vite.ssrLoadModule(
+    '/src/features/auth/services/session.ts'
+  );
+  const endpoint = `/api/clients/${clientId}/evaluations?offset=20`;
+  const data = { evaluations: [sample(1)] };
+  responder = () => json(data);
+  assert.deepEqual(await sessionRequest(endpoint), data);
+  await settle();
+  responder = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  assert.deepEqual(await sessionRequest(endpoint), data);
+  await cache.noteAccount('pro-b');
+  await assert.rejects(sessionRequest(endpoint));
+});
+test('local candidate percentages are charted separately and omitted from offline storage', async () => {
+  const candidate = {
+    percentage: 21.236,
+    formulaVersion: 'jp3-siri-arithmetic-candidate-v1',
+    domainVersion: 'jp3-reference-ranges-candidate-v1',
+  };
+  const reading = (n, date, percentage) =>
+    sample(
+      n,
+      { weightKg: 80 },
+      {
+        date,
+        dateBasis: 'effective_date',
+        method: 'pliegues',
+        provenance: 'manual_measurements',
+        protocol: 'jp3-male-candidate@technical-candidate-v1',
+        candidateBodyFat: { ...candidate, percentage },
+      }
+    );
+  responder = () =>
+    json(
+      page([reading(1, '2026-10-01', 21.236), reading(2, '2026-11-01', 19.543)])
+    );
+  await render(section());
+  assert.equal(document.querySelector('select').value, 'candidateBodyFat');
+  assert.match(document.querySelector('table').textContent, /21\.2 %/);
+  assert.match(document.querySelector('table').textContent, /19\.5 %/);
+  assert.match(
+    document.body.textContent,
+    /Estimación preliminar con Jackson–Pollock y Siri, pendiente de validación/
+  );
+  assert.doesNotMatch(document.body.textContent, /pruebas? local/i);
+  assert.equal(
+    utils.evolutionSegments(
+      [reading(1, '2026-10-01', 21.236), reading(2, '2026-11-01', 19.543)],
+      'candidateBodyFat'
+    ).length,
+    1
+  );
+  await select(0, 'measuredBodyFatPercentage');
+  assert.doesNotMatch(document.querySelector('table').textContent, /21\.2 %/);
+  await click('Actualizar evolución');
+  assert.equal(
+    document.querySelector('select').value,
+    'measuredBodyFatPercentage'
+  );
+  const saved = await cache.recallRead(
+    service.evolutionEndpoint(clientId, utils.ALL_EVOLUTION),
+    'pro-a'
+  );
+  assert.ok(saved);
+  assert.ok(
+    saved.data.samples.every((row) => row.candidateBodyFat === undefined)
+  );
 });
 test('account change clears visible samples and rejects old-account reads', async () => {
   responder = () => json(page([sample(1)]));
@@ -616,6 +710,7 @@ test('two comparable manual measurements draw one segment and retain keyboard po
       ])
     );
   await render(section());
+  await select(0, 'weightKg');
   const lines = [...document.querySelectorAll('[data-evolution-segment]')];
   assert.equal(lines.length, 1);
   assert.equal(lines[0].getAttribute('data-from'), sample(1).id);
@@ -673,6 +768,7 @@ test('absent and null measurements break segments rather than bridging the missi
   );
   responder = () => json(page(rows));
   await render(section());
+  await select(0, 'weightKg');
   assert.equal(document.querySelectorAll('[data-evolution-segment]').length, 0);
   assert.equal(document.querySelectorAll('tbody tr').length, 3);
   assert.match(document.querySelector('table').textContent, /Sin medición/);
@@ -837,6 +933,7 @@ test('weight connects different methods/dates as an explicitly heterogeneous SVG
   ];
   responder = () => json(page(rows));
   await render(section());
+  await select(0, 'weightKg');
   const line = document.querySelector('[data-evolution-segment]');
   assert.ok(line);
   assert.equal(line.getAttribute('data-heterogeneous'), 'true');
@@ -855,6 +952,7 @@ test('legacy and unknown-provenance weights remain original points while receivi
   ];
   responder = () => json(page(rows));
   await render(section());
+  await select(0, 'weightKg');
   assert.equal(document.querySelectorAll('[data-evolution-segment]').length, 2);
   assert.equal(document.querySelectorAll('svg [role="button"]').length, 3);
   assert.match(
@@ -913,6 +1011,7 @@ test('same-day equal weights keep every ID without averaging, while different we
   assert.deepEqual(rows, before);
   responder = () => json(page(rows));
   await render(section());
+  await select(0, 'weightKg');
   assert.equal(document.querySelectorAll('[data-evolution-segment]').length, 1);
   assert.equal(document.querySelectorAll('svg [role="button"]').length, 6);
   assert.equal(document.querySelectorAll('tbody tr').length, 8);
@@ -956,6 +1055,7 @@ test('a newly confirmed HU-021 weight invalidates cached history and is drawn in
           ))
         : json(page(saved ? [old, next] : [old]));
   await render(section());
+  await select(0, 'weightKg');
   assert.equal(document.querySelectorAll('[data-evolution-segment]').length, 0);
   const writes = await vite.ssrLoadModule(
     '/src/features/evaluations/services/evaluations.ts'

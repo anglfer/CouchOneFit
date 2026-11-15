@@ -1,5 +1,10 @@
-import { methods, measurementFields } from '../types/assessment';
-import type { EvolutionMetric, EvolutionSample } from '../types/evolution';
+import { methods } from '../types/assessment';
+import { canShowCandidateEstimation } from '../types/estimation';
+import {
+  evolutionMetrics,
+  type EvolutionMetric,
+  type EvolutionSample,
+} from '../types/evolution';
 
 export interface EvolutionFilters {
   from: string;
@@ -67,8 +72,16 @@ export const evolutionProvenance = (value: EvolutionSample['provenance']) =>
     : value === 'manual_measurements'
       ? 'Declarada: mediciones manuales'
       : 'Procedencia no registrada';
-export const evolutionMetricLabel = (metric: EvolutionMetric) =>
-  measurementFields[metric][0];
+export function readEvolutionValue(
+  sample: EvolutionSample,
+  metric: EvolutionMetric
+): number | undefined {
+  return metric === 'candidateBodyFat'
+    ? canShowCandidateEstimation()
+      ? sample.candidateBodyFat?.percentage
+      : undefined
+    : sample.measurements[metric];
+}
 export function compareHistory(a: EvolutionSample, b: EvolutionSample): number {
   const stamp = (v: string) => {
     const [whole, fraction = ''] = v.slice(0, -1).split('.');
@@ -104,7 +117,7 @@ export function hasEvolutionMeasurement(
   sample: EvolutionSample,
   metric: EvolutionMetric
 ): boolean {
-  const value = sample.measurements[metric];
+  const value = readEvolutionValue(sample, metric);
   return typeof value === 'number' && Number.isFinite(value);
 }
 const historyContext = (s: EvolutionSample) =>
@@ -233,7 +246,7 @@ export function evolutionSegments(
     const key = JSON.stringify([
       sample.clientId,
       metric,
-      measurementFields[metric][1],
+      evolutionMetrics[metric][1],
       sample.method,
       sample.provenance,
       sample.protocol,
@@ -260,7 +273,15 @@ export function evolutionSegments(
         previous = null;
         continue;
       }
-      if (previous && previous.date < sample.date)
+      if (
+        previous &&
+        previous.date < sample.date &&
+        (metric !== 'candidateBodyFat' ||
+          (previous.candidateBodyFat?.formulaVersion ===
+            sample.candidateBodyFat?.formulaVersion &&
+            previous.candidateBodyFat?.domainVersion ===
+              sample.candidateBodyFat?.domainVersion))
+      )
         segments.push(visualSegment([previous], [sample]));
       previous = sample;
     }

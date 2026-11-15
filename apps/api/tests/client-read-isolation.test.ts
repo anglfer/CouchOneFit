@@ -88,7 +88,11 @@ test('HU-019 composition reuses the real owned base profile and never fabricates
   assert.deepEqual(Object.keys(read.body), ['record'])
   assert.deepEqual(Object.keys(read.body.record).sort(), ['profile', 'sections'])
   assert.deepEqual(Object.keys(read.body.record.sections).sort(), ['bodyWeightHistory', 'evaluations', 'nutritionPlan', 'progress', 'trainingPlan'])
-  for (const [name,section] of Object.entries(read.body.record.sections)) assert.deepEqual(section, {status: name==='trainingPlan'||name==='evaluations'?'empty':'not_integrated'})
+  const { progress, ...otherSections } = read.body.record.sections
+  assert.equal(progress.status, 'empty')
+  assert.equal(progress.history.clientId, id)
+  assert.deepEqual(progress.history.samples, [])
+  for (const [name,section] of Object.entries(otherSections)) assert.deepEqual(section, {status: name==='trainingPlan'||name==='evaluations'?'empty':'not_integrated'})
   assert.equal(read.body.record.profile.id, id)
   assert.equal(read.body.record.profile.baseWeightKg, 70.2)
   assert.equal('createdAt' in read.body.record.profile, false)
@@ -1010,8 +1014,7 @@ test('HU-018 last-place competition, no-op at full capacity and DEC-004 suspende
   assert.deepEqual(await statusSnapshot(winner),before)
 })
 
-// HU-023: prepared physical regression. Run only with separately authorized isolated harness.
-test('HU-023 runtime permits only owned pending snapshots; numeric/candidate states fail SQL and history survives rollback', async () => {
+test('HU-023 runtime permits owned technical snapshots, rejects forged results and preserves history on rollback', async () => {
   const { assessmentInput } =
     await import('../src/features/evaluations/validators/assessment.js');
   const { pendingEstimation } =
@@ -1025,7 +1028,12 @@ test('HU-023 runtime permits only owned pending snapshots; numeric/candidate sta
       "SELECT timezone('UTC',clock_timestamp())::date::text AS day"
     )
   ).rows[0].day;
-  const own = actors.clientA.client!;
+  const own = (
+    await database.query(
+      "INSERT INTO private.clients(professional_id,full_name,birth_date,height_cm,base_weight_kg) VALUES($1,'HU023 SQL fixture','1990-05-20',170.5,70.2) RETURNING id",
+      [actors.proA.professional]
+    )
+  ).rows[0].id;
   const before = (
     await database.query(
       'SELECT id,assessment FROM private.client_evaluations ORDER BY id'
@@ -1097,7 +1105,6 @@ test('HU-023 runtime permits only owned pending snapshots; numeric/candidate sta
         error.code === '23514'
     );
   }
-  // Prepared only: reuse this suite's existing isolated fixture/rollback helper.
   const { candidateEstimation } =
     await import('../src/features/evaluations/domain/candidate-estimation.js');
   const candidateInput = assessmentInput(

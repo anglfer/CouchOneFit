@@ -96,6 +96,11 @@ export interface EvolutionSample extends EvolutionPosition {
   provenance: Assessment['provenance'] | null
   protocol: string | null
   measurements: Partial<Record<EvolutionMetric, number>>
+  candidateBodyFat?: {
+    percentage: number
+    formulaVersion: string
+    domainVersion: string
+  }
 }
 export interface EvolutionPage {
   clientId: string

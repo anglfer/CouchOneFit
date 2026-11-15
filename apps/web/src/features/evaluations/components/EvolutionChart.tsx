@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { EvolutionMetric, EvolutionSample } from '../types/evolution';
-import { measurementFields } from '../types/assessment';
+import {
+  evolutionMetrics,
+  type EvolutionMetric,
+  type EvolutionSample,
+} from '../types/evolution';
 import {
   evolutionDate,
   evolutionValue,
@@ -10,6 +13,7 @@ import {
   evolutionSegments,
   evolutionSeparations,
   hasEvolutionMeasurement,
+  readEvolutionValue,
 } from '../utils/evolution';
 export default function EvolutionChart({
   samples,
@@ -44,9 +48,9 @@ export default function EvolutionChart({
       .sort(compareHistory),
     segments = evolutionSegments(samples, metric, hasMore),
     separations = evolutionSeparations(samples, metric, hasMore),
-    [label, unit] = measurementFields[metric];
+    [label, unit] = evolutionMetrics[metric];
   if (points.length === 0) return null;
-  const values = points.map((s) => s.measurements[metric]!),
+  const values = points.map((s) => readEvolutionValue(s, metric)!),
     dates = points.map((s) => Date.parse(`${s.date}T00:00:00Z`));
   const first = Math.min(...dates),
     last = Math.max(...dates),
@@ -100,9 +104,9 @@ export default function EvolutionChart({
             {segments.map((s) => (
               <li key={`${s.from.id}:${s.to.id}`}>
                 {evolutionDate(s.from.date)}:{' '}
-                {evolutionValue(s.from.measurements[metric]!)} {unit} →{' '}
+                {evolutionValue(readEvolutionValue(s.from, metric)!)} {unit} →{' '}
                 {evolutionDate(s.to.date)}:{' '}
-                {evolutionValue(s.to.measurements[metric]!)} {unit}.{' '}
+                {evolutionValue(readEvolutionValue(s.to, metric)!)} {unit}.{' '}
                 {s.heterogeneous
                   ? 'Guía entre registros heterogéneos.'
                   : 'Mismo contexto de captura declarado.'}
@@ -170,9 +174,9 @@ export default function EvolutionChart({
                 data-to-ids={toIds.join(',')}
                 data-heterogeneous={heterogeneous ? 'true' : 'false'}
                 x1={x(Date.parse(`${from.date}T00:00:00Z`))}
-                y1={y(from.measurements[metric]!)}
+                y1={y(readEvolutionValue(from, metric)!)}
                 x2={x(Date.parse(`${to.date}T00:00:00Z`))}
-                y2={y(to.measurements[metric]!)}
+                y2={y(readEvolutionValue(to, metric)!)}
                 stroke="var(--ws-primary)"
                 strokeWidth="2"
                 strokeDasharray={
@@ -261,7 +265,7 @@ export default function EvolutionChart({
         {chosen ? (
           <>
             {evolutionDate(chosen.date)} ·{' '}
-            {evolutionValue(chosen.measurements[metric]!)} {unit} ·{' '}
+            {evolutionValue(readEvolutionValue(chosen, metric)!)} {unit} ·{' '}
             {evolutionMethod(chosen.method)} ·{' '}
             {evolutionProvenance(chosen.provenance)} · ID {chosen.id}
           </>

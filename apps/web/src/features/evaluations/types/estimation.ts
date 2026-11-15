@@ -6,6 +6,16 @@ export const pendingEstimationReference = {
 } as const;
 export const pendingEstimationVersion = 'composition-estimation-v1';
 
+export function canShowCandidateEstimation(): boolean {
+  return (
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1', '[::1]', '::1'].includes(
+      window.location.hostname
+    )
+  );
+}
+
 export interface PendingEstimation {
   status: 'unavailable';
   result: null;
@@ -127,6 +137,10 @@ export const candidateProtocols = {
   male: 'jp3-male-candidate',
   female: 'jp3-female-candidate',
 } as const;
+export const candidateSkinfolds = {
+  male: ['pectoralSkinfoldMm', 'abdominalSkinfoldMm', 'thighSkinfoldMm'],
+  female: ['tricepsSkinfoldMm', 'suprailiacSkinfoldMm', 'thighSkinfoldMm'],
+} as const;
 export interface CandidateEstimation {
   status: 'candidate_only' | 'unavailable';
   result: {
@@ -235,10 +249,7 @@ export function isCandidateEstimation(
     'suprailiacSkinfoldMm',
     'thighSkinfoldMm',
   ];
-  const sites =
-    variant === 'male'
-      ? ['pectoralSkinfoldMm', 'abdominalSkinfoldMm', 'thighSkinfoldMm']
-      : ['tricepsSkinfoldMm', 'suprailiacSkinfoldMm', 'thighSkinfoldMm'];
+  const sites = candidateSkinfolds[variant === 'male' ? 'male' : 'female'];
   const captured = snapshot.measurements;
   const all =
     variant === null

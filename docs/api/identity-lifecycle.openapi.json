@@ -16,7 +16,7 @@
       "get": {
         "operationId": "getClientEvaluationHistory",
         "summary": "HU-022: consultar evolución de evaluaciones profesionales por periodo y cursor.",
-        "description": "Implementado y verificado por HTTP con dobles sin PostgreSQL en etapa 2. La ejecución SQL/RLS física requiere pruebas autorizadas adicionales. Sesión profesional y propiedad/RLS se verifican en servidor. No concede lectura al cliente ni implementa HU-036/037. Fecha histórica = assessment.effectiveDate si hay snapshot; evaluationDate para heredadas. Sin escritura ni CSRF de mutación. Sin cálculos ni datos locales pendientes; respuesta Cache-Control no-store. Filtros desconocidos, arrays y objetos se rechazan; los parámetros HTTP se validan como strings. La firma usa clave existente de autenticación con separación de dominio, contexto confiable y nunca identidad de query. Cursor no cifra su payload.",
+        "description": "Sesión profesional y propiedad/RLS se verifican en servidor. No concede lectura al cliente ni implementa HU-036/037. Fecha histórica = assessment.effectiveDate si hay snapshot; evaluationDate para heredadas. Sin escritura ni CSRF de mutación. El resultado candidato previamente guardado solo se incluye desde el servidor local habilitado. La lectura no recalcula ni devuelve operaciones locales pendientes. Respuesta Cache-Control no-store. Filtros desconocidos, arrays y objetos se rechazan; los parámetros HTTP se validan como strings. La firma usa clave existente de autenticación con separación de dominio, contexto confiable y nunca identidad de query. Cursor no cifra su payload.",
         "x-implementation-status": "implemented-stage-2",
         "security": [
           {
@@ -2426,6 +2426,25 @@
           "protocol": {
             "type": ["string", "null"]
           },
+          "candidateBodyFat": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["percentage", "formulaVersion", "domainVersion"],
+            "description": "Resultado candidato guardado de Jackson–Pollock 3P y Siri. Exclusivo de pruebas en servidor local habilitado y separado de las mediciones.",
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "exclusiveMaximum": 100
+              },
+              "formulaVersion": {
+                "const": "jp3-siri-arithmetic-candidate-v1"
+              },
+              "domainVersion": {
+                "const": "jp3-reference-ranges-candidate-v1"
+              }
+            }
+          },
           "measurements": {
             "type": "object",
             "additionalProperties": false,
@@ -2502,8 +2521,26 @@
             }
           }
         },
-        "description": "Una muestra por ID de evaluación. Sin copiar perfil/planes, recalcular resultados ni duplicar columna/snapshot. Método/protocolo/procedencia heredados desconocidos permanecen null. Mediciones ausentes se omiten, nunca cero; solo entradas capturadas, sin resultados calculados ni segmentos.",
+        "description": "Una muestra por ID de evaluación. Sin copiar perfil/planes, recalcular resultados ni duplicar columna/snapshot. Método/protocolo/procedencia heredados desconocidos permanecen null. Mediciones ausentes se omiten, nunca cero. La estimación candidata, cuando está disponible, se conserva en un campo separado.",
         "allOf": [
+          {
+            "if": {
+              "required": ["candidateBodyFat"]
+            },
+            "then": {
+              "properties": {
+                "dateBasis": { "const": "effective_date" },
+                "method": { "const": "pliegues" },
+                "provenance": { "const": "manual_measurements" },
+                "protocol": {
+                  "enum": [
+                    "jp3-male-candidate@technical-candidate-v1",
+                    "jp3-female-candidate@technical-candidate-v1"
+                  ]
+                }
+              }
+            }
+          },
           {
             "if": {
               "properties": {

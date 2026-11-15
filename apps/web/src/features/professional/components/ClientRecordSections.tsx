@@ -48,10 +48,6 @@ export default function ClientRecordSections({
 }: {
   sections: ProfessionalRecord['sections'];
   clientId: string;
-  clientName: string;
-  clientStatus: 'active' | 'inactive';
-  onRetryEvaluations: () => void;
-  onEvaluationSaved: () => void;
 }) {
   return (
     <div className="client-hub-modules">

@@ -133,16 +133,21 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
           <div className="p-3 space-y-3">
             <p>
               Edad de referencia:{' '}
-              {evaluation.assessment.ageYears ?? 'no disponible'} · Protocolo:{' '}
-              {evaluation.assessment.protocol} · Versión:{' '}
-              {evaluation.assessment.version} ·{' '}
+              {evaluation.assessment.ageYears ?? 'no disponible'} ·{' '}
               {evaluation.assessment.calculationStatus ===
               'pending_verification'
-                ? 'Cálculo estimado pendiente de verificación'
+                ? 'Mediciones registradas'
                 : evaluation.assessment.calculationStatus === 'partial'
                   ? 'Datos parciales'
                   : 'Resultados disponibles'}
             </p>
+            <details className="text-sm">
+              <summary className="cursor-pointer">Método y versión</summary>
+              <p className="break-words">
+                Protocolo: {evaluation.assessment.protocol} · Versión:{' '}
+                {evaluation.assessment.version}
+              </p>
+            </details>
             <dl className="grid gap-2">
               {Object.entries(evaluation.assessment.measurements).map(
                 ([key, value]) => (

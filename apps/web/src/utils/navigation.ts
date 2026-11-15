@@ -1,5 +1,6 @@
 const listeners = new Set<() => void>();
 type Guard = () => boolean | Promise<boolean>;
+type NavigationOptions = { replace?: boolean; preventScrollReset?: boolean };
 let guard: Guard | null = null;
 let currentUrl = typeof window === 'undefined' ? '' : window.location.href;
 
@@ -29,10 +30,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function navigate(
-  to: string,
-  options: { replace?: boolean } = {}
-): void {
+export function navigate(to: string, options: NavigationOptions = {}): void {
   if (guard) {
     void Promise.resolve(guard()).then((ok) => ok && go(to, options));
     return;
@@ -40,7 +38,7 @@ export function navigate(
   go(to, options);
 }
 
-function go(to: string, options: { replace?: boolean } = {}): void {
+function go(to: string, options: NavigationOptions = {}): void {
   if (to.startsWith('#')) {
     const target = document.querySelector(to);
     if (target) {
@@ -59,7 +57,7 @@ function go(to: string, options: { replace?: boolean } = {}): void {
   window.dispatchEvent(new PopStateEvent('popstate'));
   notify();
 
-  if (!to.includes('#')) {
+  if (!options.preventScrollReset && !to.includes('#')) {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
 }

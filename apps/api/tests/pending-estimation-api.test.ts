@@ -443,7 +443,7 @@ test('HU-023 candidate gate is default off, server-only, loopback-only and never
   ])
     assert.equal(localCandidateTarget(target, good), false);
 });
-test('HU-023 explicit local candidates persist exact arithmetic, versions and inputs; history remains measurements only', async () =>
+test('HU-023 local history projects the saved candidate separately from measurements', async () =>
   withCandidates(async () => {
     const { app, state } = fixture();
     for (const variant of ['male', 'female'] as const) {
@@ -478,6 +478,11 @@ test('HU-023 explicit local candidates persist exact arithmetic, versions and in
       assert.equal(e.result.bodyDensityGPerMl, density);
       assert.equal(e.result.estimatedBodyFatPercentage, 495 / density - 450);
       assert.deepEqual(a.results, {});
+      assert.deepEqual(evolutionSample(r.body.evaluation as Evaluation).candidateBodyFat, {
+        percentage: e.result.estimatedBodyFatPercentage,
+        formulaVersion: e.technicalFormulaVersion,
+        domainVersion: e.technicalDomainVersion,
+      });
       assert.deepEqual(
         evolutionSample(r.body.evaluation as Evaluation).measurements,
         payload.measurements
@@ -585,6 +590,7 @@ test('HU-023 production blocks creation and redacts old candidates including ide
       'unavailable'
     );
     assert.equal(list.body.evaluations[0].assessment.estimation.result, null);
+    assert.equal(evolutionSample(list.body.evaluations[0] as Evaluation).candidateBodyFat, undefined);
     assert.deepEqual(state.rows[0], stored);
     const next = await request(app)
       .post(endpoint)

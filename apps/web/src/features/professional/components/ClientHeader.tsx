@@ -61,6 +61,7 @@ export default function ClientHeader({
           <Link
             key={key}
             to={href}
+            preventScrollReset
             aria-current={active === key ? 'page' : undefined}
           >
             <Icon name={icon} size={16} /> {label}

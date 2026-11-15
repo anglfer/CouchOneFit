@@ -107,7 +107,7 @@ ALTER TABLE private.client_evaluations
           AND (assessment->'estimation')->'reasons'='[]'::jsonb
           AND jsonb_typeof((assessment->'estimation')->'result')='object'
           AND (assessment->'estimation')->'result' ?& ARRAY['sumSkinfoldMm','bodyDensityGPerMl','estimatedBodyFatPercentage']
-          AND (assessment->'estimation')->'result' - ARRAY['sumSkinfoldMm','bodyDensityGPerMl','estimatedBodyFatPercentage']='{}'::jsonb
+          AND ((assessment->'estimation')->'result') - ARRAY['sumSkinfoldMm','bodyDensityGPerMl','estimatedBodyFatPercentage']='{}'::jsonb
           AND NOT jsonb_path_exists((assessment->'estimation')->'result','$.* ? (@.type() != "number" || @ <= 0)')
           AND CASE WHEN jsonb_typeof((assessment->'estimation')->'result'->'estimatedBodyFatPercentage')='number' THEN ((assessment->'estimation')->'result'->>'estimatedBodyFatPercentage')::numeric < 100 ELSE false END)
       )

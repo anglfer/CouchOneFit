@@ -280,7 +280,7 @@ test('migrations and the integrated schema produce the same English database', a
         "SELECT t.relname,c.conname,c.contype,pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='private' AND c.contype<>'n' ORDER BY t.relname,c.conname",
         "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='private' ORDER BY tablename,indexname",
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
-        "SELECT nspacl::text FROM pg_namespace WHERE nspname='private'",
+        "SELECT CASE WHEN nspacl IS NULL THEN NULL ELSE ARRAY(SELECT acl::text FROM unnest(nspacl) AS acl ORDER BY acl::text) END AS nspacl FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
         "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record') ORDER BY p.proname",
       ];

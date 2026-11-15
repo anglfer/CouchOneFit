@@ -1,6 +1,4 @@
-import EvaluationsPage, {
-  LegacyEvaluationRedirect,
-} from '../../evaluations/pages/EvaluationsPage';
+import { LegacyEvaluationRedirect } from '../../evaluations/pages/EvaluationsPage';
 import ClientRecordView from '../components/ClientRecordView';
 import type { ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -86,6 +84,7 @@ export default function ProfessionalPage(): ReactElement {
     /^\/app\/clientes\/([^/]+)\/evaluacion(?:\/nueva)?$/
   )?.[1];
   const isEvaluationsPage = !!evaluationClientId;
+  const clientId = selectedClientId ?? trainingClientId ?? evaluationClientId;
   const legacyEvaluationClientId = pathname.match(
     /^\/app\/evaluaciones\/([^/]+)(?:\/nueva)?$/
   )?.[1];
@@ -358,46 +357,41 @@ export default function ProfessionalPage(): ReactElement {
               clientId={legacyEvaluationClientId}
               capture={pathname.endsWith('/nueva')}
             />
-          ) : isEvaluationsPage ? (
-            <EvaluationsPage
-              key={`${account.id}:${evaluationClientId ?? 'hub'}`}
-              clientId={evaluationClientId}
+          ) : clientId ? (
+            <ClientRecordView
+              clientId={clientId}
               accountId={account.id}
+              active={
+                isEvaluationsPage
+                  ? 'evaluation'
+                  : trainingClientId
+                    ? 'training'
+                    : 'summary'
+              }
               capture={pathname.endsWith('/nueva')}
+              sessionReady={!sessionUncertain && !isLeaving}
+              onStatusChanged={() => void refreshClientUsage()}
             />
           ) : isTrainingPage ? (
-            <TrainingPage
-              key={`${account.id}:${trainingClientId ?? 'hub'}`}
-              clientId={trainingClientId}
-            />
+            <TrainingPage />
           ) : isClientsPage ? (
-            selectedClientId ? (
-              <ClientRecordView
-                sessionReady={!sessionUncertain && !isLeaving}
-                onStatusChanged={() => void refreshClientUsage()}
-                accountId={account!.id}
-                key={selectedClientId}
-                clientId={selectedClientId}
+            <>
+              <PageHeader
+                eyebrow="Cartera"
+                title="Clientes"
+                lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
+                actions={
+                  <Link to="/app/recuperacion" className="ws-btn">
+                    Recuperación asistida
+                  </Link>
+                }
               />
-            ) : (
-              <>
-                <PageHeader
-                  eyebrow="Cartera"
-                  title="Clientes"
-                  lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
-                  actions={
-                    <Link to="/app/recuperacion" className="ws-btn">
-                      Recuperación asistida
-                    </Link>
-                  }
-                />
-                <ClientAccessPanel
-                  sessionReady={!sessionUncertain && !isLeaving}
-                  accountId={account!.id}
-                  onStatusChanged={() => void refreshClientUsage()}
-                />
-              </>
-            )
+              <ClientAccessPanel
+                sessionReady={!sessionUncertain && !isLeaving}
+                accountId={account!.id}
+                onStatusChanged={() => void refreshClientUsage()}
+              />
+            </>
           ) : isRecoveryPage ? (
             <>
               <PageHeader

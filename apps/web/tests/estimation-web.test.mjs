@@ -122,11 +122,8 @@ test('HU-023 pending detail explains unavailable without drawing numbers or a ca
     React.createElement(Details, { effectiveDate: '2026-11-13' })
   );
   assert.match(html, /Estimación de grasa corporal/);
-  assert.match(html, /no disponible/);
-  assert.match(html, /no se calculó ningún porcentaje/);
-  assert.match(html, /sin versión científica aprobada/);
-  assert.match(html, /No es un diagnóstico/);
-  assert.match(html, /2026-11-13/);
+  assert.match(html, /No disponible\. Las mediciones se conservaron\./);
+  assert.doesNotMatch(html, /pruebas? local|versión técnica|candidat/i);
   assert(!html.includes('<svg'));
   assert(!html.includes('%'));
 });
@@ -201,7 +198,7 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
     assert.equal(checkbox().checked, true);
     assert.match(
       document.body.textContent,
-      /No activa un protocolo aprobado ni calcula grasa corporal/
+      /Guardar como estimación pendiente/
     );
     await choose('Bioimpedancia');
     assert.equal(checkbox(), null);
@@ -222,9 +219,30 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
     await act(async () => boxes()[1].click());
     assert.equal(boxes()[0].checked, false);
     assert.equal(boxes()[1].checked, true);
+    const requiredFields = () =>
+      [...document.querySelectorAll('input[required]')].map(
+        (input) => input.name
+      );
+    assert.deepEqual(requiredFields(), [
+      'pectoralSkinfoldMm',
+      'abdominalSkinfoldMm',
+      'thighSkinfoldMm',
+    ]);
+    const chooseEquation = async (value) =>
+      act(async () => {
+        equation.value = value;
+        equation.dispatchEvent(new window.Event('change', { bubbles: true }));
+      });
+    await chooseEquation('female');
+    assert.deepEqual(requiredFields(), [
+      'tricepsSkinfoldMm',
+      'suprailiacSkinfoldMm',
+      'thighSkinfoldMm',
+    ]);
+    await chooseEquation('male');
     assert.match(
       document.body.textContent,
-      /habilitarlo; no implica validación científica/
+      /Estimación preliminar, pendiente de validación/
     );
     const setter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
@@ -234,7 +252,6 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
       for (const [key, n] of Object.entries({
         pectoralSkinfoldMm: 10,
         abdominalSkinfoldMm: 15,
-        thighSkinfoldMm: 20,
       })) {
         const element = document.getElementById('assessment-' + key);
         assert(element);
@@ -263,14 +280,28 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
         headers: { 'Content-Type': 'application/json' },
       });
     };
+    const submit = () =>
+      document
+        .querySelector('form')
+        .dispatchEvent(
+          new window.Event('submit', { bubbles: true, cancelable: true })
+        );
+    await act(async () => submit());
+    assert.equal(posts.length, 0);
+    const thigh = document.getElementById('assessment-thighSkinfoldMm');
+    assert.ok(document.activeElement === thigh);
+    assert.match(
+      document.getElementById(thigh.getAttribute('aria-describedby'))
+        .textContent,
+      /obligatorio/
+    );
     await act(async () => {
-      const form = document.querySelector('form');
-      form.dispatchEvent(
-        new window.Event('submit', { bubbles: true, cancelable: true })
-      );
-      form.dispatchEvent(
-        new window.Event('submit', { bubbles: true, cancelable: true })
-      );
+      setter.call(thigh, '20');
+      thigh.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      submit();
+      submit();
     });
     assert.equal(posts.length, 1);
     assert.deepEqual(posts[0].estimationRequest, {
@@ -278,7 +309,11 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
       protocolId: 'jp3-male-candidate',
       protocolVersion: 'technical-candidate-v1',
     });
-    assert.match(document.body.textContent, /resultado candidato para pruebas/);
+    assert.match(
+      document.body.textContent,
+      /Estimación preliminar, pendiente de validación/
+    );
+    assert.doesNotMatch(document.body.textContent, /pruebas? local/i);
     assert.match(
       document.body.textContent,
       /La evaluación se guardó correctamente/
@@ -419,7 +454,7 @@ test('HU-023 local detail shows one decimal, traceable density and female cautio
           estimation: a.estimation,
         })
       );
-      assert.match(html, /resultado candidato para pruebas/);
+      assert.match(html, /Estimación preliminar, pendiente de validación/);
       assert(
         html.includes(
           a.estimation.result.estimatedBodyFatPercentage.toFixed(1) + ' %'
@@ -427,10 +462,8 @@ test('HU-023 local detail shows one decimal, traceable density and female cautio
       );
       assert(html.includes(String(a.estimation.result.bodyDensityGPerMl)));
       assert.match(html, /jp3-siri-arithmetic-candidate-v1/);
-      assert.match(html, /No está validado científicamente/);
-      assert.match(html, /no constituye un diagnóstico/);
+      assert.doesNotMatch(html, /pruebas? local/i);
       if (variant === 'female') {
-        assert.match(html, /cotejo con el original pendiente/);
         assert.match(html, /mayores de 40/);
       }
     }
@@ -442,8 +475,8 @@ test('HU-023 local detail shows one decimal, traceable density and female cautio
         estimation: a.estimation,
       })
     );
-    assert.doesNotMatch(html, /aria-label="Porcentaje candidato/);
-    assert.match(html, /requiere desarrollo local/);
+    assert.doesNotMatch(html, /%|candidat|desarrollo local/i);
+    assert.match(html, /No disponible\. Las mediciones se conservaron\./);
   } finally {
     if (descriptor) Object.defineProperty(globalThis, 'window', descriptor);
     else delete globalThis.window;
@@ -539,14 +572,14 @@ test('HU-023 No aplica clears candidate opt-in, announces no estimation, preserv
     await chooseEquation('not_applicable');
     assert.equal(candidate().checked, false);
     assert.equal(candidate().disabled, true);
+    assert.equal(document.querySelectorAll('input[required]').length, 0);
     const notice = document.getElementById('candidate-estimation-notice');
     assert.equal(notice.getAttribute('role'), 'status');
     assert.equal(select.getAttribute('aria-describedby'), notice.id);
     assert.match(
       notice.textContent,
-      /No se realizará una estimación candidata/
+      /Se guardarán los pliegues sin estimar la grasa corporal/
     );
-    assert.match(notice.textContent, /mediciones capturadas se conservan/);
     assertMeasurements();
     await chooseEquation('female');
     assert.equal(candidate().disabled, false);

@@ -48,7 +48,7 @@ const confirmDiscard = () =>
  * Routines of one client (or the professional's templates when clientId is
  * absent): server reads merged with unsent offline drafts, plus the editor.
  */
-export function useRoutines(clientId?: string) {
+export function useRoutines(clientId?: string, onActivated?: () => void) {
   const base = clientId
     ? `/api/clients/${encodeURIComponent(clientId)}/training-plans`
     : '/api/training/templates';
@@ -290,6 +290,7 @@ export function useRoutines(clientId?: string) {
         if (object(outcome.result) && isVersion(outcome.result.version))
           setEditor(fromVersion(outcome.result.version));
         reload();
+        onActivated?.();
       }
       return true;
     } catch (e) {

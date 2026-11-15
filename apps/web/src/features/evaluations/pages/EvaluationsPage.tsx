@@ -1,132 +1,31 @@
-import ClientHeader from '../../professional/components/ClientHeader';
 import EvolutionSection from '../components/EvolutionSection';
 import AssessmentForm from '../components/AssessmentForm';
 import { navigate } from '../../../utils/navigation';
-import { useOnSynced } from '../../../hooks/useOperations';
 import { useEffect, useState, useRef } from 'react';
 import { Link } from '../../../components/Link';
 import { sessionRequest } from '../../auth/services/session';
-import { fetchProfessionalRecord } from '../../professional/services/record';
 import type { ProfessionalRecord } from '../../professional/types/record';
 import EvaluationsSection from '../components/EvaluationsSection';
 import { isEvaluation, type Evaluation } from '../types/evaluation';
 export default function EvaluationsPage({
-  clientId: initialClientId,
+  clientId,
   capture = false,
   accountId,
+  record,
+  recordRevision,
+  refresh,
 }: {
   clientId: string;
   accountId: string;
   capture?: boolean;
+  record: ProfessionalRecord;
+  recordRevision: number;
+  refresh: () => void;
 }) {
-  const clientId = initialClientId;
   const [notice, setNotice] = useState('');
-  const [record, setRecord] = useState<ProfessionalRecord | null>(null),
-    [error, setError] = useState('');
-  const [attempt, setAttempt] = useState(0),
-    [older, setOlder] = useState<Evaluation[]>([]),
-    [hasMore, setHasMore] = useState(true),
-    [loadingMore, setLoadingMore] = useState(false);
-  const latestClient = useRef(clientId);
-  useEffect(() => {
-    latestClient.current = clientId;
-  }, [clientId]);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  useEffect(() => {
-    let current = true;
-    if (!clientId) return;
-    void fetchProfessionalRecord(clientId)
-      .then((value) => {
-        if (current) {
-          setRecord(value);
-          setOlder([]);
-          setHasMore(
-            value.sections.evaluations.status === 'available' &&
-              value.sections.evaluations.evaluations.length === 20
-          );
-        }
-      })
-      .catch(() => {
-        if (current)
-          setError(
-            'No pudimos consultar este expediente. Comprueba el acceso o reintenta.'
-          );
-      });
-    return () => {
-      current = false;
-    };
-  }, [clientId, attempt, capture]);
-  function refresh() {
-    setRecord(null);
-    setError('');
-    setAttempt((n) => n + 1);
-  }
-  useOnSynced(() => {
-    if (!capture) refresh();
-  });
-  async function more() {
-    if (
-      !record ||
-      record.sections.evaluations.status !== 'available' ||
-      loadingMore
-    )
-      return;
-    setLoadingMore(true);
-    try {
-      const offset =
-        record.sections.evaluations.evaluations.length + older.length;
-      const payload = await sessionRequest<{ evaluations: unknown[] }>(
-        `/api/clients/${encodeURIComponent(clientId)}/evaluations?offset=${offset}`
-      );
-      if (
-        !Array.isArray(payload.evaluations) ||
-        !payload.evaluations.every((v) => isEvaluation(v, clientId))
-      )
-        throw Error('Invalid history');
-      if (latestClient.current !== clientId || !mounted.current) return;
-      const rows = payload.evaluations as Evaluation[];
-      setOlder((previous) => [
-        ...previous,
-        ...rows.filter(
-          (row) =>
-            !previous.some((p) => p.id === row.id) &&
-            !(
-              record.sections.evaluations.status === 'available' &&
-              record.sections.evaluations.evaluations.some(
-                (p) => p.id === row.id
-              )
-            )
-        ),
-      ]);
-      setHasMore(rows.length === 20);
-    } catch {
-      if (latestClient.current === clientId && mounted.current)
-        setError('No pudimos cargar las evaluaciones anteriores.');
-    } finally {
-      if (mounted.current) setLoadingMore(false);
-    }
-  }
-  const section = record?.sections.evaluations;
-  const combined =
-    section?.status === 'available'
-      ? { ...section, evaluations: [...section.evaluations, ...older] }
-      : section;
-  if (capture)
+  if (capture) {
     return (
-      <div className="space-y-6">
-        {record && (
-          <ClientHeader
-            clientId={clientId}
-            name={record.profile.fullName}
-            active="evaluation"
-          />
-        )}
+      <div className="space-y-5">
         <div className="flex flex-wrap justify-between gap-3">
           <h2 className="text-xl font-semibold">
             Nueva evaluación antropométrica
@@ -134,51 +33,34 @@ export default function EvaluationsPage({
           <Link
             className="ws-btn"
             to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion`}
+            preventScrollReset
           >
             Volver a Evaluación
           </Link>
         </div>
-        {error && (
-          <p role="alert">
-            {error}
-            <button className="ws-btn" onClick={refresh}>
-              Reintentar lectura
-            </button>
+        {record.profile.status === 'inactive' ? (
+          <p className="ws-alert" data-tone="warn">
+            El expediente está inactivo. Puedes consultar su historial, pero no
+            registrar evaluaciones nuevas.
           </p>
+        ) : (
+          <section className="ws-card">
+            <AssessmentForm
+              clientId={clientId}
+              clientName={record.profile.fullName}
+              onSaved={() => {
+                setNotice('La evaluación se guardó correctamente.');
+                refresh();
+              }}
+              onQueued={() => setNotice('')}
+            />
+          </section>
         )}
-        {!record && !error && (
-          <p role="status">Cargando expediente autorizado…</p>
-        )}
-        {record &&
-          (record.profile.status === 'inactive' ? (
-            <p className="ws-alert" data-tone="warn">
-              El expediente está inactivo. Puedes consultar su historial, pero
-              no registrar evaluaciones nuevas.
-            </p>
-          ) : (
-            <section className="ws-card">
-              <AssessmentForm
-                key={clientId}
-                clientId={clientId}
-                clientName={record.profile.fullName}
-                onSaved={() =>
-                  setNotice('La evaluación se guardó correctamente.')
-                }
-                onQueued={() => setNotice('')}
-              />
-            </section>
-          ))}
       </div>
     );
+  }
   return (
     <div className="space-y-5">
-      {record && (
-        <ClientHeader
-          clientId={clientId}
-          name={record.profile.fullName}
-          active="evaluation"
-        />
-      )}
       <div>
         <h2 className="text-xl font-semibold">Evaluación antropométrica</h2>
         <p className="mt-1 text-sm text-(--ws-muted)">
@@ -191,48 +73,108 @@ export default function EvaluationsPage({
           {notice}
         </p>
       )}
+      <EvolutionSection
+        accountId={accountId}
+        clientId={clientId}
+        initialStatus={record.sections.progress.status}
+      />
+      <EvaluationHistory
+        key={recordRevision}
+        record={record}
+        refresh={refresh}
+      />
+    </div>
+  );
+}
+
+function EvaluationHistory({
+  record,
+  refresh,
+}: {
+  record: ProfessionalRecord;
+  refresh: () => void;
+}) {
+  const { profile, sections } = record;
+  const clientId = profile.id;
+  const section = sections.evaluations;
+  const [error, setError] = useState(''),
+    [older, setOlder] = useState<Evaluation[]>([]),
+    [hasMore, setHasMore] = useState(
+      section.status === 'available' && section.evaluations.length === 20
+    ),
+    [loadingMore, setLoadingMore] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  async function more() {
+    if (section.status !== 'available' || loadingMore) return;
+    setLoadingMore(true);
+    setError('');
+    try {
+      const offset = section.evaluations.length + older.length;
+      const payload = await sessionRequest<{ evaluations: unknown[] }>(
+        `/api/clients/${encodeURIComponent(clientId)}/evaluations?offset=${offset}`
+      );
+      if (
+        !Array.isArray(payload.evaluations) ||
+        !payload.evaluations.every((v) => isEvaluation(v, clientId))
+      )
+        throw Error('Invalid history');
+      if (!mounted.current) return;
+      const rows = payload.evaluations as Evaluation[];
+      setOlder((previous) => [
+        ...previous,
+        ...rows.filter(
+          (row) =>
+            !previous.some((p) => p.id === row.id) &&
+            !section.evaluations.some((p) => p.id === row.id)
+        ),
+      ]);
+      setHasMore(rows.length === 20);
+    } catch {
+      if (mounted.current)
+        setError('No pudimos cargar las evaluaciones anteriores.');
+    } finally {
+      if (mounted.current) setLoadingMore(false);
+    }
+  }
+  const combined =
+    section.status === 'available'
+      ? { ...section, evaluations: [...section.evaluations, ...older] }
+      : section;
+  return (
+    <section className="ws-card space-y-4">
       {error && (
         <p role="alert">
           {error}
-          <button className="ws-btn" onClick={refresh}>
+          <button className="ws-btn" type="button" onClick={() => void more()}>
             Reintentar
           </button>
         </p>
       )}
-      {clientId && !record && !error && (
-        <p role="status">Cargando evaluaciones…</p>
+      <EvaluationsSection
+        clientId={clientId}
+        clientName={profile.fullName}
+        clientStatus={profile.status}
+        section={combined}
+        onSaved={refresh}
+        onRetry={refresh}
+      />
+      {hasMore && !error && (
+        <button
+          type="button"
+          className="ws-btn"
+          disabled={loadingMore}
+          onClick={() => void more()}
+        >
+          {loadingMore ? 'Cargando…' : 'Cargar evaluaciones anteriores'}
+        </button>
       )}
-      {record && record.profile.id === clientId && (
-        <EvolutionSection
-          key={`${accountId}:${clientId}`}
-          accountId={accountId}
-          clientId={clientId}
-          initialStatus={record.sections.progress.status}
-        />
-      )}
-      {record && combined && (
-        <section className="ws-card space-y-4">
-          <EvaluationsSection
-            clientId={clientId}
-            clientName={record.profile.fullName}
-            clientStatus={record.profile.status}
-            section={combined}
-            onSaved={refresh}
-            onRetry={refresh}
-          />
-          {hasMore && section?.status === 'available' && (
-            <button
-              type="button"
-              className="ws-btn"
-              disabled={loadingMore}
-              onClick={() => void more()}
-            >
-              {loadingMore ? 'Cargando…' : 'Cargar evaluaciones anteriores'}
-            </button>
-          )}
-        </section>
-      )}
-    </div>
+    </section>
   );
 }
 

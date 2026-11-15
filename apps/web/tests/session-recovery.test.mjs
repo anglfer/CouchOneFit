@@ -1597,7 +1597,36 @@ test('HU-021 multimethod form preserves method drafts, previews device compositi
   await choose('Pliegues cutáneos');
   assert.ok(field('Pliegue bicipital'));
   assert.ok(field('Pliegue subescapular'));
-  assert.match(document.body.textContent, /cálculo de grasa deshabilitado/);
+  assert.match(
+    document.body.textContent,
+    /Estimación preliminar, pendiente de validación/
+  );
+  const localUrl = window.location.href;
+  try {
+    dom.reconfigure({
+      url: localUrl.replace(
+        'http://localhost:5000',
+        'https://couchonefit.example'
+      ),
+    });
+    await choose('Perímetros corporales');
+    await choose('Pliegues cutáneos');
+    const form = document.querySelector(
+      'form[aria-label="Registrar evaluación antropométrica"]'
+    );
+    assert.ok(field('Pliegue pectoral'));
+    assert.match(
+      form.textContent,
+      /La estimación de grasa corporal aún no está disponible/
+    );
+    assert.equal(form.querySelector('select, input[type="checkbox"]'), null);
+    assert.doesNotMatch(
+      form.textContent,
+      /preliminar|pruebas? local|candidat/i
+    );
+  } finally {
+    dom.reconfigure({ url: localUrl });
+  }
 });
 
 test('HU-021 record evaluation preserves the current client without a selector', async () => {
@@ -1994,29 +2023,44 @@ test('HU-021 foreign record evaluation does not reveal a form or a client select
   assert.equal(writes().length, 0);
 });
 
-test('HU-021 shared client tabs preserve Summary and Training navigation and return to the same evaluation', async () => {
+test('HU-021 shared client tabs keep the header, focus and scroll position', async (t) => {
   composedResponder = () =>
-    composed({ ...editableRecord, id: 'record-a', goal: 'Original goal' });
+    composed(
+      { ...editableRecord, id: 'record-a', goal: 'Original goal' },
+      { ...unavailableSections(), trainingPlan: { status: 'empty' } }
+    );
   await openComposedRecord('record-a');
-  const tab = (label) =>
-    [
-      ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
-    ].find((a) => a.textContent.trim() === label);
-  await act(async () => tab('Entrenamiento').click());
+  const tabs = () =>
+    document.querySelector('nav[aria-label="Secciones del cliente"]');
+  const header = tabs().closest('header');
+  const scroll = t.mock.method(window, 'scrollTo');
+  for (const [label, suffix] of [
+    ['Entrenamiento', '/entrenamiento'],
+    ['Evaluación', '/evaluacion'],
+    ['Resumen', ''],
+  ]) {
+    const link = [...tabs().querySelectorAll('a')].find(
+      (a) => a.textContent.trim() === label
+    );
+    link.focus();
+    await act(async () => link.click());
+    assert.equal(window.location.pathname, '/app/clientes/record-a' + suffix);
+    assert.ok(tabs().closest('header') === header, 'header stays mounted');
+    assert.ok(document.activeElement === link, 'focus stays on the link');
+    assert.equal(link.getAttribute('aria-current'), 'page');
+    assert.match(header.textContent, /Activo.*Sin rutina.*Original goal/);
+    assert.match(header.textContent, /Editar datos base/);
+    if (label === 'Entrenamiento') {
+      assert.ok(
+        document.querySelector('[aria-label="Secciones de entrenamiento"]')
+      );
+    }
+  }
+  assert.equal(scroll.mock.callCount(), 0);
   assert.equal(
-    window.location.pathname,
-    '/app/clientes/record-a/entrenamiento'
+    requests.filter((r) => r.url === '/api/clients/record-a/record').length,
+    1
   );
-  assert.equal(tab('Entrenamiento').getAttribute('aria-current'), 'page');
-  assert.ok(
-    document.querySelector('[aria-label="Secciones de entrenamiento"]')
-  );
-  await act(async () => tab('Evaluación').click());
-  assert.equal(window.location.pathname, '/app/clientes/record-a/evaluacion');
-  assert.equal(tab('Evaluación').getAttribute('aria-current'), 'page');
-  await act(async () => tab('Resumen').click());
-  assert.equal(window.location.pathname, '/app/clientes/record-a');
-  assert.match(document.body.textContent, /Original goal/);
   assert.equal(writes().length, 0);
 });
 
@@ -2195,6 +2239,7 @@ test('HU-022 an empty progress envelope without its authorized history is reject
 
 test('HU-022 Summary opens evolution inside the same client Evaluation tab and preserves HU-021 capture', async () => {
   const history = await evolutionFixture();
+  history.samples[0].measurements.measuredBodyFatPercentage = 21.3;
   historyResponder = () => json(history);
   composedResponder = () =>
     composed(
@@ -2213,7 +2258,7 @@ test('HU-022 Summary opens evolution inside the same client Evaluation tab and p
   );
   assert.equal(window.location.hash, '#evolucion-antropometrica');
   assert.match(document.body.textContent, /Evolución antropométrica/);
-  assert.match(document.querySelector('table').textContent, /80.1/);
+  assert.match(document.querySelector('table').textContent, /21\.3 %/);
   assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
   assert.equal(writes().length, 0);
   await openEvaluationForm();

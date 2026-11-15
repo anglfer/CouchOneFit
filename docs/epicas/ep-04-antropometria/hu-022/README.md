@@ -1,5 +1,7 @@
 # HU-022 — Consultar la evolución antropométrica y peso histórico
 
+**Ampliación local de HU-023:** la evolución permite escoger «Grasa corporal estimada» en la Web de desarrollo en loopback. La vista identifica el resultado como preliminar y lo distingue de la grasa medida. Requiere resultados candidatos ya guardados por el servidor local habilitado. Véase [contrato y validación](validacion-local.md).
+
 > **Estado vigente — etapa 5, solo preparación:** inventario de 32 archivos confirmado, cuatro commits y comandos explícitos preparados sin staging/commit/push. Consulta GitHub de solo lectura confirma rama EP-04 en 7ba0fb7 y main en 33110ea. QA técnica segura repetida: 27/27 puras, 9/9 HTTP dobles, 134/134 Web; evidencia física 8/8 histórica conservada. Revisión visual parcial aprobada, restantes y D0 independiente pendientes. Destino futuro exclusivo: feature/ep04-antropometria; main no se modifica.
 
 ## Estado real y alcance de etapa 1

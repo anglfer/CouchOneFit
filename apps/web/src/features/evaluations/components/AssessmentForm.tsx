@@ -3,6 +3,8 @@ import {
   pendingEstimationReference,
   candidateProtocols,
   candidateProtocolVersion,
+  candidateSkinfolds,
+  canShowCandidateEstimation,
 } from '../types/estimation';
 import { useOperations } from '../../../hooks/useOperations';
 import { guardNavigation } from '../../../utils/navigation';
@@ -51,12 +53,7 @@ export default function AssessmentForm({
   const [requestCandidateEstimation, setRequestCandidateEstimation] =
     useState(false);
   const [candidateDismissed, setCandidateDismissed] = useState(false);
-  const localCandidates =
-    import.meta.env.DEV &&
-    typeof window !== 'undefined' &&
-    ['localhost', '127.0.0.1', '[::1]', '::1'].includes(
-      window.location.hostname
-    );
+  const localCandidates = canShowCandidateEstimation();
   const [active, setActive] = useState<MeasurementField | null>(null);
   const [phase, setPhase] = useState<
     | 'draft'
@@ -113,6 +110,16 @@ export default function AssessmentForm({
   );
   const [segments, setSegments] = useState<Record<string, string>>({});
   const draft = drafts[method] ?? {};
+  const estimationVariant =
+    method === 'pliegues' &&
+    requestCandidateEstimation &&
+    localCandidates &&
+    equation !== 'not_applicable'
+      ? equation
+      : null;
+  const requiredSkinfolds: readonly MeasurementField[] = estimationVariant
+    ? candidateSkinfolds[estimationVariant]
+    : [];
   const measurements = Object.fromEntries(
     Object.entries(draft)
       .filter(([, v]) => v.trim() !== '')
@@ -126,15 +133,10 @@ export default function AssessmentForm({
   };
   if (method === 'pliegues' && requestPendingEstimation)
     body.estimationRequest = { ...pendingEstimationReference };
-  if (
-    method === 'pliegues' &&
-    requestCandidateEstimation &&
-    localCandidates &&
-    equation !== 'not_applicable'
-  )
+  if (estimationVariant)
     body.estimationRequest = {
       methodId: 'jackson-pollock-3-siri',
-      protocolId: candidateProtocols[equation],
+      protocolId: candidateProtocols[estimationVariant],
       protocolVersion: candidateProtocolVersion,
     };
   if (method === 'bioimpedancia' && Object.values(segments).some(Boolean))
@@ -155,6 +157,10 @@ export default function AssessmentForm({
     setPhase('validating');
     setErrors({});
     const validation: Record<string, string> = {};
+    for (const key of requiredSkinfolds) {
+      if (!(key in measurements))
+        validation[key] = 'Este pliegue es obligatorio para la estimación.';
+    }
     for (const key of fieldsByMethod[method]) {
       if (!(key in measurements)) continue;
       const n = measurements[key],
@@ -168,6 +174,7 @@ export default function AssessmentForm({
         validation[key] = 'Revisa el rango y usa como máximo un decimal.';
     }
     if (
+      requiredSkinfolds.length === 0 &&
       !Object.keys(measurements).some(
         (k) => !['weightKg', 'heightCm'].includes(k)
       )
@@ -267,39 +274,42 @@ export default function AssessmentForm({
             usa el reloj del servidor.
           </span>
         </label>
-        <label>
-          Selección de ecuación
-          <select
-            className="block w-full min-h-11 rounded-lg border p-2"
-            value={equation}
-            aria-describedby="candidate-estimation-notice"
-            onChange={(e) => {
-              const next = e.target.value as AssessmentInput['equation'];
-              setEquation(next);
-              if (next === 'not_applicable')
-                setRequestCandidateEstimation(false);
-              setCandidateDismissed(
-                next === 'not_applicable' && requestCandidateEstimation
-              );
-            }}
-            disabled={locked}
-          >
-            <option value="not_applicable">
-              No aplica / sin cálculo estimado
-            </option>
-            <option value="male">Ecuación masculina</option>
-            <option value="female">Ecuación femenina</option>
-          </select>
-          <p
-            id="candidate-estimation-notice"
-            role="status"
-            className="text-sm text-(--ws-muted)"
-          >
-            {candidateDismissed &&
-              method === 'pliegues' &&
-              'No se realizará una estimación candidata. Las mediciones capturadas se conservan.'}
-          </p>
-        </label>
+        {localCandidates && method === 'pliegues' && (
+          <label>
+            Ecuación para estimar grasa corporal
+            <select
+              className="block w-full min-h-11 rounded-lg border p-2"
+              value={equation}
+              aria-describedby="candidate-estimation-notice"
+              onChange={(e) => {
+                const next = e.target.value as AssessmentInput['equation'];
+                setEquation(next);
+                setErrors({});
+                if (next === 'not_applicable')
+                  setRequestCandidateEstimation(false);
+                setCandidateDismissed(
+                  next === 'not_applicable' && requestCandidateEstimation
+                );
+              }}
+              disabled={locked}
+            >
+              <option value="not_applicable">
+                No aplica / sin cálculo estimado
+              </option>
+              <option value="male">Ecuación masculina</option>
+              <option value="female">Ecuación femenina</option>
+            </select>
+            <p
+              id="candidate-estimation-notice"
+              role="status"
+              className="text-sm text-(--ws-muted)"
+            >
+              {candidateDismissed &&
+                method === 'pliegues' &&
+                'Se guardarán los pliegues sin estimar la grasa corporal.'}
+            </p>
+          </label>
+        )}
       </div>
       <fieldset disabled={locked}>
         <legend className="font-semibold mb-3">Metodología</legend>
@@ -341,19 +351,18 @@ export default function AssessmentForm({
         </div>
       </fieldset>
       <p className="text-sm">
-        Cada campo es opcional; captura al menos una medición del método.
+        {estimationVariant
+          ? 'Completa los tres pliegues obligatorios para estimar la grasa corporal.'
+          : 'Para guardar la evaluación, captura al menos una medición del método.'}{' '}
         Cambiar de método conserva el borrador de cada uno.
       </p>
-      {method !== 'bioimpedancia' && (
-        <p className="ws-alert" data-tone="warn">
-          {method === 'perimetros' ? 'Navy' : 'Jackson–Pollock 3P y Siri'}:
-          cálculo de grasa deshabilitado para uso aprobado hasta verificar las
-          fuentes y el protocolo. Se conservan las mediciones originales. Los
-          candidatos solo pueden solicitarse en desarrollo local con
-          habilitación del servidor.
+      {method === 'pliegues' && !localCandidates && (
+        <p className="text-sm text-(--ws-muted)">
+          Puedes guardar los pliegues. La estimación de grasa corporal aún no
+          está disponible.
         </p>
       )}
-      {method === 'pliegues' && (
+      {method === 'pliegues' && localCandidates && (
         <label className="flex items-start gap-3 rounded-lg border border-(--ws-border) p-4">
           <input
             type="checkbox"
@@ -362,16 +371,11 @@ export default function AssessmentForm({
             onChange={(event) => {
               setRequestPendingEstimation(event.target.checked);
               if (event.target.checked) setRequestCandidateEstimation(false);
+              setErrors({});
               dirty.current = true;
             }}
           />
-          <span>
-            Registrar el estado de estimación pendiente
-            <span className="block text-sm text-(--ws-muted)">
-              Conserva la referencia técnica. No activa un protocolo aprobado ni
-              calcula grasa corporal.
-            </span>
-          </span>
+          <span>Guardar como estimación pendiente</span>
         </label>
       )}
       {method === 'pliegues' && localCandidates && (
@@ -383,16 +387,16 @@ export default function AssessmentForm({
             onChange={(event) => {
               setRequestCandidateEstimation(event.target.checked);
               if (event.target.checked) setRequestPendingEstimation(false);
+              setErrors({});
               dirty.current = true;
             }}
           />
           <span>
-            Solicitar cálculo candidato para pruebas locales
+            Calcular grasa corporal estimada
             <span className="block text-sm text-(--ws-muted)">
-              Selecciona variante masculina (pecho, abdomen, muslo; 18–61 años)
-              o femenina (tríceps, suprailiaco, muslo; 18–55 años). Intervalos
-              técnicos provisionales. El servidor debe habilitarlo; no implica
-              validación científica.
+              Estimación preliminar, pendiente de validación. Con la ecuación
+              masculina se usan pecho, abdomen y muslo. Con la femenina se usan
+              tríceps, suprailiaco y muslo.
             </span>
           </span>
         </label>
@@ -426,10 +430,20 @@ export default function AssessmentForm({
               <legend className="px-2 font-semibold">{group.title}</legend>
               {group.fields.map((key) => {
                 const [label, unit, min, max] = measurementFields[key];
+                const required = requiredSkinfolds.includes(key);
                 return (
                   <label key={key} className="block">
                     {label} ({unit}){' '}
-                    <span className="text-xs text-(--ws-muted)">opcional</span>
+                    <span
+                      aria-hidden={required || undefined}
+                      className={
+                        required
+                          ? 'text-xs font-semibold'
+                          : 'text-xs text-(--ws-muted)'
+                      }
+                    >
+                      {required ? 'obligatorio' : 'opcional'}
+                    </span>
                     <input
                       id={`assessment-${key}`}
                       name={key}
@@ -438,6 +452,7 @@ export default function AssessmentForm({
                       step="0.1"
                       min={min}
                       max={max}
+                      required={required}
                       value={draft[key] ?? ''}
                       onFocus={() => setActive(key)}
                       onChange={(e) => {
