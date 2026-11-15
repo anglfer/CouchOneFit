@@ -641,3 +641,170 @@ test('HU-023 No aplica clears candidate opt-in, announces no estimation, preserv
     globalThis.fetch = priorFetch;
   }
 });
+
+test('AnatomicalGuide renders sculpted musculature, method-scoped pins, zoom focus, required indicators and focuses matching form input', async () => {
+  const { JSDOM } = await import('jsdom');
+  const { act } = await import('react');
+  const dom = new JSDOM('<div id="anatomical-guide-test"></div>', {
+    url: 'http://127.0.0.1/app/clientes/20000000-0000-4000-8000-000000000001/evaluacion/nueva',
+  });
+  const keys = [
+    'window',
+    'document',
+    'navigator',
+    'localStorage',
+    'sessionStorage',
+  ];
+  const previous = keys.map((k) => [
+    k,
+    Object.getOwnPropertyDescriptor(globalThis, k),
+  ]);
+  const priorAct = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  let root;
+  try {
+    for (const k of keys)
+      Object.defineProperty(globalThis, k, {
+        value: dom.window[k],
+        configurable: true,
+      });
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    const store = await vite.ssrLoadModule('/src/services/offline/store.ts');
+    store.setOfflineStore(store.createMemoryStore());
+    const Form = (
+      await vite.ssrLoadModule(
+        '/src/features/evaluations/components/AssessmentForm.tsx'
+      )
+    ).default;
+    const AnatomicalGuide = (
+      await vite.ssrLoadModule(
+        '/src/features/evaluations/components/AnatomicalGuide.tsx'
+      )
+    ).default;
+
+    const allHtml = renderToStaticMarkup(
+      React.createElement(AnatomicalGuide, {
+        active: 'abdomenUmbilicalCm',
+        onSelect: () => {},
+      })
+    );
+    assert.match(allHtml, /Vista anterior/);
+    assert.match(allHtml, /Vista posterior/);
+    assert.match(allHtml, /anatomical-muscle/);
+    assert.match(allHtml, /data-active="true"/);
+    assert.match(allHtml, /data-zoomed="true"/);
+    assert.match(allHtml, /no sustituye cintura/);
+    assert.match(allHtml, /Pliegue subescapular \(vista posterior\)/);
+    assert.match(allHtml, /Cuello \(vista anterior\)/);
+
+    const { createRoot } = await import('react-dom/client');
+    root = createRoot(document.getElementById('anatomical-guide-test'));
+    await act(async () => {
+      root.render(
+        React.createElement(Form, {
+          clientId: '20000000-0000-4000-8000-000000000001',
+          clientName: 'Synthetic',
+          onSaved: () => {},
+          onQueued: () => {},
+        })
+      );
+    });
+
+    const guide = () =>
+      document.querySelector('[aria-label="Referencia anatómica"]');
+    const frontViewport = () =>
+      guide().querySelector('[aria-label="Vista anterior"]');
+    const backViewport = () =>
+      guide().querySelector('[aria-label="Vista posterior"]');
+    const zoomBtn = (name) =>
+      guide().querySelector(
+        `[aria-label="Nivel de acercamiento"] button[aria-label^="${name}"]`
+      );
+
+    assert.match(guide().textContent, /Cinta · 4 sitios/);
+    assert.equal(guide().querySelectorAll('button.anatomical-pin').length, 4);
+    assert.equal(zoomBtn('Completa').getAttribute('aria-pressed'), 'true');
+    assert.equal(frontViewport().getAttribute('data-zoomed'), null);
+
+    const hipPin = guide().querySelector(
+      'button.anatomical-pin[aria-label="Cadera (vista anterior)"]'
+    );
+    assert(hipPin);
+    await act(async () => hipPin.click());
+    assert.equal(
+      document.activeElement,
+      document.getElementById('assessment-hipCm')
+    );
+    assert.equal(hipPin.getAttribute('aria-pressed'), 'true');
+    assert.equal(zoomBtn('Acercar').getAttribute('aria-pressed'), 'true');
+    assert.equal(frontViewport().getAttribute('data-zoomed'), 'true');
+    assert.equal(backViewport().getAttribute('data-zoomed'), 'true');
+    assert.match(
+      guide().textContent,
+      /Glúteo mayor, glúteo medio y tensor de la fascia lata/
+    );
+    assert.ok(
+      guide().querySelectorAll('.anatomical-muscle[data-active="true"]')
+        .length > 0
+    );
+
+    await act(async () => zoomBtn('Completa').click());
+    assert.equal(zoomBtn('Completa').getAttribute('aria-pressed'), 'true');
+    assert.equal(frontViewport().getAttribute('data-zoomed'), null);
+    assert.equal(backViewport().getAttribute('data-zoomed'), null);
+
+    const plieguesBtn = [...document.querySelectorAll('button')].find((b) =>
+      b.textContent.includes('Pliegues cutáneos')
+    );
+    await act(async () => plieguesBtn.click());
+    assert.match(guide().textContent, /Plicómetro · 7 sitios/);
+    assert.equal(guide().querySelectorAll('button.anatomical-pin').length, 7);
+    const select = document.querySelector('select');
+    await act(async () => {
+      select.value = 'female';
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    const candidateBox = [
+      ...document.querySelectorAll('input[type="checkbox"]'),
+    ][1];
+    await act(async () => candidateBox.click());
+    assert.equal(
+      [...guide().querySelectorAll('.anatomical-chip')].filter((b) =>
+        b.textContent.includes('Obligatorio')
+      ).length,
+      3
+    );
+
+    const subscapularPin = guide().querySelector(
+      'button.anatomical-pin[aria-label="Pliegue subescapular (vista posterior)"]'
+    );
+    assert(subscapularPin);
+    await act(async () => subscapularPin.click());
+    assert.equal(
+      document.activeElement,
+      document.getElementById('assessment-subscapularSkinfoldMm')
+    );
+    assert.equal(frontViewport().getAttribute('data-zoomed'), null);
+    assert.equal(backViewport().getAttribute('data-zoomed'), 'true');
+    assert.match(guide().textContent, /2\.2×/);
+    assert.match(
+      guide().querySelector('[role="status"]').textContent,
+      /Pliegue subescapular \(mm\)/
+    );
+    assert.match(
+      guide().textContent,
+      /Ángulo inferior escapular, redondo mayor y dorsal ancho/
+    );
+
+    await act(async () => zoomBtn('Detalle').click());
+    assert.equal(zoomBtn('Detalle').getAttribute('aria-pressed'), 'true');
+    assert.match(guide().textContent, /2\.8×/);
+  } finally {
+    if (root) await act(async () => root.unmount());
+    dom.window.close();
+    for (const [k, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, k, descriptor);
+      else delete globalThis[k];
+    }
+    globalThis.IS_REACT_ACT_ENVIRONMENT = priorAct;
+  }
+});

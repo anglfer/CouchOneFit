@@ -401,7 +401,7 @@ export default function AssessmentForm({
           </span>
         </label>
       )}
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,25.5rem)]">
         <div className="space-y-4">
           {[
             {
@@ -563,6 +563,8 @@ export default function AssessmentForm({
           {method !== 'bioimpedancia' && (
             <AnatomicalGuide
               active={active}
+              method={method}
+              requiredFields={requiredSkinfolds}
               onSelect={(key) => {
                 setActive(key);
                 document.getElementById(`assessment-${key}`)?.focus();
