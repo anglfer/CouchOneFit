@@ -1,6 +1,8 @@
 import { sessionRequest } from '../../auth/services/session';
 import type { ProfessionalRecord } from '../types/record';
 import { isVersion } from '../../training/services/training';
+import { isEvolutionPage } from '../../evaluations/types/evolution';
+import { isEvaluation } from '../../evaluations/types/evaluation';
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -28,6 +30,34 @@ export async function fetchProfessionalRecord(
     'bodyWeightHistory',
   ]) {
     const section = record.sections[key];
+    // Accept the existing not_integrated cache during upgrade; validate every new payload.
+    if (
+      key === 'progress' &&
+      object(section) &&
+      ['empty', 'available'].includes(String(section.status))
+    ) {
+      if (
+        !isEvolutionPage(section.history, clientId) ||
+        (section.status === 'empty'
+          ? section.history.samples.length !== 0
+          : section.history.samples.length === 0)
+      )
+        throw new Error('Invalid evolution section');
+      continue;
+    }
+    if (
+      key === 'evaluations' &&
+      object(section) &&
+      section.status === 'available'
+    ) {
+      if (
+        !Array.isArray(section.evaluations) ||
+        section.evaluations.length > 20 ||
+        !section.evaluations.every((item) => isEvaluation(item, clientId))
+      )
+        throw new Error('Invalid evaluation section');
+      continue;
+    }
     if (
       key === 'trainingPlan' &&
       object(section) &&
@@ -56,7 +86,11 @@ export async function fetchProfessionalRecord(
     }
     if (
       !object(section) ||
-      !['not_integrated', 'empty', 'error'].includes(String(section.status)) ||
+      !(key === 'evaluations'
+        ? ['empty', 'error'].includes(String(section.status))
+        : ['not_integrated', 'empty', 'error'].includes(
+            String(section.status)
+          )) ||
       (section.status === 'error' && section.code !== 'QUERY_FAILED')
     )
       throw new Error('Invalid record section');

@@ -8,6 +8,7 @@ dist/
 build/
 out/
 .angular/
+/.vite/
 
 # Environment files
 .env

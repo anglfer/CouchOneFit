@@ -2,6 +2,8 @@
 
 **Alcance vigente tras redistribución autorizada — 31/oct/2026:** esta HU entrega la base del expediente profesional, su perfil real y estados de disponibilidad. Cada HU de EP-04/05/06/07 implementa y conecta su propia sección API/Web con contrato y pruebas. Las conexiones ya no son una etapa pendiente asignada a HU-019. RDF0404 integral sigue trazado a esas entregas futuras. El alcance base está implementado y verificado según la evidencia; revisión independiente/D0 aplicable no acreditados. Ver [plan vigente](../../../../plan/PLAN_TRABAJO_V2.md#seguimiento-ep03).
 
+**Actualización de integración — 9/nov/2026:** HU-021 conecta Evaluaciones al expediente real mediante `EvaluationSection` (`empty`, `available`, `error`) y el listado está fechado y autorizado. Alimentación, progreso e historial de peso siguen dependiendo de sus HUs fuente. Ver [implementación HU-021](../../ep-04-antropometria/hu-021/README.md); la evidencia que sigue describe el incremento de octubre.
+
 ## Evidencia y alcance histórico del incremento, 29/oct/2026
 
 

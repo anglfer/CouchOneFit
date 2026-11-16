@@ -1,3 +1,4 @@
+import { LegacyEvaluationRedirect } from '../../evaluations/pages/EvaluationsPage';
 import ClientRecordView from '../components/ClientRecordView';
 import type { ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -79,7 +80,19 @@ export default function ProfessionalPage(): ReactElement {
     pathname === '/app/entrenamiento' ||
     pathname === '/app/entrenamiento/plantillas' ||
     !!trainingClientId;
+  const evaluationClientId = pathname.match(
+    /^\/app\/clientes\/([^/]+)\/evaluacion(?:\/nueva)?$/
+  )?.[1];
+  const isEvaluationsPage = !!evaluationClientId;
+  const clientId = selectedClientId ?? trainingClientId ?? evaluationClientId;
+  const legacyEvaluationClientId = pathname.match(
+    /^\/app\/evaluaciones\/([^/]+)(?:\/nueva)?$/
+  )?.[1];
+  const isLegacyEvaluationsPage =
+    pathname === '/app/evaluaciones' || !!legacyEvaluationClientId;
   const knownRoute =
+    isLegacyEvaluationsPage ||
+    isEvaluationsPage ||
     isTrainingPage ||
     isHome ||
     isPendingPage ||
@@ -244,21 +257,24 @@ export default function ProfessionalPage(): ReactElement {
     }
   }
 
-  const pageTitle = trainingClientId
-    ? 'Clientes'
-    : isTrainingPage
-      ? 'Rutinas'
-      : isPendingPage
-        ? 'Pendientes de enviar'
-        : isSubscriptionPage
-          ? 'Mi suscripción'
-          : isClientsPage
-            ? 'Clientes'
-            : isRecoveryPage
-              ? 'Recuperación asistida'
-              : isProfilePage
-                ? 'Mi perfil'
-                : 'Inicio';
+  const pageTitle =
+    isEvaluationsPage || isLegacyEvaluationsPage
+      ? 'Clientes'
+      : trainingClientId
+        ? 'Clientes'
+        : isTrainingPage
+          ? 'Rutinas'
+          : isPendingPage
+            ? 'Pendientes de enviar'
+            : isSubscriptionPage
+              ? 'Mi suscripción'
+              : isClientsPage
+                ? 'Clientes'
+                : isRecoveryPage
+                  ? 'Recuperación asistida'
+                  : isProfilePage
+                    ? 'Mi perfil'
+                    : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -336,39 +352,46 @@ export default function ProfessionalPage(): ReactElement {
                 Ir a Mi suscripción
               </Link>
             </section>
-          ) : isTrainingPage ? (
-            <TrainingPage
-              key={`${account.id}:${trainingClientId ?? 'hub'}`}
-              clientId={trainingClientId}
+          ) : isLegacyEvaluationsPage ? (
+            <LegacyEvaluationRedirect
+              clientId={legacyEvaluationClientId}
+              capture={pathname.endsWith('/nueva')}
             />
+          ) : clientId ? (
+            <ClientRecordView
+              clientId={clientId}
+              accountId={account.id}
+              active={
+                isEvaluationsPage
+                  ? 'evaluation'
+                  : trainingClientId
+                    ? 'training'
+                    : 'summary'
+              }
+              capture={pathname.endsWith('/nueva')}
+              sessionReady={!sessionUncertain && !isLeaving}
+              onStatusChanged={() => void refreshClientUsage()}
+            />
+          ) : isTrainingPage ? (
+            <TrainingPage />
           ) : isClientsPage ? (
-            selectedClientId ? (
-              <ClientRecordView
-                sessionReady={!sessionUncertain && !isLeaving}
-                onStatusChanged={() => void refreshClientUsage()}
-                accountId={account!.id}
-                key={selectedClientId}
-                clientId={selectedClientId}
+            <>
+              <PageHeader
+                eyebrow="Cartera"
+                title="Clientes"
+                lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
+                actions={
+                  <Link to="/app/recuperacion" className="ws-btn">
+                    Recuperación asistida
+                  </Link>
+                }
               />
-            ) : (
-              <>
-                <PageHeader
-                  eyebrow="Cartera"
-                  title="Clientes"
-                  lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
-                  actions={
-                    <Link to="/app/recuperacion" className="ws-btn">
-                      Recuperación asistida
-                    </Link>
-                  }
-                />
-                <ClientAccessPanel
-                  sessionReady={!sessionUncertain && !isLeaving}
-                  accountId={account!.id}
-                  onStatusChanged={() => void refreshClientUsage()}
-                />
-              </>
-            )
+              <ClientAccessPanel
+                sessionReady={!sessionUncertain && !isLeaving}
+                accountId={account!.id}
+                onStatusChanged={() => void refreshClientUsage()}
+              />
+            </>
           ) : isRecoveryPage ? (
             <>
               <PageHeader

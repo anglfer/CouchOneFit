@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CouchOne Fit — identidad, cartera y expediente",
-    "version": "2026-11-03",
+    "version": "2026-11-09",
     "description": "Contrato incremental. Web: mismo origen, cookie HttpOnly/Strict y Origin permitido + CSRF en mutaciones. Móvil: Bearer. Errores y respuestas no-store. CSPRNG32bytes/base64url43 y persistencia SHA-256; códigos nunca en URL/logs. HU-015 crea el expediente inicial completo sin crear credenciales. HU-016 añade búsqueda literal, estado, cursor y ficha mínima de lectura propia. HU-017 permite editar datos base propios con versión BD y conflictos explícitos, sin consumir cupo ni reescribir historial. HU-018 administra exclusivamente el estado operativo con control de versión, cupo y auditoría, sin modificar cuentas ni revocar sesiones por inactivación. DEC-018 (3-nov-2026): crear, editar y cambiar de estado un expediente admiten el encabezado `Idempotency-Key` (uuid) para repetir sin duplicar las escrituras hechas sin conexión; la misma clave y cuerpo devuelve la respuesta original (`Idempotent-Replayed: true`), la misma clave con otro cuerpo responde 422 `IDEMPOTENCY_KEY_REUSED` y una operación aún en curso responde 409 `IDEMPOTENCY_IN_PROGRESS`. Las claves se conservan 35 días."
   },
   "servers": [
@@ -12,6 +12,159 @@
     }
   ],
   "paths": {
+    "/api/clients/{clientId}/evaluation-history": {
+      "get": {
+        "operationId": "getClientEvaluationHistory",
+        "summary": "HU-022: consultar evolución de evaluaciones profesionales por periodo y cursor.",
+        "description": "Sesión profesional y propiedad/RLS se verifican en servidor. No concede lectura al cliente ni implementa HU-036/037. Fecha histórica = assessment.effectiveDate si hay snapshot; evaluationDate para heredadas. Sin escritura ni CSRF de mutación. El resultado candidato previamente guardado solo se incluye desde el servidor local habilitado. La lectura no recalcula ni devuelve operaciones locales pendientes. Respuesta Cache-Control no-store. Filtros desconocidos, arrays y objetos se rechazan; los parámetros HTTP se validan como strings. La firma usa clave existente de autenticación con separación de dominio, contexto confiable y nunca identidad de query. Cursor no cifra su payload.",
+        "x-implementation-status": "implemented-stage-2",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Fecha inclusiva opcional. Fecha calendario real (0001–9999); from <= to se valida en servidor. No se exige que un filtro sea anterior a hoy."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Fecha inclusiva opcional. Fecha calendario real (0001–9999); from <= to se valida en servidor. No se exige que un filtro sea anterior a hoy."
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["perimetros", "pliegues", "bioimpedancia", "legacy"]
+            },
+            "description": "Omitir para todos. legacy selecciona únicamente evaluaciones sin snapshot/método identificado."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Representación HTTP decimal canónica 1–100: el validador recibe string, sin signo, espacios, ceros iniciales ni fracciones. Debe conservarse al continuar cursor."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43}$",
+              "description": "Cursor opaco firmado HMAC, ligado a sujeto autenticado, cliente, from/to/method/pageSize y orden ascendente. No es autorización ni cifrado. Alterado, de otro contexto o filtro: 400 INVALID_INPUT."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página autorizada de evaluaciones; samples puede ser []. No implica que todo el periodo esté cargado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvolutionPage"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                },
+                "description": "Lectura privada; caché HTTP deshabilitada."
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: fechas, rango, método, parámetros desconocidos, tamaño o cursor inválidos/incompatibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión ausente, inválida, revocada o caducada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rol no profesional o profesional sin autorización operativa. Sin serie ni payload histórico.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cliente inexistente o ajeno, sin distinguirlos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Consulta no disponible; no convertir en historial vacío.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/credentials": {
       "patch": {
         "operationId": "changeOwnCredentials",
@@ -96,11 +249,7 @@
                     "pageInfo": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": [
-                        "pageSize",
-                        "hasMore",
-                        "nextCursor"
-                      ],
+                      "required": ["pageSize", "hasMore", "nextCursor"],
                       "properties": {
                         "pageSize": {
                           "type": "integer",
@@ -111,19 +260,12 @@
                           "type": "boolean"
                         },
                         "nextCursor": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
+                          "type": ["string", "null"]
                         }
                       }
                     }
                   },
-                  "required": [
-                    "clients",
-                    "hasClients",
-                    "pageInfo"
-                  ]
+                  "required": ["clients", "hasClients", "pageInfo"]
                 }
               }
             }
@@ -157,11 +299,7 @@
             "description": "Estado del expediente; vacío incluye ambos.",
             "schema": {
               "type": "string",
-              "enum": [
-                "",
-                "active",
-                "inactive"
-              ],
+              "enum": ["", "active", "inactive"],
               "default": ""
             }
           },
@@ -225,9 +363,7 @@
                       "$ref": "#/components/schemas/ClientInitialRecord"
                     }
                   },
-                  "required": [
-                    "client"
-                  ]
+                  "required": ["client"]
                 }
               }
             }
@@ -379,9 +515,7 @@
                     "writeOnly": true
                   }
                 },
-                "required": [
-                  "code"
-                ]
+                "required": ["code"]
               }
             }
           }
@@ -406,9 +540,7 @@
                       "const": true
                     }
                   },
-                  "required": [
-                    "valid"
-                  ]
+                  "required": ["valid"]
                 }
               }
             }
@@ -504,9 +636,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "accounts"
-                  ]
+                  "required": ["accounts"]
                 }
               }
             }
@@ -665,9 +795,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "client"
-                  ],
+                  "required": ["client"],
                   "properties": {
                     "client": {
                       "$ref": "#/components/schemas/ClientBaseRecord"
@@ -758,9 +886,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "client"
-                  ],
+                  "required": ["client"],
                   "properties": {
                     "client": {
                       "$ref": "#/components/schemas/ClientBaseRecord"
@@ -903,9 +1029,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "client"
-                  ],
+                  "required": ["client"],
                   "properties": {
                     "client": {
                       "$ref": "#/components/schemas/ClientBaseRecord"
@@ -1035,15 +1159,10 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "status"
-                ],
+                "required": ["status"],
                 "properties": {
                   "status": {
-                    "enum": [
-                      "active",
-                      "inactive"
-                    ]
+                    "enum": ["active", "inactive"]
                   }
                 }
               }
@@ -1057,26 +1176,18 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "account"
-                  ],
+                  "required": ["account"],
                   "properties": {
                     "account": {
                       "type": "object",
-                      "required": [
-                        "clientId",
-                        "accountStatus"
-                      ],
+                      "required": ["clientId", "accountStatus"],
                       "properties": {
                         "clientId": {
                           "type": "string",
                           "format": "uuid"
                         },
                         "accountStatus": {
-                          "enum": [
-                            "active",
-                            "inactive"
-                          ]
+                          "enum": ["active", "inactive"]
                         }
                       }
                     }
@@ -1177,9 +1288,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "record"
-                  ],
+                  "required": ["record"],
                   "properties": {
                     "record": {
                       "$ref": "#/components/schemas/ClientOwnRecord"
@@ -1225,9 +1334,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "profile"
-                  ],
+                  "required": ["profile"],
                   "properties": {
                     "profile": {
                       "$ref": "#/components/schemas/ClientLegacyProfile"
@@ -1249,11 +1356,283 @@
         }
       }
     },
+    "/api/clients/{clientId}/evaluations": {
+      "get": {
+        "operationId": "listClientEvaluations",
+        "summary": "HU-021: consultar las evaluaciones recientes del cliente propio.",
+        "security": [
+          {
+            "webSession": []
+          },
+          {
+            "bearerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Desplazamiento para páginas de 20 evaluaciones; solo lectura autorizada."
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hasta 20 evaluaciones recientes; la ausencia se representa con una lista vacía.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["evaluations"],
+                  "properties": {
+                    "evaluations": {
+                      "type": "array",
+                      "maxItems": 20,
+                      "items": {
+                        "$ref": "#/components/schemas/Evaluation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ROLE_FORBIDDEN o EVALUATION_FORBIDDEN: rol o autorización profesional insuficientes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cliente inexistente o ajeno al profesional.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_EVALUATION: clientId o desplazamiento inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: fallo inesperado de infraestructura o consulta; no confirma ausencia de historial.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createClientEvaluation",
+        "summary": "HU-021: registrar una evaluación fechada, append-only.",
+        "security": [
+          {
+            "webSession": [],
+            "csrfToken": []
+          },
+          {
+            "bearerSession": [],
+            "csrfToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Usada por la PWA para repetir con seguridad una operación pendiente."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evaluación creada. evaluationDate y createdAt se asignan en PostgreSQL; evaluationDate usa UTC. Cliente y profesional no son campos de entrada. El DTO multimétodo permite effectiveDate retroactiva validada; si se omite, se asigna el día UTC del servidor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["evaluation"],
+                  "properties": {
+                    "evaluation": {
+                      "$ref": "#/components/schemas/Evaluation"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Idempotent-Replayed": {
+                "description": "Presente con valor true al devolver una respuesta idempotente previamente guardada.",
+                "schema": {
+                  "type": "string",
+                  "const": "true"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_EVALUATION: mediciones, fecha efectiva o clientId inválidos, evaluación vacía o campos desconocidos; fields es opcional. INVALID_INPUT: clave idempotente inválida. INVALID_JSON: cuerpo JSON mal formado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_INVALID (Origin no permitido o token/cookie inválidos), ROLE_FORBIDDEN o EVALUATION_FORBIDDEN; incluye cliente inactivo o autorización profesional insuficiente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cliente inexistente o ajeno al profesional.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Operación idempotente en curso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Espera indicada mientras la operación idempotente sigue en curso.",
+                "schema": {
+                  "type": "string",
+                  "const": "2"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Clave idempotente reutilizada con otro contenido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "EVALUATION_UPGRADE_REQUIRED: falta la migración multimétodo; no es éxito ni fallo transitorio de conectividad. SERVICE_UNAVAILABLE: fallo inesperado de infraestructura o persistencia; tampoco confirma éxito.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: cuerpo superior al límite del parser JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Identidad profesional exclusivamente de sesión. Tanto cookie como Bearer pasan requireCsrf: se exige Origin permitido y X-CSRF-Token de 43 caracteres base64url igual a la cookie cof_csrf. Obtener el token mediante el flujo CSRF existente; el servidor aplica la comparación contextual. Cliente propio y activo para alta; lectura histórica autorizada también en inactivos. Idempotency-Key es opcional; replay devuelve el 201 y cuerpo originales sin otra inserción."
+      }
+    },
     "/api/clients/{clientId}/record": {
       "get": {
         "operationId": "readProfessionalRecord",
-        "summary": "HU-019 parcial: composición profesional del expediente propio.",
-        "description": "Reutiliza la lectura base autorizada, contexto RLS y elegibilidad profesional. No integra planes, evaluaciones, progreso ni peso histórico; sus secciones son not_integrated sin datos. No acepta identidades ni filtros por query. Conserva GET /api/clients/{clientId}.",
+        "summary": "HU-019: composición del expediente profesional propio.",
+        "description": "Reutiliza la lectura base autorizada y el contexto RLS. HU-021 integra evaluaciones reales en esta sección; las secciones de alimentación, progreso y peso histórico siguen identificadas de forma independiente. No acepta identidades ni filtros por query. Conserva GET /api/clients/{clientId}.",
         "security": [
           {
             "webSession": []
@@ -1288,9 +1667,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": [
-                    "record"
-                  ],
+                  "required": ["record"],
                   "properties": {
                     "record": {
                       "$ref": "#/components/schemas/ProfessionalRecord"
@@ -1372,9 +1749,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "subscription"
-                  ],
+                  "required": ["subscription"],
                   "properties": {
                     "subscription": {
                       "$ref": "#/components/schemas/ProfessionalSubscription"
@@ -1449,11 +1824,7 @@
                     "type": "boolean"
                   },
                   "renewalMethod": {
-                    "enum": [
-                      "test_approved",
-                      "test_declined",
-                      "test_error"
-                    ]
+                    "enum": ["test_approved", "test_declined", "test_error"]
                   }
                 }
               }
@@ -1467,9 +1838,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "subscription"
-                  ],
+                  "required": ["subscription"],
                   "properties": {
                     "subscription": {
                       "$ref": "#/components/schemas/ProfessionalSubscription"
@@ -1560,9 +1929,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "planId"
-                ],
+                "required": ["planId"],
                 "properties": {
                   "planId": {
                     "type": "string",
@@ -1589,9 +1956,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": [
-                    "subscription"
-                  ],
+                  "required": ["subscription"],
                   "properties": {
                     "subscription": {
                       "$ref": "#/components/schemas/ProfessionalSubscription"
@@ -1751,9 +2116,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "reason"
-                ],
+                "required": ["reason"],
                 "properties": {
                   "reason": {
                     "type": "string",
@@ -1870,6 +2233,517 @@
   },
   "components": {
     "schemas": {
+      "EvolutionPeriod": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "EvolutionMetricCatalog": {
+        "type": "object",
+        "const": {
+          "weightKg": {
+            "label": "Peso corporal",
+            "unit": "kg",
+            "decimalPlaces": 1
+          },
+          "heightCm": {
+            "label": "Estatura",
+            "unit": "cm",
+            "decimalPlaces": 1
+          },
+          "waistCm": {
+            "label": "Cintura",
+            "unit": "cm",
+            "decimalPlaces": 1
+          },
+          "hipCm": {
+            "label": "Cadera",
+            "unit": "cm",
+            "decimalPlaces": 1
+          },
+          "neckCm": {
+            "label": "Cuello",
+            "unit": "cm",
+            "decimalPlaces": 1
+          },
+          "abdomenUmbilicalCm": {
+            "label": "Abdomen umbilical",
+            "unit": "cm",
+            "decimalPlaces": 1
+          },
+          "measuredBodyFatPercentage": {
+            "label": "Grasa corporal medida",
+            "unit": "%",
+            "decimalPlaces": 1
+          },
+          "muscleMassKg": {
+            "label": "Masa muscular informada",
+            "unit": "kg",
+            "decimalPlaces": 1
+          },
+          "waterLitres": {
+            "label": "Agua corporal informada",
+            "unit": "L",
+            "decimalPlaces": 1
+          },
+          "visceralFatIndex": {
+            "label": "Grasa visceral (índice del equipo)",
+            "unit": "índice",
+            "decimalPlaces": 1
+          },
+          "pectoralSkinfoldMm": {
+            "label": "Pliegue pectoral",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "abdominalSkinfoldMm": {
+            "label": "Pliegue abdominal",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "tricepsSkinfoldMm": {
+            "label": "Pliegue tricipital",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "bicepsSkinfoldMm": {
+            "label": "Pliegue bicipital",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "subscapularSkinfoldMm": {
+            "label": "Pliegue subescapular",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "suprailiacSkinfoldMm": {
+            "label": "Pliegue suprailiaco",
+            "unit": "mm",
+            "decimalPlaces": 1
+          },
+          "thighSkinfoldMm": {
+            "label": "Pliegue de muslo anterior",
+            "unit": "mm",
+            "decimalPlaces": 1
+          }
+        },
+        "description": "17 entradas realmente capturadas en HU-021; decimalPlaces expresa presentación/precisión de captura 0.1, no precisión clínica. Índices de dispositivos distintos no implican comparabilidad; no son porcentajes."
+      },
+      "EvolutionPosition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["date", "createdAt", "id"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Instante UTC original; conservar hasta seis decimales para cursor/SQL sin truncar microsegundos."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "EvolutionSample": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clientId",
+          "date",
+          "dateBasis",
+          "createdAt",
+          "source",
+          "method",
+          "provenance",
+          "protocol",
+          "measurements"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?!0000)\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dateBasis": {
+            "enum": ["effective_date", "legacy_evaluation_date"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Instante UTC original; conservar hasta seis decimales para cursor/SQL sin truncar microsegundos."
+          },
+          "source": {
+            "const": "professional_evaluation"
+          },
+          "method": {
+            "enum": ["perimetros", "pliegues", "bioimpedancia", null]
+          },
+          "provenance": {
+            "enum": ["device_reported", "manual_measurements", null],
+            "description": "Procedencia declarada del registro; NO garantiza procedencia de dispositivo para cada medición individual. null cuando desconocida."
+          },
+          "protocol": {
+            "type": ["string", "null"]
+          },
+          "candidateBodyFat": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["percentage", "formulaVersion", "domainVersion"],
+            "description": "Resultado candidato guardado de Jackson–Pollock 3P y Siri. Exclusivo de pruebas en servidor local habilitado y separado de las mediciones.",
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "exclusiveMaximum": 100
+              },
+              "formulaVersion": {
+                "const": "jp3-siri-arithmetic-candidate-v1"
+              },
+              "domainVersion": {
+                "const": "jp3-reference-ranges-candidate-v1"
+              }
+            }
+          },
+          "measurements": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "weightKg": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "heightCm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "waistCm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "hipCm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "neckCm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "abdomenUmbilicalCm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "measuredBodyFatPercentage": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "muscleMassKg": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "waterLitres": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "visceralFatIndex": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "pectoralSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "abdominalSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "tricepsSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "bicepsSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "subscapularSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "suprailiacSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              },
+              "thighSkinfoldMm": {
+                "type": "number",
+                "multipleOf": 0.1
+              }
+            }
+          }
+        },
+        "description": "Una muestra por ID de evaluación. Sin copiar perfil/planes, recalcular resultados ni duplicar columna/snapshot. Método/protocolo/procedencia heredados desconocidos permanecen null. Mediciones ausentes se omiten, nunca cero. La estimación candidata, cuando está disponible, se conserva en un campo separado.",
+        "allOf": [
+          {
+            "if": {
+              "required": ["candidateBodyFat"]
+            },
+            "then": {
+              "properties": {
+                "dateBasis": { "const": "effective_date" },
+                "method": { "const": "pliegues" },
+                "provenance": { "const": "manual_measurements" },
+                "protocol": {
+                  "enum": [
+                    "jp3-male-candidate@technical-candidate-v1",
+                    "jp3-female-candidate@technical-candidate-v1"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "dateBasis": {
+                  "const": "legacy_evaluation_date"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "method": {
+                  "type": "null"
+                },
+                "provenance": {
+                  "type": "null"
+                },
+                "protocol": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "method": {
+                  "enum": ["perimetros", "pliegues", "bioimpedancia"]
+                },
+                "provenance": {
+                  "enum": ["device_reported", "manual_measurements"]
+                },
+                "protocol": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EvolutionPageInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pageSize", "hasMore", "nextCursor"],
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43}$",
+                "description": "Cursor opaco firmado HMAC, ligado a sujeto autenticado, cliente, from/to/method/pageSize y orden ascendente. No es autorización ni cifrado. Alterado, de otro contexto o filtro: 400 INVALID_INPUT."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "hasMore": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "nextCursor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43}$",
+                  "description": "Cursor opaco firmado HMAC, ligado a sujeto autenticado, cliente, from/to/method/pageSize y orden ascendente. No es autorización ni cifrado. Alterado, de otro contexto o filtro: 400 INVALID_INPUT."
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "nextCursor": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EvolutionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clientId",
+          "period",
+          "method",
+          "order",
+          "metricDefinitions",
+          "samples",
+          "pageInfo"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "period": {
+            "$ref": "#/components/schemas/EvolutionPeriod"
+          },
+          "method": {
+            "enum": ["perimetros", "pliegues", "bioimpedancia", "legacy", null]
+          },
+          "order": {
+            "const": "asc"
+          },
+          "metricDefinitions": {
+            "$ref": "#/components/schemas/EvolutionMetricCatalog"
+          },
+          "samples": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/EvolutionSample"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/EvolutionPageInfo"
+          }
+        },
+        "description": "Página, no historial completo ni snapshot global. Orden (date, createdAt, id) ascendente. Cero/una medición por métrica no acreditan tendencia. hasMore informa continuación de esta consulta; la UI debe distinguir cobertura cargada y periodo total. Inserciones concurrentes/retroactivas requieren refresco: no se promete snapshot entre requests."
+      },
+      "EvolutionSection": {
+        "description": "Evolución real compuesta en el expediente profesional. empty/available incluyen history; error/QUERY_FAILED sin datos indica fallo recuperable. Denegaciones 401/403/404 abortan el expediente. bodyWeightHistory sigue separado y no integrado hasta su fuente correspondiente.",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "history"],
+            "properties": {
+              "status": {
+                "const": "empty"
+              },
+              "history": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EvolutionPage"
+                  },
+                  {
+                    "properties": {
+                      "samples": {
+                        "maxItems": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "history"],
+            "properties": {
+              "status": {
+                "const": "available"
+              },
+              "history": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EvolutionPage"
+                  },
+                  {
+                    "properties": {
+                      "samples": {
+                        "minItems": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "code"],
+            "properties": {
+              "status": {
+                "const": "error"
+              },
+              "code": {
+                "const": "QUERY_FAILED"
+              }
+            }
+          }
+        ]
+      },
       "Error": {
         "type": "object",
         "additionalProperties": false,
@@ -1889,18 +2763,13 @@
                 "additionalProperties": {
                   "type": "string"
                 },
-                "description": "Errores de validación por campo; solo se devuelve para INVALID_INPUT de formularios."
+                "description": "Errores opcionales por campo cuando el servidor dispone de ellos; incluye INVALID_INPUT e INVALID_EVALUATION. Su ausencia no significa que la solicitud sea válida."
               }
             },
-            "required": [
-              "code",
-              "message"
-            ]
+            "required": ["code", "message"]
           }
         },
-        "required": [
-          "error"
-        ]
+        "required": ["error"]
       },
       "Credentials": {
         "type": "object",
@@ -1997,11 +2866,7 @@
             "writeOnly": true
           }
         },
-        "required": [
-          "code",
-          "password",
-          "passwordConfirmation"
-        ]
+        "required": ["code", "password", "passwordConfirmation"]
       },
       "Verification": {
         "type": "object",
@@ -2044,10 +2909,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "code",
-          "expiresAt"
-        ]
+        "required": ["code", "expiresAt"]
       },
       "Account": {
         "type": "object",
@@ -2078,10 +2940,7 @@
           },
           "clientStatus": {
             "type": "string",
-            "enum": [
-              "active",
-              "inactive"
-            ]
+            "enum": ["active", "inactive"]
           }
         },
         "required": [
@@ -2110,11 +2969,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "accessToken",
-          "refreshToken",
-          "expiresAt"
-        ]
+        "required": ["accessToken", "refreshToken", "expiresAt"]
       },
       "ActivationResult": {
         "oneOf": [
@@ -2132,11 +2987,7 @@
                 "$ref": "#/components/schemas/Session"
               }
             },
-            "required": [
-              "activated",
-              "account",
-              "session"
-            ]
+            "required": ["activated", "account", "session"]
           },
           {
             "type": "object",
@@ -2152,11 +3003,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "activated",
-              "requiresLogin",
-              "message"
-            ]
+            "required": ["activated", "requiresLogin", "message"]
           }
         ]
       },
@@ -2169,41 +3016,25 @@
             "format": "uuid"
           },
           "userId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "uuid"
           },
           "fullName": {
             "type": "string"
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "description": "Texto libre. La Web ofrece Recomposición corporal, Definición y Ganar masa muscular, u «Otro» con texto propio; el contrato acepta cualquier texto de 1 a 500 caracteres."
           },
           "status": {
-            "enum": [
-              "active",
-              "inactive"
-            ]
+            "enum": ["active", "inactive"]
           },
           "invitationExpiresAt": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "accountStatus": {
-            "enum": [
-              "active",
-              "inactive",
-              null
-            ],
+            "enum": ["active", "inactive", null],
             "description": "Estado de la cuenta vinculada; null si el cliente aún no activa su cuenta."
           }
         },
@@ -2227,10 +3058,7 @@
             "maxLength": 150
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "minLength": 1,
             "maxLength": 500
           },
@@ -2253,40 +3081,26 @@
             "multipleOf": 0.1
           },
           "baseBodyFatPercentage": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 2,
             "maximum": 60,
             "multipleOf": 0.1,
             "description": "Medición base; no resultado calculado ni registro histórico."
           },
           "waistCm": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 40,
             "maximum": 250,
             "multipleOf": 0.1
           },
           "hipCm": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 50,
             "maximum": 250,
             "multipleOf": 0.1
           }
         },
-        "required": [
-          "fullName",
-          "birthDate",
-          "heightCm",
-          "baseWeightKg"
-        ]
+        "required": ["fullName", "birthDate", "heightCm", "baseWeightKg"]
       },
       "ClientInitialRecord": {
         "type": "object",
@@ -2300,10 +3114,7 @@
             "type": "string"
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "birthDate": {
             "type": "string",
@@ -2316,22 +3127,13 @@
             "type": "number"
           },
           "baseBodyFatPercentage": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "waistCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "hipCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "status": {
             "const": "active"
@@ -2362,18 +3164,10 @@
             "type": "string"
           },
           "role": {
-            "enum": [
-              "professional",
-              "admin",
-              "client"
-            ]
+            "enum": ["professional", "admin", "client"]
           }
         },
-        "required": [
-          "id",
-          "username",
-          "role"
-        ]
+        "required": ["id", "username", "role"]
       },
       "ClientBaseRecord": {
         "type": "object",
@@ -2387,54 +3181,30 @@
             "type": "string"
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "inactive"
-            ]
+            "enum": ["active", "inactive"]
           },
           "birthDate": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date"
           },
           "heightCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "baseWeightKg": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "baseBodyFatPercentage": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "waistCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "hipCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "version": {
             "type": "integer",
@@ -2461,9 +3231,7 @@
       "ClientRecordPatch": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "version"
-        ],
+        "required": ["version"],
         "minProperties": 2,
         "description": "PATCH parcial. Omitido conserva; null solo en opcionales. Vacíos, tipos incorrectos y campos desconocidos: 400. Conjunto base NULL heredado solo se completa como grupo. Sin cambios efectivos: 200, misma versión. La versión es precondición, no valor asignable.",
         "properties": {
@@ -2480,10 +3248,7 @@
             "description": "Texto recortado; puntos de código Unicode."
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "minLength": 1,
             "maxLength": 500
           },
@@ -2505,28 +3270,19 @@
             "multipleOf": 0.1
           },
           "baseBodyFatPercentage": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 2,
             "maximum": 60,
             "multipleOf": 0.1
           },
           "waistCm": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 40,
             "maximum": 250,
             "multipleOf": 0.1
           },
           "hipCm": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": 50,
             "maximum": 250,
             "multipleOf": 0.1
@@ -2536,17 +3292,11 @@
       "ClientRecordStatusPatch": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "status",
-          "version"
-        ],
+        "required": ["status", "version"],
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "inactive"
-            ],
+            "enum": ["active", "inactive"],
             "description": "Estado operativo del expediente, nunca de cuenta o suscripción."
           },
           "version": {
@@ -2569,36 +3319,21 @@
             "type": "string"
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "inactive"
-            ]
+            "enum": ["active", "inactive"]
           },
           "birthDate": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date"
           },
           "heightCm": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "baseWeightKg": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "username": {
             "type": "string"
@@ -2633,17 +3368,11 @@
             "type": "string"
           },
           "goal": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "active",
-              "inactive"
-            ]
+            "enum": ["active", "inactive"]
           },
           "username": {
             "type": "string"
@@ -2673,14 +3402,12 @@
         ]
       },
       "RecordSection": {
-        "description": "Disponibilidad de composición HU-019. Producción emite únicamente not_integrated. empty y error se reservan para consultas reales autorizadas futuras; no definen contratos de datos de otros módulos.",
+        "description": "Estado de disponibilidad para secciones sin contrato propio de datos. Evaluaciones usa EvaluationSection; entrenamiento define además su variante con rutina disponible.",
         "oneOf": [
           {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "properties": {
               "status": {
                 "const": "not_integrated"
@@ -2690,9 +3417,7 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "properties": {
               "status": {
                 "const": "empty"
@@ -2702,10 +3427,1108 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "status",
-              "code"
-            ],
+            "required": ["status", "code"],
+            "properties": {
+              "status": {
+                "const": "error"
+              },
+              "code": {
+                "const": "QUERY_FAILED"
+              }
+            }
+          }
+        ]
+      },
+      "EvaluationInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LegacyEvaluationInput"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["method", "equation", "measurements"],
+            "properties": {
+              "method": {
+                "const": "perimetros"
+              },
+              "equation": {
+                "enum": ["male", "female", "not_applicable"]
+              },
+              "effectiveDate": {
+                "type": ["string", "null"],
+                "format": "date",
+                "description": "Opcional o null: día UTC del servidor al aceptar. Fecha calendario YYYY-MM-DD válida; el servidor rechaza fechas futuras o anteriores al nacimiento conocido del cliente. Comparaciones temporales y datos del expediente requieren validación adicional del servidor."
+              },
+              "measurements": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "weightKg": {
+                    "type": ["number", "null"],
+                    "minimum": 30,
+                    "maximum": 300,
+                    "multipleOf": 0.1
+                  },
+                  "heightCm": {
+                    "type": ["number", "null"],
+                    "minimum": 100,
+                    "maximum": 250,
+                    "multipleOf": 0.1
+                  },
+                  "neckCm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "waistCm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 40,
+                        "maximum": 250
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "abdomenUmbilicalCm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "hipCm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 50,
+                        "maximum": 250
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "description": "Al menos una medición no nula propia del método; peso y estatura solos no bastan.",
+                "anyOf": [
+                  {
+                    "required": ["neckCm"],
+                    "properties": {
+                      "neckCm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["waistCm"],
+                    "properties": {
+                      "waistCm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["abdomenUmbilicalCm"],
+                    "properties": {
+                      "abdomenUmbilicalCm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["hipCm"],
+                    "properties": {
+                      "hipCm": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                ]
+              },
+              "segmental": {
+                "type": "null",
+                "description": "Solo se admite ausente o null fuera de bioimpedancia."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["method", "equation", "measurements"],
+            "properties": {
+              "method": {
+                "const": "pliegues"
+              },
+              "equation": {
+                "enum": ["male", "female", "not_applicable"]
+              },
+              "effectiveDate": {
+                "type": ["string", "null"],
+                "format": "date",
+                "description": "Opcional o null: día UTC del servidor al aceptar. Fecha calendario YYYY-MM-DD válida; el servidor rechaza fechas futuras o anteriores al nacimiento conocido del cliente. Comparaciones temporales y datos del expediente requieren validación adicional del servidor."
+              },
+              "measurements": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "weightKg": {
+                    "type": ["number", "null"],
+                    "minimum": 30,
+                    "maximum": 300,
+                    "multipleOf": 0.1
+                  },
+                  "heightCm": {
+                    "type": ["number", "null"],
+                    "minimum": 100,
+                    "maximum": 250,
+                    "multipleOf": 0.1
+                  },
+                  "tricepsSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "bicepsSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "subscapularSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "suprailiacSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pectoralSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "abdominalSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "thighSkinfoldMm": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 1,
+                        "maximum": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "description": "Al menos una medición no nula propia del método; peso y estatura solos no bastan.",
+                "anyOf": [
+                  {
+                    "required": ["tricepsSkinfoldMm"],
+                    "properties": {
+                      "tricepsSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["bicepsSkinfoldMm"],
+                    "properties": {
+                      "bicepsSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["subscapularSkinfoldMm"],
+                    "properties": {
+                      "subscapularSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["suprailiacSkinfoldMm"],
+                    "properties": {
+                      "suprailiacSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["pectoralSkinfoldMm"],
+                    "properties": {
+                      "pectoralSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["abdominalSkinfoldMm"],
+                    "properties": {
+                      "abdominalSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["thighSkinfoldMm"],
+                    "properties": {
+                      "thighSkinfoldMm": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                ]
+              },
+              "segmental": {
+                "type": "null",
+                "description": "Solo se admite ausente o null fuera de bioimpedancia."
+              },
+              "estimationRequest": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PendingEstimationRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CandidateEstimationRequest"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": ["estimationRequest"],
+                  "properties": {
+                    "estimationRequest": {
+                      "properties": {
+                        "protocolId": {
+                          "const": "jp3-male-candidate"
+                        }
+                      },
+                      "required": ["protocolId"]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equation": {
+                      "enum": ["male", "not_applicable"]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "required": ["estimationRequest"],
+                  "properties": {
+                    "estimationRequest": {
+                      "properties": {
+                        "protocolId": {
+                          "const": "jp3-female-candidate"
+                        }
+                      },
+                      "required": ["protocolId"]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "equation": {
+                      "enum": ["female", "not_applicable"]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["method", "equation", "measurements"],
+            "properties": {
+              "method": {
+                "const": "bioimpedancia"
+              },
+              "equation": {
+                "enum": ["male", "female", "not_applicable"]
+              },
+              "effectiveDate": {
+                "type": ["string", "null"],
+                "format": "date",
+                "description": "Opcional o null: día UTC del servidor al aceptar. Fecha calendario YYYY-MM-DD válida; el servidor rechaza fechas futuras o anteriores al nacimiento conocido del cliente. Comparaciones temporales y datos del expediente requieren validación adicional del servidor."
+              },
+              "measurements": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "weightKg": {
+                    "type": ["number", "null"],
+                    "minimum": 30,
+                    "maximum": 300,
+                    "multipleOf": 0.1
+                  },
+                  "heightCm": {
+                    "type": ["number", "null"],
+                    "minimum": 100,
+                    "maximum": 250,
+                    "multipleOf": 0.1
+                  },
+                  "measuredBodyFatPercentage": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "multipleOf": 0.1,
+                        "minimum": 2,
+                        "maximum": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "muscleMassKg": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "waterLitres": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visceralFatIndex": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "description": "Al menos una medición no nula propia del método; peso y estatura solos no bastan.",
+                "anyOf": [
+                  {
+                    "required": ["measuredBodyFatPercentage"],
+                    "properties": {
+                      "measuredBodyFatPercentage": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["muscleMassKg"],
+                    "properties": {
+                      "muscleMassKg": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["waterLitres"],
+                    "properties": {
+                      "waterLitres": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  {
+                    "required": ["visceralFatIndex"],
+                    "properties": {
+                      "visceralFatIndex": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                ]
+              },
+              "segmental": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["type", "unit", "values"],
+                "properties": {
+                  "type": {
+                    "enum": ["muscle_mass", "fat_mass"]
+                  },
+                  "unit": {
+                    "const": "kg"
+                  },
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "leftArm": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      "rightArm": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      "trunk": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      "leftLeg": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      },
+                      "rightLeg": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "multipleOf": 0.1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "description": "Entrada heredada o discriminada por método. Los campos numéricos opcionales admiten null y se omiten del snapshot. Al menos una medición propia no nula: peso/estatura y segmentos solos no bastan en la entrada multimétodo. El servidor verifica finitud y precisión con Number.isInteger(valor * 10); en bioimpedancia, masa muscular, agua y cada masa segmental no pueden superar el peso informado. Estas comparaciones entre valores y las reglas temporales requieren validación adicional; no se expresan mediante extensiones no estándar JSON Schema."
+      },
+      "AssessmentSnapshot": {
+        "type": "object",
+        "description": "Snapshot calculado exclusivamente por API. Navy/JP3 pendientes. Incluye método, protocolo, fecha efectiva, propietario, edad/nacimiento, entradas, resultados y versión. HU-023: solicitud opcional de referencia técnica pendiente; versión nueva exclusivamente unavailable y sin cálculos. La fecha de creación sigue siendo del servidor. Sin solicitud se conserva el snapshot anterior; no hay recálculo histórico. Requiere migración incremental; si falta, EVALUATION_UPGRADE_REQUIRED mantiene el registro anterior disponible sin estimación. Excepción HU-023: composition-candidate-v1 registra candidate_only solo para pruebas locales autorizadas, con versiones técnicas, entradas y resultado sin redondeo. No hay resultados científicamente aprobados; HU-022 conserva únicamente mediciones. Falta de habilitación o entradas produce unavailable; falta de migración produce EVALUATION_UPGRADE_REQUIRED.",
+        "required": [
+          "method",
+          "protocol",
+          "version",
+          "results",
+          "measurements",
+          "effectiveDate",
+          "calculationStatus",
+          "ownerId",
+          "birthDate",
+          "ageYears",
+          "equation",
+          "provenance"
+        ],
+        "properties": {
+          "method": {
+            "enum": ["perimetros", "pliegues", "bioimpedancia"]
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "version": {
+            "enum": [
+              "composition-arithmetic-v1",
+              "composition-estimation-v1",
+              "composition-candidate-v1"
+            ]
+          },
+          "results": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Resultados calculados exclusivamente por API; objeto vacío cuando no hay datos/cálculos habilitados suficientes. Navy y JP3/Siri permanecen deshabilitados."
+          },
+          "measurements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Solo mediciones numéricas presentes tras normalización; valores null de entrada se omiten."
+          },
+          "effectiveDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "calculationStatus": {
+            "enum": ["available", "partial", "pending_verification"]
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID del sujeto autenticado (usuario profesional), derivado por API; no aceptado del cliente."
+          },
+          "birthDate": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Snapshot del nacimiento conocido; null si no disponible."
+          },
+          "ageYears": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Años cumplidos a la fecha efectiva, sin recalcular el historial."
+          },
+          "equation": {
+            "enum": ["male", "female", "not_applicable"]
+          },
+          "provenance": {
+            "enum": ["device_reported", "manual_measurements"]
+          },
+          "segmental": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "unit", "values"],
+            "properties": {
+              "type": {
+                "enum": ["muscle_mass", "fat_mass"]
+              },
+              "unit": {
+                "const": "kg"
+              },
+              "values": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "leftArm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "multipleOf": 0.1
+                  },
+                  "rightArm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "multipleOf": 0.1
+                  },
+                  "trunk": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "multipleOf": 0.1
+                  },
+                  "leftLeg": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "multipleOf": 0.1
+                  },
+                  "rightLeg": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "multipleOf": 0.1
+                  }
+                }
+              }
+            }
+          },
+          "estimation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PendingBodyFatEstimation"
+              },
+              {
+                "$ref": "#/components/schemas/CandidateBodyFatEstimation"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "version": {
+                  "const": "composition-estimation-v1"
+                }
+              }
+            },
+            "then": {
+              "required": ["estimation"],
+              "properties": {
+                "method": {
+                  "const": "pliegues"
+                },
+                "protocol": {
+                  "const": "jp3-sites-pending@technical-reference-v1"
+                },
+                "calculationStatus": {
+                  "const": "pending_verification"
+                },
+                "provenance": {
+                  "const": "manual_measurements"
+                },
+                "results": {
+                  "maxProperties": 0
+                },
+                "estimation": {
+                  "$ref": "#/components/schemas/PendingBodyFatEstimation"
+                }
+              }
+            },
+            "else": {
+              "if": {
+                "properties": {
+                  "version": {
+                    "const": "composition-candidate-v1"
+                  }
+                }
+              },
+              "then": {
+                "required": ["estimation"],
+                "properties": {
+                  "method": {
+                    "const": "pliegues"
+                  },
+                  "protocol": {
+                    "enum": [
+                      "jp3-male-candidate@technical-candidate-v1",
+                      "jp3-female-candidate@technical-candidate-v1"
+                    ]
+                  },
+                  "calculationStatus": {
+                    "const": "pending_verification"
+                  },
+                  "provenance": {
+                    "const": "manual_measurements"
+                  },
+                  "results": {
+                    "maxProperties": 0
+                  },
+                  "estimation": {
+                    "$ref": "#/components/schemas/CandidateBodyFatEstimation"
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "male"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "protocol": {
+                          "const": "jp3-male-candidate@technical-candidate-v1"
+                        },
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "const": "male"
+                            },
+                            "protocol": {
+                              "properties": {
+                                "id": {
+                                  "const": "jp3-male-candidate"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "female"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "protocol": {
+                          "const": "jp3-female-candidate@technical-candidate-v1"
+                        },
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "const": "female"
+                            },
+                            "protocol": {
+                              "properties": {
+                                "id": {
+                                  "const": "jp3-female-candidate"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "equation": {
+                          "const": "not_applicable"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "estimation": {
+                          "properties": {
+                            "variant": {
+                              "type": "null"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": ["estimation"]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "LegacyEvaluationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Al menos una medición numérica no nula. Campos omitidos o null se conservan como null; no se aceptan fecha, cliente, profesional ni cálculos. La API aplica además Number.isFinite y Number.isInteger(valor * 10) sin coerción.",
+        "properties": {
+          "weightKg": {
+            "type": ["number", "null"],
+            "minimum": 30,
+            "maximum": 300,
+            "multipleOf": 0.1
+          },
+          "waistCm": {
+            "type": ["number", "null"],
+            "minimum": 40,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "hipCm": {
+            "type": ["number", "null"],
+            "minimum": 50,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "measuredBodyFatPercentage": {
+            "type": ["number", "null"],
+            "minimum": 2,
+            "maximum": 60,
+            "multipleOf": 0.1
+          },
+          "pectoralSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "abdominalSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "tricepsSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "suprailiacSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "thighSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          }
+        },
+        "anyOf": [
+          {
+            "required": ["weightKg"],
+            "properties": {
+              "weightKg": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["waistCm"],
+            "properties": {
+              "waistCm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["hipCm"],
+            "properties": {
+              "hipCm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["measuredBodyFatPercentage"],
+            "properties": {
+              "measuredBodyFatPercentage": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["pectoralSkinfoldMm"],
+            "properties": {
+              "pectoralSkinfoldMm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["abdominalSkinfoldMm"],
+            "properties": {
+              "abdominalSkinfoldMm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["tricepsSkinfoldMm"],
+            "properties": {
+              "tricepsSkinfoldMm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["suprailiacSkinfoldMm"],
+            "properties": {
+              "suprailiacSkinfoldMm": {
+                "type": "number"
+              }
+            }
+          },
+          {
+            "required": ["thighSkinfoldMm"],
+            "properties": {
+              "thighSkinfoldMm": {
+                "type": "number"
+              }
+            }
+          }
+        ]
+      },
+      "Evaluation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clientId",
+          "evaluationDate",
+          "createdAt",
+          "weightKg",
+          "waistCm",
+          "hipCm",
+          "measuredBodyFatPercentage",
+          "pectoralSkinfoldMm",
+          "abdominalSkinfoldMm",
+          "tricepsSkinfoldMm",
+          "suprailiacSkinfoldMm",
+          "thighSkinfoldMm"
+        ],
+        "properties": {
+          "assessment": {
+            "$ref": "#/components/schemas/AssessmentSnapshot"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evaluationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "weightKg": {
+            "type": ["number", "null"],
+            "minimum": 30,
+            "maximum": 300,
+            "multipleOf": 0.1
+          },
+          "waistCm": {
+            "type": ["number", "null"],
+            "minimum": 40,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "hipCm": {
+            "type": ["number", "null"],
+            "minimum": 50,
+            "maximum": 250,
+            "multipleOf": 0.1
+          },
+          "measuredBodyFatPercentage": {
+            "type": ["number", "null"],
+            "minimum": 2,
+            "maximum": 60,
+            "multipleOf": 0.1
+          },
+          "pectoralSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "abdominalSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "tricepsSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "suprailiacSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          },
+          "thighSkinfoldMm": {
+            "type": ["number", "null"],
+            "minimum": 1,
+            "maximum": 80,
+            "multipleOf": 0.1
+          }
+        }
+      },
+      "EvaluationSection": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "const": "empty"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "evaluations"],
+            "properties": {
+              "status": {
+                "const": "available"
+              },
+              "evaluations": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "$ref": "#/components/schemas/Evaluation"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "code"],
             "properties": {
               "status": {
                 "const": "error"
@@ -2720,10 +4543,7 @@
       "ProfessionalRecord": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "profile",
-          "sections"
-        ],
+        "required": ["profile", "sections"],
         "properties": {
           "profile": {
             "$ref": "#/components/schemas/ClientBaseRecord"
@@ -2785,10 +4605,7 @@
                             ],
                             "properties": {
                               "lastSession": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ],
+                                "type": ["string", "null"],
                                 "format": "date"
                               },
                               "sessionsLast7": {
@@ -2812,10 +4629,10 @@
                 ]
               },
               "evaluations": {
-                "$ref": "#/components/schemas/RecordSection"
+                "$ref": "#/components/schemas/EvaluationSection"
               },
               "progress": {
-                "$ref": "#/components/schemas/RecordSection"
+                "$ref": "#/components/schemas/EvolutionSection"
               },
               "bodyWeightHistory": {
                 "$ref": "#/components/schemas/RecordSection"
@@ -2827,39 +4644,20 @@
       "ProfessionalSubscription": {
         "type": "object",
         "description": "DEC-017. status: active | grace (cobro de renovación fallido, acceso completo hasta graceUntil) | expired | none. La renovación es simulada y perezosa: se evalúa al consultar o escribir.",
-        "required": [
-          "status",
-          "planId",
-          "used"
-        ],
+        "required": ["status", "planId", "used"],
         "properties": {
           "status": {
-            "enum": [
-              "active",
-              "grace",
-              "suspended",
-              "expired",
-              "none"
-            ]
+            "enum": ["active", "grace", "suspended", "expired", "none"]
           },
           "planId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "uuid"
           },
           "planName": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "limit": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "isUnlimited": {
             "type": "boolean"
@@ -2868,40 +4666,739 @@
             "type": "integer"
           },
           "remaining": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "excess": {
             "type": "integer"
           },
           "expiresAt": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "cancelAtPeriodEnd": {
             "type": "boolean"
           },
           "graceUntil": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "date-time"
           },
           "renewalMethod": {
-            "enum": [
-              "test_approved",
-              "test_declined",
-              "test_error",
-              null
-            ]
+            "enum": ["test_approved", "test_declined", "test_error", null]
           }
         }
+      },
+      "PendingEstimationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["methodId", "protocolId", "protocolVersion"],
+        "properties": {
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "protocolId": {
+            "const": "jp3-sites-pending"
+          },
+          "protocolVersion": {
+            "const": "technical-reference-v1"
+          }
+        },
+        "description": "Referencia técnica cerrada y pendiente, no protocolo científicamente aprobado. Solo registra indisponibilidad; no activa JP3/Siri. Referencias desconocidas o flags de activación se rechazan con 400 INVALID_EVALUATION."
+      },
+      "PendingBodyFatEstimation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "methodId",
+          "variant",
+          "formulaVersion",
+          "domainPolicyVersion",
+          "protocol",
+          "provenance",
+          "inputs",
+          "status",
+          "result",
+          "reasons"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "variant": {
+            "enum": ["male", "female", null]
+          },
+          "formulaVersion": {
+            "type": "null"
+          },
+          "domainPolicyVersion": {
+            "type": "null"
+          },
+          "protocol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "const": "jp3-sites-pending"
+              },
+              "version": {
+                "const": "technical-reference-v1"
+              }
+            }
+          },
+          "provenance": {
+            "const": "server_estimation"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["effectiveDate", "ageYears", "unit", "skinfolds"],
+            "properties": {
+              "effectiveDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "ageYears": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "unit": {
+                "const": "mm"
+              },
+              "skinfolds": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "pectoralSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "abdominalSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "tricepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "bicepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "subscapularSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "suprailiacSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "thighSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "const": "unavailable"
+          },
+          "result": {
+            "type": "null"
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "fields"],
+              "properties": {
+                "code": {
+                  "const": "scientific_verification_pending"
+                },
+                "fields": {
+                  "const": []
+                }
+              }
+            }
+          }
+        },
+        "description": "Solo estado persistido no disponible, sin resultados numéricos ni versiones científicas. Los pliegues presentes son capturas, sin selección de tres sitios ni ejecución de fórmula. API y SQL verifican coincidencia de fecha/edad/entradas con assessment. No es diagnóstico.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "maxProperties": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CandidateEstimationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["methodId", "protocolId", "protocolVersion"],
+        "properties": {
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "protocolId": {
+            "enum": ["jp3-male-candidate", "jp3-female-candidate"]
+          },
+          "protocolVersion": {
+            "const": "technical-candidate-v1"
+          }
+        },
+        "description": "Solicitud técnica opcional para pruebas locales. No habilita el motor por sí sola: servidor exige HU023_LOCAL_CANDIDATES_ENABLED=true, NODE_ENV development/test y conexión PostgreSQL loopback verificada, con el puerto efectivo de DATABASE_URL (o PGPORT/predeterminado del controlador si se omite). Variante incompatible se rechaza. No aprobación científica."
+      },
+      "CandidateBodyFatEstimation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "methodId",
+          "variant",
+          "formulaVersion",
+          "domainPolicyVersion",
+          "protocol",
+          "provenance",
+          "inputs",
+          "status",
+          "result",
+          "reasons",
+          "technicalFormulaVersion",
+          "technicalDomainVersion",
+          "scientificStatus",
+          "activationAllowed",
+          "blockers"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "methodId": {
+            "const": "jackson-pollock-3-siri"
+          },
+          "variant": {
+            "enum": ["male", "female", null]
+          },
+          "formulaVersion": {
+            "type": "null"
+          },
+          "domainPolicyVersion": {
+            "type": "null"
+          },
+          "protocol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "enum": ["jp3-male-candidate", "jp3-female-candidate"]
+              },
+              "version": {
+                "const": "technical-candidate-v1"
+              }
+            }
+          },
+          "provenance": {
+            "const": "server_estimation"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["effectiveDate", "ageYears", "unit", "skinfolds"],
+            "properties": {
+              "effectiveDate": {
+                "type": "string",
+                "format": "date"
+              },
+              "ageYears": {
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "unit": {
+                "const": "mm"
+              },
+              "skinfolds": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "pectoralSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "abdominalSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "tricepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "bicepsSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "subscapularSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "suprailiacSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  },
+                  "thighSkinfoldMm": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 80,
+                    "multipleOf": 0.1
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "enum": ["candidate_only", "unavailable"]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sumSkinfoldMm",
+                  "bodyDensityGPerMl",
+                  "estimatedBodyFatPercentage"
+                ],
+                "properties": {
+                  "sumSkinfoldMm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "bodyDensityGPerMl": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "estimatedBodyFatPercentage": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 100
+                  }
+                }
+              }
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "fields"],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "candidate_execution_disabled",
+                    "invalid_input",
+                    "equation_not_selected",
+                    "invalid_effective_date",
+                    "invalid_birth_date",
+                    "age_unavailable",
+                    "outside_reference_age_range",
+                    "invalid_measurements",
+                    "missing_measurements",
+                    "non_finite_calculation",
+                    "invalid_density",
+                    "invalid_estimated_percentage"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "technicalFormulaVersion": {
+            "const": "jp3-siri-arithmetic-candidate-v1"
+          },
+          "technicalDomainVersion": {
+            "const": "jp3-reference-ranges-candidate-v1"
+          },
+          "scientificStatus": {
+            "const": "not_validated"
+          },
+          "activationAllowed": {
+            "const": false
+          },
+          "blockers": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "scientific_verification_pending",
+                "domain_approval_pending",
+                "protocol_approval_pending",
+                "independent_reference_cases_pending",
+                "female_equation_original_pending",
+                "female_over_40_caution_pending"
+              ]
+            }
+          }
+        },
+        "description": "Snapshot técnico candidato, nunca resultado científicamente disponible. Solo para desarrollo y pruebas locales. Lecturas fuera de habilitación local devuelven unavailable y result null sin alterar la fila. Inputs de un resultado contienen solo tres sitios utilizados; captura parcial conserva sus mediciones. API/SQL verifican coherencia con el snapshot padre; JSON Schema no expresa todas las comparaciones entre campos.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "maxProperties": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "variant": {
+                  "enum": ["male", "female"]
+                },
+                "result": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sumSkinfoldMm",
+                    "bodyDensityGPerMl",
+                    "estimatedBodyFatPercentage"
+                  ],
+                  "properties": {
+                    "sumSkinfoldMm": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "bodyDensityGPerMl": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "estimatedBodyFatPercentage": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 100
+                    }
+                  }
+                },
+                "reasons": {
+                  "maxItems": 0
+                },
+                "inputs": {
+                  "properties": {
+                    "ageYears": {
+                      "type": "integer",
+                      "minimum": 18,
+                      "maximum": 61
+                    },
+                    "skinfolds": {
+                      "maxProperties": 3
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "result": {
+                  "type": "null"
+                },
+                "reasons": {
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "male"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "protocol": {
+                  "properties": {
+                    "id": {
+                      "const": "jp3-male-candidate"
+                    }
+                  }
+                },
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "male"
+                },
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "required": [
+                        "pectoralSkinfoldMm",
+                        "abdominalSkinfoldMm",
+                        "thighSkinfoldMm"
+                      ]
+                    },
+                    "ageYears": {
+                      "maximum": 61
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "protocol": {
+                  "properties": {
+                    "id": {
+                      "const": "jp3-female-candidate"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                },
+                "status": {
+                  "const": "candidate_only"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "inputs": {
+                  "properties": {
+                    "skinfolds": {
+                      "required": [
+                        "tricepsSkinfoldMm",
+                        "suprailiacSkinfoldMm",
+                        "thighSkinfoldMm"
+                      ]
+                    },
+                    "ageYears": {
+                      "maximum": 55
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                },
+                "inputs": {
+                  "properties": {
+                    "ageYears": {
+                      "type": "number",
+                      "exclusiveMinimum": 40
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending",
+                    "female_equation_original_pending",
+                    "female_over_40_caution_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "blockers": {
+                  "const": [
+                    "scientific_verification_pending",
+                    "domain_approval_pending",
+                    "protocol_approval_pending",
+                    "independent_reference_cases_pending"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "variant": {
+                  "const": "female"
+                }
+              }
+            },
+            "then": {
+              "if": {
+                "properties": {
+                  "inputs": {
+                    "properties": {
+                      "ageYears": {
+                        "type": "number",
+                        "exclusiveMinimum": 40
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "blockers": {
+                    "const": [
+                      "scientific_verification_pending",
+                      "domain_approval_pending",
+                      "protocol_approval_pending",
+                      "independent_reference_cases_pending",
+                      "female_equation_original_pending",
+                      "female_over_40_caution_pending"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "blockers": {
+                    "const": [
+                      "scientific_verification_pending",
+                      "domain_approval_pending",
+                      "protocol_approval_pending",
+                      "independent_reference_cases_pending",
+                      "female_equation_original_pending"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {

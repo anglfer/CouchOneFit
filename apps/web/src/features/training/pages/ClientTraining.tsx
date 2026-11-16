@@ -21,7 +21,6 @@ import type {
   TrainingVersion,
 } from '../types/training';
 import { Notices } from './TrainingHub';
-import ClientHeader from '../../professional/components/ClientHeader';
 
 type Tab = 'summary' | 'routine' | 'logs' | 'history';
 const tabs: [Tab, string, IconName][] = [
@@ -37,18 +36,20 @@ const day = (iso: string) =>
     year: 'numeric',
   });
 
-export default function ClientTraining({ clientId }: { clientId: string }) {
-  const r = useRoutines(clientId);
+export default function ClientTraining({
+  clientId,
+  clientName: name,
+  onActivated,
+}: {
+  clientId: string;
+  clientName: string;
+  onActivated: () => void;
+}) {
+  const r = useRoutines(clientId, onActivated);
   const [tab, setTab] = useState<Tab>('summary'),
     [choosing, setChoosing] = useState(false),
     [viewing, setViewing] = useState<TrainingVersion | null>(null);
-  const name = r.data?.clientName ?? 'Cliente';
   const editing = r.editor && !r.editor.published ? r.editor : null;
-  const status = r.active
-    ? ({ tone: 'ok', text: 'Rutina activa' } as const)
-    : r.draft
-      ? ({ tone: 'warn', text: 'Borrador sin activar' } as const)
-      : ({ tone: 'info', text: 'Sin rutina' } as const);
   const startFrom = (source?: Prescription) =>
     void r.newDraft(source).then((ok) => ok && setTab('routine'));
   const continueDraft = () =>
@@ -63,12 +64,6 @@ export default function ClientTraining({ clientId }: { clientId: string }) {
   }
   return (
     <>
-      <ClientHeader
-        clientId={clientId}
-        name={name}
-        active="training"
-        badges={!r.loading && <Badge tone={status.tone}>{status.text}</Badge>}
-      />
       <div
         className="client-subtabs"
         role="tablist"

@@ -533,6 +533,32 @@
 
 /* ---------- Ficha y cartera de clientes ---------- */
 
+html:has(.client-hub) {
+  scrollbar-gutter: stable;
+}
+
+.client-hub-panel {
+  min-block-size: calc(100svh - 10rem);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .client-hub-panel {
+    animation: client-panel-enter 160ms ease-out;
+  }
+
+  .client-hub-header .training-tabs > a {
+    transition:
+      color 160ms ease-out,
+      border-color 160ms ease-out;
+  }
+
+  @keyframes client-panel-enter {
+    from {
+      opacity: 0.65;
+    }
+  }
+}
+
 .client-hub-header {
   display: grid;
   gap: 16px;
@@ -1183,11 +1209,7 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(
-      900px 420px at 50% -120px,
-      var(--ws-glow),
-      transparent 70%
-    ),
+    radial-gradient(900px 420px at 50% -120px, var(--ws-glow), transparent 70%),
     var(--ws-bg);
   color: var(--ws-text);
 }
@@ -1238,5 +1260,114 @@
   .ws-bottom-link-pill,
   .ws-auth-input {
     transition: none;
+  }
+}
+
+/* ---------- Referencia anatómica ---------- */
+
+.anatomical-stage {
+  background:
+    radial-gradient(260px 200px at 50% 42%, var(--ws-glow), transparent 75%),
+    var(--ws-surface-2);
+}
+
+.anatomical-viewport {
+  touch-action: pan-y;
+  background: var(--ws-surface);
+  background: color-mix(in oklab, var(--ws-surface) 45%, transparent);
+  transition: border-color 160ms ease-out;
+}
+
+.anatomical-viewport[data-zoomed='true'] {
+  border-color: color-mix(in oklab, var(--ws-primary) 55%, var(--ws-border));
+}
+
+.anatomical-canvas {
+  transform-origin: 0 0;
+  /* Identity transform on base element prevents stacking context shifts when zooming. */
+  translate: 0 0;
+  scale: 1;
+}
+
+.anatomical-muscle {
+  transition:
+    fill 160ms ease-out,
+    stroke 160ms ease-out,
+    opacity 160ms ease-out;
+}
+
+.anatomical-pin {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.anatomical-zoom-btn[aria-pressed='true'],
+.anatomical-chip[aria-pressed='true'] {
+  border-color: var(--ws-primary);
+  background: var(--ws-selected);
+  color: var(--ws-primary-fg);
+  font-weight: 700;
+}
+
+@media (pointer: coarse) {
+  .anatomical-zoom-btn {
+    min-height: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .anatomical-canvas {
+    transition:
+      translate 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      scale 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .anatomical-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: anatomical-ring-pulse 2.4s ease-out infinite;
+  }
+
+  @keyframes anatomical-ring-pulse {
+    0% {
+      transform: scale(0.92);
+      opacity: 0.36;
+    }
+    70% {
+      transform: scale(1.28);
+      opacity: 0.08;
+    }
+    100% {
+      transform: scale(0.92);
+      opacity: 0.36;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .anatomical-silhouette {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .anatomical-muscle {
+    fill: Canvas;
+    stroke: GrayText;
+  }
+
+  .anatomical-muscle[data-active='true'] {
+    fill: Highlight;
+    stroke: HighlightText;
+  }
+
+  .anatomical-pin:focus-visible,
+  .anatomical-zoom-btn[aria-pressed='true'] {
+    outline: 2px solid Highlight;
+  }
+
+  .anatomical-viewport[data-zoomed='true'] {
+    border-color: Highlight;
   }
 }

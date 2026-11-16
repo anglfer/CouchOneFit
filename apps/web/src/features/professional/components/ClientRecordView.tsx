@@ -4,6 +4,8 @@ import { Badge, Card } from '../../../components/ui';
 import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import type { Operation } from '../../../services/offline/outbox';
 import RoutineWeek from '../../training/components/RoutineWeek';
+import ClientTraining from '../../training/pages/ClientTraining';
+import EvaluationsPage from '../../evaluations/pages/EvaluationsPage';
 import {
   count,
   relativeDay,
@@ -16,7 +18,7 @@ import type { ProfessionalRecord } from '../types/record';
 import ClientRecordEditor from './ClientRecordEditor';
 import ClientStatusAction from './ClientStatusAction';
 import ClientBaseDetails from './ClientBaseDetails';
-import ClientHeader from './ClientHeader';
+import ClientHeader, { type ClientTab } from './ClientHeader';
 import ClientRecordSections, { SectionState } from './ClientRecordSections';
 
 /** Muestra el expediente con los cambios hechos sin conexión que aún no se envían. */
@@ -36,6 +38,8 @@ function applyPending(
 type Props = {
   clientId: string;
   accountId: string;
+  active: ClientTab;
+  capture: boolean;
   onStatusChanged: () => void;
   sessionReady: boolean;
 };
@@ -52,45 +56,64 @@ export default function ClientRecordView(props: Props) {
 function ClientRecordContent({
   clientId,
   accountId,
+  active,
+  capture,
   onStatusChanged,
   sessionReady,
 }: Props) {
   const [result, setResult] = useState<{
-    key: string;
-    record: ClientBaseRecord | null;
-    sections: ProfessionalRecord['sections'] | null;
+    attempt: number;
+    record: ProfessionalRecord | null;
     error: string;
-  }>({ key: '', record: null, sections: null, error: '' });
+  }>({ attempt: -1, record: null, error: '' });
   const [attempt, setAttempt] = useState(0);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<ClientTab | 'capture' | null>(null);
   const [saved, setSaved] = useState(false);
   const [statusSaved, setStatusSaved] = useState('');
   const [statusBusy, setStatusBusy] = useState(false);
-  const requestKey = `${accountId}:${clientId}:${attempt}`;
-  const loading = result.key !== requestKey;
-  const stored = loading ? null : result.record;
+  const panel = capture ? 'capture' : active;
+  const isEditing = editing === panel;
+  if (editing && !isEditing) setEditing(null);
+  const loading = result.attempt !== attempt;
+  const stored = result.record?.profile;
   const pendingHere = useOperations().filter(
-    (operation) => operation.clientId === clientId
+    (operation) =>
+      operation.clientId === clientId &&
+      ['client.edit', 'client.status'].includes(operation.kind)
   );
   const hasPending = pendingHere.length > 0;
   const record =
     stored && hasPending ? applyPending(stored, pendingHere) : stored;
-  useOnSynced(useCallback(() => setAttempt((value) => value + 1), []));
+  const refresh = useCallback(() => setAttempt((value) => value + 1), []);
+  const revealNotice = useCallback((node: HTMLParagraphElement | null) => {
+    node?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
+  useOnSynced(refresh);
   const error = loading ? '' : result.error;
-  const sections = loading ? null : result.sections;
+  const sections = result.record?.sections;
   useEffect(() => {
     let active = true;
     void fetchProfessionalRecord(clientId)
-      .then(({ profile, sections }) => {
-        if (active)
-          setResult({ key: requestKey, record: profile, sections, error: '' });
+      .then((record) => {
+        if (active) {
+          setResult((current) => {
+            const latest = current.record?.profile;
+            return {
+              attempt,
+              record:
+                latest && latest.version > record.profile.version
+                  ? { ...record, profile: latest }
+                  : record,
+              error: '',
+            };
+          });
+        }
       })
       .catch(() => {
         if (active)
           setResult({
-            key: requestKey,
+            attempt,
             record: null,
-            sections: null,
             error:
               'No pudimos consultar el expediente. Puede no estar disponible o haber un problema de conexión.',
           });
@@ -98,14 +121,21 @@ function ClientRecordContent({
     return () => {
       active = false;
     };
-  }, [clientId, attempt, requestKey]);
+  }, [clientId, attempt]);
+  function updateProfile(profile: ClientBaseRecord) {
+    setResult((current) =>
+      current.record
+        ? { ...current, record: { ...current.record, profile } }
+        : current
+    );
+  }
   return (
-    <section className="space-y-5">
+    <section className="client-hub space-y-5">
       {record ? (
         <ClientHeader
           clientId={clientId}
           name={record.fullName}
-          active="summary"
+          active={active}
           badges={
             <>
               <Badge tone={record.status === 'active' ? 'ok' : 'neutral'}>
@@ -121,57 +151,50 @@ function ClientRecordContent({
             record.goal ?? '',
           ].filter(Boolean)}
           actions={
-            !editing && (
-              <>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  data-variant="primary"
-                  disabled={statusBusy || hasPending}
-                  onClick={() => {
-                    setSaved(false);
-                    setEditing(true);
-                  }}
-                >
-                  Editar datos base
-                </button>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  disabled={statusBusy}
-                  onClick={() => setAttempt((n) => n + 1)}
-                >
-                  Actualizar expediente
-                </button>
-                <ClientStatusAction
-                  sessionReady={sessionReady}
-                  clientId={clientId}
-                  status={record.status}
-                  accountId={accountId}
-                  disabled={hasPending}
-                  onQueued={() =>
-                    setStatusSaved(
-                      'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
-                    )
-                  }
-                  onBusyChange={setStatusBusy}
-                  onChanged={(updated) => {
-                    setResult((current) => ({
-                      ...current,
-                      key: requestKey,
-                      record: updated,
-                      error: '',
-                    }));
-                    setStatusSaved(
-                      updated.status === 'active'
-                        ? 'El expediente está activo.'
-                        : 'El expediente está inactivo.'
-                    );
-                    onStatusChanged();
-                  }}
-                />
-              </>
-            )
+            <>
+              <button
+                type="button"
+                className="ws-btn"
+                data-variant="primary"
+                disabled={isEditing || loading || statusBusy || hasPending}
+                onClick={() => {
+                  setSaved(false);
+                  setEditing(panel);
+                }}
+              >
+                Editar datos base
+              </button>
+              <button
+                type="button"
+                className="ws-btn"
+                disabled={isEditing || loading || statusBusy}
+                onClick={refresh}
+              >
+                Actualizar expediente
+              </button>
+              <ClientStatusAction
+                sessionReady={sessionReady}
+                clientId={clientId}
+                status={record.status}
+                accountId={accountId}
+                disabled={isEditing || loading || hasPending}
+                onQueued={() =>
+                  setStatusSaved(
+                    'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+                  )
+                }
+                onBusyChange={setStatusBusy}
+                onChanged={(updated) => {
+                  updateProfile(updated);
+                  setStatusSaved(
+                    updated.status === 'active'
+                      ? 'El expediente está activo.'
+                      : 'El expediente está inactivo.'
+                  );
+                  onStatusChanged();
+                }}
+              />
+            </>
           }
         />
       ) : (
@@ -185,15 +208,14 @@ function ClientRecordContent({
           <p
             key={notice as string}
             role="status"
-            // The editor collapses after saving; bring the confirmation into view.
-            ref={(node) => node?.scrollIntoView?.({ block: 'center' })}
+            ref={revealNotice}
             className="ws-alert"
             data-tone="ok"
           >
             ✓ {notice}
           </p>
         ))}
-      {loading ? (
+      {loading && !record ? (
         <div className="space-y-3" role="status" aria-busy="true">
           <span className="sr-only">Cargando expediente…</span>
           <div className="ws-skeleton h-24" />
@@ -201,68 +223,96 @@ function ClientRecordContent({
         </div>
       ) : error ? (
         <div role="alert" className="ws-alert" data-tone="bad">
-          <p>{error}</p>
-          <button
-            type="button"
-            className="ws-btn"
-            onClick={() => setAttempt((n) => n + 1)}
-          >
+          <p>
+            {active === 'evaluation'
+              ? 'No pudimos consultar este expediente. Comprueba el acceso o reintenta.'
+              : error}
+          </p>
+          <button type="button" className="ws-btn" onClick={refresh}>
             Reintentar lectura
           </button>
         </div>
       ) : (
         record &&
-        (editing ? (
-          <ClientRecordEditor
-            accountId={accountId}
-            initial={record}
-            onCancel={() => setEditing(false)}
-            onQueued={() => {
-              setEditing(false);
-              setSaved(false);
-              setStatusSaved(
-                'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
-              );
-            }}
-            onSaved={(updated) => {
-              setResult((current) => ({
-                ...current,
-                key: requestKey,
-                record: updated,
-                error: '',
-              }));
-              setEditing(false);
-              setSaved(true);
-            }}
-          />
-        ) : (
-          <>
-            {hasPending && (
-              <p className="ws-alert" data-tone="warn" role="status">
-                Este expediente tiene cambios pendientes de enviar. Se muestran
-                aquí tal como los capturaste.{' '}
-                <Link to="/app/pendientes" className="font-semibold underline">
-                  Ver pendientes
-                </Link>
-              </p>
+        result.record &&
+        sections && (
+          <div
+            className="client-hub-panel min-w-0 space-y-5"
+            key={active}
+            aria-busy={loading}
+          >
+            {isEditing && (
+              <ClientRecordEditor
+                accountId={accountId}
+                initial={record}
+                onCancel={() => setEditing(null)}
+                onQueued={() => {
+                  setEditing(null);
+                  setSaved(false);
+                  setStatusSaved(
+                    'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+                  );
+                }}
+                onSaved={(updated) => {
+                  updateProfile(updated);
+                  setEditing(null);
+                  setSaved(true);
+                }}
+              />
             )}
-            {sections && <ActivityStats section={sections.trainingPlan} />}
-            <div className="client-hub-grid">
-              {sections && (
-                <RoutineCard
-                  section={sections.trainingPlan}
-                  clientId={clientId}
-                />
-              )}
-              <Card title="Perfil y medidas base" icon="user">
-                <div className="space-y-4">
-                  <ClientBaseDetails record={record} />
+            <div hidden={isEditing} className="space-y-5">
+              {active === 'training' ? (
+                <div className="training-page">
+                  <ClientTraining
+                    clientId={clientId}
+                    clientName={record.fullName}
+                    onActivated={refresh}
+                  />
                 </div>
-              </Card>
+              ) : active === 'evaluation' ? (
+                <EvaluationsPage
+                  clientId={clientId}
+                  accountId={accountId}
+                  capture={capture}
+                  record={result.record}
+                  recordRevision={result.attempt}
+                  refresh={refresh}
+                />
+              ) : (
+                <>
+                  {hasPending && (
+                    <p className="ws-alert" data-tone="warn" role="status">
+                      Este expediente tiene cambios pendientes de enviar. Se
+                      muestran aquí tal como los capturaste.{' '}
+                      <Link
+                        to="/app/pendientes"
+                        className="font-semibold underline"
+                      >
+                        Ver pendientes
+                      </Link>
+                    </p>
+                  )}
+                  <ActivityStats section={sections.trainingPlan} />
+                  <div className="client-hub-grid">
+                    <RoutineCard
+                      section={sections.trainingPlan}
+                      clientId={clientId}
+                    />
+                    <Card title="Perfil y medidas base" icon="user">
+                      <div className="space-y-4">
+                        <ClientBaseDetails record={record} />
+                      </div>
+                    </Card>
+                  </div>
+                  <ClientRecordSections
+                    sections={sections}
+                    clientId={clientId}
+                  />
+                </>
+              )}
             </div>
-            {sections && <ClientRecordSections sections={sections} />}
-          </>
-        ))
+          </div>
+        )
       )}
     </section>
   );

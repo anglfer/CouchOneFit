@@ -72,3 +72,10 @@ T vigente sobre el mismo código final: API120/120, Web36/36, build API/Web y li
 T: git fetch origin confirmó origin/main27a7df7d8d90bbed4643c5380d1201e7f0631ea7 ya ancestro; no hay commits de main pendientes ni integración que ejecutar. No se hace merge/rebase/cherry-pick. HU-015 local/remota conserva6b2c0a0473402c76ba1eff33dd184adf6c63ce24. Destino único autorizado de publicación: feature/api-client-portfolio, sin nuevo PR. El resultado efectivo remoto se informa después del push, sin anticiparlo aquí.
 
 Siguen pendientes para completar HU-019 los servicios reales HU-021/022/026/030/033/037, fixture consolidada completa/vacía basada en consultas reales y versiones/historial de planes; HU-020 mantiene progreso HU-036 pendiente. D0/revisión independiente, TT-010 transversal y condiciones DEC-011/015 para datos reales no se cierran. El aviso previo HU-019 consta solo como reporte de la persona usuaria. No hay merge, despliegue, Supabase ni nuevas ramas/PR.
+
+## Navegación de la ficha Web — 14-nov-2026
+
+- **E.** Resumen, Entrenamiento y Evaluación comparten una cabecera y una lectura del expediente por cuenta y cliente. Al cambiar de pestaña se conserva el encabezado y se atenúa brevemente la entrada del contenido. La ficha reserva espacio durante la carga y respeta la preferencia de movimiento reducido.
+- **T.** Chrome con respuestas sintéticas a 1440 y 390 px. Se comprobó que las tres pestañas mantienen la posición de la cabecera y el desplazamiento incluso cuando se retrasa Entrenamiento. También se comprobó Atrás, la ausencia de nuevas lecturas del expediente al cambiar de pestaña y la transición desactivada con movimiento reducido. El recorrido terminó sin errores de JavaScript ni respuestas fallidas de la API simulada.
+- **T.** La regresión en `apps/web/tests/session-recovery.test.mjs` cubre la permanencia de la cabecera, el foco del enlace, la lectura única y la ausencia de un salto forzado al inicio.
+- **T.** Compilación Web, lint, Prettier de los archivos Web tocados y suite Web completa (146/146).
