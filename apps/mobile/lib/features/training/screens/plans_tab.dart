@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../shared/widgets/coming_soon_card.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/status_view.dart';
 import '../../../shared/widgets/tone_pill.dart';
+import '../../nutrition/models/nutrition_plan.dart';
+import '../../nutrition/widgets/nutrition_plan_view.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../../../shared/widgets/section_title.dart';
@@ -12,14 +13,27 @@ const _weekdayShort = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 
 /// Planes: what the professional assigned, one segment per module.
 class PlansTab extends StatefulWidget {
-  const PlansTab(
-      {super.key,
-      required this.plan,
-      required this.today,
-      required this.onShowDay});
+  const PlansTab({
+    super.key,
+    required this.plan,
+    required this.today,
+    required this.onShowDay,
+    required this.nutritionPlan,
+    required this.nutritionLoading,
+    this.nutritionError,
+    this.nutritionCachedAt,
+    required this.onRetryNutrition,
+  });
+
   final TrainingPlan? plan;
   final String today;
   final ValueChanged<TrainingDay> onShowDay;
+  final NutritionPlan? nutritionPlan;
+  final bool nutritionLoading;
+  final String? nutritionError;
+  final DateTime? nutritionCachedAt;
+  final VoidCallback onRetryNutrition;
+
   @override
   State<PlansTab> createState() => _PlansTabState();
 }
@@ -37,11 +51,13 @@ class _PlansTabState extends State<PlansTab> {
           onChanged: (v) => setState(() => _nutrition = v)),
       const SizedBox(height: 16),
       if (_nutrition)
-        const ComingSoonCard(
-            icon: Icons.restaurant_menu_outlined,
-            title: 'Plan de alimentación',
-            description:
-                'Aquí verás las comidas, cantidades e indicaciones que te asigne tu profesional.')
+        NutritionPlanView(
+          plan: widget.nutritionPlan,
+          loading: widget.nutritionLoading,
+          error: widget.nutritionError,
+          cachedAt: widget.nutritionCachedAt,
+          onRetry: widget.onRetryNutrition,
+        )
       else if (plan != null)
         ..._training(context, plan)
       else

@@ -4,9 +4,8 @@ import { Link } from '../../../components/Link';
 import { initials } from '../../../utils/personName';
 import '../../training/training.css';
 
-export type ClientTab = 'summary' | 'training' | 'evaluation';
+export type ClientTab = 'summary' | 'training' | 'evaluation' | 'nutrition';
 
-/** Identity, quick facts and section tabs shared by every client page. */
 export default function ClientHeader({
   clientId,
   name,
@@ -22,22 +21,32 @@ export default function ClientHeader({
   facts?: string[];
   actions?: ReactNode;
 }): ReactElement {
-  const tabs: [ClientTab, string, string, 'home' | 'dumbbell' | 'clipboard'][] =
+  const tabs: [
+    ClientTab,
+    string,
+    string,
+    'home' | 'dumbbell' | 'clipboard' | 'layers',
+  ][] = [
+    ['summary', 'Resumen', `/app/clientes/${clientId}`, 'home'],
     [
-      ['summary', 'Resumen', `/app/clientes/${clientId}`, 'home'],
-      [
-        'training',
-        'Entrenamiento',
-        `/app/clientes/${clientId}/entrenamiento`,
-        'dumbbell',
-      ],
-      [
-        'evaluation',
-        'Evaluación',
-        `/app/clientes/${clientId}/evaluacion`,
-        'clipboard',
-      ],
-    ];
+      'training',
+      'Entrenamiento',
+      `/app/clientes/${clientId}/entrenamiento`,
+      'dumbbell',
+    ],
+    [
+      'evaluation',
+      'Evaluación',
+      `/app/clientes/${clientId}/evaluacion`,
+      'clipboard',
+    ],
+    [
+      'nutrition',
+      'Nutrición',
+      `/app/clientes/${clientId}/nutricion`,
+      'layers',
+    ],
+  ];
   return (
     <header className="client-hub-header">
       <Link to="/app/clientes" className="client-hub-back">

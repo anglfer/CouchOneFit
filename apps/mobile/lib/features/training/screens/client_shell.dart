@@ -6,6 +6,8 @@ import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../auth/models/session_models.dart';
 import '../../client/models/client_profile.dart';
+import '../../nutrition/models/nutrition_plan.dart';
+import '../../nutrition/services/nutrition_service.dart';
 import '../../settings/services/settings_controller.dart';
 import '../models/training.dart';
 import '../services/training_service.dart';
@@ -21,9 +23,11 @@ class ClientShell extends StatefulWidget {
       required this.profile,
       required this.service,
       required this.account,
+      this.nutritionService,
       this.settings});
   final ClientProfile profile;
   final TrainingService service;
+  final NutritionService? nutritionService;
 
   /// Cuenta tab: profile, access and Configuración.
   final Widget account;
@@ -35,12 +39,20 @@ class ClientShell extends StatefulWidget {
 class _ClientShellState extends State<ClientShell> {
   late final SettingsController _settings =
       widget.settings ?? SettingsController();
+  late final NutritionService _nutritionService = widget.nutritionService ??
+      NutritionService(apiClient: widget.service.apiClient);
   int _selected = 0, _epoch = 0;
   TrainingContext? _data;
   TrainingHistory? _history;
   DateTime? _cachedAt;
   String? _error;
   bool _loading = true, _opening = false, _historyFailed = false;
+
+  NutritionPlan? _nutritionPlan;
+  DateTime? _nutritionCachedAt;
+  String? _nutritionError;
+  bool _nutritionLoading = true;
+
   // Live workout kept mounted while minimized, until it is finalized.
   Widget? _session;
   String? _sessionName;
@@ -67,6 +79,45 @@ class _ClientShellState extends State<ClientShell> {
     }
   }
 
+  Future<void> _loadNutrition() async {
+    final epoch = _epoch;
+    setState(() {
+      _nutritionLoading = true;
+      _nutritionError = null;
+    });
+    try {
+      final fetched = await _nutritionService.fetchActivePlan();
+      if (!mounted || epoch != _epoch) return;
+      await _nutritionService.cache.save(widget.profile.id, fetched.rawPlan);
+      if (!mounted || epoch != _epoch) return;
+      setState(() {
+        _nutritionPlan = fetched.plan;
+        _nutritionCachedAt = null;
+      });
+    } catch (error) {
+      if (NutritionService.denied(error)) {
+        await _nutritionService.cache.clear();
+      }
+      final cached = NutritionService.disconnected(error)
+          ? await _nutritionService.cache.read(clientId: widget.profile.id)
+          : null;
+      if (!mounted || epoch != _epoch) return;
+      setState(() {
+        _nutritionPlan = cached?.plan;
+        _nutritionCachedAt = cached?.updatedAt;
+        _nutritionError = cached != null
+            ? null
+            : error is AuthApiException
+                ? error.message
+                : 'No pudimos consultar tu plan alimenticio. Reintenta la consulta.';
+      });
+    } finally {
+      if (mounted && epoch == _epoch) {
+        setState(() => _nutritionLoading = false);
+      }
+    }
+  }
+
   Future<void> _load() async {
     final epoch = ++_epoch;
     setState(() {
@@ -74,6 +125,7 @@ class _ClientShellState extends State<ClientShell> {
       _error = null;
     });
     final history = _fetchHistory();
+    final nutrition = _loadNutrition();
     try {
       final data = await widget.service.context();
       if (!mounted || epoch != _epoch) return;
@@ -102,6 +154,7 @@ class _ClientShellState extends State<ClientShell> {
                 : 'No pudimos consultar tu rutina. Reintenta la consulta.';
       });
     } finally {
+      await nutrition;
       final loaded = await history;
       if (mounted && epoch == _epoch) {
         setState(() {
@@ -555,7 +608,16 @@ class _ClientShellState extends State<ClientShell> {
               onShowDay: _showDay,
               onOpenProgress: () => setState(() => _selected = 2)),
         if (data != null && _selected == 1)
-          PlansTab(plan: plan, today: data.today, onShowDay: _showDay),
+          PlansTab(
+            plan: plan,
+            today: data.today,
+            onShowDay: _showDay,
+            nutritionPlan: _nutritionPlan,
+            nutritionLoading: _nutritionLoading,
+            nutritionError: _nutritionError,
+            nutritionCachedAt: _nutritionCachedAt,
+            onRetryNutrition: _loadNutrition,
+          ),
       ],
     ]);
   }

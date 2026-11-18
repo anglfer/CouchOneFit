@@ -5,6 +5,7 @@ import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import type { Operation } from '../../../services/offline/outbox';
 import RoutineWeek from '../../training/components/RoutineWeek';
 import ClientTraining from '../../training/pages/ClientTraining';
+import ClientNutrition from '../../nutrition/pages/ClientNutrition';
 import EvaluationsPage from '../../evaluations/pages/EvaluationsPage';
 import {
   count,
@@ -278,6 +279,14 @@ function ClientRecordContent({
                   recordRevision={result.attempt}
                   refresh={refresh}
                 />
+              ) : active === 'nutrition' ? (
+                <div className="training-page">
+                  <ClientNutrition
+                    clientId={clientId}
+                    clientName={record.fullName}
+                    onActivated={refresh}
+                  />
+                </div>
               ) : (
                 <>
                   {hasPending && (
