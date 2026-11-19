@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, type IconName } from '../../../components/Icon';
 import { Badge } from '../../../components/ui';
 import Modal from '../../training/components/Modal';
+import '../../training/training.css';
+import '../nutrition.css';
 import NutritionEditor from '../components/NutritionEditor';
 import NutritionView from '../components/NutritionView';
 import {
@@ -13,6 +15,7 @@ import {
   updateNutritionDraft,
 } from '../services/nutrition';
 import type { NutritionDocument, NutritionVersion } from '../types/nutrition';
+import { validateNutritionDocument } from '../utils/validation';
 
 type Tab = 'summary' | 'plan' | 'history';
 
@@ -52,11 +55,18 @@ export default function ClientNutrition({
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [editingRevision, setEditingRevision] = useState<number>(1);
   const [dirty, setDirty] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
   const [viewing, setViewing] = useState<NutritionVersion | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const active = versions.find((v) => v.id === activeVersionId) ?? null;
   const draft = versions.find((v) => !v.published) ?? null;
   const planId = versions[0]?.planId;
+
+  const validation = useMemo(
+    () => (editorDoc ? validateNutritionDocument(editorDoc) : null),
+    [editorDoc],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,6 +91,7 @@ export default function ClientNutrition({
   const startFrom = (source?: NutritionDocument) => {
     setNotice(null);
     setError(null);
+    setShowValidation(false);
     setEditingVersionId(null);
     setEditingRevision(1);
     setEditorDoc(source ? cloneNutritionDocument(source) : emptyNutritionDocument());
@@ -91,6 +102,7 @@ export default function ClientNutrition({
   const openDraft = (target: NutritionVersion) => {
     setNotice(null);
     setError(null);
+    setShowValidation(false);
     setEditingVersionId(target.id);
     setEditingRevision(target.revision);
     setEditorDoc(cloneNutritionDocument(target));
@@ -98,8 +110,22 @@ export default function ClientNutrition({
     setTab('plan');
   };
 
+  const ensureValidOrFocus = (): boolean => {
+    if (!validation || validation.valid) return true;
+    setShowValidation(true);
+    setError(
+      `Revisa ${validation.count === 1 ? 'el campo marcado' : `los ${validation.count} campos marcados`} antes de continuar: ${validation.summary[0]}`,
+    );
+    requestAnimationFrame(() => {
+      const firstInvalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      firstInvalid?.focus();
+      firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return false;
+  };
+
   async function saveDraftOnly(): Promise<NutritionVersion | null> {
-    if (!editorDoc) return null;
+    if (!editorDoc || !ensureValidOrFocus()) return null;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -111,6 +137,7 @@ export default function ClientNutrition({
       setEditingVersionId(saved.id);
       setEditingRevision(saved.revision);
       setDirty(false);
+      setShowValidation(false);
       setNotice('Borrador nutricional guardado.');
       await load();
       return saved;
@@ -123,7 +150,7 @@ export default function ClientNutrition({
   }
 
   async function saveAndActivate() {
-    if (!editorDoc) return;
+    if (!editorDoc || !ensureValidOrFocus()) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -141,6 +168,7 @@ export default function ClientNutrition({
       setEditorDoc(null);
       setEditingVersionId(null);
       setDirty(false);
+      setShowValidation(false);
       setNotice('Plan alimenticio activado. El cliente ya puede consultarlo en su móvil.');
       await load();
       onActivated?.();
@@ -153,7 +181,7 @@ export default function ClientNutrition({
   }
 
   return (
-    <>
+    <div className="training-page">
       <div className="client-subtabs" role="tablist" aria-label="Secciones de nutrición">
         {tabs.map(([key, label, icon]) => (
           <button
@@ -173,7 +201,7 @@ export default function ClientNutrition({
       </div>
 
       {error && (
-        <div className="ws-alert" data-tone="error" role="alert">
+        <div className="ws-alert" data-tone="bad" role="alert">
           {error}
         </div>
       )}
@@ -186,7 +214,7 @@ export default function ClientNutrition({
       {loading && <p role="status">Consultando plan alimenticio…</p>}
 
       {tab === 'summary' && !loading && (
-        <div className="space-y-4">
+        <div className="training-summary-main">
           {draft && active && !editorDoc && (
             <div className="ws-alert" data-tone="warn">
               Tienes un borrador sin activar («{draft.name}»).{' '}
@@ -197,13 +225,18 @@ export default function ClientNutrition({
           )}
 
           {active ? (
-            <section className="ws-card space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <section className="ws-card training-routine-card">
+              <div className="training-section-head">
                 <div>
                   <span className="ws-eyebrow">PLAN ALIMENTICIO ACTIVO</span>
                   <h2>{active.name}</h2>
-                  <p className="training-muted">
-                    Versión {active.number} · Activo desde {formatDay(active.createdAt)} · visible en el móvil del cliente.
+                  <p className="training-chips">
+                    <span>Versión {active.number}</span>
+                    <span>
+                      {active.meals.length}{' '}
+                      {active.meals.length === 1 ? 'tiempo de comida' : 'tiempos de comida'}
+                    </span>
+                    {active.caloriesTarget !== null && <span>{active.caloriesTarget} kcal</span>}
                   </p>
                 </div>
                 <div className="training-actions">
@@ -223,9 +256,12 @@ export default function ClientNutrition({
                 </div>
               </div>
               <NutritionView plan={active} />
+              <p className="training-muted">
+                Activo desde {formatDay(active.createdAt)} · visible en el móvil del cliente.
+              </p>
             </section>
           ) : draft ? (
-            <section className="ws-card space-y-3">
+            <section className="ws-card training-routine-card">
               <span className="ws-eyebrow">BORRADOR</span>
               <h2>{draft.name}</h2>
               <p className="training-muted">
@@ -266,8 +302,10 @@ export default function ClientNutrition({
 
       {tab === 'plan' &&
         !loading &&
-        (editorDoc ? (
+        (editorDoc && validation ? (
           <form
+            ref={formRef}
+            noValidate
             className="training-editing"
             onSubmit={(e) => {
               e.preventDefault();
@@ -292,6 +330,7 @@ export default function ClientNutrition({
                   disabled={busy}
                   onClick={() => {
                     setEditorDoc(null);
+                    setShowValidation(false);
                     setTab('summary');
                   }}
                 >
@@ -313,6 +352,8 @@ export default function ClientNutrition({
 
             <NutritionEditor
               value={editorDoc}
+              errors={validation.errors}
+              showAllErrors={showValidation}
               onChange={(next) => {
                 setEditorDoc(next);
                 setDirty(true);
@@ -321,7 +362,7 @@ export default function ClientNutrition({
             />
           </form>
         ) : active ? (
-          <section className="ws-card space-y-4">
+          <section className="ws-card">
             <div className="training-section-head">
               <div>
                 <span className="ws-eyebrow">LO QUE VE EL CLIENTE</span>
@@ -402,6 +443,6 @@ export default function ClientNutrition({
           <NutritionView plan={viewing} />
         </Modal>
       )}
-    </>
+    </div>
   );
 }

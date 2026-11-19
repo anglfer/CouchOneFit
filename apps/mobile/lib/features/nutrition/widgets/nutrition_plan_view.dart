@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/section_title.dart';
 import '../../../shared/widgets/status_view.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../../training/models/training.dart';
 import '../../training/screens/training_views.dart';
 import '../models/nutrition_plan.dart';
@@ -70,12 +72,21 @@ class NutritionPlanView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    current.name,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontSize: 22, height: 1.15),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          current.name,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontSize: 22, height: 1.15),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const TonePill('Vigente', tone: BrandColors.success),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -85,35 +96,41 @@ class NutritionPlanView extends StatelessWidget {
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                  if (current.hasMacros) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (current.caloriesTarget != null)
-                          TrainingChip(
-                            '${current.caloriesTarget!.round()} kcal',
-                            icon: Icons.local_fire_department_outlined,
-                          ),
-                        if (current.proteinTargetG != null)
-                          TrainingChip(
-                            '${current.proteinTargetG!.round()} g proteína',
-                            icon: Icons.egg_alt_outlined,
-                          ),
-                        if (current.carbsTargetG != null)
-                          TrainingChip(
-                            '${current.carbsTargetG!.round()} g carbos',
-                            icon: Icons.grain_outlined,
-                          ),
-                        if (current.fatTargetG != null)
-                          TrainingChip(
-                            '${current.fatTargetG!.round()} g grasas',
-                            icon: Icons.water_drop_outlined,
-                          ),
-                      ],
-                    ),
-                  ],
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      TrainingChip(
+                        trainingCount(
+                          current.meals.length,
+                          'comida',
+                          'comidas',
+                        ),
+                        icon: Icons.restaurant_outlined,
+                      ),
+                      if (current.caloriesTarget != null)
+                        TrainingChip(
+                          '${current.caloriesTarget!.round()} kcal',
+                          icon: Icons.local_fire_department_outlined,
+                        ),
+                      if (current.proteinTargetG != null)
+                        TrainingChip(
+                          '${current.proteinTargetG!.round()} g proteína',
+                          icon: Icons.egg_alt_outlined,
+                        ),
+                      if (current.carbsTargetG != null)
+                        TrainingChip(
+                          '${current.carbsTargetG!.round()} g carbos',
+                          icon: Icons.grain_outlined,
+                        ),
+                      if (current.fatTargetG != null)
+                        TrainingChip(
+                          '${current.fatTargetG!.round()} g grasas',
+                          icon: Icons.water_drop_outlined,
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'Sigue las porciones e indicaciones de cada comida definidas por tu profesional.',
@@ -141,8 +158,8 @@ class NutritionPlanView extends StatelessWidget {
                   'Tu profesional aún no agrega tiempos de comida a este plan.',
             )
           else
-            for (final meal in current.meals) ...[
-              _MealCard(meal: meal),
+            for (final entry in current.meals.asMap().entries) ...[
+              _MealCard(index: entry.key + 1, meal: entry.value),
               const SizedBox(height: 12),
             ],
         ],
@@ -152,7 +169,8 @@ class NutritionPlanView extends StatelessWidget {
 }
 
 class _MealCard extends StatelessWidget {
-  const _MealCard({required this.meal});
+  const _MealCard({required this.index, required this.meal});
+  final int index;
   final NutritionMeal meal;
 
   @override
@@ -161,38 +179,63 @@ class _MealCard extends StatelessWidget {
     return GroupCard(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                meal.name,
-                style: TextStyle(
-                  fontSize: 16.5,
-                  fontWeight: FontWeight.w800,
-                  color: colors.onSurface,
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              if (meal.instructions != null &&
-                  meal.instructions!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  meal.instructions!,
+                child: Text(
+                  '$index',
                   style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.35,
-                    color: colors.onSurfaceVariant,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: colors.primary,
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meal.name,
+                      style: TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                    if (meal.instructions != null &&
+                        meal.instructions!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        meal.instructions!,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          height: 1.35,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
         for (final item in meal.items)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Column(
@@ -222,21 +265,9 @@ class _MealCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: colors.secondaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    item.quantityLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: colors.onSecondaryContainer,
-                    ),
-                  ),
+                TonePill(
+                  item.quantityLabel,
+                  tone: colors.primary,
                 ),
               ],
             ),

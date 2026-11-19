@@ -1,0 +1,183 @@
+/* EP-05 nutrition workspace — shares --ws-* design tokens with EP-06 training. */
+.nutrition-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.nutrition-field-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--ws-bad-fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nutrition-editor input[aria-invalid='true'],
+.nutrition-editor select[aria-invalid='true'],
+.nutrition-editor textarea[aria-invalid='true'] {
+  border-color: var(--ws-bad-fg);
+  background: var(--ws-bad-bg);
+}
+
+.nutrition-meal-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--ws-border);
+  border-radius: 14px;
+  background: var(--ws-surface);
+}
+
+.nutrition-meal-card[data-invalid='true'] {
+  border-color: var(--ws-bad-fg);
+}
+
+.nutrition-meal-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.nutrition-meal-title-row {
+  display: flex;
+  flex: 1 1 260px;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.nutrition-meal-title-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.nutrition-items-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nutrition-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(90px, 0.9fr) minmax(100px, 1fr) minmax(0, 1.8fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--ws-border-subtle);
+  border-radius: 12px;
+  background: var(--ws-surface-2);
+}
+
+.nutrition-item-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.nutrition-item-cell label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ws-muted);
+}
+
+.nutrition-macros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.nutrition-macro-tile {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--ws-border-subtle);
+  border-radius: 12px;
+  background: var(--ws-surface-2);
+}
+
+.nutrition-macro-tile span {
+  color: var(--ws-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nutrition-macro-tile strong {
+  color: var(--ws-text);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.nutrition-view-meals {
+  display: grid;
+  gap: 12px;
+}
+
+.nutrition-view-meal {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--ws-border);
+  border-radius: 14px;
+  background: var(--ws-surface);
+}
+
+.nutrition-view-meal-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.nutrition-view-meal-head h3 {
+  font-size: 1rem;
+  font-weight: 750;
+  color: var(--ws-text);
+}
+
+.nutrition-view-items {
+  display: grid;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--ws-border-subtle);
+}
+
+.nutrition-view-items li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ws-border-subtle);
+}
+
+.nutrition-view-items li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.nutrition-qty-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ws-selected);
+  color: var(--ws-primary-fg);
+  font-size: 12.5px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+@media (max-width: 780px) {
+  .nutrition-item-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .nutrition-item-row > .nutrition-item-cell:first-child,
+  .nutrition-item-row > .nutrition-item-cell:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}
