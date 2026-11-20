@@ -21,6 +21,16 @@ export function nutritionControllers(pool: Pool, clock: () => Date) {
       nutritionService.getVersions(pool, req.identity!, uuid(req.params.clientId)),
     ),
 
+    suggest: wrap((req) =>
+      nutritionService.generateSuggestion(
+        pool,
+        req.identity!,
+        req.params.clientId,
+        req.body,
+        clock(),
+      ),
+    ),
+
     write: wrap(
       (req) => {
         if (req.method === 'PATCH') {

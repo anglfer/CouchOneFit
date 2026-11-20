@@ -23,6 +23,8 @@ class PlansTab extends StatefulWidget {
     this.nutritionError,
     this.nutritionCachedAt,
     required this.onRetryNutrition,
+    this.showNutrition = false,
+    this.onSectionChanged,
   });
 
   final TrainingPlan? plan;
@@ -33,13 +35,30 @@ class PlansTab extends StatefulWidget {
   final String? nutritionError;
   final DateTime? nutritionCachedAt;
   final VoidCallback onRetryNutrition;
+  final bool showNutrition;
+  final ValueChanged<bool>? onSectionChanged;
 
   @override
   State<PlansTab> createState() => _PlansTabState();
 }
 
 class _PlansTabState extends State<PlansTab> {
-  bool _nutrition = false;
+  late bool _nutrition = widget.showNutrition;
+
+  @override
+  void didUpdateWidget(covariant PlansTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showNutrition != oldWidget.showNutrition &&
+        widget.onSectionChanged != null) {
+      _nutrition = widget.showNutrition;
+    }
+  }
+
+  void _selectSection(bool value) {
+    setState(() => _nutrition = value);
+    widget.onSectionChanged?.call(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
@@ -48,7 +67,7 @@ class _PlansTabState extends State<PlansTab> {
           options: const [(false, 'Entrenamiento'), (true, 'Alimentación')],
           icons: const [Icons.fitness_center, Icons.restaurant_outlined],
           selected: _nutrition,
-          onChanged: (v) => setState(() => _nutrition = v)),
+          onChanged: _selectSection),
       const SizedBox(height: 16),
       if (_nutrition)
         NutritionPlanView(

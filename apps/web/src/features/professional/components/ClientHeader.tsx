@@ -25,7 +25,7 @@ export default function ClientHeader({
     ClientTab,
     string,
     string,
-    'home' | 'dumbbell' | 'clipboard' | 'layers',
+    'home' | 'dumbbell' | 'clipboard' | 'bowl',
   ][] = [
     ['summary', 'Resumen', `/app/clientes/${clientId}`, 'home'],
     [
@@ -40,12 +40,7 @@ export default function ClientHeader({
       `/app/clientes/${clientId}/evaluacion`,
       'clipboard',
     ],
-    [
-      'nutrition',
-      'Nutrición',
-      `/app/clientes/${clientId}/nutricion`,
-      'layers',
-    ],
+    ['nutrition', 'Nutrición', `/app/clientes/${clientId}/nutricion`, 'bowl'],
   ];
   return (
     <header className="client-hub-header">

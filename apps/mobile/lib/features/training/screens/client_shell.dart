@@ -42,6 +42,7 @@ class _ClientShellState extends State<ClientShell> {
   late final NutritionService _nutritionService = widget.nutritionService ??
       NutritionService(apiClient: widget.service.apiClient);
   int _selected = 0, _epoch = 0;
+  bool _plansNutrition = false;
   TrainingContext? _data;
   TrainingHistory? _history;
   DateTime? _cachedAt;
@@ -606,7 +607,12 @@ class _ClientShellState extends State<ClientShell> {
               opening: _opening,
               onStart: _openSession,
               onShowDay: _showDay,
-              onOpenProgress: () => setState(() => _selected = 2)),
+              onOpenProgress: () => setState(() => _selected = 2),
+              nutritionPlan: _nutritionPlan,
+              onOpenNutrition: () => setState(() {
+                    _plansNutrition = true;
+                    _selected = 1;
+                  })),
         if (data != null && _selected == 1)
           PlansTab(
             plan: plan,
@@ -617,6 +623,8 @@ class _ClientShellState extends State<ClientShell> {
             nutritionError: _nutritionError,
             nutritionCachedAt: _nutritionCachedAt,
             onRetryNutrition: _loadNutrition,
+            showNutrition: _plansNutrition,
+            onSectionChanged: (v) => setState(() => _plansNutrition = v),
           ),
       ],
     ]);

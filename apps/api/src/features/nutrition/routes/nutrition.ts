@@ -11,8 +11,15 @@ export function nutritionRoutes(pool: Pool, now?: () => Date) {
   const client = requireClient(pool, now);
   const payload = json({ limit: '1mb' });
 
-  // Profesional: gestión de versiones, borradores y activación (HU-024, HU-026)
+  // Profesional: gestión de versiones, borradores, sugerencia inicial (HU-025) y activación (HU-024, HU-026)
   router.get('/clients/:clientId/nutrition-plans', pro, controller.versions);
+  router.post(
+    '/clients/:clientId/nutrition-plans/suggestion',
+    pro,
+    requireCsrf,
+    payload,
+    controller.suggest,
+  );
   router.post('/clients/:clientId/nutrition-plans', pro, requireCsrf, payload, controller.write);
   router.post('/clients/:clientId/nutrition-plans/:planId/versions', pro, requireCsrf, payload, controller.write);
   router.patch('/clients/:clientId/nutrition-plans/:planId/versions/:versionId', pro, requireCsrf, payload, controller.write);

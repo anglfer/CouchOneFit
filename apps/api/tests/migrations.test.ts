@@ -1,9 +1,87 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { Pool } from 'pg';
+import { readAsSubject } from '../src/features/auth/repositories/lifecycle.js';
+import type { SessionIdentity } from '../src/features/auth/types/session.js';
+import { activateVersion, getActivePlanForClient, getVersions, saveDraft, updateDraft } from '../src/features/nutrition/services/nutrition.js';
+
+async function verifyNutritionAccess(owner: Pool, connectionString: string) {
+  async function createActor(username: string, role: SessionIdentity['role']): Promise<SessionIdentity> {
+    const email = `${username}@example.com`;
+    const { rows: [{ id }] } = await owner.query(
+      "INSERT INTO private.users(username,email,password_hash,role) VALUES($1,$2,'$argon2id$fixture',$3) RETURNING id",
+      [username, email, role],
+    );
+    return { id, role, username, email, fullName: username, sessionId: randomUUID(), expiresAt: new Date() };
+  }
+
+  async function createPortfolio(suffix: string) {
+    const professional = await createActor(`nutrition.pro.${suffix}`, 'professional');
+    const client = await createActor(`nutrition.client.${suffix}`, 'client');
+    const { rows: [{ id: professionalId }] } = await owner.query(
+      'INSERT INTO private.professionals(user_id,full_name) VALUES($1,$2) RETURNING id',
+      [professional.id, professional.fullName],
+    );
+    await owner.query(
+      "INSERT INTO private.subscriptions(professional_id,plan_id,expires_at) SELECT $1,id,now()+interval '1 day' FROM private.saas_plans WHERE name='Básico 10'",
+      [professionalId],
+    );
+    const { rows: [{ id: clientId }] } = await owner.query(
+      'INSERT INTO private.clients(professional_id,user_id,full_name) VALUES($1,$2,$3) RETURNING id',
+      [professionalId, client.id, client.fullName],
+    );
+    // Nutrition requires a prior physical evaluation.
+    await owner.query('INSERT INTO private.client_evaluations(client_id,weight_kg) VALUES($1,70)', [clientId]);
+    return { professional, client, clientId };
+  }
+
+  const runtime = new Pool({ connectionString, options: '-c role=couchone_authentication' });
+  try {
+    const a = await createPortfolio('a');
+    const b = await createPortfolio('b');
+    const now = new Date();
+    const document = {
+      name: 'Plan V1',
+      meals: [{ id: randomUUID(), name: 'Desayuno', items: [{ id: randomUUID(), name: 'Avena', quantity: 50, unit: 'g' }] }],
+    };
+    assert.deepEqual(await getVersions(runtime, a.professional, a.clientId), {
+      versions: [], activeVersionId: null, activeRevision: 0, canWrite: true,
+    });
+    const draft = await saveDraft(runtime, a.professional, a.clientId, undefined, document);
+    assert.deepEqual(await getActivePlanForClient(runtime, a.client), { plan: null });
+    const update = { ...document, meals: [{ ...document.meals[0], name: 'Desayuno actualizado' }], revision: draft.revision };
+    const edited = await updateDraft(runtime, a.professional, a.clientId, draft.planId, draft.id, update);
+    assert.equal(edited.meals[0].name, 'Desayuno actualizado');
+    await activateVersion(runtime, a.professional, a.clientId, draft.planId, draft.id, { expectedActiveRevision: 0 }, now);
+    assert.equal((await getActivePlanForClient(runtime, a.client)).plan?.id, draft.id);
+    const next = await saveDraft(runtime, a.professional, a.clientId, draft.planId, { ...document, name: 'Plan V2' });
+    assert.equal((await getActivePlanForClient(runtime, a.client)).plan?.id, draft.id);
+    await activateVersion(runtime, a.professional, a.clientId, next.planId, next.id, { expectedActiveRevision: 1 }, now);
+    assert.equal((await getActivePlanForClient(runtime, a.client)).plan?.id, next.id);
+    assert.deepEqual((await getVersions(runtime, a.professional, a.clientId)).versions.map((version) => version.id).sort(), [draft.id, next.id].sort());
+    assert.deepEqual((await owner.query('SELECT version_id FROM private.nutrition_activations WHERE client_id=$1 ORDER BY revision', [a.clientId])).rows, [{ version_id: draft.id }, { version_id: next.id }]);
+
+    await assert.rejects(getVersions(runtime, b.professional, a.clientId), { code: 'NUTRITION_NOT_FOUND' });
+    assert.deepEqual(await getActivePlanForClient(runtime, b.client), { plan: null });
+    const visibleVersions = (subject: string) => readAsSubject(runtime, subject, (db) => db.query('SELECT id FROM private.nutrition_versions'));
+    assert.deepEqual((await visibleVersions(a.client.id)).rows, [{ id: next.id }]);
+    assert.deepEqual((await visibleVersions(b.professional.id)).rows, []);
+    for (const actor of [a.client, b.professional]) {
+      await assert.rejects(readAsSubject(runtime, actor.id, (db) => db.query(
+        'INSERT INTO private.nutrition_versions(id,plan_id,number,document) VALUES($1,$2,3,$3)',
+        [randomUUID(), draft.planId, JSON.stringify(document)],
+      )), { code: '42501' });
+    }
+    assert.equal((await readAsSubject(runtime, a.professional.id, (db) => db.query(
+      'UPDATE private.nutrition_versions SET document=$1 WHERE id=$2', [{}, draft.id],
+    ))).rowCount, 0);
+  } finally {
+    await runtime.end();
+  }
+}
 
 test('migrations and the integrated schema produce the same English database', async () => {
   const value = process.env.TEST_DATABASE_URL;
@@ -42,6 +120,7 @@ test('migrations and the integrated schema produce the same English database', a
         }
       );
     const applied = migrate();
+    await verifyNutritionAccess(databases[0], urls[0]);
     assert.match(applied, /Applied: 202610150001_inicial_identidad_acceso.sql/);
     assert.match(applied, /Applied: 202610160001_provision_administrador.sql/);
     assert.match(applied, /Applied: 202610190001_english_identifiers.sql/);
@@ -58,6 +137,8 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202611090001_multimethod_evaluations.sql/);
     assert.match(applied, /Applied: 202611100001_evaluation_measurement_integrity.sql/);
     assert.match(applied, /Applied: 202611130001_evaluation_estimation_snapshots.sql/);
+    assert.match(applied, /Applied: 202611170001_nutrition_plans.sql/);
+    assert.match(applied, /Applied: 202611190001_nutrition_runtime_access.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -79,7 +160,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '30'
+      '32'
     );
     await databases[1].query(
       readFileSync(
@@ -197,7 +278,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '30'
+      '32'
     );
     assert.equal(
       (
@@ -282,7 +363,7 @@ test('migrations and the integrated schema produce the same English database', a
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
         "SELECT CASE WHEN nspacl IS NULL THEN NULL ELSE ARRAY(SELECT acl::text FROM unnest(nspacl) AS acl ORDER BY acl::text) END AS nspacl FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
-        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,p.prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record') ORDER BY p.proname",
+        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,replace(p.prosrc,chr(13)||chr(10),chr(10)) AS prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record','nutrition_professional','nutrition_client_access','nutrition_can_write') ORDER BY p.proname",
       ];
       return Promise.all(
         queries.map(async (sql) => (await db.query(sql)).rows)
@@ -300,13 +381,32 @@ test('migrations and the integrated schema produce the same English database', a
     const upgradeProfessional=(await databases[3].query("INSERT INTO private.professionals(user_id,full_name) VALUES($1,'Upgrade evaluation') RETURNING id",[upgradeUser])).rows[0].id;
     const upgradeClient=(await databases[3].query("INSERT INTO private.clients(professional_id,full_name) VALUES($1,'Legacy evaluation client') RETURNING id",[upgradeProfessional])).rows[0].id;
     const previousEvaluation=(await databases[3].query('INSERT INTO private.client_evaluations(client_id,weight_kg) VALUES($1,70.2) RETURNING *',[upgradeClient])).rows[0];
-    assert.match(migrate(urls[3]),/Applied: 202611090001_multimethod_evaluations.sql/);
+    const nutritionFile = '202611170001_nutrition_plans.sql';
+    const nutritionSql = readFileSync(new URL(nutritionFile, migrationDirectory), 'utf8');
+    await databases[3].query(nutritionSql);
+    await databases[3].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)', [nutritionFile, createHash('sha256').update(nutritionSql).digest('hex')]);
+    const planId = randomUUID();
+    const versionId = randomUUID();
+    const existingPlan = { name: 'Plan histórico', meals: [] };
+    await databases[3].query('INSERT INTO private.nutrition_plans(id,owner_id,client_id) VALUES($1,$2,$3)', [planId, upgradeUser, upgradeClient]);
+    await databases[3].query('INSERT INTO private.nutrition_versions(id,plan_id,number,published,document) VALUES($1,$2,1,true,$3)', [versionId, planId, existingPlan]);
+    await databases[3].query('INSERT INTO private.nutrition_active(client_id,plan_id,version_id,revision) VALUES($1,$2,$3,1)', [upgradeClient, planId, versionId]);
+    await databases[3].query("INSERT INTO private.nutrition_activations(client_id,plan_id,version_id,local_date,time_zone,revision) VALUES($1,$2,$3,CURRENT_DATE,'America/Mexico_City',1)", [upgradeClient, planId, versionId]);
+    const upgraded = migrate(urls[3]);
+    assert.match(upgraded,/Applied: 202611090001_multimethod_evaluations.sql/);
+    assert.match(upgraded,/Applied: 202611190001_nutrition_runtime_access.sql/);
+    assert.deepEqual((await databases[3].query(
+      `SELECT v.document, a.version_id, h.revision FROM private.nutrition_active a
+      JOIN private.nutrition_versions v ON v.id=a.version_id
+      JOIN private.nutrition_activations h ON h.client_id=a.client_id AND h.version_id=v.id
+      WHERE a.client_id=$1`, [upgradeClient],
+    )).rows, [{ document: existingPlan, version_id: versionId, revision: 1 }]);
     const preserved=(await databases[3].query('SELECT * FROM private.client_evaluations WHERE id=$1',[previousEvaluation.id])).rows[0];
     const {assessment,...originalColumns}=preserved;
     assert.equal(assessment,null);
     assert.deepEqual(originalColumns,previousEvaluation);
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 28);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 34);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

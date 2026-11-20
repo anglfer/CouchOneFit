@@ -27,7 +27,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
   const now = options?.now;
   app.disable('x-powered-by');
   app.use('/api', trainingRoutes(database, now));
-  app.use('/api/nutrition', nutritionRoutes(database));
+  app.use('/api', nutritionRoutes(database, now));
   app.use(express.json({ limit: '16kb' }));
   app.use('/api/clients', evaluationRoutes(database, now));
   app.get('/api/health', (_req, res) => {
@@ -37,8 +37,6 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       timestamp: (now?.() ?? new Date()).toISOString(),
     });
   });
-  app.use('/api', trainingRoutes(database, now));
-  app.use('/api', nutritionRoutes(database, now));
   app.use('/api/plans', publicPlanRoutes(database));
   app.use('/api/auth', registrationRoutes(database));
   app.use('/api/auth', sessionRoutes(database, now));

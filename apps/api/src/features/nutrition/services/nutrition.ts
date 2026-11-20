@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import type { SessionIdentity } from '../../auth/types/session.js';
 import * as nutritionRepository from '../repositories/nutrition.js';
-import { nutritionDocument, uuid, number, validateActivation } from '../validators/nutrition.js';
+import { generateNutritionSuggestion } from '../domain/suggestion-engine.js';
+import {
+  nutritionDocument,
+  uuid,
+  number,
+  validateActivation,
+  validateSuggestionInput,
+} from '../validators/nutrition.js';
 import type { NutritionVersion, NutritionVersionsResponse } from '../types/nutrition.js';
 
 function localDateInZone(now: Date, timeZone: string): string {
@@ -39,6 +46,36 @@ export async function getVersions(
   });
 }
 
+export async function getActivePlanSummary(
+  pool: Pool,
+  identity: SessionIdentity,
+  clientId: string,
+): Promise<{ plan: NutritionVersion | null; activeRevision: number }> {
+  const targetId = uuid(clientId);
+  return nutritionRepository.read(pool, identity, async (c) => {
+    await nutritionRepository.scope(c, identity, targetId, false);
+    return nutritionRepository.activeProfessionalPlan(c, identity, targetId);
+  });
+}
+
+export async function generateSuggestion(
+  pool: Pool,
+  identity: SessionIdentity,
+  clientId: string,
+  body: unknown,
+  now: Date,
+) {
+  const targetId = uuid(clientId);
+  const input = validateSuggestionInput(body);
+  return nutritionRepository.read(pool, identity, async (c) => {
+    await nutritionRepository.scope(c, identity, targetId, true);
+    await nutritionRepository.requireEvaluation(c, targetId);
+    return {
+      suggestion: generateNutritionSuggestion(input, now),
+    };
+  });
+}
+
 export async function saveDraft(
   pool: Pool,
   identity: SessionIdentity,
@@ -51,6 +88,7 @@ export async function saveDraft(
   const document = nutritionDocument(body);
   return nutritionRepository.read(pool, identity, async (c) => {
     await nutritionRepository.scope(c, identity, targetId, true);
+    await nutritionRepository.requireEvaluation(c, targetId);
     let resolvedPlanId: string;
     if (targetPlanId) {
       await nutritionRepository.ownedPlan(c, identity, targetPlanId, targetId);
@@ -80,6 +118,7 @@ export async function updateDraft(
 
   return nutritionRepository.read(pool, identity, async (c) => {
     await nutritionRepository.scope(c, identity, targetId, true);
+    await nutritionRepository.requireEvaluation(c, targetId);
     await nutritionRepository.ownedPlan(c, identity, targetPlanId, targetId);
     const v = await nutritionRepository.version(c, targetVersionId);
     if (v.planId !== targetPlanId) throw nutritionRepository.missing();

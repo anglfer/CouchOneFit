@@ -284,6 +284,7 @@ function ClientRecordContent({
                   <ClientNutrition
                     clientId={clientId}
                     clientName={record.fullName}
+                    record={result.record}
                     onActivated={refresh}
                   />
                 </div>

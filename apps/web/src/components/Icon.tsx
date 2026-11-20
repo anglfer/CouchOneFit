@@ -34,7 +34,16 @@ export type IconName =
   | 'link'
   | 'smartphone'
   | 'menu'
-  | 'close';
+  | 'close'
+  | 'copy'
+  | 'chevron-up'
+  | 'chevron-down'
+  | 'sliders'
+  | 'flame'
+  | 'droplet'
+  | 'clock'
+  | 'swap'
+  | 'trash';
 
 const paths: Record<IconName, ReactElement> = {
   home: (
@@ -183,6 +192,41 @@ const paths: Record<IconName, ReactElement> = {
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </>
+  ),
+  'chevron-up': <path d="m7 14.5 5-5 5 5" />,
+  'chevron-down': <path d="m7 9.5 5 5 5-5" />,
+  sliders: (
+    <>
+      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4" />
+    </>
+  ),
+  flame: (
+    <path d="M12 3c.5 3.5-2.5 5-2.5 8a2.5 2.5 0 0 0 5 0c0-1.5-.5-2.5-1-3.5 3 1.5 5 4.5 5 7.5a6.5 6.5 0 1 1-13 0c0-4 2.5-7 6.5-12Z" />
+  ),
+  droplet: (
+    <path d="M12 3.5S6 10.2 6 14.5a6 6 0 0 0 12 0C18 10.2 12 3.5 12 3.5Z" />
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  swap: (
+    <>
+      <path d="M7 16V4m0 0-3 3m3-3 3 3M17 8v12m0 0 3-3m-3 3-3-3" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+    </>
+  ),
 };
 
 interface IconProps extends SVGProps<SVGSVGElement> {

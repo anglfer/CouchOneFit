@@ -1,6 +1,7 @@
 import { sessionRequest } from '../../auth/services/session';
 import type { ProfessionalRecord } from '../types/record';
 import { isVersion } from '../../training/services/training';
+import { isNutritionVersion } from '../../nutrition/services/nutrition';
 import { isEvolutionPage } from '../../evaluations/types/evolution';
 import { isEvaluation } from '../../evaluations/types/evaluation';
 
@@ -31,6 +32,19 @@ export async function fetchProfessionalRecord(
   ]) {
     const section = record.sections[key];
     // Accept the existing not_integrated cache during upgrade; validate every new payload.
+    if (
+      key === 'nutritionPlan' &&
+      object(section) &&
+      section.status === 'available'
+    ) {
+      if (
+        !isNutritionVersion(section.plan) ||
+        section.plan.clientId !== clientId ||
+        typeof section.activeRevision !== 'number'
+      )
+        throw new Error('Invalid nutrition section');
+      continue;
+    }
     if (
       key === 'progress' &&
       object(section) &&

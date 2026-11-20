@@ -15,6 +15,17 @@ export const forbidden = (): never => {
   throw new AuthError(403, 'NUTRITION_READ_ONLY', 'No tienes permiso para modificar este plan.');
 };
 
+// Prescribing without a physical evaluation would mean guessing weight/composition.
+export async function requireEvaluation(c: PoolClient, clientId: string): Promise<void> {
+  const { rowCount } = await c.query('SELECT 1 FROM private.client_evaluations WHERE client_id=$1 LIMIT 1', [clientId]);
+  if (!rowCount)
+    throw new AuthError(
+      409,
+      'NUTRITION_EVALUATION_REQUIRED',
+      'Registra una evaluación física del cliente antes de prescribir su alimentación.',
+    );
+}
+
 export interface Scope {
   clientId: string;
   timeZone: string;
@@ -64,6 +75,39 @@ export const read = <T>(pool: Pool, identity: SessionIdentity, work: (c: PoolCli
 
 const projection = `SELECT v.*, p.client_id FROM private.nutrition_versions v JOIN private.nutrition_plans p ON p.id=v.plan_id`;
 
+/** Backfill newly added optional fields to null for previously stored JSONB documents. */
+function normalizeDocument(document: NutritionDocument): NutritionDocument {
+  return {
+    ...document,
+    generalInstructions: document.generalInstructions ?? null,
+    fiberTargetG: document.fiberTargetG ?? null,
+    hydrationTargetMl: document.hydrationTargetMl ?? null,
+    restDayTargets: document.restDayTargets ?? null,
+    periWorkout: document.periWorkout ?? null,
+    suggestionMeta: document.suggestionMeta ?? null,
+    meals: document.meals.map((meal) => ({
+      ...meal,
+      instructions: meal.instructions ?? null,
+      scheduleTime: meal.scheduleTime ?? null,
+      category: meal.category ?? null,
+      targetCalories: meal.targetCalories ?? null,
+      targetProteinG: meal.targetProteinG ?? null,
+      targetCarbsG: meal.targetCarbsG ?? null,
+      targetFatG: meal.targetFatG ?? null,
+      items: meal.items.map((item) => ({
+        ...item,
+        instructions: item.instructions ?? null,
+        foodGroup: item.foodGroup ?? null,
+        substitutes: item.substitutes ?? null,
+        calories: item.calories ?? null,
+        proteinG: item.proteinG ?? null,
+        carbsG: item.carbsG ?? null,
+        fatG: item.fatG ?? null,
+      })),
+    })),
+  };
+}
+
 function mapVersion(row: {
   document: NutritionDocument;
   id: string;
@@ -75,7 +119,7 @@ function mapVersion(row: {
   created_at: Date;
 }): NutritionVersion {
   return {
-    ...row.document,
+    ...normalizeDocument(row.document),
     id: row.id,
     planId: row.plan_id,
     clientId: row.client_id,
@@ -220,4 +264,20 @@ export async function activeClientPlan(c: PoolClient, clientId: string): Promise
     [clientId],
   );
   return row ? mapVersion(row) : null;
+}
+
+export async function activeProfessionalPlan(
+  c: PoolClient,
+  identity: SessionIdentity,
+  clientId: string,
+): Promise<{ plan: NutritionVersion | null; activeRevision: number }> {
+  const {
+    rows: [row],
+  } = await c.query(
+    `${projection} JOIN private.nutrition_active a ON a.version_id=v.id WHERE p.owner_id=$1 AND a.client_id=$2::uuid AND v.published`,
+    [identity.id, clientId],
+  );
+  if (!row) return { plan: null, activeRevision: 0 };
+  const currentActive = await active(c, clientId);
+  return { plan: mapVersion(row), activeRevision: currentActive.revision };
 }

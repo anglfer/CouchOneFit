@@ -6,11 +6,19 @@ export interface NutritionFieldErrors {
   proteinTargetG?: string;
   carbsTargetG?: string;
   fatTargetG?: string;
+  fiberTargetG?: string;
+  hydrationTargetMl?: string;
+  generalInstructions?: string;
+  restCaloriesTarget?: string;
+  restProteinTargetG?: string;
+  restCarbsTargetG?: string;
+  restFatTargetG?: string;
   mealsGeneral?: string;
   meals: Record<
     string,
     {
       name?: string;
+      scheduleTime?: string;
       instructions?: string;
       itemsGeneral?: string;
       items: Record<
@@ -20,6 +28,7 @@ export interface NutritionFieldErrors {
           quantity?: string;
           unit?: string;
           instructions?: string;
+          substitutes?: string;
         }
       >;
     }
@@ -38,10 +47,17 @@ const MACRO_LIMITS = {
   proteinTargetG: { label: 'La proteína', min: 0, max: 1000, unit: 'g' },
   carbsTargetG: { label: 'Los carbohidratos', min: 0, max: 1500, unit: 'g' },
   fatTargetG: { label: 'Las grasas', min: 0, max: 1000, unit: 'g' },
+  fiberTargetG: { label: 'La fibra', min: 0, max: 150, unit: 'g' },
+  hydrationTargetMl: {
+    label: 'La hidratación',
+    min: 0,
+    max: 10000,
+    unit: 'ml',
+  },
 } as const;
 
 export function validateNutritionDocument(
-  doc: NutritionDocument,
+  doc: NutritionDocument
 ): NutritionValidationResult {
   const errors: NutritionFieldErrors = { meals: {} };
   const summary: string[] = [];
@@ -68,23 +84,70 @@ export function validateNutritionDocument(
     });
   }
 
-  (Object.keys(MACRO_LIMITS) as (keyof typeof MACRO_LIMITS)[]).forEach((key) => {
-    const val = doc[key];
-    if (val === null || val === undefined) return;
-    const rule = MACRO_LIMITS[key];
-    if (!Number.isFinite(val)) {
-      pushError(`${rule.label} deben ser un número válido.`, () => {
-        errors[key] = 'Ingresa un número válido.';
-      });
-    } else if (val < rule.min || val > rule.max) {
-      pushError(
-        `${rule.label} deben estar entre ${rule.min} y ${rule.max} ${rule.unit}.`,
-        () => {
-          errors[key] = `Rango permitido: ${rule.min} a ${rule.max} ${rule.unit}.`;
-        },
-      );
+  (Object.keys(MACRO_LIMITS) as (keyof typeof MACRO_LIMITS)[]).forEach(
+    (key) => {
+      const val = doc[key];
+      if (val === null || val === undefined) return;
+      const rule = MACRO_LIMITS[key];
+      if (!Number.isFinite(val)) {
+        pushError(`${rule.label} deben ser un número válido.`, () => {
+          errors[key] = 'Ingresa un número válido.';
+        });
+      } else if (val < rule.min || val > rule.max) {
+        pushError(
+          `${rule.label} deben estar entre ${rule.min} y ${rule.max} ${rule.unit}.`,
+          () => {
+            errors[key] =
+              `Rango permitido: ${rule.min} a ${rule.max} ${rule.unit}.`;
+          }
+        );
+      }
     }
-  });
+  );
+
+  if (doc.generalInstructions && doc.generalInstructions.length > 3000) {
+    pushError('Las indicaciones generales superan 3000 caracteres.', () => {
+      errors.generalInstructions = 'Máximo 3000 caracteres.';
+    });
+  }
+
+  if (doc.restDayTargets) {
+    const restChecks = [
+      [
+        'caloriesTarget',
+        'restCaloriesTarget',
+        'Las calorías de descanso',
+        0,
+        15000,
+        'kcal',
+      ],
+      [
+        'proteinTargetG',
+        'restProteinTargetG',
+        'La proteína de descanso',
+        0,
+        1000,
+        'g',
+      ],
+      [
+        'carbsTargetG',
+        'restCarbsTargetG',
+        'Los carbohidratos de descanso',
+        0,
+        1500,
+        'g',
+      ],
+      ['fatTargetG', 'restFatTargetG', 'Las grasas de descanso', 0, 1000, 'g'],
+    ] as const;
+    for (const [prop, errKey, label, min, max, unit] of restChecks) {
+      const val = doc.restDayTargets[prop];
+      if (!Number.isFinite(val) || val < min || val > max) {
+        pushError(`${label} deben estar entre ${min} y ${max} ${unit}.`, () => {
+          errors[errKey] = `Rango: ${min} a ${max} ${unit}.`;
+        });
+      }
+    }
+  }
 
   if (doc.meals.length === 0) {
     pushError('Agrega al menos un tiempo de comida al plan.', () => {
@@ -106,9 +169,12 @@ export function validateNutritionDocument(
     const mealName = meal.name.trim();
     if (!mealName) {
       hasMealIssue = true;
-      pushError(`Falta el nombre en el tiempo de comida #${mealIdx + 1}.`, () => {
-        mealEntry.name = 'Escribe el nombre de esta comida (ej. Desayuno).';
-      });
+      pushError(
+        `Falta el nombre en el tiempo de comida #${mealIdx + 1}.`,
+        () => {
+          mealEntry.name = 'Escribe el nombre de esta comida (ej. Desayuno).';
+        }
+      );
     } else if (mealName.length > 100) {
       hasMealIssue = true;
       pushError(`El nombre de "${mealLabel}" supera 100 caracteres.`, () => {
@@ -125,22 +191,34 @@ export function validateNutritionDocument(
       seenMealNames.add(normalized);
     }
 
+    if (meal.scheduleTime && meal.scheduleTime.trim().length > 40) {
+      hasMealIssue = true;
+      pushError(`El horario de "${mealLabel}" supera 40 caracteres.`, () => {
+        mealEntry.scheduleTime = 'Máximo 40 caracteres.';
+      });
+    }
+
     if (meal.instructions && meal.instructions.length > 2000) {
       hasMealIssue = true;
-      pushError(`Las indicaciones de "${mealLabel}" superan 2000 caracteres.`, () => {
-        mealEntry.instructions = 'Máximo 2000 caracteres.';
-      });
+      pushError(
+        `Las indicaciones de "${mealLabel}" superan 2000 caracteres.`,
+        () => {
+          mealEntry.instructions = 'Máximo 2000 caracteres.';
+        }
+      );
     }
 
     if (meal.items.length === 0) {
       hasMealIssue = true;
       pushError(`Agrega al menos un alimento en "${mealLabel}".`, () => {
-        mealEntry.itemsGeneral = 'Cada tiempo de comida debe tener al menos 1 alimento.';
+        mealEntry.itemsGeneral =
+          'Cada tiempo de comida debe tener al menos 1 alimento.';
       });
     }
 
     meal.items.forEach((item, itemIdx) => {
-      const itemEntry: NutritionFieldErrors['meals'][string]['items'][string] = {};
+      const itemEntry: NutritionFieldErrors['meals'][string]['items'][string] =
+        {};
       let hasItemIssue = false;
 
       const itemName = item.name.trim();
@@ -150,7 +228,7 @@ export function validateNutritionDocument(
           `Falta el nombre del alimento #${itemIdx + 1} en "${mealLabel}".`,
           () => {
             itemEntry.name = 'Escribe el alimento.';
-          },
+          }
         );
       } else if (itemName.length > 150) {
         hasItemIssue = true;
@@ -158,7 +236,7 @@ export function validateNutritionDocument(
           `El alimento #${itemIdx + 1} en "${mealLabel}" supera 150 caracteres.`,
           () => {
             itemEntry.name = 'Máximo 150 caracteres.';
-          },
+          }
         );
       }
 
@@ -168,7 +246,7 @@ export function validateNutritionDocument(
           `La cantidad de "${itemName || `Alimento #${itemIdx + 1}`}" en "${mealLabel}" debe ser mayor a 0.`,
           () => {
             itemEntry.quantity = 'Debe ser > 0.';
-          },
+          }
         );
       } else if (item.quantity > 10000) {
         hasItemIssue = true;
@@ -176,7 +254,7 @@ export function validateNutritionDocument(
           `La cantidad de "${itemName || `Alimento #${itemIdx + 1}`}" no puede superar 10,000.`,
           () => {
             itemEntry.quantity = 'Máximo 10,000.';
-          },
+          }
         );
       }
 
@@ -187,7 +265,7 @@ export function validateNutritionDocument(
           `Falta la unidad de "${itemName || `Alimento #${itemIdx + 1}`}" en "${mealLabel}".`,
           () => {
             itemEntry.unit = 'Ej. g, ml, pza.';
-          },
+          }
         );
       } else if (unit.length > 50) {
         hasItemIssue = true;
@@ -195,7 +273,7 @@ export function validateNutritionDocument(
           `La unidad de "${itemName || `Alimento #${itemIdx + 1}`}" supera 50 caracteres.`,
           () => {
             itemEntry.unit = 'Máximo 50 caracteres.';
-          },
+          }
         );
       }
 
@@ -205,7 +283,17 @@ export function validateNutritionDocument(
           `La nota de "${itemName || `Alimento #${itemIdx + 1}`}" supera 1000 caracteres.`,
           () => {
             itemEntry.instructions = 'Máximo 1000 caracteres.';
-          },
+          }
+        );
+      }
+
+      if (item.substitutes && item.substitutes.length > 500) {
+        hasItemIssue = true;
+        pushError(
+          `El equivalente de "${itemName || `Alimento #${itemIdx + 1}`}" supera 500 caracteres.`,
+          () => {
+            itemEntry.substitutes = 'Máximo 500 caracteres.';
+          }
         );
       }
 

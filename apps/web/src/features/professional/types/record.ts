@@ -1,5 +1,6 @@
 import type { ClientBaseRecord } from './portfolio';
 import type { TrainingVersion } from '../../training/types/training';
+import type { NutritionVersion } from '../../nutrition/types/nutrition';
 import type { EvolutionSection } from '../../evaluations/types/evolution';
 import type { EvaluationSection } from '../../evaluations/types/evaluation';
 
@@ -20,7 +21,13 @@ export interface TrainingActivity {
 export interface ProfessionalRecord {
   profile: ClientBaseRecord;
   sections: {
-    nutritionPlan: RecordSection;
+    nutritionPlan:
+      | RecordSection
+      | {
+          status: 'available';
+          plan: NutritionVersion;
+          activeRevision: number;
+        };
     trainingPlan:
       | RecordSection
       | {

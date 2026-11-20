@@ -129,7 +129,9 @@ JsonHttpHandler routed(Map<String, Object?> Function() context) =>
         statusCode: 200,
         body: request.path.startsWith('/api/me/training-history')
             ? historyFixture()
-            : context());
+            : request.path.startsWith('/api/me/nutrition-plan')
+                ? const {'plan': null}
+                : context());
 void main() {
   test('published boundary, cache isolation, expiry and UUID keys', () async {
     final raw = fixture();
@@ -335,7 +337,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Alimentación'));
         await tester.pumpAndSettle();
-        expect(find.text('Plan de alimentación'), findsOneWidget);
+        expect(find.text('Todavía no tienes un plan alimenticio asignado'),
+            findsOneWidget);
         await tester.tap(find.text('Progreso'));
         await tester.pumpAndSettle();
         final error = tester.takeException();
