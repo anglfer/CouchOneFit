@@ -14,6 +14,7 @@ import '../features/auth/services/auth_service.dart';
 import '../features/client/models/client_profile.dart';
 import '../features/client/screens/client_profile_screen.dart';
 import '../features/client/services/client_profile_service.dart';
+import '../features/nutrition/services/nutrition_service.dart';
 
 class ClientSessionGate extends StatefulWidget {
   const ClientSessionGate({
@@ -57,6 +58,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
             AccountAccessScreen(mode: mode, authService: widget.authService)));
     if (!mounted || result == null) return;
     await widget.trainingService?.cache.clear();
+    await NutritionCache().clear();
     if (!mounted) return;
     if (result == 'activated') {
       await _restoreSession();
@@ -103,6 +105,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       if (!mounted || epoch != _epoch) return;
       if (validateSession && account == null) {
         await widget.trainingService?.cache.clear();
+        await NutritionCache().clear();
         if (!mounted || epoch != _epoch) return;
         setState(() {
           _hasSession = false;
@@ -132,6 +135,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       if (!mounted || epoch != _epoch) return;
       if (TrainingService.denied(error)) {
         await widget.trainingService?.cache.clear();
+        await NutritionCache().clear();
       }
       final cached = TrainingService.disconnected(error)
           ? await widget.trainingService?.cache
@@ -186,6 +190,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     });
     try {
       await widget.trainingService?.cache.clear();
+      await NutritionCache().clear();
       final account = await widget.authService
           .login(identifier: identifier, password: password);
       if (!mounted) return;
@@ -228,6 +233,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     try {
       await widget.authService.logout();
       await widget.trainingService?.cache.clear();
+      await NutritionCache().clear();
       if (!mounted) return;
       setState(() {
         _profile = null;

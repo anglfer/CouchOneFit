@@ -76,6 +76,10 @@ export default function ProfessionalPage(): ReactElement {
   const trainingClientId = pathname.match(
     /^\/app\/clientes\/([^/]+)\/entrenamiento$/
   )?.[1];
+  const nutritionClientId = pathname.match(
+    /^\/app\/clientes\/([^/]+)\/nutricion$/
+  )?.[1];
+  const isNutritionPage = !!nutritionClientId;
   const isTrainingPage =
     pathname === '/app/entrenamiento' ||
     pathname === '/app/entrenamiento/plantillas' ||
@@ -84,7 +88,11 @@ export default function ProfessionalPage(): ReactElement {
     /^\/app\/clientes\/([^/]+)\/evaluacion(?:\/nueva)?$/
   )?.[1];
   const isEvaluationsPage = !!evaluationClientId;
-  const clientId = selectedClientId ?? trainingClientId ?? evaluationClientId;
+  const clientId =
+    selectedClientId ??
+    trainingClientId ??
+    nutritionClientId ??
+    evaluationClientId;
   const legacyEvaluationClientId = pathname.match(
     /^\/app\/evaluaciones\/([^/]+)(?:\/nueva)?$/
   )?.[1];
@@ -93,6 +101,7 @@ export default function ProfessionalPage(): ReactElement {
   const knownRoute =
     isLegacyEvaluationsPage ||
     isEvaluationsPage ||
+    isNutritionPage ||
     isTrainingPage ||
     isHome ||
     isPendingPage ||
@@ -258,7 +267,7 @@ export default function ProfessionalPage(): ReactElement {
   }
 
   const pageTitle =
-    isEvaluationsPage || isLegacyEvaluationsPage
+    isEvaluationsPage || isLegacyEvaluationsPage || isNutritionPage
       ? 'Clientes'
       : trainingClientId
         ? 'Clientes'
@@ -334,7 +343,10 @@ export default function ProfessionalPage(): ReactElement {
               subscription={subscription}
               onSubscriptionChange={setSubscription}
             />
-          ) : (isClientsPage || isRecoveryPage || isTrainingPage) &&
+          ) : (isClientsPage ||
+              isRecoveryPage ||
+              isTrainingPage ||
+              isNutritionPage) &&
             subscription?.status !== 'active' ? (
             <section className="ws-card ws-empty" role="status">
               <h2 className="ws-card-title text-lg!">
@@ -364,9 +376,11 @@ export default function ProfessionalPage(): ReactElement {
               active={
                 isEvaluationsPage
                   ? 'evaluation'
-                  : trainingClientId
-                    ? 'training'
-                    : 'summary'
+                  : isNutritionPage
+                    ? 'nutrition'
+                    : trainingClientId
+                      ? 'training'
+                      : 'summary'
               }
               capture={pathname.endsWith('/nueva')}
               sessionReady={!sessionUncertain && !isLeaving}

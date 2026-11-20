@@ -7,6 +7,7 @@ import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../../shared/widgets/status_view.dart';
+import '../../nutrition/models/nutrition_plan.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../widgets/muscle_map.dart';
@@ -25,13 +26,17 @@ class HomeTab extends StatefulWidget {
       required this.opening,
       required this.onStart,
       required this.onShowDay,
-      required this.onOpenProgress});
+      required this.onOpenProgress,
+      this.nutritionPlan,
+      this.onOpenNutrition});
   final TrainingContext data;
   final TrainingHistory? history;
   final bool canLog, opening;
   final ValueChanged<String> onStart;
   final ValueChanged<TrainingDay> onShowDay;
   final VoidCallback onOpenProgress;
+  final NutritionPlan? nutritionPlan;
+  final VoidCallback? onOpenNutrition;
   @override
   State<HomeTab> createState() => _HomeTabState();
 }
@@ -73,6 +78,10 @@ class _HomeTabState extends State<HomeTab> {
             icon: Icons.event_note_outlined,
             title: 'Todavía no tienes una rutina asignada',
             message: 'Tu profesional la compartirá aquí cuando esté lista.'),
+      if (widget.nutritionPlan != null) ...[
+        const SizedBox(height: 12),
+        _nutritionCard(context, widget.nutritionPlan!),
+      ],
       const SizedBox(height: 24),
       const SectionTitle('Muy pronto en tu app'),
       const SizedBox(height: 12),
@@ -83,17 +92,61 @@ class _HomeTabState extends State<HomeTab> {
             description:
                 'Registra tu peso corporal, sueño, energía y estrés, y mira tu tendencia.'),
         ComingSoonCard(
-            icon: Icons.restaurant_outlined,
-            title: 'Alimentación de hoy',
-            description:
-                'Tus comidas, cantidades e indicaciones del plan de tu profesional.'),
-        ComingSoonCard(
             icon: Icons.straighten_outlined,
             title: 'Evaluaciones',
             description:
                 'Medidas y composición corporal registradas por tu profesional.'),
       ]),
     ]);
+  }
+
+  Widget _nutritionCard(BuildContext context, NutritionPlan nutrition) {
+    final colors = Theme.of(context).colorScheme;
+    final parts = <String>[
+      trainingCount(nutrition.meals.length, 'comida', 'comidas'),
+      if (nutrition.caloriesTarget != null)
+        '${nutrition.caloriesTarget!.round()} kcal',
+      if (nutrition.proteinTargetG != null)
+        'P ${nutrition.proteinTargetG!.round()}g',
+      if (nutrition.carbsTargetG != null)
+        'C ${nutrition.carbsTargetG!.round()}g',
+      if (nutrition.fatTargetG != null) 'G ${nutrition.fatTargetG!.round()}g',
+    ];
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CardTitle(
+              icon: Icons.restaurant_outlined,
+              title: 'Alimentación de hoy',
+              action: 'Ver plan',
+              onAction: widget.onOpenNutrition,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              nutrition.name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              parts.join(' · '),
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: colors.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _weekCard(BuildContext context, TrainingPlan plan) {

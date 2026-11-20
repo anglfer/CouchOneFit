@@ -87,13 +87,12 @@ class TrainingCache {
 }
 
 class TrainingService {
-  TrainingService({required ApiClient apiClient, TrainingCache? cache})
-      : _api = apiClient,
-        cache = cache ?? TrainingCache();
-  final ApiClient _api;
+  TrainingService({required this.apiClient, TrainingCache? cache})
+      : cache = cache ?? TrainingCache();
+  final ApiClient apiClient;
   final TrainingCache cache;
   Future<TrainingContext> context({String? date}) async {
-    final raw = await _api.getJson(
+    final raw = await apiClient.getJson(
         date == null
             ? '/api/me/training-plan'
             : '/api/me/training-sessions/context?date=${Uri.encodeQueryComponent(date)}',
@@ -102,11 +101,11 @@ class TrainingService {
   }
 
   Future<TrainingHistory> history({int offset = 0}) async => TrainingHistory(
-      await _api.getJson('/api/me/training-history?offset=$offset',
+      await apiClient.getJson('/api/me/training-history?offset=$offset',
           authenticated: true));
 
   Future<TrainingSession> save(Map<String, Object?> body, String key) async {
-    final raw = await _api.requestJson('POST', '/api/me/training-sessions',
+    final raw = await apiClient.requestJson('POST', '/api/me/training-sessions',
         body: body, idempotencyKey: key, authenticated: true);
     return TrainingSession(trainingObject(raw['session']));
   }

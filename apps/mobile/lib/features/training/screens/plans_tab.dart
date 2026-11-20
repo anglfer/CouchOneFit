@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../shared/widgets/coming_soon_card.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/status_view.dart';
 import '../../../shared/widgets/tone_pill.dart';
+import '../../nutrition/models/nutrition_plan.dart';
+import '../../nutrition/widgets/nutrition_plan_view.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../../../shared/widgets/section_title.dart';
@@ -12,20 +13,52 @@ const _weekdayShort = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
 
 /// Planes: what the professional assigned, one segment per module.
 class PlansTab extends StatefulWidget {
-  const PlansTab(
-      {super.key,
-      required this.plan,
-      required this.today,
-      required this.onShowDay});
+  const PlansTab({
+    super.key,
+    required this.plan,
+    required this.today,
+    required this.onShowDay,
+    required this.nutritionPlan,
+    required this.nutritionLoading,
+    this.nutritionError,
+    this.nutritionCachedAt,
+    required this.onRetryNutrition,
+    this.showNutrition = false,
+    this.onSectionChanged,
+  });
+
   final TrainingPlan? plan;
   final String today;
   final ValueChanged<TrainingDay> onShowDay;
+  final NutritionPlan? nutritionPlan;
+  final bool nutritionLoading;
+  final String? nutritionError;
+  final DateTime? nutritionCachedAt;
+  final VoidCallback onRetryNutrition;
+  final bool showNutrition;
+  final ValueChanged<bool>? onSectionChanged;
+
   @override
   State<PlansTab> createState() => _PlansTabState();
 }
 
 class _PlansTabState extends State<PlansTab> {
-  bool _nutrition = false;
+  late bool _nutrition = widget.showNutrition;
+
+  @override
+  void didUpdateWidget(covariant PlansTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showNutrition != oldWidget.showNutrition &&
+        widget.onSectionChanged != null) {
+      _nutrition = widget.showNutrition;
+    }
+  }
+
+  void _selectSection(bool value) {
+    setState(() => _nutrition = value);
+    widget.onSectionChanged?.call(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
@@ -34,14 +67,16 @@ class _PlansTabState extends State<PlansTab> {
           options: const [(false, 'Entrenamiento'), (true, 'Alimentación')],
           icons: const [Icons.fitness_center, Icons.restaurant_outlined],
           selected: _nutrition,
-          onChanged: (v) => setState(() => _nutrition = v)),
+          onChanged: _selectSection),
       const SizedBox(height: 16),
       if (_nutrition)
-        const ComingSoonCard(
-            icon: Icons.restaurant_menu_outlined,
-            title: 'Plan de alimentación',
-            description:
-                'Aquí verás las comidas, cantidades e indicaciones que te asigne tu profesional.')
+        NutritionPlanView(
+          plan: widget.nutritionPlan,
+          loading: widget.nutritionLoading,
+          error: widget.nutritionError,
+          cachedAt: widget.nutritionCachedAt,
+          onRetry: widget.onRetryNutrition,
+        )
       else if (plan != null)
         ..._training(context, plan)
       else

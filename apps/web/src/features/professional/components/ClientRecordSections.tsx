@@ -1,5 +1,6 @@
 import type { ProfessionalRecord, RecordSection } from '../types/record';
-import { Card } from '../../../components/ui';
+import { Link } from '../../../components/Link';
+import { Badge, Card } from '../../../components/ui';
 import type { EvolutionSection } from '../../evaluations/types/evolution';
 import EvolutionSummary from '../../evaluations/components/EvolutionSummary';
 import EvaluationSummary from '../../evaluations/components/EvaluationSummary';
@@ -41,6 +42,66 @@ export function SectionState({
   }
 }
 
+function NutritionSectionCard({
+  section,
+  clientId,
+}: {
+  section: ProfessionalRecord['sections']['nutritionPlan'];
+  clientId: string;
+}) {
+  const nutritionPath = `/app/clientes/${clientId}/nutricion`;
+  return (
+    <Card
+      title="Alimentación"
+      icon="bowl"
+      labelId="record-plans-title"
+      action={
+        <Link to={nutritionPath} className="ws-btn">
+          Gestionar alimentación
+        </Link>
+      }
+    >
+      {section.status === 'available' ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold">{section.plan.name}</p>
+            <Badge tone="ok">v{section.plan.number}</Badge>
+          </div>
+          <p className="text-sm text-(--ws-muted)">
+            {section.plan.meals.length}{' '}
+            {section.plan.meals.length === 1
+              ? 'tiempo de comida'
+              : 'tiempos de comida'}
+            {section.plan.caloriesTarget !== null
+              ? ` · ${section.plan.caloriesTarget} kcal`
+              : ''}
+            {section.plan.proteinTargetG !== null
+              ? ` · P ${section.plan.proteinTargetG}g`
+              : ''}
+            {section.plan.carbsTargetG !== null
+              ? ` · C ${section.plan.carbsTargetG}g`
+              : ''}
+            {section.plan.fatTargetG !== null
+              ? ` · G ${section.plan.fatTargetG}g`
+              : ''}
+          </p>
+        </div>
+      ) : section.status === 'empty' ? (
+        <div className="space-y-3">
+          <p className="text-sm text-(--ws-muted)">
+            Todavía no tiene un plan alimenticio activo.
+          </p>
+          <Link to={nutritionPath} className="ws-btn" data-variant="primary">
+            Crear plan alimenticio
+          </Link>
+        </div>
+      ) : (
+        <SectionState section={section} />
+      )}
+    </Card>
+  );
+}
+
 /** Modules that other epics connect to the record (training has its own card). */
 export default function ClientRecordSections({
   sections,
@@ -51,9 +112,10 @@ export default function ClientRecordSections({
 }) {
   return (
     <div className="client-hub-modules">
-      <Card title="Alimentación" icon="bowl" labelId="record-plans-title">
-        <SectionState section={sections.nutritionPlan} />
-      </Card>
+      <NutritionSectionCard
+        section={sections.nutritionPlan}
+        clientId={clientId}
+      />
       {sections.evaluations.status === 'available' &&
         sections.evaluations.evaluations.length > 0 && (
           <Card title="Última evaluación" icon="clipboard">

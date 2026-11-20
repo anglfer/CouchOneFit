@@ -1747,7 +1747,7 @@ test('HU-021 third record tab is the only evaluation entry and there is no globa
   ];
   assert.deepEqual(
     tabs.map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición']
   );
   assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
   assert.equal(document.querySelector('form'), null);
@@ -2135,7 +2135,7 @@ test('HU-022 available progress contract is accepted by the existing record with
     [
       ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
     ].map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición']
   );
   assert.equal(writes().length, 0);
 });
