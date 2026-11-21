@@ -1275,7 +1275,7 @@ test('HU-021 Web submits real measurements from the record and refreshes the dat
       }
     );
   await openComposedRecord('record-a');
-  assert.match(document.body.textContent, /2026-11-08/);
+  assert.match(document.body.textContent, /08 nov 2026/);
   await openEvaluationForm();
   const input = field('Peso');
   assert.ok(input);
@@ -1343,8 +1343,8 @@ test('HU-021 Web submits real measurements from the record and refreshes the dat
       .find((a) => a.textContent === 'Volver al historial')
       .click()
   );
-  assert.match(document.body.textContent, /Evaluación · 2026-11-09/);
-  assert.match(document.body.textContent, /2026-11-08/);
+  assert.match(document.body.textContent, /09 nov 2026/);
+  assert.match(document.body.textContent, /08 nov 2026/);
   assert.match(document.body.textContent, /70.4 kg/);
   assert.equal(document.querySelector('dialog[open]'), null);
 });
@@ -1470,7 +1470,7 @@ test('HU-019 and HU-021 reader errors stay within their sections and retries do 
   await act(async () => button('Reintentar lectura').click());
   assert.match(
     document.body.textContent,
-    /Aún no hay evaluaciones confirmadas/
+    /Aún no hay evaluaciones registradas/
   );
   assert.doesNotMatch(
     document.body.textContent,
@@ -1622,10 +1622,7 @@ test('HU-021 multimethod form preserves method drafts, previews device compositi
   await choose('Pliegues cutáneos');
   assert.ok(field('Pliegue bicipital'));
   assert.ok(field('Pliegue subescapular'));
-  assert.match(
-    document.body.textContent,
-    /Estimación preliminar, pendiente de validación/
-  );
+  assert.match(document.body.textContent, /Ecuación para el % de grasa/);
   const localUrl = window.location.href;
   try {
     dom.reconfigure({
@@ -1640,11 +1637,9 @@ test('HU-021 multimethod form preserves method drafts, previews device compositi
       'form[aria-label="Registrar evaluación antropométrica"]'
     );
     assert.ok(field('Pliegue pectoral'));
-    assert.match(
-      form.textContent,
-      /La estimación de grasa corporal aún no está disponible/
-    );
-    assert.equal(form.querySelector('select, input[type="checkbox"]'), null);
+    // Official on any host: the equation is offered, no candidate opt-ins.
+    assert.ok(form.querySelector('select'));
+    assert.equal(form.querySelector('input[type="checkbox"]'), null);
     assert.doesNotMatch(
       form.textContent,
       /preliminar|pruebas? local|candidat/i

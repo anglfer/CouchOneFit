@@ -12,7 +12,6 @@ export interface ProfileRow {
 
 /** Perfil de cuenta compartido por el panel profesional y administración. */
 export default function AccountProfile({
-  eyebrow,
   title,
   lead,
   name,
@@ -20,7 +19,6 @@ export default function AccountProfile({
   rows,
   footnote,
 }: {
-  eyebrow: string;
   title: string;
   lead: string;
   name: string;
@@ -30,7 +28,7 @@ export default function AccountProfile({
 }): ReactElement {
   return (
     <>
-      <PageHeader eyebrow={eyebrow} title={title} lead={lead} />
+      <PageHeader title={title} lead={lead} />
       <div className="ws-grid-2">
         <section className="ws-card" aria-labelledby="profile-title">
           <header className="mb-5 flex items-center gap-4">

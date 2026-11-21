@@ -19,15 +19,13 @@ export default function EvolutionSummary({
           <p className="text-sm">
             Hay evaluaciones disponibles para consultar su evolución.
           </p>
-          <p className="text-sm">
-            {history.samples.length} evaluaciones en la página del expediente.
-            {history.pageInfo.hasMore ? ' Hay más páginas por consultar.' : ''}
-          </p>
           {weight && (
-            <p className="text-sm">
-              Peso más reciente de esta página:{' '}
-              {evolutionValue(weight.measurements.weightKg!)} kg ·{' '}
-              {evolutionDate(weight.date)}.
+            <p className="text-sm text-(--ws-muted)">
+              Peso medido en consulta:{' '}
+              <span className="font-semibold text-(--ws-text) tabular-nums">
+                {evolutionValue(weight.measurements.weightKg!)} kg
+              </span>{' '}
+              · {evolutionDate(weight.date)}
             </p>
           )}
         </>

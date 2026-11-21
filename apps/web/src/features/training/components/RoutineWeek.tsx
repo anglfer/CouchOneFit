@@ -58,7 +58,17 @@ export default function RoutineWeek({
                 </span>
               </small>
             ) : day.kind === 'rest' ? (
-              <strong>Descanso</strong>
+              routine.schedule === 'weekly' ? (
+                // The wide week squeezes rest days; a dash reads better than "Desca…".
+                <strong>
+                  <span className="sm:sr-only">Descanso</span>
+                  <span aria-hidden="true" className="hidden sm:inline">
+                    —
+                  </span>
+                </strong>
+              ) : (
+                <strong>Descanso</strong>
+              )
             ) : (
               custom && <strong>{day.name}</strong>
             )}

@@ -1,3 +1,4 @@
+import { Icon } from '../../../components/Icon';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
 import { Badge, Card } from '../../../components/ui';
@@ -20,6 +21,7 @@ import type { ProfessionalRecord } from '../types/record';
 import ClientRecordEditor from './ClientRecordEditor';
 import ClientStatusAction from './ClientStatusAction';
 import ClientBaseDetails from './ClientBaseDetails';
+import { latestBodyFat } from '../../evaluations/types/evaluation';
 import ClientHeader, { type ClientTab } from './ClientHeader';
 import ClientRecordSections, { SectionState } from './ClientRecordSections';
 
@@ -171,7 +173,9 @@ function ClientRecordContent({
                 className="ws-btn"
                 disabled={isEditing || loading || statusBusy}
                 onClick={refresh}
+                title="Vuelve a leer los datos del servidor"
               >
+                <Icon name="refresh" size={16} />
                 Actualizar expediente
               </button>
               <ClientStatusAction
@@ -201,7 +205,8 @@ function ClientRecordContent({
         />
       ) : (
         <Link to="/app/clientes" className="client-hub-back">
-          ← Clientes
+          <Icon name="arrow-right" size={16} className="rotate-180" />
+          Clientes
         </Link>
       )}
       {[saved && 'Los cambios se guardaron correctamente.', statusSaved]
@@ -214,7 +219,8 @@ function ClientRecordContent({
             className="ws-alert"
             data-tone="ok"
           >
-            ✓ {notice}
+            <Icon name="check" size={16} className="inline align-[-3px]" />{' '}
+            {notice}
           </p>
         ))}
       {loading && !record ? (
@@ -313,7 +319,10 @@ function ClientRecordContent({
                     />
                     <Card title="Perfil y medidas base" icon="user">
                       <div className="space-y-4">
-                        <ClientBaseDetails record={record} />
+                        <ClientBaseDetails
+                          record={record}
+                          currentFat={latestBodyFat(sections.evaluations)}
+                        />
                       </div>
                     </Card>
                   </div>
@@ -390,15 +399,10 @@ function ActivityStats({ section }: { section: TrainingSection }) {
           </div>
           <div className="ws-card">
             <p className="ws-stat-label">Entrenamientos en 7 días</p>
-            <p className="ws-stat-value">
-              {activity.sessionsLast7}
-              <span className="text-base font-medium text-(--ws-muted)">
-                {' '}
-                / {stats.trainingDays}
-              </span>
-            </p>
+            <p className="ws-stat-value">{activity.sessionsLast7}</p>
             <p className="ws-stat-note">
-              {activity.sessionsLast30} en los últimos 30 días
+              Meta semanal: {stats.trainingDays} · {activity.sessionsLast30} en
+              30 días
             </p>
           </div>
           <div className="ws-card">

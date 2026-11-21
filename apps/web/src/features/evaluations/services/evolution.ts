@@ -137,13 +137,7 @@ export async function fetchEvolution(
   const page = validate(raw);
   await rememberRead(
     endpoint,
-    {
-      ...page,
-      // The current server gate cannot be checked while offline.
-      samples: page.samples.map(
-        ({ candidateBodyFat: _candidate, ...sample }) => sample
-      ),
-    },
+    page,
     accountId,
     () => isCurrent() && epoch === revision
   );

@@ -170,7 +170,11 @@ export default function ProfessionalDirectory() {
                     <td className="p-4">{pro.inactiveClients}</td>
                     <td className="p-4">
                       {pro.expiresAt
-                        ? new Date(pro.expiresAt).toLocaleString('es-MX')
+                        ? new Date(pro.expiresAt).toLocaleDateString('es-MX', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
                         : 'Sin vigencia'}
                     </td>
                   </tr>

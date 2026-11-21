@@ -286,3 +286,54 @@ export function calculateCandidateBodyFat(
     reason: null,
   };
 }
+
+/** Snapshot fields needed to derive JP3 + Siri at read time. */
+export interface SkinfoldSnapshot {
+  readonly equation?: unknown;
+  readonly birthDate?: unknown;
+  readonly effectiveDate?: unknown;
+  readonly measurements?: unknown;
+}
+
+/**
+ * Product decision 2026-11-20 (HU-023): JP3 + Siri is an official result.
+ * shortcut: derived on read from the stored inputs, so old captures gain it
+ * without a migration; persist a snapshot if the formula version ever changes.
+ */
+export function skinfoldResults(
+  snapshot: SkinfoldSnapshot
+): Record<string, number> | null {
+  const measurements = record(snapshot.measurements)
+    ? snapshot.measurements
+    : {};
+  const outcome = calculateCandidateBodyFat({
+    variant:
+      snapshot.equation === 'male' || snapshot.equation === 'female'
+        ? snapshot.equation
+        : null,
+    birthDate: snapshot.birthDate ?? null,
+    effectiveDate: snapshot.effectiveDate,
+    unit: 'mm',
+    skinfolds: Object.fromEntries(
+      ESTIMATION_SKINFOLD_FIELDS.filter((k) => k in measurements).map((k) => [
+        k,
+        measurements[k],
+      ])
+    ),
+  });
+  if (outcome.status !== 'candidate_only') return null;
+  const { sumSkinfoldMm, bodyDensityGPerMl, estimatedBodyFatPercentage } =
+    outcome.candidateResult;
+  const weight = measurements.weightKg;
+  return {
+    bodyFatPercentage: estimatedBodyFatPercentage,
+    ...(typeof weight === 'number' && weight > 0
+      ? {
+          fatMassKg: (weight * estimatedBodyFatPercentage) / 100,
+          fatFreeMassKg: weight - (weight * estimatedBodyFatPercentage) / 100,
+        }
+      : {}),
+    sumSkinfoldMm,
+    bodyDensityGPerMl,
+  };
+}

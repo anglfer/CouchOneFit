@@ -122,7 +122,6 @@ export default function PlanCatalog() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Catálogo"
         title="Planes"
         lead="Precios y límites de clientes de cada plan SaaS."
       />

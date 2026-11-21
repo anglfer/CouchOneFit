@@ -141,7 +141,6 @@ export default function ProfessionalHome({
   return (
     <>
       <PageHeader
-        eyebrow="Panel profesional"
         title={`Hola, ${firstName(fullName)}.`}
         lead="Esto es lo que pasa hoy con tus clientes."
         actions={
@@ -206,6 +205,19 @@ export default function ProfessionalHome({
                 {subscription.remaining === null
                   ? 'Sin límite de clientes en tu plan.'
                   : `${subscription.remaining} plazas libres`}
+              </p>
+              <p className="ws-stat-note mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>
+                  Plan {subscription.planName || 'sin asignar'}
+                  {subscription.status === 'active' && subscription.expiresAt
+                    ? ` · hasta el ${new Date(subscription.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`
+                    : ''}
+                </span>
+                {subscription.status !== 'active' && (
+                  <Badge tone={statusTone[subscription.status]}>
+                    {statusLabel[subscription.status]}
+                  </Badge>
+                )}
               </p>
             </section>
 
@@ -293,23 +305,6 @@ export default function ProfessionalHome({
                 </section>
               </>
             )}
-
-            <section className="ws-card" aria-labelledby="stat-plan">
-              <h2 id="stat-plan" className="ws-stat-label">
-                Plan actual
-              </h2>
-              <p className="ws-stat-value">
-                {subscription.planName || 'Sin plan asignado'}
-              </p>
-              <p className="ws-stat-note flex flex-wrap items-center gap-2">
-                <Badge tone={statusTone[subscription.status]}>
-                  {statusLabel[subscription.status]}
-                </Badge>
-                {subscription.expiresAt
-                  ? `Hasta el ${new Date(subscription.expiresAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
-                  : 'Sin vigencia'}
-              </p>
-            </section>
           </div>
 
           {active && summaryFailed && (
@@ -336,56 +331,111 @@ export default function ProfessionalHome({
 
       {active && (
         <div className="ws-grid-2 mt-4">
-          <Card
-            title="Necesitan tu atención"
-            subtitle="Clientes activos sin rutina o sin entrenar en la última semana."
-            icon="users"
-            labelId="home-attention"
-          >
-            {failed ? (
-              <div className="space-y-2">
+          <div className="space-y-4">
+            <Card
+              title="Necesitan tu atención"
+              subtitle="Clientes activos sin rutina o sin entrenar en la última semana."
+              icon="users"
+              labelId="home-attention"
+            >
+              {failed ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-(--ws-muted)">
+                    No pudimos consultar el estado de tus clientes.
+                  </p>
+                  <button
+                    type="button"
+                    className="ws-btn"
+                    onClick={() => {
+                      setFailed(false);
+                      setAttempt((n) => n + 1);
+                    }}
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : !clients ? (
+                <div className="ws-skeleton h-24" />
+              ) : needs.length === 0 ? (
                 <p className="text-sm text-(--ws-muted)">
-                  No pudimos consultar el estado de tus clientes.
+                  {activeClients.length === 0
+                    ? 'Aún no tienes clientes activos. Crea su expediente desde Clientes.'
+                    : 'Todo al día: tus clientes activos tienen rutina y entrenan.'}
                 </p>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  onClick={() => {
-                    setFailed(false);
-                    setAttempt((n) => n + 1);
-                  }}
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : !clients ? (
-              <div className="ws-skeleton h-24" />
-            ) : needs.length === 0 ? (
-              <p className="text-sm text-(--ws-muted)">
-                {activeClients.length === 0
-                  ? 'Aún no tienes clientes activos. Crea su expediente desde Clientes.'
-                  : 'Todo al día: tus clientes activos tienen rutina y entrenan.'}
-              </p>
-            ) : (
-              <ul className="home-list">
-                {needs.slice(0, 6).map(([c, [reason, cta, href]]) => (
-                  <li key={c.id}>
-                    <Link to={href}>
-                      <span className="ws-avatar" aria-hidden="true">
-                        {initials(c.fullName)}
-                      </span>
-                      <span className="home-list-text">
-                        <strong>{c.fullName}</strong>
-                        <span>{reason}</span>
-                      </span>
-                      <span className="home-list-cta">{cta} →</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
+              ) : (
+                <ul className="home-list">
+                  {needs.slice(0, 6).map(([c, [reason, cta, href]]) => (
+                    <li key={c.id}>
+                      <Link to={href}>
+                        <span className="ws-avatar" aria-hidden="true">
+                          {initials(c.fullName)}
+                        </span>
+                        <span className="home-list-text">
+                          <strong>{c.fullName}</strong>
+                          <span>{reason}</span>
+                        </span>
+                        <span className="home-list-cta">
+                          {cta} <Icon name="arrow-right" size={14} />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            <Card
+              title="Actividad reciente"
+              subtitle="Últimos entrenamientos registrados desde el móvil."
+              icon="chart"
+              labelId="home-recent"
+            >
+              {failed ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-(--ws-muted)">
+                    No pudimos consultar la actividad.
+                  </p>
+                  <button
+                    type="button"
+                    className="ws-btn"
+                    onClick={() => {
+                      setFailed(false);
+                      setAttempt((n) => n + 1);
+                    }}
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              ) : !clients ? (
+                <div className="ws-skeleton h-24" />
+              ) : recent.length === 0 ? (
+                <p className="text-sm text-(--ws-muted)">
+                  Aún no hay entrenamientos registrados por tus clientes.
+                </p>
+              ) : (
+                <ul className="home-list">
+                  {recent.map((c) => (
+                    <li key={c.id}>
+                      <Link to={`/app/clientes/${c.id}/entrenamiento`}>
+                        <span className="ws-avatar" aria-hidden="true">
+                          {initials(c.fullName)}
+                        </span>
+                        <span className="home-list-text">
+                          <strong>{c.fullName}</strong>
+                          <span>
+                            {c.activeRoutine ?? 'Sin rutina activa'} ·{' '}
+                            {c.sessionsLast7} en 7 días
+                          </span>
+                        </span>
+                        <span className="home-list-cta">
+                          {relativeDay(c.lastSession!)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
           <Card
             title="Check-ins de tus clientes"
             subtitle="Recientes en las últimas 24 h o pendientes de registrar hoy."
@@ -461,7 +511,9 @@ export default function ProfessionalHome({
                               : `Último check-in ${relativeDay(c.lastCheckIn!)}`}
                           </span>
                         </span>
-                        <span className="home-list-cta">Ver →</span>
+                        <span className="home-list-cta">
+                          Ver <Icon name="arrow-right" size={14} />
+                        </span>
                       </Link>
                     </li>
                   ))}
@@ -489,59 +541,8 @@ export default function ProfessionalHome({
                             : 'Aún sin check-ins registrados'}
                         </span>
                       </span>
-                      <span className="home-list-cta">Ver →</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card
-            title="Actividad reciente"
-            subtitle="Últimos entrenamientos registrados desde el móvil."
-            icon="chart"
-            labelId="home-recent"
-          >
-            {failed ? (
-              <div className="space-y-2">
-                <p className="text-sm text-(--ws-muted)">
-                  No pudimos consultar la actividad.
-                </p>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  onClick={() => {
-                    setFailed(false);
-                    setAttempt((n) => n + 1);
-                  }}
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : !clients ? (
-              <div className="ws-skeleton h-24" />
-            ) : recent.length === 0 ? (
-              <p className="text-sm text-(--ws-muted)">
-                Aún no hay entrenamientos registrados por tus clientes.
-              </p>
-            ) : (
-              <ul className="home-list">
-                {recent.map((c) => (
-                  <li key={c.id}>
-                    <Link to={`/app/clientes/${c.id}/entrenamiento`}>
-                      <span className="ws-avatar" aria-hidden="true">
-                        {initials(c.fullName)}
-                      </span>
-                      <span className="home-list-text">
-                        <strong>{c.fullName}</strong>
-                        <span>
-                          {c.activeRoutine ?? 'Sin rutina activa'} ·{' '}
-                          {c.sessionsLast7} en 7 días
-                        </span>
-                      </span>
                       <span className="home-list-cta">
-                        {relativeDay(c.lastSession!)}
+                        Ver <Icon name="arrow-right" size={14} />
                       </span>
                     </Link>
                   </li>
@@ -565,7 +566,7 @@ export default function ProfessionalHome({
               su actividad.
             </p>
             <Link to="/app/suscripcion" className="ws-btn">
-              Gestionar mi suscripción →
+              Gestionar mi suscripción <Icon name="arrow-right" size={14} />
             </Link>
           </Card>
         </div>

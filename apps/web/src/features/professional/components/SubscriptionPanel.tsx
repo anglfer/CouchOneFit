@@ -296,7 +296,6 @@ export default function SubscriptionPanel({
   return (
     <section className="space-y-6" aria-label="Mi suscripción">
       <PageHeader
-        eyebrow="Cuenta"
         title="Mi suscripción"
         lead="Contrata o sube de nivel desde tu cuenta."
       />

@@ -26,3 +26,14 @@ Queda pendiente la comprobación del flujo autenticado de evaluación en el nave
 
 - **E.** Si el profesional activa «Calcular grasa corporal estimada», el formulario exige pecho, abdomen y muslo para la ecuación masculina, o tríceps, suprailiaco y muslo para la femenina. Peso, estatura y pliegues que la ecuación no utiliza son opcionales. Al guardar sin estimación sigue disponible la captura parcial.
 - **T.** La regresión Web verifica las dos selecciones de ecuación, impide enviar la solicitud con un pliegue requerido vacío y permite guardar tras completarlo. Al elegir «No aplica», desaparece la obligatoriedad y se conservan los valores.
+
+## Activación oficial de JP3 + Siri — 20 de noviembre de 2026
+
+Decisión de producto registrada en el [README de HU-023](README.md) (**R**: la persona usuaria eligió «activarlo oficial» y «calcular al mostrar» las históricas).
+
+- **E.** API: `skinfoldResults` deriva `% grasa`, masa grasa/libre, suma de pliegues y densidad al leer cada evaluación de pliegues; `mapEvaluation` entrega `composition-skinfold-v1` sin `estimation` y no reescribe filas. Evolución reutiliza `candidateBodyFat` (versiones `jp3-siri-v1`/`jp3-reference-ranges-v1`) y el progreso móvil del cliente recibe el valor a un decimal. La fecha efectiva por omisión usa la zona horaria del cliente en lugar de UTC.
+- **E.** Web: el formulario ofrece siempre la ecuación en Pliegues, marca sus tres sitios como obligatorios, previsualiza el resultado con la edad a la fecha de medición y explica faltantes, edad fuera de 18–61/18–55 o ausencia de fecha de nacimiento; aviso de cautela en mujeres mayores de 40. Se eliminaron las casillas de candidato y `EstimationDetails`.
+- **T.** `npm --prefix apps/api run build` sin errores. Suite API completa contra `127.0.0.1/CouchOneFit_test`: **245 de 246**; persiste solo el fallo previo de `session-lifecycle.test.ts`. Se añadió una regresión del cálculo (S = 60 mm, 30 años → 17,945 %) y una prueba de la vista oficial con replay idempotente sin reescribir el snapshot.
+- **T.** Web: `build`, `lint` (0 avisos), Prettier de archivos tocados y `npm test` **159 de 159**.
+- **T.** Navegador integrado (Web `127.0.0.1:5000`, API `:3000`, BD local de desarrollo, cuenta QA): una evaluación de pliegues masculina (12/18/15 mm, 36 años) mostró 14,3 % en la vista previa y el servidor confirmó 14,3 %, masa libre 66,2 kg y densidad 1,0662 g/mL; el expediente muestra «Grasa corporal actual» y el asistente nutricional la precarga con su origen.
+- **Pendiente.** La columna `evaluation_date` (fecha de registro) conserva su DEFAULT UTC y el rol de runtime no puede escribirla; corregirla requiere una migración. Revisión científica independiente y cotejo del original femenino siguen sin hacerse (riesgo aceptado). No hubo QA humana (**R**) ni prueba en dispositivo Android.

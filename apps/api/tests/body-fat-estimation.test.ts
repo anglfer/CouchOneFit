@@ -389,7 +389,7 @@ test('HU-023 Siri S-01 follows the printed equation, not the discrepant 21.5 exa
   assert.equal(result.activationAllowed, false);
 });
 
-test('HU-023 engine is wired only through the local candidate gate and POST rejects unknown protocols', () => {
+test('HU-023 engine is wired only through the candidate gate or the official read-time readers and POST rejects unknown protocols', () => {
   const root = new URL('../src/', import.meta.url);
   function inspect(directory: string): void {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -397,9 +397,13 @@ test('HU-023 engine is wired only through the local candidate gate and POST reje
       if (entry.isDirectory()) inspect(file);
       else if (
         entry.name.endsWith('.ts') &&
-        !['body-fat-estimation.ts', 'candidate-estimation.ts'].includes(
-          entry.name
-        )
+        ![
+          'body-fat-estimation.ts',
+          'candidate-estimation.ts',
+          // Official skinfold result (product decision 2026-11-20).
+          'evaluation.ts',
+          'follow-up.ts',
+        ].includes(entry.name)
       ) {
         assert(
           !readFileSync(file, 'utf8').includes('body-fat-estimation'),
@@ -439,4 +443,30 @@ test('HU-023 engine is wired only through the local candidate gate and POST reje
       error.code === 'INVALID_EVALUATION'
   );
   assert.deepEqual(legacy, before);
+});
+
+test('HU-023 official read-time JP3 + Siri derives fat mass and explains nothing when inputs are incomplete', async () => {
+  const { skinfoldResults } = await import(
+    '../src/features/evaluations/domain/body-fat-estimation.js'
+  );
+  const snapshot = {
+    equation: 'male',
+    birthDate: '1996-01-15',
+    effectiveDate: '2026-11-20',
+    measurements: {
+      weightKg: 80,
+      pectoralSkinfoldMm: 20,
+      abdominalSkinfoldMm: 20,
+      thighSkinfoldMm: 20,
+    },
+  };
+  const results = skinfoldResults(snapshot)!;
+  assert.equal(results.sumSkinfoldMm, 60);
+  assert.ok(Math.abs(results.bodyFatPercentage - 17.945275927) < 1e-6);
+  assert.ok(Math.abs(results.fatMassKg + results.fatFreeMassKg - 80) < 1e-9);
+  // Missing site, no equation or out-of-range age never invent a value.
+  const { thighSkinfoldMm: _t, ...partial } = snapshot.measurements;
+  assert.equal(skinfoldResults({ ...snapshot, measurements: partial }), null);
+  assert.equal(skinfoldResults({ ...snapshot, equation: 'not_applicable' }), null);
+  assert.equal(skinfoldResults({ ...snapshot, birthDate: '2010-01-01' }), null);
 });

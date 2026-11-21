@@ -786,10 +786,19 @@ button.training-template-card:hover {
   padding: 0;
 }
 .training-week[data-weekly]:not([data-compact]) {
-  grid-template-columns: repeat(7, minmax(84px, 1fr));
+  /* Training days get the room; rest days shrink to a narrow column. */
+  display: flex;
   overflow-x: auto;
   scrollbar-width: thin;
   padding-bottom: 4px;
+}
+.training-week[data-weekly]:not([data-compact]) > li {
+  flex: 1 1 0;
+  min-width: 56px;
+}
+.training-week[data-weekly]:not([data-compact]) > li[data-kind='training'] {
+  flex-grow: 3;
+  min-width: 150px;
 }
 .training-week > li {
   display: grid;
@@ -1118,6 +1127,7 @@ button.training-template-card:hover {
   }
   /* Phones: the week reads top to bottom, one row per day. */
   .training-week[data-weekly]:not([data-compact]) {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }

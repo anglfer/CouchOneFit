@@ -49,32 +49,16 @@ export default function EvolutionTable({
             const value = readEvolutionValue(s, metric);
             return (
               <tr key={s.id} className="border-t border-(--ws-border)">
-                <th scope="row" className="px-3 py-3 font-normal">
+                <th
+                  scope="row"
+                  className="px-3 py-3 font-normal normal-case tracking-normal"
+                >
                   <time dateTime={s.date}>{evolutionDate(s.date)}</time>
-                  <span className="block text-xs text-(--ws-muted)">
-                    {s.dateBasis === 'effective_date'
-                      ? 'Fecha efectiva'
-                      : 'Fecha heredada de evaluación'}
-                  </span>
-                  <details className="mt-1">
-                    <summary className="flex min-h-11 cursor-pointer items-center py-1">
-                      Datos de la evaluación
-                    </summary>
-                    <code className="block max-w-44 break-all text-xs">
-                      {s.id}
-                    </code>
-                    <span className="block text-xs">Creada: {s.createdAt}</span>
-                    {s.protocol && (
-                      <span className="block break-all text-xs">
-                        Protocolo: {s.protocol}
-                      </span>
-                    )}
-                    {metric === 'candidateBodyFat' && value !== undefined && (
-                      <span className="block break-all text-xs">
-                        Versión: {s.candidateBodyFat?.formulaVersion}
-                      </span>
-                    )}
-                  </details>
+                  {s.dateBasis !== 'effective_date' && (
+                    <span className="block text-xs text-(--ws-muted)">
+                      Fecha heredada de evaluación
+                    </span>
+                  )}
                 </th>
                 <td className="px-3 py-3 tabular-nums">
                   {value === undefined ? (

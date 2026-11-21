@@ -243,7 +243,7 @@ test('HU-024 a HU-027: sugerencia sin persistencia, versiones enriquecidas, expe
   assert.ok(sug.periWorkout.preCarbsG >= 0);
   assert.ok(sug.fiberTargetG >= 15);
   assert.ok(sug.hydrationTargetMl >= 1000);
-  assert.equal(sug.meta.engineVersion, 'hu025-fitnextfy-v1');
+  assert.equal(sug.meta.engineVersion, 'hu025-fitnextfy-v2');
   assert.equal((await db.query('SELECT count(*) FROM private.nutrition_plans')).rows[0].count, '0');
   assert.equal((await db.query('SELECT count(*) FROM private.nutrition_versions')).rows[0].count, '0');
 

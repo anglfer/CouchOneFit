@@ -1,11 +1,4 @@
-import EstimationDetails from './EstimationDetails';
-import {
-  pendingEstimationReference,
-  candidateProtocols,
-  candidateProtocolVersion,
-  candidateSkinfolds,
-  canShowCandidateEstimation,
-} from '../types/estimation';
+import { candidateSkinfolds } from '../types/estimation';
 import { useOperations } from '../../../hooks/useOperations';
 import { guardNavigation } from '../../../utils/navigation';
 import { Link } from '../../../components/Link';
@@ -22,21 +15,31 @@ import {
   measurementFields,
   methods,
   preview,
+  skinfoldNote,
   type AssessmentInput,
   type MeasurementField,
   type Method,
 } from '../types/assessment';
 import CompositionResults from './CompositionResults';
 import AnatomicalGuide from './AnatomicalGuide';
+/** Completed years at the measurement date (local today when empty). */
+function ageOn(birthDate: string | null, date: string): number | null {
+  const day = date || new Date().toLocaleDateString('en-CA');
+  if (!birthDate || birthDate > day) return null;
+  const years = Number(day.slice(0, 4)) - Number(birthDate.slice(0, 4));
+  return day.slice(5) < birthDate.slice(5) ? years - 1 : years;
+}
 export default function AssessmentForm({
   clientId,
   clientName,
+  birthDate,
   onSaved,
   onQueued,
   onBusyChange,
 }: {
   clientId: string;
   clientName: string;
+  birthDate: string | null;
   onSaved: (evaluation: Evaluation) => void;
   onQueued: (operation: Operation) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -48,12 +51,6 @@ export default function AssessmentForm({
   const [equation, setEquation] =
     useState<AssessmentInput['equation']>('not_applicable');
   const [date, setDate] = useState('');
-  const [requestPendingEstimation, setRequestPendingEstimation] =
-    useState(false);
-  const [requestCandidateEstimation, setRequestCandidateEstimation] =
-    useState(false);
-  const [candidateDismissed, setCandidateDismissed] = useState(false);
-  const localCandidates = canShowCandidateEstimation();
   const [active, setActive] = useState<MeasurementField | null>(null);
   const [phase, setPhase] = useState<
     | 'draft'
@@ -111,12 +108,8 @@ export default function AssessmentForm({
   const [segments, setSegments] = useState<Record<string, string>>({});
   const draft = drafts[method] ?? {};
   const estimationVariant =
-    method === 'pliegues' &&
-    requestCandidateEstimation &&
-    localCandidates &&
-    equation !== 'not_applicable'
-      ? equation
-      : null;
+    method === 'pliegues' && equation !== 'not_applicable' ? equation : null;
+  const ageYears = ageOn(birthDate, date);
   const requiredSkinfolds: readonly MeasurementField[] = estimationVariant
     ? candidateSkinfolds[estimationVariant]
     : [];
@@ -131,14 +124,6 @@ export default function AssessmentForm({
     effectiveDate: date || null,
     measurements,
   };
-  if (method === 'pliegues' && requestPendingEstimation)
-    body.estimationRequest = { ...pendingEstimationReference };
-  if (estimationVariant)
-    body.estimationRequest = {
-      methodId: 'jackson-pollock-3-siri',
-      protocolId: candidateProtocols[estimationVariant],
-      protocolVersion: candidateProtocolVersion,
-    };
   if (method === 'bioimpedancia' && Object.values(segments).some(Boolean))
     body.segmental = {
       type: segmentType,
@@ -149,7 +134,11 @@ export default function AssessmentForm({
           .map(([k, v]) => [k, Number(v)])
       ),
     };
-  const results = preview(body);
+  const results = preview(body, ageYears);
+  const fatGap =
+    method === 'pliegues'
+      ? skinfoldNote(equation, ageYears, measurements)
+      : null;
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending.current || phase === 'saved' || phase === 'queued') return;
@@ -259,58 +248,6 @@ export default function AssessmentForm({
             ? 'Conservada localmente'
             : 'Borrador de evaluación'}
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label>
-          Fecha efectiva (opcional)
-          <input
-            className="block w-full min-h-11 rounded-lg border p-2"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            disabled={locked}
-          />
-          <span className="text-xs">
-            Sin fecha, se asigna el día UTC de aceptación. La creación siempre
-            usa el reloj del servidor.
-          </span>
-        </label>
-        {localCandidates && method === 'pliegues' && (
-          <label>
-            Ecuación para estimar grasa corporal
-            <select
-              className="block w-full min-h-11 rounded-lg border p-2"
-              value={equation}
-              aria-describedby="candidate-estimation-notice"
-              onChange={(e) => {
-                const next = e.target.value as AssessmentInput['equation'];
-                setEquation(next);
-                setErrors({});
-                if (next === 'not_applicable')
-                  setRequestCandidateEstimation(false);
-                setCandidateDismissed(
-                  next === 'not_applicable' && requestCandidateEstimation
-                );
-              }}
-              disabled={locked}
-            >
-              <option value="not_applicable">
-                No aplica / sin cálculo estimado
-              </option>
-              <option value="male">Ecuación masculina</option>
-              <option value="female">Ecuación femenina</option>
-            </select>
-            <p
-              id="candidate-estimation-notice"
-              role="status"
-              className="text-sm text-(--ws-muted)"
-            >
-              {candidateDismissed &&
-                method === 'pliegues' &&
-                'Se guardarán los pliegues sin estimar la grasa corporal.'}
-            </p>
-          </label>
-        )}
-      </div>
       <fieldset disabled={locked}>
         <legend className="font-semibold mb-3">Metodología</legend>
         <div className="grid gap-3 lg:grid-cols-3">
@@ -350,57 +287,56 @@ export default function AssessmentForm({
           ))}
         </div>
       </fieldset>
-      <p className="text-sm">
-        {estimationVariant
-          ? 'Completa los tres pliegues obligatorios para estimar la grasa corporal.'
-          : 'Para guardar la evaluación, captura al menos una medición del método.'}{' '}
-        Cambiar de método conserva el borrador de cada uno.
-      </p>
-      {method === 'pliegues' && !localCandidates && (
-        <p className="text-sm text-(--ws-muted)">
-          Puedes guardar los pliegues. La estimación de grasa corporal aún no
-          está disponible.
-        </p>
-      )}
-      {method === 'pliegues' && localCandidates && (
-        <label className="flex items-start gap-3 rounded-lg border border-(--ws-border) p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label>
+          Fecha de la medición (opcional)
           <input
-            type="checkbox"
-            checked={requestPendingEstimation}
+            className="ws-input block w-full min-h-11"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             disabled={locked}
-            onChange={(event) => {
-              setRequestPendingEstimation(event.target.checked);
-              if (event.target.checked) setRequestCandidateEstimation(false);
-              setErrors({});
-              dirty.current = true;
-            }}
           />
-          <span>Guardar como estimación pendiente</span>
-        </label>
-      )}
-      {method === 'pliegues' && localCandidates && (
-        <label className="flex items-start gap-3 rounded-lg border border-(--ws-border) p-4">
-          <input
-            type="checkbox"
-            checked={requestCandidateEstimation}
-            disabled={locked || equation === 'not_applicable'}
-            onChange={(event) => {
-              setRequestCandidateEstimation(event.target.checked);
-              if (event.target.checked) setRequestPendingEstimation(false);
-              setErrors({});
-              dirty.current = true;
-            }}
-          />
-          <span>
-            Calcular grasa corporal estimada
-            <span className="block text-sm text-(--ws-muted)">
-              Estimación preliminar, pendiente de validación. Con la ecuación
-              masculina se usan pecho, abdomen y muslo. Con la femenina se usan
-              tríceps, suprailiaco y muslo.
-            </span>
+          <span className="text-xs text-(--ws-muted)">
+            Déjala vacía si mediste hoy.
           </span>
         </label>
-      )}
+        {method === 'pliegues' && (
+          <label>
+            Ecuación para el % de grasa
+            <select
+              className="ws-input block w-full min-h-11"
+              value={equation}
+              aria-describedby="skinfold-equation-notice"
+              onChange={(e) => {
+                setEquation(e.target.value as AssessmentInput['equation']);
+                setErrors({});
+              }}
+              disabled={locked}
+            >
+              <option value="not_applicable">Sin % de grasa</option>
+              <option value="male">Hombre · pectoral, abdomen y muslo</option>
+              <option value="female">
+                Mujer · tríceps, suprailiaco y muslo
+              </option>
+            </select>
+            <span
+              id="skinfold-equation-notice"
+              className="text-xs text-(--ws-muted)"
+            >
+              {ageYears === null
+                ? 'Sin fecha de nacimiento: no se puede calcular la edad.'
+                : `Edad a la fecha de medición: ${ageYears} años.`}
+            </span>
+          </label>
+        )}
+      </div>
+      <p className="text-sm text-(--ws-muted)">
+        {estimationVariant
+          ? 'Los tres pliegues marcados son obligatorios para calcular el % de grasa.'
+          : 'Captura al menos una medición del método.'}{' '}
+        Cambiar de método conserva el borrador de cada uno.
+      </p>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,25.5rem)]">
         <div className="space-y-4">
           {[
@@ -544,15 +480,9 @@ export default function AssessmentForm({
           )}
         </div>
         <aside className="space-y-5 xl:sticky xl:top-4">
-          {phase === 'saved' && confirmed?.assessment?.estimation && (
-            <EstimationDetails
-              effectiveDate={
-                confirmed.assessment.effectiveDate ?? confirmed.evaluationDate
-              }
-              estimation={confirmed.assessment.estimation}
-            />
-          )}
           <CompositionResults
+            method={method}
+            note={fatGap}
             preliminary={phase !== 'saved'}
             results={
               phase === 'saved'

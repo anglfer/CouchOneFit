@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import type { SessionIdentity } from '../../auth/types/session.js';
 import * as nutritionRepository from '../repositories/nutrition.js';
 import { generateNutritionSuggestion } from '../domain/suggestion-engine.js';
+import { ageAt } from '../../evaluations/domain/assessment.js';
 import {
   nutritionDocument,
   uuid,
@@ -68,10 +69,13 @@ export async function generateSuggestion(
   const targetId = uuid(clientId);
   const input = validateSuggestionInput(body);
   return nutritionRepository.read(pool, identity, async (c) => {
-    await nutritionRepository.scope(c, identity, targetId, true);
+    const { birthDate, timeZone } = await nutritionRepository.scope(c, identity, targetId, true);
     await nutritionRepository.requireEvaluation(c, targetId);
+    // Age always comes from the client's birth date, never from the request.
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone }).format(now);
+    const ageYears = ageAt(birthDate ?? null, today) ?? input.ageYears;
     return {
-      suggestion: generateNutritionSuggestion(input, now),
+      suggestion: generateNutritionSuggestion({ ...input, ageYears }, now),
     };
   });
 }

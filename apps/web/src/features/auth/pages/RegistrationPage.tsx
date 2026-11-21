@@ -1,3 +1,4 @@
+import { Icon } from '../../../components/Icon';
 import { useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Brand } from '../../../components/Brand';
 import { Link } from '../../../components/Link';
@@ -83,9 +84,9 @@ export default function RegistrationPage(): ReactElement {
         <div>
           <Link
             to="/"
-            className="text-xs sm:text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
+            className="text-xs sm:text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors inline-flex items-center gap-1"
           >
-            Volver al inicio <span aria-hidden="true">↗</span>
+            Volver al inicio <Icon name="arrow-up-right" size={14} />
           </Link>
         </div>
       </header>
@@ -119,7 +120,7 @@ export default function RegistrationPage(): ReactElement {
                 href="/#planes"
                 className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1"
               >
-                Ver todos los planes →
+                Ver todos los planes <Icon name="arrow-right" size={14} />
               </a>
             </div>
           </div>
@@ -160,7 +161,7 @@ export default function RegistrationPage(): ReactElement {
                   className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs shadow-indigo-600/30"
                   to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
                 >
-                  Ir al acceso <span aria-hidden="true">→</span>
+                  Ir al acceso <Icon name="arrow-right" size={14} />
                 </Link>
               </div>
               <p className="text-sm text-slate-600">
@@ -336,14 +337,14 @@ export default function RegistrationPage(): ReactElement {
                   >
                     {isSubmitting
                       ? 'Guardando tu registro…'
-                      : 'Crear mi cuenta →'}
+                      : 'Crear mi cuenta'}
                   </button>
                 </fieldset>
                 <p className="pt-4 text-center text-sm text-slate-600">
                   ¿Ya tienes una cuenta?{' '}
                   <Link
                     to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
-                    className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+                    className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1"
                   >
                     Ir al acceso
                   </Link>

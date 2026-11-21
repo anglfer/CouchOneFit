@@ -6,7 +6,7 @@ import {
 
 export const evolutionMetrics = {
   ...measurementFields,
-  candidateBodyFat: ['Grasa corporal estimada', '%'],
+  candidateBodyFat: ['Grasa corporal estimada (pliegues)', '%'],
 } as const;
 export type EvolutionMetric = keyof typeof evolutionMetrics;
 export interface EvolutionSample {
@@ -56,10 +56,6 @@ const uuid = (v: unknown): v is string =>
     v
   );
 const methods = ['perimetros', 'pliegues', 'bioimpedancia'];
-const candidateProtocols = [
-  'jp3-male-candidate@technical-candidate-v1',
-  'jp3-female-candidate@technical-candidate-v1',
-];
 const timestamp = (v: unknown): v is string =>
   typeof v === 'string' &&
   /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?Z$/.test(
@@ -180,14 +176,12 @@ export function isEvolutionPage(
         Object.keys(candidate).length !== 3 ||
         s.method !== 'pliegues' ||
         s.provenance !== 'manual_measurements' ||
-        typeof s.protocol !== 'string' ||
-        !candidateProtocols.includes(s.protocol) ||
         typeof candidate.percentage !== 'number' ||
         !Number.isFinite(candidate.percentage) ||
         candidate.percentage <= 0 ||
         candidate.percentage >= 100 ||
-        candidate.formulaVersion !== 'jp3-siri-arithmetic-candidate-v1' ||
-        candidate.domainVersion !== 'jp3-reference-ranges-candidate-v1')
+        typeof candidate.formulaVersion !== 'string' ||
+        typeof candidate.domainVersion !== 'string')
     )
       return false;
     const [whole, fraction = ''] = s.createdAt.slice(0, -1).split('.');

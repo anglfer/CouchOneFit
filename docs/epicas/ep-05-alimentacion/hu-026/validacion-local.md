@@ -32,3 +32,9 @@ Pendiente de verificación humana (**R**) en navegador Web, emulador/dispositivo
 - **T.** Móvil: `flutter analyze` sin problemas y `flutter test test/nutrition_test.dart test/training_test.dart` **33 de 33**. Revisión visual mediante captura de widget (claro y oscuro), no en dispositivo.
 
 Pendiente: QA humana (**R**) en navegador y en dispositivo Android, y revisión independiente.
+
+## Edad y % de grasa en el asistente — 20-nov-2026
+
+- **E.** La edad ya no es editable cuando el cliente tiene fecha de nacimiento; además, `generateSuggestion` la recalcula en el servidor desde `clients.birth_date` en la zona horaria del cliente e ignora la enviada. Peso, estatura y `% grasa` se toman de la evaluación más reciente que tenga cada dato (incluida la estimación oficial por pliegues) con su origen y fecha. El aviso de «Actualización disponible» también detecta un cambio de grasa ≥ 2 puntos frente al plan activo y muestra fechas legibles.
+- **T.** Recorrido en navegador integrado con la cuenta QA local: el asistente mostró «Edad 36 años · Según su fecha de nacimiento» sin campo editable y precargó 77,2 kg y 14,3 % («Pliegues · 21 nov 2026»).
+- **R.** La persona usuaria aprobó ajustar los factores de actividad de HU-025: las bandas anteriores (`moderate` 1,8–2,0, máximo 2,2) sobrestimaban el mantenimiento ≈20 % frente a las tablas habituales. Nuevas bandas: sedentario 1,2–1,3; leve 1,375–1,45; moderado 1,55–1,65; muy activo 1,725–1,9 (NEAT elige mínimo/medio/máximo). `ENGINE_VERSION` pasa a `hu025-fitnextfy-v2`; los planes guardados conservan su metadato v1 y no se recalculan.

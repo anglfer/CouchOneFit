@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from '../../../components/Link';
-import { canShowCandidateEstimation } from '../types/estimation';
 import { evolutionMetrics, type EvolutionMetric } from '../types/evolution';
 import {
   ALL_EVOLUTION,
@@ -40,7 +39,6 @@ export default function EvolutionSection({
     }
   }, []);
   const enabled = started || initialStatus !== 'not_integrated';
-  const showCandidate = canShowCandidateEstimation();
   const defaultMetric = 'measuredBodyFatPercentage';
   const state = useEvolution(
     clientId,
@@ -51,8 +49,7 @@ export default function EvolutionSection({
   );
   const metric =
     selectedMetric ??
-    (showCandidate &&
-    state.samples.some((sample) =>
+    (state.samples.some((sample) =>
       hasEvolutionMeasurement(sample, 'candidateBodyFat')
     )
       ? 'candidateBodyFat'
@@ -82,14 +79,13 @@ export default function EvolutionSection({
           id="evolution-heading"
           ref={title}
           tabIndex={-1}
-          className="text-xl font-semibold"
+          className="text-lg font-semibold"
         >
           Evolución antropométrica
         </h2>
         <p className="mt-1 text-sm text-(--ws-muted)">
-          Consulta el porcentaje de grasa por fecha de evaluación. El peso de
-          esta vista corresponde a las evaluaciones del profesional. El peso
-          corporal diario del cliente (check-in) se consulta aparte en{' '}
+          Cómo cambia cada medición entre tus evaluaciones. El peso diario que
+          registra el cliente está en{' '}
           <Link
             to={`/app/clientes/${encodeURIComponent(clientId)}/seguimiento`}
             className="font-semibold underline"
@@ -119,7 +115,7 @@ export default function EvolutionSection({
               }
             >
               {Object.entries(evolutionMetrics)
-                .filter(([key]) => key !== 'candidateBodyFat' || showCandidate)
+
                 .map(([key, meta]) => (
                   <option key={key} value={key}>
                     {key === 'weightKg' ? 'Peso de evaluación' : meta[0]} (
@@ -169,40 +165,12 @@ export default function EvolutionSection({
             />
           </label>
         </div>
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="Periodos rápidos"
-        >
-          {[30, 90, 365].map((days) => (
-            <button
-              className="ws-btn min-h-11"
-              type="button"
-              key={days}
-              onClick={() => apply({ ...draft, ...quickEvolutionPeriod(days) })}
-            >
-              Últimos {days} días
-            </button>
-          ))}
-          <button
-            type="button"
-            className="ws-btn min-h-11"
-            onClick={() => apply({ ...draft, from: '', to: '' })}
-          >
-            Todo el historial
-          </button>
-        </div>
-        <p className="text-xs text-(--ws-muted)">
-          Periodos inclusivos por día UTC; los accesos rápidos incluyen hoy. La
-          medición se cambia solo en esta vista, sin enviarla como filtro a la
-          API.
-        </p>
         {filterError && (
           <p id="evolution-filter-error" role="alert" className="text-sm">
             {filterError}
           </p>
         )}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             className="ws-btn min-h-11"
             data-variant="primary"
@@ -210,10 +178,35 @@ export default function EvolutionSection({
           >
             Aplicar filtros
           </button>
-          {enabled && (
+          <span
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Periodos rápidos"
+          >
+            {[30, 90, 365].map((days) => (
+              <button
+                className="ws-btn min-h-11"
+                type="button"
+                key={days}
+                onClick={() =>
+                  apply({ ...draft, ...quickEvolutionPeriod(days) })
+                }
+              >
+                Últimos {days} días
+              </button>
+            ))}
             <button
               type="button"
               className="ws-btn min-h-11"
+              onClick={() => apply({ ...draft, from: '', to: '' })}
+            >
+              Todo el historial
+            </button>
+          </span>
+          {enabled && (
+            <button
+              type="button"
+              className="ws-btn min-h-11 sm:ml-auto"
               disabled={state.loading}
               onClick={state.reload}
             >
@@ -223,9 +216,9 @@ export default function EvolutionSection({
         </div>
       </form>
       {metric === 'candidateBodyFat' && (
-        <p className="ws-alert" data-tone="warn">
-          Estimación preliminar con Jackson–Pollock y Siri, pendiente de
-          validación.
+        <p className="text-sm text-(--ws-muted)">
+          Estimado con Jackson–Pollock 3 pliegues + Siri en cada evaluación de
+          pliegues.
         </p>
       )}
       {!enabled && (
@@ -263,12 +256,13 @@ export default function EvolutionSection({
               conexión.
             </p>
           )}
-          <p className="text-sm">
-            Periodo consultado:{' '}
-            {filters.from ? evolutionDate(filters.from) : 'sin inicio'} —{' '}
-            {filters.to ? evolutionDate(filters.to) : 'sin fin'}.{' '}
-            {state.samples.length} evaluaciones cargadas · {points.length}{' '}
-            valores de {label.toLowerCase()}.
+          <p className="text-sm text-(--ws-muted)">
+            {filters.from || filters.to
+              ? `${filters.from ? evolutionDate(filters.from) : 'Inicio'} — ${filters.to ? evolutionDate(filters.to) : 'hoy'} · `
+              : 'Todo el historial · '}
+            {state.samples.length}{' '}
+            {state.samples.length === 1 ? 'evaluación' : 'evaluaciones'} ·{' '}
+            {points.length} con {label.toLowerCase()}
           </p>
           {state.page.pageInfo.hasMore && (
             <p role="status" className="ws-alert" data-tone="warn">
@@ -317,13 +311,7 @@ export default function EvolutionSection({
               <EvolutionTable samples={state.samples} metric={metric} />
             </>
           )}
-          <p className="text-xs text-(--ws-muted)">
-            Procedencia declarada del registro, no garantía del origen de cada
-            campo. Métodos o protocolos diferentes requieren contexto; no se
-            emiten diagnósticos. Las operaciones locales pendientes no forman
-            parte de esta serie.
-          </p>
-          {state.page.pageInfo.hasMore ? (
+          {state.page.pageInfo.hasMore && (
             <button
               type="button"
               className="ws-btn min-h-11"
@@ -334,13 +322,19 @@ export default function EvolutionSection({
                 ? 'Cargando más evolución…'
                 : 'Cargar más evolución'}
             </button>
-          ) : (
-            <p className="text-sm">
-              Fin de las páginas consultadas
-              {state.cachedAt !== null ? ' guardadas' : ''}. Actualiza con
-              conexión para consultar cambios posteriores.
-            </p>
           )}
+          <details className="text-xs text-(--ws-muted)">
+            <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+              Cómo leer estos datos
+            </summary>
+            <p className="mt-1">
+              Procedencia declarada del registro, no garantía del origen de cada
+              campo. Métodos o protocolos diferentes requieren contexto; no se
+              emiten diagnósticos. Las operaciones locales pendientes no forman
+              parte de esta serie. Los periodos se cuentan por día UTC e
+              incluyen hoy.
+            </p>
+          </details>
         </>
       )}
     </section>

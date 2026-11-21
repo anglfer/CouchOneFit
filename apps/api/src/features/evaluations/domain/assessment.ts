@@ -28,7 +28,8 @@ export interface Assessment extends AssessmentInput {
   version:
     | 'composition-arithmetic-v1'
     | 'composition-estimation-v1'
-    | 'composition-candidate-v1';
+    | 'composition-candidate-v1'
+    | 'composition-skinfold-v1';
   estimation?: UnavailableBodyFatEstimation | CandidateBodyFatEstimation;
   calculationStatus: 'available' | 'partial' | 'pending_verification';
   provenance: 'device_reported' | 'manual_measurements';

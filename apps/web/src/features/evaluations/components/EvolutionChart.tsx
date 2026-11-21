@@ -73,52 +73,6 @@ export default function EvolutionChart({
       <figcaption id={`${id}-title`} className="font-semibold">
         Gráfica de {label.toLowerCase()} ({unit})
       </figcaption>
-      <p id={`${id}-description`} className="mt-1 text-sm text-(--ws-muted)">
-        {metric === 'weightKg'
-          ? 'Puntos: pesos reales en kg. Líneas: guías visuales entre fechas distintas, no pesos intermedios ni equivalencia clínica.'
-          : 'Puntos: mediciones reales. Segmentos: capturas manuales del mismo método y protocolo; no representan mediciones intermedias ni predicciones.'}
-      </p>
-      <p className="mt-2 text-sm" role="status">
-        {segments.length
-          ? `${segments.length} ${metric === 'weightKg' ? 'guías de seguimiento' : 'segmentos entre registros comparables'}.`
-          : 'Sin conexiones: los puntos permanecen separados.'}
-        {metric === 'weightKg' &&
-          segments.some((s) => s.heterogeneous) &&
-          ' Línea discontinua: registros heterogéneos o equipo no identificado. No acredita equivalencia clínica.'}
-        {metric === 'weightKg' &&
-          ' Registros con la misma fecha y peso coinciden visualmente; cada uno conserva su ID.'}
-      </p>
-      {separations.length > 0 && (
-        <ul className="mt-2 list-disc pl-5 text-sm">
-          {separations.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      )}
-      {segments.length > 0 && (
-        <details className="mt-2 text-sm">
-          <summary className="min-h-11 cursor-pointer py-2">
-            Registros conectados ({segments.length})
-          </summary>
-          <ul className="space-y-2">
-            {segments.map((s) => (
-              <li key={`${s.from.id}:${s.to.id}`}>
-                {evolutionDate(s.from.date)}:{' '}
-                {evolutionValue(readEvolutionValue(s.from, metric)!)} {unit} →{' '}
-                {evolutionDate(s.to.date)}:{' '}
-                {evolutionValue(readEvolutionValue(s.to, metric)!)} {unit}.{' '}
-                {s.heterogeneous
-                  ? 'Guía entre registros heterogéneos.'
-                  : 'Mismo contexto de captura declarado.'}
-                <span className="block break-all text-xs">
-                  IDs de inicio: {s.fromIds.join(', ')}. IDs de fin:{' '}
-                  {s.toIds.join(', ')}.
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
       <div ref={container} className="mt-3 min-w-0">
         <svg
           role="group"
@@ -249,28 +203,79 @@ export default function EvolutionChart({
           })}
         </svg>
       </div>
-      <p className="text-sm">
-        Fechas: {evolutionDate(points[0].date)} —{' '}
-        {evolutionDate(points[points.length - 1].date)}.
-      </p>
-      <p className="text-xs text-(--ws-muted)">
-        Círculo: perímetros · Rombo: pliegues · Cuadrado: bioimpedancia ·
-        Círculo vacío: heredada.{' '}
-        {metric === 'weightKg'
-          ? 'Línea discontinua: guía heterogénea; continua: mismo contexto declarado.'
-          : 'Línea continua: perímetros; discontinua: pliegues. No se unen métodos distintos.'}{' '}
-        Escala ajustada a los datos mostrados.
-      </p>
+      <details className="mt-2 text-sm text-(--ws-muted)">
+        <summary className="min-h-11 cursor-pointer py-2 font-medium text-(--ws-text)">
+          Cómo leer la gráfica
+        </summary>
+        <p className="text-sm">
+          Fechas: {evolutionDate(points[0].date)} —{' '}
+          {evolutionDate(points[points.length - 1].date)}.
+        </p>
+        <p className="text-xs text-(--ws-muted)">
+          Círculo: perímetros · Rombo: pliegues · Cuadrado: bioimpedancia ·
+          Círculo vacío: heredada.{' '}
+          {metric === 'weightKg'
+            ? 'Línea discontinua: guía heterogénea; continua: mismo contexto declarado.'
+            : 'Línea continua: perímetros; discontinua: pliegues. No se unen métodos distintos.'}{' '}
+          Escala ajustada a los datos mostrados.
+        </p>
+        <p id={`${id}-description`} className="mt-1 text-sm text-(--ws-muted)">
+          {metric === 'weightKg'
+            ? 'Puntos: pesos reales en kg. Líneas: guías visuales entre fechas distintas, no pesos intermedios ni equivalencia clínica.'
+            : 'Puntos: mediciones reales. Segmentos: capturas manuales del mismo método y protocolo; no representan mediciones intermedias ni predicciones.'}
+        </p>
+        <p className="mt-2 text-sm">
+          {segments.length
+            ? `${segments.length} ${metric === 'weightKg' ? 'guías de seguimiento' : 'segmentos entre registros comparables'}.`
+            : 'Sin conexiones: los puntos permanecen separados.'}
+          {metric === 'weightKg' &&
+            segments.some((s) => s.heterogeneous) &&
+            ' Línea discontinua: registros heterogéneos o equipo no identificado. No acredita equivalencia clínica.'}
+          {metric === 'weightKg' &&
+            ' Registros con la misma fecha y peso coinciden visualmente; cada uno conserva su ID.'}
+        </p>
+        {separations.length > 0 && (
+          <ul className="mt-2 list-disc pl-5 text-sm">
+            {separations.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+        {segments.length > 0 && (
+          <details className="mt-2 text-sm">
+            <summary className="min-h-11 cursor-pointer py-2">
+              Registros conectados ({segments.length})
+            </summary>
+            <ul className="space-y-2">
+              {segments.map((s) => (
+                <li key={`${s.from.id}:${s.to.id}`}>
+                  {evolutionDate(s.from.date)}:{' '}
+                  {evolutionValue(readEvolutionValue(s.from, metric)!)} {unit} →{' '}
+                  {evolutionDate(s.to.date)}:{' '}
+                  {evolutionValue(readEvolutionValue(s.to, metric)!)} {unit}.{' '}
+                  {s.heterogeneous
+                    ? 'Guía entre registros heterogéneos.'
+                    : 'Mismo contexto de captura declarado.'}
+                  <span className="block break-all text-xs">
+                    IDs de inicio: {s.fromIds.join(', ')}. IDs de fin:{' '}
+                    {s.toIds.join(', ')}.
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </details>
       <p className="mt-2 text-sm" aria-live="polite">
         {chosen ? (
           <>
             {evolutionDate(chosen.date)} ·{' '}
             {evolutionValue(readEvolutionValue(chosen, metric)!)} {unit} ·{' '}
             {evolutionMethod(chosen.method)} ·{' '}
-            {evolutionProvenance(chosen.provenance)} · ID {chosen.id}
+            {evolutionProvenance(chosen.provenance)}
           </>
         ) : (
-          'Usa Tab para enfocar cada registro o consulta todos los valores en la tabla.'
+          'Selecciona un punto para ver su fecha, método y origen.'
         )}
       </p>
     </figure>

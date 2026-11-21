@@ -22,7 +22,6 @@ export default function TrainingHub() {
   return (
     <>
       <PageHeader
-        eyebrow="Rutinas"
         title="Plantillas de rutina"
         lead="Diseña una rutina una vez y asígnala a tus clientes. La rutina de cada cliente se gestiona desde su ficha."
         actions={
@@ -75,7 +74,8 @@ function TemplatesBoard() {
             className="ws-btn"
             onClick={() => void r.close()}
           >
-            ← Plantillas
+            <Icon name="arrow-right" size={16} className="rotate-180" />{' '}
+            Plantillas
           </button>
           <div className="training-savebar-status">
             <strong>{editing.document.name || 'Plantilla sin nombre'}</strong>

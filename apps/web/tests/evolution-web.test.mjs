@@ -377,11 +377,11 @@ test('cached older evaluation pages can be reopened offline only for the same ac
   await cache.noteAccount('pro-b');
   await assert.rejects(sessionRequest(endpoint));
 });
-test('local candidate percentages are charted separately and omitted from offline storage', async () => {
+test('official skinfold percentages are charted separately and kept for offline reading', async () => {
   const candidate = {
     percentage: 21.236,
-    formulaVersion: 'jp3-siri-arithmetic-candidate-v1',
-    domainVersion: 'jp3-reference-ranges-candidate-v1',
+    formulaVersion: 'jp3-siri-v1',
+    domainVersion: 'jp3-reference-ranges-v1',
   };
   const reading = (n, date, percentage) =>
     sample(
@@ -392,7 +392,7 @@ test('local candidate percentages are charted separately and omitted from offlin
         dateBasis: 'effective_date',
         method: 'pliegues',
         provenance: 'manual_measurements',
-        protocol: 'jp3-male-candidate@technical-candidate-v1',
+        protocol: 'jp3-sites-pending@technical-reference-v1',
         candidateBodyFat: { ...candidate, percentage },
       }
     );
@@ -406,7 +406,7 @@ test('local candidate percentages are charted separately and omitted from offlin
   assert.match(document.querySelector('table').textContent, /19\.5 %/);
   assert.match(
     document.body.textContent,
-    /Estimación preliminar con Jackson–Pollock y Siri, pendiente de validación/
+    /Estimado con Jackson–Pollock 3 pliegues \+ Siri/
   );
   assert.doesNotMatch(document.body.textContent, /pruebas? local/i);
   assert.equal(
@@ -429,7 +429,7 @@ test('local candidate percentages are charted separately and omitted from offlin
   );
   assert.ok(saved);
   assert.ok(
-    saved.data.samples.every((row) => row.candidateBodyFat === undefined)
+    saved.data.samples.every((row) => row.candidateBodyFat !== undefined)
   );
 });
 test('account change clears visible samples and rejects old-account reads', async () => {

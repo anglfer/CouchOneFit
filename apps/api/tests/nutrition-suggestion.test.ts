@@ -39,9 +39,10 @@ test('HU-025 calcula BMR Mifflin-St Jeor, Katch-McArdle y multiplicador activida
   assert.equal(calculateBmr('katch_mcardle', 'male', 80, 180, 30, 20), 1752);
 
   assert.equal(activityMultiplier('sedentary', 'low'), 1.2);
-  assert.equal(activityMultiplier('sedentary', 'medium'), 1.35);
-  assert.equal(activityMultiplier('moderate', 'medium'), 1.9);
-  assert.equal(activityMultiplier('very_active', 'high'), 2.2);
+  assert.equal(activityMultiplier('sedentary', 'medium'), 1.25);
+  assert.equal(activityMultiplier('light', 'low'), 1.375);
+  assert.equal(activityMultiplier('moderate', 'medium'), 1.6);
+  assert.equal(activityMultiplier('very_active', 'high'), 1.9);
 });
 
 test('HU-025 garantiza consistencia calórica exacta P*4 + C*4 + G*9 y guardarraíles de seguridad', () => {

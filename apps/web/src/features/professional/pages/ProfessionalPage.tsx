@@ -1,3 +1,4 @@
+import { Icon } from '../../../components/Icon';
 import { LegacyEvaluationRedirect } from '../../evaluations/pages/EvaluationsPage';
 import ClientRecordView from '../components/ClientRecordView';
 import type { ReactElement } from 'react';
@@ -402,7 +403,6 @@ export default function ProfessionalPage(): ReactElement {
           ) : isClientsPage ? (
             <>
               <PageHeader
-                eyebrow="Cartera"
                 title="Clientes"
                 lead="Abre la ficha de cada cliente para ver su expediente, su rutina y su actividad."
                 actions={
@@ -420,12 +420,12 @@ export default function ProfessionalPage(): ReactElement {
           ) : isRecoveryPage ? (
             <>
               <PageHeader
-                eyebrow="Cartera"
                 title="Recuperación asistida"
                 lead="Ayuda a una persona a recuperar su acceso tras comprobar su identidad."
                 actions={
                   <Link to="/app/clientes" className="ws-btn">
-                    ← Volver a clientes
+                    <Icon name="arrow-right" size={16} className="rotate-180" />{' '}
+                    Volver a clientes
                   </Link>
                 }
               />
@@ -445,7 +445,6 @@ export default function ProfessionalPage(): ReactElement {
             </section>
           ) : isProfilePage ? (
             <AccountProfile
-              eyebrow="Cuenta y preferencias"
               title="Mi perfil"
               lead="Gestiona tus datos de acceso y la apariencia de tu panel."
               name={profile.fullName}

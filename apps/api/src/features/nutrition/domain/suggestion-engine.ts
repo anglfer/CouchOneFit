@@ -15,7 +15,7 @@ import type {
   NutritionSuggestionResult,
 } from '../types/nutrition.js';
 
-export const ENGINE_VERSION = 'hu025-fitnextfy-v1';
+export const ENGINE_VERSION = 'hu025-fitnextfy-v2';
 
 /** Minimum daily average calories in deficit without direct clinical override. */
 export const DEFICIT_CALORIE_FLOOR: Record<NutritionSex, number> = {
@@ -49,11 +49,13 @@ export function interpolatePiecewise(x: number, points: [number, number][]): num
   return points[points.length - 1][1];
 }
 
+// Standard TDEE factors (1.2 / 1.375 / 1.55 / 1.725 / 1.9); NEAT moves within each band.
+// The previous 1.2–2.2 bands overestimated maintenance by ~20% (decision 2026-11-20).
 const ACTIVITY_RANGES: Record<NutritionActivityLevel, readonly [number, number]> = {
-  sedentary: [1.2, 1.5],
-  light: [1.5, 1.8],
-  moderate: [1.8, 2.0],
-  very_active: [2.0, 2.2],
+  sedentary: [1.2, 1.3],
+  light: [1.375, 1.45],
+  moderate: [1.55, 1.65],
+  very_active: [1.725, 1.9],
 };
 
 export function activityMultiplier(

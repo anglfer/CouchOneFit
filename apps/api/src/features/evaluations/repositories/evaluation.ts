@@ -4,11 +4,11 @@ import {
   isCandidateRequest,
   localCandidateEnvironment,
   localCandidateTarget,
-  visibleCandidate,
 } from '../domain/candidate-estimation.js';
+import { skinfoldResults } from '../domain/body-fat-estimation.js';
 import {
   CANDIDATE_ESTIMATION_VERSION,
-  type CandidateBodyFatEstimation,
+  SKINFOLD_RESULT_VERSION,
 } from '../types/estimation.js';
 import {
   PENDING_ESTIMATION_REFERENCE,
@@ -57,15 +57,21 @@ export function mapEvaluation(
   row: Record<string, unknown>,
   preciseCreatedAt?: string
 ): Evaluation {
-  const stored = row.assessment as Assessment | undefined;
-  if (stored?.version === CANDIDATE_ESTIMATION_VERSION && stored.estimation) {
+  // Stored JSON keeps the English method name; it is mapped to Spanish below.
+  const stored = row.assessment as
+    | (Omit<Assessment, 'method'> & { method: string })
+    | undefined;
+  if (stored?.method === 'skinfolds') {
+    // Pending/candidate snapshots are superseded by the official read-time result.
+    const { estimation: _superseded, ...rest } = stored;
+    const results = skinfoldResults(stored);
     row = {
       ...row,
       assessment: {
-        ...stored,
-        estimation: visibleCandidate(
-          stored.estimation as CandidateBodyFatEstimation
-        ),
+        ...rest,
+        version: SKINFOLD_RESULT_VERSION,
+        calculationStatus: results ? 'available' : 'partial',
+        results: results ?? {},
       },
     };
   }
@@ -125,7 +131,7 @@ async function assertPortfolio(
   identity: SessionIdentity,
   clientId: string,
   write: boolean
-): Promise<{ birth_date: string | null }> {
+): Promise<{ birth_date: string | null; time_zone: string }> {
   const {
     rows: [authorization],
   } = await c.query<{ allowed: boolean }>(
@@ -140,8 +146,13 @@ async function assertPortfolio(
     );
   const {
     rows: [row],
-  } = await c.query<{ id: string; status: string; birth_date: string | null }>(
-    `SELECT c.id,c.status,c.birth_date::text FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
+  } = await c.query<{
+    id: string;
+    status: string;
+    birth_date: string | null;
+    time_zone: string;
+  }>(
+    `SELECT c.id,c.status,c.birth_date::text,c.time_zone FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
      WHERE c.id=$1 AND p.user_id=$2 ${write ? 'FOR UPDATE OF c' : ''}`,
     [clientId, identity.id]
   );
@@ -206,7 +217,9 @@ export async function create(
       const {
         rows: [clock],
       } = await c.query<{ date: string }>(
-        "SELECT timezone('UTC',clock_timestamp())::date::text AS date"
+        // Client's local day: UTC turned evening captures in Mexico into "tomorrow".
+        'SELECT timezone($1,clock_timestamp())::date::text AS date',
+        [client.time_zone]
       );
       const effectiveDate = input.effectiveDate ?? clock.date;
       if (

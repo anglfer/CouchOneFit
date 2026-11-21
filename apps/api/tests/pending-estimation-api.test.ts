@@ -105,6 +105,7 @@ function fixture() {
                       id: clientId,
                       status: state.active ? 'active' : 'inactive',
                       birth_date: '1990-05-20',
+                      time_zone: 'America/Mexico_City',
                     },
                   ]
                 : []
@@ -114,7 +115,7 @@ function fixture() {
           if (sql.includes('inet_server_addr')) return result([state.target]);
           if (sql.includes('pg_constraint'))
             return result([{ ready: state.ready }]);
-          if (sql.includes("timezone('UTC',clock_timestamp())::date::text"))
+          if (sql.includes('timezone($1,clock_timestamp())::date::text'))
             return result([{ date: '2026-11-13' }]);
           if (sql.includes('INSERT INTO private.idempotency_keys')) {
             const key = `${args[0]}:${args[1]}`;
@@ -216,7 +217,14 @@ test('HU-023 HTTP pending reference always stores unavailable without formula/pr
         },
       });
     assert.equal(response.status, 201);
-    const a = response.body.evaluation.assessment;
+    // The stored snapshot keeps the pending reference; the response is the
+    // official read-time JP3 + Siri view (product decision 2026-11-20).
+    const official = response.body.evaluation.assessment;
+    assert.equal(official.version, 'composition-skinfold-v1');
+    assert.equal(official.estimation, undefined);
+    if (equation === 'not_applicable') assert.deepEqual(official.results, {});
+    else assert.ok(official.results.bodyFatPercentage > 0);
+    const a = state.rows.at(-1)!.assessment as Record<string, any>;
     assert.equal(a.version, 'composition-estimation-v1');
     assert.equal(a.estimation.status, 'unavailable');
     assert.equal(a.estimation.result, null);
@@ -232,6 +240,7 @@ test('HU-023 HTTP pending reference always stores unavailable without formula/pr
     assert.equal('estimationRequest' in a, false);
     const sample = evolutionSample(response.body.evaluation as Evaluation);
     assert.deepEqual(sample.measurements, a.measurements);
+    // Estimated fat is charted apart, never mixed into measured fields.
     assert.equal('estimatedBodyFatPercentage' in sample.measurements, false);
     assert.equal('measuredBodyFatPercentage' in sample.measurements, false);
     assert.equal(sample.method, 'pliegues');
@@ -240,7 +249,7 @@ test('HU-023 HTTP pending reference always stores unavailable without formula/pr
   assert.equal(state.rows.length, 3);
   const read = await request(app).get(`/api/clients/${clientId}/evaluations`);
   assert.equal(read.body.evaluations.length, 3);
-  assert.equal(read.body.evaluations[0].assessment.estimation.result, null);
+  assert.ok(read.body.evaluations[0].assessment.results.bodyFatPercentage > 0);
 });
 
 test('HU-023 unknown references, activation flags and result forgery fail before insertion', async () => {
@@ -279,11 +288,12 @@ test('HU-023 old/offline payloads keep v1, no estimation and no new migration de
       .send(old);
     assert.equal(r.status, 201);
     if (r.body.evaluation.assessment) {
+      // Stored v1 is untouched; skinfolds are presented as the official view.
       assert.equal(
-        r.body.evaluation.assessment.version,
+        (state.rows.at(-1)!.assessment as { version: string }).version,
         'composition-arithmetic-v1'
       );
-      assert.equal(r.body.evaluation.assessment.estimation, undefined);
+      assert.equal((state.rows.at(-1)!.assessment as Record<string, any>).estimation, undefined);
     }
   }
   const r = await request(app)
@@ -452,7 +462,7 @@ test('HU-023 local history projects the saved candidate separately from measurem
         .post(`/api/clients/${clientId}/evaluations`)
         .send(payload);
       assert.equal(r.status, 201);
-      const a = r.body.evaluation.assessment,
+      const a = state.rows.at(-1)!.assessment as Record<string, any>,
         e = a.estimation;
       assert.equal(a.version, 'composition-candidate-v1');
       assert.equal(e.status, 'candidate_only');
@@ -480,8 +490,8 @@ test('HU-023 local history projects the saved candidate separately from measurem
       assert.deepEqual(a.results, {});
       assert.deepEqual(evolutionSample(r.body.evaluation as Evaluation).candidateBodyFat, {
         percentage: e.result.estimatedBodyFatPercentage,
-        formulaVersion: e.technicalFormulaVersion,
-        domainVersion: e.technicalDomainVersion,
+        formulaVersion: 'jp3-siri-v1',
+        domainVersion: 'jp3-reference-ranges-v1',
       });
       assert.deepEqual(
         evolutionSample(r.body.evaluation as Evaluation).measurements,
@@ -495,10 +505,7 @@ test('HU-023 local history projects the saved candidate separately from measurem
     }
     assert.equal(state.rows.length, 2);
     const read = await request(app).get(`/api/clients/${clientId}/evaluations`);
-    assert.equal(
-      read.body.evaluations[0].assessment.estimation.status,
-      'candidate_only'
-    );
+    assert.ok(read.body.evaluations[0].assessment.results.bodyFatPercentage > 0);
   }));
 test('HU-023 missing sites, no equation, outside provisional ages and disabled/remote targets save unavailable, never zero', async () =>
   withCandidates(async () => {
@@ -513,24 +520,24 @@ test('HU-023 missing sites, no equation, outside provisional ages and disabled/r
         .send({ ...candidateBody(), ...patch });
       assert.equal(r.status, 201);
       assert.equal(
-        r.body.evaluation.assessment.estimation.status,
+        (state.rows.at(-1)!.assessment as Record<string, any>).estimation.status,
         'unavailable'
       );
-      assert.equal(r.body.evaluation.assessment.estimation.result, null);
+      assert.equal((state.rows.at(-1)!.assessment as Record<string, any>).estimation.result, null);
     }
     state.target.host = '203.0.113.1';
     let r = await request(app)
       .post(`/api/clients/${clientId}/evaluations`)
       .send(candidateBody());
     assert.equal(r.status, 201);
-    assert.equal(r.body.evaluation.assessment.estimation.result, null);
+    assert.equal((state.rows.at(-1)!.assessment as Record<string, any>).estimation.result, null);
     process.env.HU023_LOCAL_CANDIDATES_ENABLED = 'false';
     state.target.host = '127.0.0.1';
     r = await request(app)
       .post(`/api/clients/${clientId}/evaluations`)
       .send(candidateBody());
     assert.equal(r.status, 201);
-    assert.equal(r.body.evaluation.assessment.estimation.status, 'unavailable');
+    assert.equal((state.rows.at(-1)!.assessment as Record<string, any>).estimation.status, 'unavailable');
     assert.equal(
       state.rows.every(
         (row) =>
@@ -540,7 +547,7 @@ test('HU-023 missing sites, no equation, outside provisional ages and disabled/r
       true
     );
   }));
-test('HU-023 production blocks creation and redacts old candidates including idempotent replay without rewriting snapshots', async () =>
+test('HU-023 official read-time view supersedes stored candidates, including idempotent replay, without rewriting snapshots', async () =>
   withCandidates(async () => {
     const { app, state } = fixture();
     const key = randomUUID(),
@@ -549,31 +556,16 @@ test('HU-023 production blocks creation and redacts old candidates including ide
       .post(endpoint)
       .set('Idempotency-Key', key)
       .send(candidateBody());
-    assert.equal(
-      first.body.evaluation.assessment.estimation.status,
-      'candidate_only'
-    );
     const stored = structuredClone(state.rows[0]);
+    const official = first.body.evaluation.assessment;
+    assert.equal(official.version, 'composition-skinfold-v1');
+    assert.equal(official.estimation, undefined);
+    assert.equal(official.calculationStatus, 'available');
+    const density =
+      1.10938 - 0.0008267 * 45 + 0.0000016 * 45 ** 2 - 0.0002574 * 36;
+    assert.equal(official.results.bodyFatPercentage, 495 / density - 450);
+    // Production and a disabled flag no longer hide the official result.
     process.env.HU023_LOCAL_CANDIDATES_ENABLED = 'false';
-    const disabledReplay = await request(app)
-      .post(endpoint)
-      .set('Idempotency-Key', key)
-      .send(candidateBody());
-    assert.equal(disabledReplay.status, 201);
-    assert.equal(disabledReplay.headers['idempotent-replayed'], 'true');
-    assert.equal(
-      disabledReplay.body.evaluation.assessment.estimation.result,
-      null
-    );
-    assert.equal(disabledReplay.body.evaluation.id, first.body.evaluation.id);
-    const disabledList = await request(app).get(endpoint);
-    assert.equal(
-      disabledList.body.evaluations[0].assessment.estimation.result,
-      null
-    );
-    assert.deepEqual(state.rows[0], stored);
-    assert.equal(state.rows.length, 1);
-    process.env.HU023_LOCAL_CANDIDATES_ENABLED = 'true';
     process.env.NODE_ENV = 'production';
     const replay = await request(app)
       .post(endpoint)
@@ -581,22 +573,22 @@ test('HU-023 production blocks creation and redacts old candidates including ide
       .send(candidateBody());
     assert.equal(replay.status, 201);
     assert.equal(replay.headers['idempotent-replayed'], 'true');
-    assert.equal(replay.body.evaluation.assessment.estimation.result, null);
     assert.equal(replay.body.evaluation.id, first.body.evaluation.id);
-    assert.equal(state.rows.length, 1);
     const list = await request(app).get(endpoint);
     assert.equal(
-      list.body.evaluations[0].assessment.estimation.status,
-      'unavailable'
+      list.body.evaluations[0].assessment.results.bodyFatPercentage,
+      official.results.bodyFatPercentage
     );
-    assert.equal(list.body.evaluations[0].assessment.estimation.result, null);
-    assert.equal(evolutionSample(list.body.evaluations[0] as Evaluation).candidateBodyFat, undefined);
+    assert.deepEqual(
+      evolutionSample(list.body.evaluations[0] as Evaluation).candidateBodyFat,
+      {
+        percentage: official.results.bodyFatPercentage,
+        formulaVersion: 'jp3-siri-v1',
+        domainVersion: 'jp3-reference-ranges-v1',
+      }
+    );
     assert.deepEqual(state.rows[0], stored);
-    const next = await request(app)
-      .post(endpoint)
-      .send(candidateBody('female'));
-    assert.equal(next.status, 201);
-    assert.equal(next.body.evaluation.assessment.estimation.result, null);
+    assert.equal(state.rows.length, 1);
   }));
 test('HU-023 candidate requests reject mismatched protocols, forged results and invalid inputs; missing migration remains explicit', async () =>
   withCandidates(async () => {
@@ -739,7 +731,7 @@ test('HU-023 explicit candidates use the configured connection port and refuse a
     const accepted = await request(app).post(endpoint).send(candidateBody());
     assert.equal(accepted.status, 201);
     assert.equal(
-      accepted.body.evaluation.assessment.estimation.status,
+      (state.rows.at(-1)!.assessment as Record<string, any>).estimation.status,
       'candidate_only'
     );
     const stored = structuredClone(state.rows[0]);
@@ -747,10 +739,10 @@ test('HU-023 explicit candidates use the configured connection port and refuse a
     const denied = await request(app).post(endpoint).send(candidateBody());
     assert.equal(denied.status, 201);
     assert.equal(
-      denied.body.evaluation.assessment.estimation.status,
+      (state.rows.at(-1)!.assessment as Record<string, any>).estimation.status,
       'unavailable'
     );
-    assert.equal(denied.body.evaluation.assessment.estimation.result, null);
+    assert.equal((state.rows.at(-1)!.assessment as Record<string, any>).estimation.result, null);
     assert.deepEqual(state.rows[0], stored);
   }));
 

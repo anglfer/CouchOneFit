@@ -3,7 +3,7 @@ import { before, after, test } from 'node:test';
 import { createServer } from 'vite';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-let vite, Details, Composition, valid;
+let vite, Composition, valid;
 const snapshot = () => ({
   method: 'pliegues',
   equation: 'male',
@@ -39,11 +39,6 @@ before(async () => {
     configFile: false,
     server: { middlewareMode: true, hmr: false, watch: null },
   });
-  Details = (
-    await vite.ssrLoadModule(
-      '/src/features/evaluations/components/EstimationDetails.tsx'
-    )
-  ).default;
   Composition = (
     await vite.ssrLoadModule(
       '/src/features/evaluations/components/CompositionResults.tsx'
@@ -117,16 +112,6 @@ test('HU-023 old/offline confirmed responses remain valid without adding estimat
   delete legacy.assessment;
   assert(valid(legacy));
 });
-test('HU-023 pending detail explains unavailable without drawing numbers or a candidate graph', () => {
-  const html = renderToStaticMarkup(
-    React.createElement(Details, { effectiveDate: '2026-11-13' })
-  );
-  assert.match(html, /Estimación de grasa corporal/);
-  assert.match(html, /No disponible\. Las mediciones se conservaron\./);
-  assert.doesNotMatch(html, /pruebas? local|versión técnica|candidat/i);
-  assert(!html.includes('<svg'));
-  assert(!html.includes('%'));
-});
 test('HU-021 available device results remain available and explicitly informed, not JP3 estimates', () => {
   const html = renderToStaticMarkup(
     React.createElement(Composition, {
@@ -138,11 +123,44 @@ test('HU-021 available device results remain available and explicitly informed, 
   assert.match(html, /Masa grasa/);
 });
 
-test('HU-023 form opt-in defaults off and survives method changes without enabling calculation', async () => {
+function officialSnapshot() {
+  const a = snapshot();
+  delete a.estimation;
+  a.version = 'composition-skinfold-v1';
+  a.calculationStatus = 'available';
+  a.measurements = {
+    pectoralSkinfoldMm: 20,
+    abdominalSkinfoldMm: 20,
+    thighSkinfoldMm: 20,
+  };
+  const density = 1.10938 - 0.0008267 * 60 + 0.0000016 * 3600 - 0.0002574 * 30;
+  a.results = {
+    bodyFatPercentage: 495 / density - 450,
+    sumSkinfoldMm: 60,
+    bodyDensityGPerMl: density,
+  };
+  return a;
+}
+
+test('HU-023 official skinfold results are accepted and labelled as JP3 + Siri estimates', () => {
+  const a = officialSnapshot();
+  assert.equal(valid(evaluation(a)), true);
+  const html = renderToStaticMarkup(
+    React.createElement(Composition, { method: 'pliegues', results: a.results })
+  );
+  assert.match(html, /Grasa corporal estimada/);
+  assert.match(html, /17\.9/);
+  assert.match(html, /Jackson–Pollock 3 pliegues \+ Siri/);
+  assert.match(html, /1\.0578/);
+  assert.doesNotMatch(html, /informada|pendiente de validación/);
+});
+
+test('HU-023 skinfold form always offers the equation, previews JP3 + Siri and sends no estimation request', async () => {
   const { JSDOM } = await import('jsdom');
   const { act } = await import('react');
-  const dom = new JSDOM('<div id="pending-test"></div>', {
-    url: 'http://localhost/app/clientes/20000000-0000-4000-8000-000000000001/evaluacion/nueva',
+  // Not a loopback host: the calculation is no longer a local-only candidate.
+  const dom = new JSDOM('<div id="official-test"></div>', {
+    url: 'http://app.example.test/app/clientes/20000000-0000-4000-8000-000000000001/evaluacion/nueva',
   });
   const keys = [
     'window',
@@ -173,66 +191,43 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
       )
     ).default;
     const { createRoot } = await import('react-dom/client');
-    root = createRoot(document.getElementById('pending-test'));
+    root = createRoot(document.getElementById('official-test'));
     await act(async () => {
       root.render(
         React.createElement(Form, {
           clientId: '20000000-0000-4000-8000-000000000001',
           clientName: 'Synthetic',
+          birthDate: '1996-01-15',
           onSaved: () => {},
           onQueued: () => {},
         })
       );
     });
-    const choose = async (text) => {
-      const button = [...document.querySelectorAll('button')].find((b) =>
-        b.textContent.includes(text)
-      );
-      assert(button);
-      await act(async () => button.click());
-    };
-    await choose('Pliegues cutáneos');
-    const checkbox = () => document.querySelector('input[type="checkbox"]');
-    assert.equal(checkbox().checked, false);
-    await act(async () => checkbox().click());
-    assert.equal(checkbox().checked, true);
-    assert.match(
-      document.body.textContent,
-      /Guardar como estimación pendiente/
+    const pliegues = [...document.querySelectorAll('button')].find((b) =>
+      b.textContent.includes('Pliegues cutáneos')
     );
-    await choose('Bioimpedancia');
-    assert.equal(checkbox(), null);
-    await choose('Pliegues cutáneos');
-    assert.equal(checkbox().checked, true);
-    const boxes = () => [
-      ...document.querySelectorAll('input[type="checkbox"]'),
-    ];
-    assert.equal(boxes().length, 2);
-    assert.equal(boxes()[1].disabled, true);
-    const equation = document.querySelector('select');
-    await act(async () => {
-      equation.value = 'male';
-      equation.dispatchEvent(new window.Event('change', { bubbles: true }));
-    });
-    assert.equal(boxes()[1].disabled, false);
-    assert.equal(boxes()[1].checked, false);
-    await act(async () => boxes()[1].click());
-    assert.equal(boxes()[0].checked, false);
-    assert.equal(boxes()[1].checked, true);
+    await act(async () => pliegues.click());
+    assert.equal(document.querySelectorAll('input[type="checkbox"]').length, 0);
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set;
+    const type = async (element, value) =>
+      act(async () => {
+        setter.call(element, value);
+        element.dispatchEvent(new window.Event('input', { bubbles: true }));
+      });
+    await type(document.querySelector('input[type="date"]'), '2026-11-20');
+    const select = document.querySelector('select');
+    const chooseEquation = async (value) =>
+      act(async () => {
+        select.value = value;
+        select.dispatchEvent(new window.Event('change', { bubbles: true }));
+      });
     const requiredFields = () =>
       [...document.querySelectorAll('input[required]')].map(
         (input) => input.name
       );
-    assert.deepEqual(requiredFields(), [
-      'pectoralSkinfoldMm',
-      'abdominalSkinfoldMm',
-      'thighSkinfoldMm',
-    ]);
-    const chooseEquation = async (value) =>
-      act(async () => {
-        equation.value = value;
-        equation.dispatchEvent(new window.Event('change', { bubbles: true }));
-      });
     await chooseEquation('female');
     assert.deepEqual(requiredFields(), [
       'tricepsSkinfoldMm',
@@ -240,84 +235,56 @@ test('HU-023 form opt-in defaults off and survives method changes without enabli
       'thighSkinfoldMm',
     ]);
     await chooseEquation('male');
+    assert.deepEqual(requiredFields(), [
+      'pectoralSkinfoldMm',
+      'abdominalSkinfoldMm',
+      'thighSkinfoldMm',
+    ]);
     assert.match(
       document.body.textContent,
-      /Estimación preliminar, pendiente de validación/
+      /Edad a la fecha de medición: 30 años/
     );
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      'value'
-    ).set;
-    await act(async () => {
-      for (const [key, n] of Object.entries({
-        pectoralSkinfoldMm: 10,
-        abdominalSkinfoldMm: 15,
-      })) {
-        const element = document.getElementById('assessment-' + key);
-        assert(element);
-        setter.call(element, String(n));
-        element.dispatchEvent(new window.Event('input', { bubbles: true }));
-      }
-    });
+    await type(document.getElementById('assessment-pectoralSkinfoldMm'), '20');
+    await type(document.getElementById('assessment-abdominalSkinfoldMm'), '20');
+    assert.match(
+      document.body.textContent,
+      /Faltan pliegues para el % de grasa: muslo/
+    );
+    await type(document.getElementById('assessment-thighSkinfoldMm'), '20');
+    assert.match(document.body.textContent, /17\.9%/);
     const posts = [];
     globalThis.fetch = async (url, options = {}) => {
       if (String(url).endsWith('/auth/csrf'))
         return new Response(
           JSON.stringify({ csrfToken: 'synthetic-unit-csrf' }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
         );
-      assert.equal(options.method, 'POST');
       posts.push(JSON.parse(options.body));
-      const a = candidateSnapshot();
-      const e = {
-        ...evaluation(a),
-        pectoralSkinfoldMm: 10,
-        abdominalSkinfoldMm: 15,
-        thighSkinfoldMm: 20,
-      };
-      return new Response(JSON.stringify({ evaluation: e }), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          evaluation: {
+            ...evaluation(officialSnapshot()),
+            abdominalSkinfoldMm: 20,
+            thighSkinfoldMm: 20,
+          },
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } }
+      );
     };
-    const submit = () =>
+    await act(async () =>
       document
         .querySelector('form')
         .dispatchEvent(
           new window.Event('submit', { bubbles: true, cancelable: true })
-        );
-    await act(async () => submit());
-    assert.equal(posts.length, 0);
-    const thigh = document.getElementById('assessment-thighSkinfoldMm');
-    assert.ok(document.activeElement === thigh);
-    assert.match(
-      document.getElementById(thigh.getAttribute('aria-describedby'))
-        .textContent,
-      /obligatorio/
+        )
     );
-    await act(async () => {
-      setter.call(thigh, '20');
-      thigh.dispatchEvent(new window.Event('input', { bubbles: true }));
-    });
-    await act(async () => {
-      submit();
-      submit();
-    });
     assert.equal(posts.length, 1);
-    assert.deepEqual(posts[0].estimationRequest, {
-      methodId: 'jackson-pollock-3-siri',
-      protocolId: 'jp3-male-candidate',
-      protocolVersion: 'technical-candidate-v1',
-    });
-    assert.match(
-      document.body.textContent,
-      /Estimación preliminar, pendiente de validación/
-    );
-    assert.doesNotMatch(document.body.textContent, /pruebas? local/i);
-    assert.match(
-      document.body.textContent,
-      /La evaluación se guardó correctamente/
-    );
+    assert.equal(posts[0].equation, 'male');
+    assert.equal('estimationRequest' in posts[0], false);
+    assert.match(document.body.textContent, /Resultados guardados/);
   } finally {
     if (root) await act(async () => root.unmount());
     dom.window.close();
@@ -435,210 +402,6 @@ test('HU-023 candidate response keeps technical versions, selected sites and sci
       ),
       false
     );
-  }
-});
-
-test('HU-023 local detail shows one decimal, traceable density and female caution; remote views hide candidate numbers', () => {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
-  try {
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: { location: { hostname: '127.0.0.1' } },
-    });
-    for (const variant of ['male', 'female']) {
-      const a = candidateSnapshot(variant, 45);
-      assert.equal(valid(evaluation(a)), true);
-      const html = renderToStaticMarkup(
-        React.createElement(Details, {
-          effectiveDate: a.effectiveDate,
-          estimation: a.estimation,
-        })
-      );
-      assert.match(html, /Estimación preliminar, pendiente de validación/);
-      assert(
-        html.includes(
-          a.estimation.result.estimatedBodyFatPercentage.toFixed(1) + ' %'
-        )
-      );
-      assert(html.includes(String(a.estimation.result.bodyDensityGPerMl)));
-      assert.match(html, /jp3-siri-arithmetic-candidate-v1/);
-      assert.doesNotMatch(html, /pruebas? local/i);
-      if (variant === 'female') {
-        assert.match(html, /mayores de 40/);
-      }
-    }
-    window.location.hostname = 'example.invalid';
-    const a = candidateSnapshot();
-    const html = renderToStaticMarkup(
-      React.createElement(Details, {
-        effectiveDate: a.effectiveDate,
-        estimation: a.estimation,
-      })
-    );
-    assert.doesNotMatch(html, /%|candidat|desarrollo local/i);
-    assert.match(html, /No disponible\. Las mediciones se conservaron\./);
-  } finally {
-    if (descriptor) Object.defineProperty(globalThis, 'window', descriptor);
-    else delete globalThis.window;
-  }
-});
-
-test('HU-023 No aplica clears candidate opt-in, announces no estimation, preserves measurements and permits explicit reselection', async () => {
-  const { JSDOM } = await import('jsdom');
-  const { act } = await import('react');
-  const dom = new JSDOM('<div id="equation-regression"></div>', {
-    url: 'http://127.0.0.1/app/clientes/20000000-0000-4000-8000-000000000001/evaluacion/nueva',
-  });
-  const keys = [
-    'window',
-    'document',
-    'navigator',
-    'localStorage',
-    'sessionStorage',
-  ];
-  const previous = keys.map((k) => [
-    k,
-    Object.getOwnPropertyDescriptor(globalThis, k),
-  ]);
-  const priorAct = globalThis.IS_REACT_ACT_ENVIRONMENT;
-  const priorFetch = globalThis.fetch;
-  let root;
-  try {
-    for (const k of keys)
-      Object.defineProperty(globalThis, k, {
-        value: dom.window[k],
-        configurable: true,
-      });
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-    const store = await vite.ssrLoadModule('/src/services/offline/store.ts');
-    store.setOfflineStore(store.createMemoryStore());
-    const Form = (
-      await vite.ssrLoadModule(
-        '/src/features/evaluations/components/AssessmentForm.tsx'
-      )
-    ).default;
-    const { createRoot } = await import('react-dom/client');
-    root = createRoot(document.getElementById('equation-regression'));
-    const saved = [];
-    await act(async () =>
-      root.render(
-        React.createElement(Form, {
-          clientId: '20000000-0000-4000-8000-000000000001',
-          clientName: 'Synthetic',
-          onSaved: (value) => saved.push(value),
-          onQueued: () =>
-            assert.fail('Expected a confirmed synthetic HTTP response'),
-        })
-      )
-    );
-    const pliegues = [...document.querySelectorAll('button')].find((b) =>
-      b.textContent.includes('Pliegues cutáneos')
-    );
-    await act(async () => pliegues.click());
-    const select = document.querySelector('select');
-    const chooseEquation = async (value) =>
-      act(async () => {
-        select.value = value;
-        select.dispatchEvent(new window.Event('change', { bubbles: true }));
-      });
-    const candidate = () =>
-      [...document.querySelectorAll('input[type="checkbox"]')][1];
-    await chooseEquation('male');
-    await act(async () => candidate().click());
-    assert.equal(candidate().checked, true);
-    const measurements = {
-      pectoralSkinfoldMm: 10,
-      abdominalSkinfoldMm: 15,
-      thighSkinfoldMm: 20,
-    };
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      'value'
-    ).set;
-    await act(async () => {
-      for (const [key, value] of Object.entries(measurements)) {
-        const input = document.getElementById('assessment-' + key);
-        setter.call(input, String(value));
-        input.dispatchEvent(new window.Event('input', { bubbles: true }));
-      }
-    });
-    const assertMeasurements = () => {
-      for (const [key, value] of Object.entries(measurements))
-        assert.equal(
-          document.getElementById('assessment-' + key).value,
-          String(value)
-        );
-    };
-    await chooseEquation('not_applicable');
-    assert.equal(candidate().checked, false);
-    assert.equal(candidate().disabled, true);
-    assert.equal(document.querySelectorAll('input[required]').length, 0);
-    const notice = document.getElementById('candidate-estimation-notice');
-    assert.equal(notice.getAttribute('role'), 'status');
-    assert.equal(select.getAttribute('aria-describedby'), notice.id);
-    assert.match(
-      notice.textContent,
-      /Se guardarán los pliegues sin estimar la grasa corporal/
-    );
-    assertMeasurements();
-    await chooseEquation('female');
-    assert.equal(candidate().disabled, false);
-    assert.equal(candidate().checked, false);
-    assert.equal(notice.textContent, '');
-    assertMeasurements();
-    await act(async () => candidate().click());
-    assert.equal(candidate().checked, true);
-    await chooseEquation('not_applicable');
-    assert.equal(candidate().checked, false);
-    assertMeasurements();
-    const posts = [];
-    globalThis.fetch = async (url, options = {}) => {
-      if (String(url).endsWith('/auth/csrf'))
-        return new Response(
-          JSON.stringify({ csrfToken: 'synthetic-unit-csrf' }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
-      assert.equal(options.method, 'POST');
-      assert(String(url).endsWith('/evaluations'));
-      posts.push(JSON.parse(options.body));
-      const a = snapshot();
-      delete a.estimation;
-      Object.assign(a, {
-        version: 'composition-arithmetic-v1',
-        protocol: 'jp3-sites-pending',
-        equation: 'not_applicable',
-        measurements,
-        ownerId: '10000000-0000-4000-8000-000000000001',
-        birthDate: '1996-11-13',
-      });
-      return new Response(
-        JSON.stringify({ evaluation: { ...evaluation(a), ...measurements } }),
-        { status: 201, headers: { 'Content-Type': 'application/json' } }
-      );
-    };
-    await act(async () =>
-      document
-        .querySelector('form')
-        .dispatchEvent(
-          new window.Event('submit', { bubbles: true, cancelable: true })
-        )
-    );
-    assert.equal(posts.length, 1);
-    assert.equal(posts[0].equation, 'not_applicable');
-    assert.equal(Object.hasOwn(posts[0], 'estimationRequest'), false);
-    assert.deepEqual(posts[0].measurements, measurements);
-    assert.equal(saved.length, 1);
-    assert.equal(saved[0].assessment.estimation, undefined);
-    assertMeasurements();
-  } finally {
-    if (root) await act(async () => root.unmount());
-    dom.window.close();
-    for (const [k, descriptor] of previous) {
-      if (descriptor) Object.defineProperty(globalThis, k, descriptor);
-      else delete globalThis[k];
-    }
-    globalThis.IS_REACT_ACT_ENVIRONMENT = priorAct;
-    globalThis.fetch = priorFetch;
   }
 });
 
@@ -763,10 +526,7 @@ test('AnatomicalGuide renders sculpted musculature, method-scoped pins, zoom foc
       select.value = 'female';
       select.dispatchEvent(new window.Event('change', { bubbles: true }));
     });
-    const candidateBox = [
-      ...document.querySelectorAll('input[type="checkbox"]'),
-    ][1];
-    await act(async () => candidateBox.click());
+    // Choosing the equation alone marks its three sites as required.
     assert.equal(
       [...guide().querySelectorAll('.anatomical-chip')].filter((b) =>
         b.textContent.includes('Obligatorio')

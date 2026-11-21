@@ -11,7 +11,6 @@ export default function AdminHome({
   return (
     <>
       <PageHeader
-        eyebrow="Administración central"
         title={`Hola, ${username}.`}
         lead="Tu espacio para supervisar y administrar CouchOne Fit."
       />
@@ -76,14 +75,14 @@ export default function AdminHome({
             </dd>
           </div>
           <div>
-            <dt>Aislamiento de sesiones</dt>
+            <dt>Sesión</dt>
             <dd>
-              <Badge tone="ok">HttpOnly + CSRF</Badge>
+              <Badge tone="ok">Protegida</Badge>
             </dd>
           </div>
           <div>
-            <dt>Permisos profesionales</dt>
-            <dd>Separados (403 automático)</dd>
+            <dt>Expedientes de clientes</dt>
+            <dd>Solo lectura desde soporte</dd>
           </div>
         </dl>
       </Card>

@@ -1,8 +1,13 @@
-import EstimationDetails from './EstimationDetails';
-import { measurementFields, type MeasurementField } from '../types/assessment';
+import {
+  measurementFields,
+  skinfoldNote,
+  type MeasurementField,
+} from '../types/assessment';
 import { Link } from '../../../components/Link';
 import CompositionResults from './CompositionResults';
 import { useOperations } from '../../../hooks/useOperations';
+import { Icon } from '../../../components/Icon';
+import { evolutionDate, evolutionMethod } from '../utils/evolution';
 import {
   EVALUATION_FIELDS,
   type EvaluationSection as Section,
@@ -25,19 +30,8 @@ export default function EvaluationsSection({
     (o) => o.kind === 'evaluation.create' && o.clientId === clientId
   );
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold">Historial confirmado</h3>
-        {clientStatus === 'active' && (
-          <Link
-            className="ws-btn min-h-11"
-            data-variant="primary"
-            to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion/nueva`}
-          >
-            Nueva evaluación
-          </Link>
-        )}
-      </div>
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Historial de evaluaciones</h3>
       {section.status === 'error' ? (
         <div role="alert">
           <p>No pudimos consultar las evaluaciones confirmadas.</p>
@@ -46,8 +40,11 @@ export default function EvaluationsSection({
           </button>
         </div>
       ) : section.status === 'empty' ? (
-        <p className="rounded-lg border border-dashed p-4">
-          Aún no hay evaluaciones confirmadas por el servidor.
+        <p className="rounded-lg border border-dashed border-(--ws-border) p-4 text-sm text-(--ws-muted)">
+          Aún no hay evaluaciones registradas.
+          {clientStatus === 'active'
+            ? ' Usa «Nueva evaluación» para capturar la primera.'
+            : ''}
           {operations.length > 0
             ? ' Las operaciones locales se muestran por separado.'
             : ''}
@@ -110,28 +107,39 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
       ? []
       : [{ label, unit, value: evaluation[field] }]
   );
+  const count = evaluation.assessment
+    ? Object.keys(evaluation.assessment.measurements).length
+    : measurements.length;
   return (
     <li className="rounded-lg border border-(--ws-border) bg-(--ws-surface)">
-      <details>
-        <summary className="min-h-11 cursor-pointer px-3 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ws-primary)">
-          <span>
-            Confirmada · Evaluación ·{' '}
-            {evaluation.assessment?.effectiveDate ?? evaluation.evaluationDate}
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ws-primary) [&::-webkit-details-marker]:hidden">
+          <Icon
+            name="chevron-down"
+            size={16}
+            className="shrink-0 -rotate-90 text-(--ws-muted) transition-transform group-open:rotate-0"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">
+              {evolutionDate(
+                evaluation.assessment?.effectiveDate ??
+                  evaluation.evaluationDate
+              )}
+            </span>
+            <span className="block text-sm text-(--ws-muted)">
+              {evolutionMethod(evaluation.assessment?.method ?? null)}
+              {evaluation.assessment?.results.bodyFatPercentage !==
+                undefined &&
+                ` · ${evaluation.assessment.results.bodyFatPercentage.toFixed(1)} % grasa`}
+            </span>
           </span>
-          <span className="block text-xs">
-            {evaluation.assessment?.method ?? 'Heredada · método desconocido'} ·
-            creada {evaluation.createdAt}
-          </span>
-          <span className="ml-2 text-sm font-normal text-(--ws-muted)">
-            {evaluation.assessment
-              ? Object.keys(evaluation.assessment.measurements).length
-              : measurements.length}{' '}
-            {measurements.length === 1 ? 'medición' : 'mediciones'}
+          <span className="text-sm text-(--ws-muted)">
+            {count} {count === 1 ? 'medición' : 'mediciones'}
           </span>
         </summary>
         {evaluation.assessment && (
-          <div className="p-3 space-y-3">
-            <p>
+          <div className="space-y-4 border-t border-(--ws-border) p-3">
+            <p className="text-sm text-(--ws-muted)">
               Edad de referencia:{' '}
               {evaluation.assessment.ageYears ?? 'no disponible'} ·{' '}
               {evaluation.assessment.calculationStatus ===
@@ -141,21 +149,14 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
                   ? 'Datos parciales'
                   : 'Resultados disponibles'}
             </p>
-            <details className="text-sm">
-              <summary className="cursor-pointer">Método y versión</summary>
-              <p className="break-words">
-                Protocolo: {evaluation.assessment.protocol} · Versión:{' '}
-                {evaluation.assessment.version}
-              </p>
-            </details>
-            <dl className="grid gap-2">
+            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
               {Object.entries(evaluation.assessment.measurements).map(
                 ([key, value]) => (
-                  <div key={key}>
-                    <dt>
+                  <div key={key} className="flex justify-between gap-3">
+                    <dt className="text-(--ws-muted)">
                       {measurementFields[key as MeasurementField]?.[0] ?? key}
                     </dt>
-                    <dd>
+                    <dd className="font-medium tabular-nums">
                       {value}{' '}
                       {measurementFields[key as MeasurementField]?.[1] ?? ''}
                     </dd>
@@ -163,14 +164,19 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
                 )
               )}
             </dl>
-            {evaluation.assessment.estimation ? (
-              <EstimationDetails
-                estimation={evaluation.assessment.estimation}
-                effectiveDate={evaluation.assessment.effectiveDate!}
-              />
-            ) : (
-              <CompositionResults results={evaluation.assessment.results} />
-            )}
+            <CompositionResults
+              results={evaluation.assessment.results}
+              method={evaluation.assessment.method}
+              note={
+                evaluation.assessment.method === 'pliegues'
+                  ? skinfoldNote(
+                      evaluation.assessment.equation,
+                      evaluation.assessment.ageYears,
+                      evaluation.assessment.measurements
+                    )
+                  : null
+              }
+            />
             {evaluation.assessment.segmental && (
               <div aria-label="Valores segmentales">
                 {Object.entries(evaluation.assessment.segmental.values).map(
@@ -207,6 +213,14 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
                 )}
               </div>
             )}
+            <p className="text-xs break-words text-(--ws-muted)">
+              Protocolo {evaluation.assessment.protocol} · versión{' '}
+              {evaluation.assessment.version} · registrada el{' '}
+              {new Date(evaluation.createdAt).toLocaleString('es-MX', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </p>
           </div>
         )}
         {!evaluation.assessment &&

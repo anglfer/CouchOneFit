@@ -4,6 +4,7 @@ import { Link } from '../../../components/Link';
 import { Badge } from '../../../components/ui';
 import { confirmDialog } from '../../../services/confirm';
 import type { ProfessionalRecord } from '../../professional/types/record';
+import { latestBodyFat } from '../../evaluations/types/evaluation';
 import Modal from '../../training/components/Modal';
 import '../../training/training.css';
 import '../nutrition.css';
@@ -102,11 +103,24 @@ export default function ClientNutrition({
       const diff = (currentWeight - baselineWeight).toFixed(1);
       return `El peso registrado cambió (${baselineWeight} kg → ${currentWeight} kg, ${Number(diff) > 0 ? '+' : ''}${diff} kg) desde el cálculo del plan activo.`;
     }
+    const currentFat = latestBodyFat(record.sections.evaluations)?.value;
+    const baselineFat = active.suggestionMeta?.baselineBodyFatPct ?? null;
+    if (
+      currentFat != null &&
+      baselineFat != null &&
+      Math.abs(currentFat - baselineFat) >= 2
+    ) {
+      return `La grasa corporal cambió (${baselineFat} % → ${currentFat.toFixed(1)} %) desde el cálculo del plan activo.`;
+    }
     if (
       latestEval &&
       latestEval.evaluationDate > active.createdAt.slice(0, 10)
     ) {
-      return `Hay una evaluación física más reciente (${latestEval.evaluationDate}) que la versión activa actual.`;
+      // Registration dates compare in UTC; show the measurement day.
+      const when = new Date(
+        `${latestEval.assessment?.effectiveDate ?? latestEval.evaluationDate}T12:00:00`
+      ).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+      return `Hay una evaluación física más reciente (${when}) que la versión activa actual.`;
     }
     return null;
   }, [active, record]);

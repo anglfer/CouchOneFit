@@ -64,9 +64,9 @@ export default function AuthShell({
           </div>
           <Link
             to="/"
-            className="text-sm font-semibold text-slate-600 hover:text-indigo-700"
+            className="text-sm font-semibold text-slate-600 hover:text-indigo-700 inline-flex items-center gap-1"
           >
-            Volver al inicio <span aria-hidden="true">↗</span>
+            Volver al inicio <Icon name="arrow-up-right" size={14} />
           </Link>
         </header>
         <main className="m-auto w-full max-w-md py-8">{children}</main>

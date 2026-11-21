@@ -5,15 +5,22 @@ const labels: Record<string, string> = {
   waistHipRatio: 'ICC · cintura/cadera',
   waistHeightRatio: 'ICE · cintura/estatura',
   approximateWaterPercentage: 'Agua aproximada (%)',
+  sumSkinfoldMm: 'Suma de 3 pliegues (mm)',
+  bodyDensityGPerMl: 'Densidad corporal (g/mL)',
 };
 export default function CompositionResults({
   results,
+  method,
+  note,
   preliminary = false,
 }: {
   results: Record<string, number>;
+  method?: string;
+  note?: string | null;
   preliminary?: boolean;
 }) {
   const fat = results.bodyFatPercentage;
+  const estimated = method === 'pliegues';
   return (
     <section
       aria-label={
@@ -24,8 +31,13 @@ export default function CompositionResults({
       <h3 className="font-semibold">
         {preliminary
           ? 'Previsualización · confirmar al guardar'
-          : 'Resultados del servidor'}
+          : 'Resultados guardados'}
       </h3>
+      {note && (
+        <p role="status" className="text-sm text-(--ws-muted)">
+          {note}
+        </p>
+      )}
       {fat > 0 && fat < 100 && (
         <div className="flex flex-wrap items-center gap-4">
           <svg
@@ -65,24 +77,35 @@ export default function CompositionResults({
             </text>
           </svg>
           <p className="text-sm">
-            Grasa corporal y fracción libre de grasa. No representa masa
-            muscular.
+            {estimated
+              ? 'Estimado con Jackson–Pollock 3 pliegues + Siri y la edad a la fecha de medición.'
+              : 'Grasa corporal y fracción libre de grasa. No representa masa muscular.'}
           </p>
         </div>
       )}
       {!Object.keys(results).length ? (
-        <p className="text-sm text-(--ws-muted)">
-          Sin resultados calculables con las entradas actuales.
-        </p>
+        !note && (
+          <p className="text-sm text-(--ws-muted)">
+            Sin resultados calculables con las entradas actuales.
+          </p>
+        )
       ) : (
         <dl className="grid gap-3 sm:grid-cols-2">
           {Object.entries(results).map(([key, value]) => (
             <div key={key}>
               <dt className="text-sm text-(--ws-muted)">
-                {labels[key] ?? key}
+                {estimated && key === 'bodyFatPercentage'
+                  ? 'Grasa corporal estimada (%)'
+                  : (labels[key] ?? key)}
               </dt>
               <dd className="text-lg font-semibold tabular-nums">
-                {value.toFixed(key.includes('Ratio') ? 3 : 1)}
+                {value.toFixed(
+                  key === 'bodyDensityGPerMl'
+                    ? 4
+                    : key.includes('Ratio')
+                      ? 3
+                      : 1
+                )}
               </dd>
             </div>
           ))}

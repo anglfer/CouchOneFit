@@ -1,5 +1,4 @@
 import { methods } from '../types/assessment';
-import { canShowCandidateEstimation } from '../types/estimation';
 import {
   evolutionMetrics,
   type EvolutionMetric,
@@ -77,9 +76,7 @@ export function readEvolutionValue(
   metric: EvolutionMetric
 ): number | undefined {
   return metric === 'candidateBodyFat'
-    ? canShowCandidateEstimation()
-      ? sample.candidateBodyFat?.percentage
-      : undefined
+    ? sample.candidateBodyFat?.percentage
     : sample.measurements[metric];
 }
 export function compareHistory(a: EvolutionSample, b: EvolutionSample): number {

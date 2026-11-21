@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 import { ApiError } from '../../../services/api';
 
+/** API statuses are English codes; show them in Spanish with gender. */
+const statusLabel = (status: string, ending: 'o' | 'a') =>
+  status === 'active'
+    ? `activ${ending}`
+    : status === 'inactive'
+      ? `inactiv${ending}`
+      : status;
+
 // DEC-017: read-only support. Every consultation or reset states a reason and is logged.
 interface SupportClient {
   clientId: string;
@@ -151,8 +159,11 @@ export default function SupportPanel() {
             >
               {item.fullName}
             </button>{' '}
-            · {item.professionalName} · expediente {item.recordStatus} · cuenta{' '}
-            {item.accountStatus ?? 'sin activar'}
+            · {item.professionalName} · expediente{' '}
+            {statusLabel(item.recordStatus, 'o')} · cuenta{' '}
+            {item.accountStatus
+              ? statusLabel(item.accountStatus, 'a')
+              : 'sin activar'}
           </li>
         ))}
         {!clients.length && (

@@ -410,7 +410,12 @@ class _HomeTabState extends State<HomeTab> {
       StatTile(
           icon: Icons.event_available_outlined,
           label: 'Esta semana',
-          value: done == null ? '—' : '$done de $planned',
+          // Extra or pre-plan sessions made "3 de 1"; past the plan, count them.
+          value: done == null
+              ? '—'
+              : done > planned
+                  ? trainingCount(done, 'entreno', 'entrenos')
+                  : '$done de $planned',
           highlight: done != null && planned > 0 && done >= planned),
       StatTile(
           icon: Icons.local_fire_department_outlined,

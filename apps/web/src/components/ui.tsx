@@ -3,12 +3,10 @@ import { Icon, type IconName } from './Icon';
 
 /** Encabezado de página del panel: sección, título, descripción y acciones. */
 export function PageHeader({
-  eyebrow,
   title,
   lead,
   actions,
 }: {
-  eyebrow?: string;
   title: string;
   lead?: string;
   actions?: ReactNode;
@@ -16,7 +14,6 @@ export function PageHeader({
   return (
     <header className="ws-page-header">
       <div>
-        {eyebrow && <span className="ws-eyebrow">{eyebrow}</span>}
         <h1 className="ws-title">{title}</h1>
         {lead && <p className="ws-lead">{lead}</p>}
       </div>

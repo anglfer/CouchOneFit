@@ -105,7 +105,7 @@ class RecoveryBody extends StatelessWidget {
           fill: {for (final r in items) r.group: recoveryColor(r.ratio)},
           semanticsLabel: overall == null
               ? 'Figura muscular sin datos de recuperación'
-              : 'Figura muscular. Recuperación general $overall %. ${items.map((r) => '${r.group} ${(r.ratio * 100).round()} %').join(', ')}'),
+              : 'Figura muscular. Recuperación de lo entrenado $overall %. ${items.map((r) => '${r.group} ${(r.ratio * 100).round()} %').join(', ')}'),
       if (overall != null) ...[
         const SizedBox(height: 12),
         Center(
@@ -117,7 +117,7 @@ class RecoveryBody extends StatelessWidget {
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: colors.onSurface)),
-                  const TextSpan(text: '  recuperación general'),
+                  const TextSpan(text: '  recuperación de lo entrenado'),
                 ]),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colors.onSurfaceVariant))),

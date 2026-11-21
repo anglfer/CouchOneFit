@@ -2,7 +2,23 @@
 
 **Documento 1 de 3 · EP-04 · Responsable: Pukzil · Etapas 1 y 1B documentales.**
 
-**Estado actual: implementación técnica candidata existente, sin aprobación
+> **Decisión de producto — 20-nov-2026 (R: Angel Fernando Oñate Reyes, en
+> sesión con agente).** Jackson–Pollock 3 pliegues + Siri pasa a **resultado
+> oficial** en todos los entornos, para hombre y mujer, sustituyendo el bloqueo
+> científico de este documento. El API lo deriva **al leer** cada evaluación de
+> pliegues (`skinfoldResults`, versión `composition-skinfold-v1`,
+> `jp3-siri-v1`) con los pliegues, la ecuación y la fecha de nacimiento ya
+> guardados; no reescribe filas ni requiere migración, por lo que las capturas
+> anteriores con ecuación elegida también lo muestran. Se conservan las guardas
+> técnicas: sin ecuación, sin uno de los tres sitios, sin fecha de nacimiento o
+> fuera de 18–61 (H) / 18–55 (M) no se calcula y la Web explica el motivo; en
+> mujeres mayores de 40 se muestra aviso de cautela. El resultado alimenta la
+> gráfica de evolución, el perfil del expediente, el asistente nutricional y el
+> progreso del cliente móvil. **Riesgo aceptado:** la ecuación femenina sigue sin
+> cotejo con el artículo original (ver abajo) y no hubo revisión científica
+> independiente. El texto siguiente se conserva como antecedente histórico.
+
+**Estado anterior: implementación técnica candidata existente, sin aprobación
 científica ni D0.** El cálculo local está desactivado por defecto y requiere
 habilitación explícita del servidor; producción permanece bloqueada. No se
 recalculan evaluaciones anteriores. La captura parcial y el historial de HU-021/022

@@ -30,6 +30,7 @@ export interface Scope {
   clientId: string;
   timeZone: string;
   canWrite: boolean;
+  birthDate?: string | null;
 }
 
 export async function scope(
@@ -47,12 +48,17 @@ export async function scope(
     const {
       rows: [client],
     } = await c.query(
-      `SELECT c.id, c.time_zone, c.status FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id WHERE c.id=$1 AND p.user_id=$2 ${write ? 'FOR UPDATE OF c' : ''}`,
+      `SELECT c.id, c.time_zone, c.status, c.birth_date::text AS birth_date FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id WHERE c.id=$1 AND p.user_id=$2 ${write ? 'FOR UPDATE OF c' : ''}`,
       [clientId, identity.id],
     );
     if (!client) throw missing();
     if (write && client.status !== 'active') throw forbidden();
-    return { clientId: client.id, timeZone: client.time_zone ?? 'America/Mexico_City', canWrite: client.status === 'active' };
+    return {
+      clientId: client.id,
+      timeZone: client.time_zone ?? 'America/Mexico_City',
+      canWrite: client.status === 'active',
+      birthDate: client.birth_date ?? null,
+    };
   }
 
   if (identity.role === 'client') {

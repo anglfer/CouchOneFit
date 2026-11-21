@@ -118,8 +118,12 @@ professional-dark:
 
 Ambos temas del panel llevan un brillo radial suave de marca arriba del
 contenido (`--ws-glow`). Jerarquía de acciones: en cada fila de cliente solo
-«Abrir ficha» es primaria; invitar, revocar e inactivar son secundarias y
-«Dar de baja la cuenta» usa la variante de peligro.
+«Abrir ficha» es primaria; invitar y revocar son secundarias visibles, e
+inactivar y «Dar de baja la cuenta» (variante de peligro) viven en el menú «Más
+acciones» de la fila (ajuste del 20-nov-2026). Las cabeceras de página no llevan
+etiqueta en mayúsculas sobre el título: la ruta superior ya indica la sección.
+Los textos técnicos (procedencia, zonas horarias, IDs) van en un desplegable «Cómo
+leer estos datos», no en la vista principal.
 
 ### mobile-light
 

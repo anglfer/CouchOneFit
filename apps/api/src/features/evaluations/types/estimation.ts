@@ -9,6 +9,11 @@ export const PENDING_ESTIMATION_REFERENCE = Object.freeze({
 export const PENDING_ESTIMATION_SNAPSHOT_VERSION =
   'composition-estimation-v1' as const;
 
+/** Response version for skinfold assessments derived with official JP3 + Siri. */
+export const SKINFOLD_RESULT_VERSION = 'composition-skinfold-v1' as const;
+export const SKINFOLD_FORMULA_VERSION = 'jp3-siri-v1' as const;
+export const SKINFOLD_DOMAIN_VERSION = 'jp3-reference-ranges-v1' as const;
+
 /** Technical candidates authorized for local testing; no scientific approval. */
 export const CANDIDATE_ESTIMATION_VERSION = 'composition-candidate-v1' as const;
 export const CANDIDATE_PROTOCOL_VERSION = 'technical-candidate-v1' as const;

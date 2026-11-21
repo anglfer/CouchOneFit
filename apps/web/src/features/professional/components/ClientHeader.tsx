@@ -52,7 +52,8 @@ export default function ClientHeader({
   return (
     <header className="client-hub-header">
       <Link to="/app/clientes" className="client-hub-back">
-        ← Clientes
+        <Icon name="arrow-right" size={16} className="rotate-180" />
+        Clientes
       </Link>
       <div className="client-hub-identity">
         <span className="ws-avatar ws-avatar-lg" aria-hidden="true">

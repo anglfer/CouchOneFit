@@ -10,8 +10,10 @@ const calendarDate = (value: string) =>
 
 export default function ClientBaseDetails({
   record,
+  currentFat = null,
 }: {
   record: ClientBaseRecord;
+  currentFat?: { value: number; date: string; estimated: boolean } | null;
 }) {
   const value = (number: number | null, unit: string) =>
     number === null ? 'Sin registrar' : `${number} ${unit}`;
@@ -24,24 +26,39 @@ export default function ClientBaseDetails({
     ['Estatura', value(record.heightCm, 'cm')],
     ['Peso base', value(record.baseWeightKg, 'kg')],
     ['Grasa medida base', value(record.baseBodyFatPercentage, '%')],
+    ...(currentFat
+      ? ([
+          [
+            'Grasa corporal actual',
+            `${currentFat.value.toFixed(1)} % · ${currentFat.estimated ? 'pliegues' : 'medida'}, ${new Date(`${currentFat.date}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`,
+          ],
+        ] as Array<[string, string]>)
+      : []),
     ['Cintura inicial', value(record.waistCm, 'cm')],
     ['Cadera inicial', value(record.hipCm, 'cm')],
     ['Objetivo', record.goal ?? 'Sin registrar'],
   ];
   return (
     <>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <dl className="divide-y divide-(--ws-border-subtle) text-sm">
         {items.map(([label, text]) => (
-          <div key={label} className="rounded-lg bg-(--ws-surface-2) px-4 py-3">
-            <dt className="text-xs font-semibold text-(--ws-muted)">{label}</dt>
-            <dd className="font-semibold">{text}</dd>
+          <div key={label} className="flex justify-between gap-4 py-2">
+            <dt className="text-(--ws-muted)">{label}</dt>
+            <dd
+              className={
+                text === 'Sin registrar'
+                  ? 'text-right text-(--ws-muted)'
+                  : 'text-right font-semibold'
+              }
+            >
+              {text}
+            </dd>
           </div>
         ))}
       </dl>
-      <p className="text-sm text-(--ws-muted)">
-        Datos base preparados por el profesional. El peso base está expresado en
-        kg; no es un evento histórico ni una carga de entrenamiento. No se
-        dispone de una fecha de medición base.
+      <p className="text-xs text-(--ws-muted)">
+        Datos de alta capturados por ti. No se dispone de una fecha de medición
+        base.
       </p>
     </>
   );

@@ -730,7 +730,7 @@ void main() {
     expect(find.textContaining('67 %'), findsOneWidget);
     expect(
         find.bySemanticsLabel(RegExp(
-            r'Recuperación general 67 %\. Pecho 33 %, Cuádriceps 100 %')),
+            r'Recuperación de lo entrenado 67 %\. Pecho 33 %, Cuádriceps 100 %')),
         findsOneWidget);
     expect(recoveryColor(.33), BrandColors.highlight);
     expect(recoveryColor(1), BrandColors.success);

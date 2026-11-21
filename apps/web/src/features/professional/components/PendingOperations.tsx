@@ -175,9 +175,8 @@ export default function PendingOperations(): ReactElement {
   return (
     <>
       <PageHeader
-        eyebrow={isOnline ? 'Sincronización' : 'Sin conexión'}
         title="Pendientes de enviar"
-        lead="Los cambios que hiciste sin internet se guardan en este dispositivo y se envían solos al volver la conexión. Aquí ves el estado de cada uno."
+        lead={`${isOnline ? '' : 'Sin conexión. '}Los cambios que hiciste sin internet se guardan en este dispositivo y se envían solos al volver la conexión. Aquí ves el estado de cada uno.`}
         actions={
           <button
             type="button"

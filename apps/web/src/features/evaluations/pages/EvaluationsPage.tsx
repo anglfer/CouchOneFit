@@ -48,6 +48,7 @@ export default function EvaluationsPage({
             <AssessmentForm
               clientId={clientId}
               clientName={record.profile.fullName}
+              birthDate={record.profile.birthDate}
               onSaved={() => {
                 setNotice('La evaluación se guardó correctamente.');
                 refresh();
@@ -61,27 +62,37 @@ export default function EvaluationsPage({
   }
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold">Evaluación antropométrica</h2>
-        <p className="mt-1 text-sm text-(--ws-muted)">
-          Mediciones y composición corporal. Consulta el historial confirmado y
-          las operaciones locales de este cliente.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Evaluación antropométrica</h2>
+          <p className="mt-1 text-sm text-(--ws-muted)">
+            Mediciones y composición corporal que registras en consulta.
+          </p>
+        </div>
+        {record.profile.status === 'active' && (
+          <Link
+            className="ws-btn min-h-11"
+            data-variant="primary"
+            to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion/nueva`}
+          >
+            Nueva evaluación
+          </Link>
+        )}
       </div>
       {notice && (
         <p role="status" className="ws-alert">
           {notice}
         </p>
       )}
-      <EvolutionSection
-        accountId={accountId}
-        clientId={clientId}
-        initialStatus={record.sections.progress.status}
-      />
       <EvaluationHistory
         key={recordRevision}
         record={record}
         refresh={refresh}
+      />
+      <EvolutionSection
+        accountId={accountId}
+        clientId={clientId}
+        initialStatus={record.sections.progress.status}
       />
     </div>
   );

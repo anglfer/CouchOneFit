@@ -179,7 +179,6 @@ export default function AdminPage(): ReactElement {
         isRecoveryPage ? (
           <>
             <PageHeader
-              eyebrow="Soporte"
               title="Recuperación asistida"
               lead="Ayuda a una persona a recuperar su acceso tras comprobar su identidad."
             />
@@ -207,7 +206,6 @@ export default function AdminPage(): ReactElement {
           </section>
         ) : isProfilePage ? (
           <AccountProfile
-            eyebrow="Cuenta administrativa"
             title="Mi cuenta"
             lead="Identidad de gobernanza y apariencia del panel."
             name={account.username}

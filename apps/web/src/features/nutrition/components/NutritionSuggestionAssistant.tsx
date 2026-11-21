@@ -98,37 +98,50 @@ export default function NutritionSuggestionAssistant({
   // Latest evaluation first, then the base profile. Nothing is invented.
   const prefill = useMemo(() => {
     const profile = record?.profile;
-    const latest =
+    const evaluations =
       record?.sections.evaluations.status === 'available'
-        ? (record.sections.evaluations.evaluations[0] ?? null)
-        : null;
-    const measured = latest?.assessment?.measurements ?? {};
-    const evalLabel = latest
-      ? `Evaluación ${shortDate(latest.evaluationDate)}`
-      : '';
+        ? record.sections.evaluations.evaluations
+        : [];
+    const latest = evaluations[0] ?? null;
+    // Newest evaluation that actually has the value, then the base profile.
     const pickValue = (
-      fromEval: number | null | undefined,
+      read: (e: (typeof evaluations)[number]) => number | null | undefined,
       fromProfile: number | null | undefined
-    ): [number | null, string] =>
-      fromEval != null
-        ? [fromEval, evalLabel]
-        : fromProfile != null
-          ? [fromProfile, 'Perfil base']
-          : [null, 'Sin dato: captúralo'];
+    ): [number | null, string] => {
+      const source = evaluations.find((e) => read(e) != null);
+      if (source) {
+        const method =
+          source.assessment?.method === 'pliegues'
+            ? 'Pliegues'
+            : source.assessment?.method === 'bioimpedancia'
+              ? 'Bioimpedancia'
+              : 'Evaluación';
+        return [
+          Math.round(read(source)! * 10) / 10,
+          `${method} · ${shortDate(source.evaluationDate)}`,
+        ];
+      }
+      return fromProfile != null
+        ? [fromProfile, 'Perfil base']
+        : [null, 'Sin dato: captúralo'];
+    };
 
     const [weightKg, weightOrigin] = pickValue(
-      latest?.weightKg ?? measured.weightKg,
+      (e) => e.weightKg ?? e.assessment?.measurements.weightKg,
       profile?.baseWeightKg
     );
     const [heightCm, heightOrigin] = pickValue(
-      measured.heightCm,
+      (e) => e.assessment?.measurements.heightCm,
       profile?.heightCm
     );
     const [bodyFatPct, bfOrigin] = pickValue(
-      latest?.measuredBodyFatPercentage ??
-        latest?.assessment?.results.bodyFatPercentage,
+      (e) =>
+        e.measuredBodyFatPercentage ?? e.assessment?.results.bodyFatPercentage,
       profile?.baseBodyFatPercentage
     );
+    const evalLabel = latest
+      ? `Evaluación ${shortDate(latest.evaluationDate)}`
+      : '';
     const equation = latest?.assessment?.equation;
     const sex: NutritionSex | null =
       equation === 'male' || equation === 'female' ? equation : null;
@@ -375,7 +388,6 @@ export default function NutritionSuggestionAssistant({
                     prefill.bfOrigin,
                     0.1,
                   ],
-                  ['Edad (años)', ageRaw, setAgeRaw, 'Fecha de nacimiento', 1],
                 ] as const
               ).map(([label, raw, set, origin, step]) => (
                 <label key={label} className="nutrition-fact">
@@ -391,6 +403,27 @@ export default function NutritionSuggestionAssistant({
                   </small>
                 </label>
               ))}
+              {prefill.ageYears !== null ? (
+                // The API also derives age from the birth date; not editable here.
+                <div className="nutrition-fact">
+                  <span className="nutrition-mini-label">Edad</span>
+                  <strong>{prefill.ageYears} años</strong>
+                  <small>Según su fecha de nacimiento</small>
+                </div>
+              ) : (
+                <label className="nutrition-fact">
+                  Edad (años)
+                  <input
+                    type="number"
+                    step={1}
+                    value={ageRaw}
+                    onChange={(e) => setAgeRaw(e.target.value)}
+                  />
+                  <small data-missing>
+                    Sin fecha de nacimiento: captúrala en el perfil
+                  </small>
+                </label>
+              )}
             </div>
           </div>
 

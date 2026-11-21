@@ -87,3 +87,21 @@ export type EvaluationSection =
   | { status: 'empty' }
   | { status: 'available'; evaluations: Evaluation[] }
   | { status: 'error'; code: 'QUERY_FAILED' };
+
+/** Newest body-fat value: device-measured or official skinfold estimate. */
+export function latestBodyFat(
+  section: EvaluationSection
+): { value: number; date: string; estimated: boolean } | null {
+  if (section.status !== 'available') return null;
+  for (const e of section.evaluations) {
+    const value =
+      e.measuredBodyFatPercentage ?? e.assessment?.results.bodyFatPercentage;
+    if (value != null)
+      return {
+        value,
+        date: e.assessment?.effectiveDate ?? e.evaluationDate,
+        estimated: e.assessment?.method === 'pliegues',
+      };
+  }
+  return null;
+}

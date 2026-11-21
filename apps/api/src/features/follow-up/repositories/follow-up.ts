@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import type { SessionIdentity } from '../../auth/types/session.js';
 import { AuthError } from '../../auth/types/errors.js';
+import { skinfoldResults } from '../../evaluations/domain/body-fat-estimation.js';
 import type { CheckIn, CheckInValues, SharedMeasurement, Visibility } from '../types/follow-up.js';
 
 export const conflict = (message = 'El check-in cambió en otro dispositivo. Actualiza antes de guardar.'): never => {
@@ -48,6 +49,8 @@ export async function scope(c: PoolClient, identity: SessionIdentity, clientId: 
 
 const columns = `id,local_date::text AS local_date,time_zone,revision,body_weight_kg,sleep_hours,stress,energy,hunger,nutrition_compliance,nutrition_version_id,comment,created_at,updated_at`;
 const decimal = (value: string | null) => (value === null ? null : Number(value));
+const oneDecimal = (value: number | undefined) =>
+  value === undefined ? null : Math.round(value * 10) / 10;
 function map(row: Record<string, any>): CheckIn {
   return {
     id: row.id,
@@ -249,7 +252,8 @@ export async function measurements(c: PoolClient, clientId: string): Promise<Sha
        COALESCE(waist_cm, (to_jsonb(client_evaluations)->'assessment'->'measurements'->>'waistCm')::numeric) AS waist_cm,
        COALESCE(hip_cm, (to_jsonb(client_evaluations)->'assessment'->'measurements'->>'hipCm')::numeric) AS hip_cm,
        COALESCE(measured_body_fat_percentage, (to_jsonb(client_evaluations)->'assessment'->'measurements'->>'measuredBodyFatPercentage')::numeric) AS measured_body_fat_percentage,
-       to_jsonb(client_evaluations)->'assessment'->>'method' AS method
+       to_jsonb(client_evaluations)->'assessment'->>'method' AS method,
+       to_jsonb(client_evaluations)->'assessment' AS assessment
      FROM private.client_evaluations
      WHERE client_id=$1
      ORDER BY COALESCE(to_jsonb(client_evaluations)->'assessment'->>'effectiveDate', evaluation_date::text) DESC, created_at DESC, id DESC
@@ -262,7 +266,11 @@ export async function measurements(c: PoolClient, clientId: string): Promise<Sha
     weightKg: decimal(r.weight_kg),
     waistCm: decimal(r.waist_cm),
     hipCm: decimal(r.hip_cm),
-    bodyFatPercentage: decimal(r.measured_body_fat_percentage),
+    bodyFatPercentage:
+      decimal(r.measured_body_fat_percentage) ??
+      (r.method === 'skinfolds'
+        ? oneDecimal(skinfoldResults(r.assessment ?? {})?.bodyFatPercentage)
+        : null),
     source: 'professional_evaluation',
     method: evaluationMethod(r.method),
   }));

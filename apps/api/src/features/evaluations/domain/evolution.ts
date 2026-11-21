@@ -7,6 +7,10 @@ import {
   type EvolutionSample,
 } from '../types/evolution.js'
 import { evolutionTimestamp, isEvolutionDate } from '../validators/evolution.js'
+import {
+  SKINFOLD_DOMAIN_VERSION,
+  SKINFOLD_FORMULA_VERSION,
+} from '../types/estimation.js'
 
 /** Projects saved data from the evaluation DTO, after candidate visibility is applied. */
 export function evolutionSample(evaluation: Evaluation): EvolutionSample {
@@ -21,7 +25,10 @@ export function evolutionSample(evaluation: Evaluation): EvolutionSample {
     if (typeof value === 'number' && Number.isFinite(value))
       measurements[metric] = value
   }
-  const estimation = assessment?.estimation
+  const estimatedFat =
+    assessment?.method === 'pliegues'
+      ? assessment.results.bodyFatPercentage
+      : undefined
   return {
     id: evaluation.id,
     clientId: evaluation.clientId,
@@ -33,12 +40,13 @@ export function evolutionSample(evaluation: Evaluation): EvolutionSample {
     provenance: assessment?.provenance ?? null,
     protocol: assessment?.protocol ?? null,
     measurements,
-    ...(estimation?.status === 'candidate_only' && estimation.result
+    // Contract name kept; the value is now the official skinfold estimate.
+    ...(estimatedFat !== undefined
       ? {
           candidateBodyFat: {
-            percentage: estimation.result.estimatedBodyFatPercentage,
-            formulaVersion: estimation.technicalFormulaVersion,
-            domainVersion: estimation.technicalDomainVersion,
+            percentage: estimatedFat,
+            formulaVersion: SKINFOLD_FORMULA_VERSION,
+            domainVersion: SKINFOLD_DOMAIN_VERSION,
           },
         }
       : {}),

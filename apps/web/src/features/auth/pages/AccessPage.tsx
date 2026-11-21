@@ -124,7 +124,7 @@ export default function AccessPage(): ReactElement {
               className="w-full min-h-12 py-3 px-4 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
               type="submit"
             >
-              {busy ? 'Iniciando sesión…' : 'Iniciar sesión →'}
+              {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
             </button>
           </fieldset>
           <p className="mt-6 text-center text-sm text-slate-600">

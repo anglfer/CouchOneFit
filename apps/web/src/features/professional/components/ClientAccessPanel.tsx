@@ -71,6 +71,17 @@ export default function ClientAccessPanel({
   onStatusChanged: () => void;
   sessionReady: boolean;
 }) {
+  // Row menus close on any outside press; their confirm dialogs live inside them.
+  useEffect(() => {
+    const close = (event: PointerEvent) =>
+      document
+        .querySelectorAll<HTMLDetailsElement>('details.client-row-more[open]')
+        .forEach((menu) => {
+          if (!menu.contains(event.target as Node)) menu.open = false;
+        });
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, []);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loadedKey, setLoadedKey] = useState('');
   const [busy, setBusy] = useState('');
@@ -278,13 +289,10 @@ export default function ClientAccessPanel({
           {statusNotice}
         </p>
       )}
-      <p className="text-sm text-(--ws-muted) mt-0! mb-4!">
-        Las invitaciones son privadas: reemplazar una invalida el código
-        anterior. Requieren expediente, profesional y suscripción activos.
-      </p>
       {saved && (
         <p role="status" className="ws-alert" data-tone="ok">
-          ✓ {saved}
+          <Icon name="check" size={16} className="inline align-[-3px]" />{' '}
+          {saved}
         </p>
       )}
       <details
@@ -705,13 +713,72 @@ export default function ClientAccessPanel({
                           : 'Sin cuenta vinculada'}
                     </Badge>
                   </div>
-                  <Link
-                    to={`/app/clientes/${record.id}`}
-                    className="ws-btn"
-                    data-variant="primary"
-                  >
-                    Abrir ficha
-                  </Link>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <details className="client-row-more" name="client-row-more">
+                      <summary className="ws-btn">
+                        Más acciones
+                        <Icon name="chevron-down" size={16} />
+                      </summary>
+                      <div className="client-row-more-body">
+                        <ClientStatusAction
+                          sessionReady={sessionReady}
+                          clientId={record.id}
+                          status={record.status}
+                          accountId={accountId}
+                          disabled={
+                            !!busy ||
+                            operations.some(
+                              (operation) => operation.clientId === record.id
+                            )
+                          }
+                          onQueued={() =>
+                            setStatusNotice(
+                              'El cambio se guardó en este dispositivo y se enviará cuando haya conexión.'
+                            )
+                          }
+                          onBusyChange={(pending) => {
+                            setBusy(pending ? record.id : '');
+                            if (pending) setDelivery(null);
+                          }}
+                          onChanged={(updated) => {
+                            setStatusNotice(
+                              `El expediente de ${updated.fullName} está ${updated.status === 'active' ? 'activo' : 'inactivo'}.`
+                            );
+                            setCursors([null]);
+                            setAttempt((value) => value + 1);
+                            onStatusChanged();
+                          }}
+                        />
+                        {record.userId && record.accountStatus && (
+                          <ClientAccountAction
+                            sessionReady={sessionReady}
+                            clientId={record.id}
+                            fullName={record.fullName}
+                            accountStatus={record.accountStatus}
+                            accountId={accountId}
+                            disabled={!!busy}
+                            onBusyChange={(pending) => {
+                              setBusy(pending ? record.id : '');
+                              if (pending) setDelivery(null);
+                            }}
+                            onChanged={(status) => {
+                              setStatusNotice(
+                                `La cuenta de ${record.fullName} está ${status === 'active' ? 'activa' : 'dada de baja'}.`
+                              );
+                              setAttempt((value) => value + 1);
+                            }}
+                          />
+                        )}
+                      </div>
+                    </details>
+                    <Link
+                      to={`/app/clientes/${record.id}`}
+                      className="ws-btn"
+                      data-variant="primary"
+                    >
+                      Abrir ficha
+                    </Link>
+                  </div>
                 </div>
               </div>
               {record.invitationExpiresAt && (
@@ -720,81 +787,35 @@ export default function ClientAccessPanel({
                   {new Date(record.invitationExpiresAt).toLocaleString('es-MX')}
                 </p>
               )}
-              <div className="client-row-actions">
-                <ClientStatusAction
-                  sessionReady={sessionReady}
-                  clientId={record.id}
-                  status={record.status}
-                  accountId={accountId}
-                  disabled={
-                    !!busy ||
-                    operations.some(
-                      (operation) => operation.clientId === record.id
-                    )
-                  }
-                  onQueued={() =>
-                    setStatusNotice(
-                      'El cambio se guardó en este dispositivo y se enviará cuando haya conexión.'
-                    )
-                  }
-                  onBusyChange={(pending) => {
-                    setBusy(pending ? record.id : '');
-                    if (pending) setDelivery(null);
-                  }}
-                  onChanged={(updated) => {
-                    setStatusNotice(
-                      `El expediente de ${updated.fullName} está ${updated.status === 'active' ? 'activo' : 'inactivo'}.`
-                    );
-                    setCursors([null]);
-                    setAttempt((value) => value + 1);
-                    onStatusChanged();
-                  }}
-                />
-                {record.userId && record.accountStatus && (
-                  <ClientAccountAction
-                    sessionReady={sessionReady}
-                    clientId={record.id}
-                    fullName={record.fullName}
-                    accountStatus={record.accountStatus}
-                    accountId={accountId}
-                    disabled={!!busy}
-                    onBusyChange={(pending) => {
-                      setBusy(pending ? record.id : '');
-                      if (pending) setDelivery(null);
-                    }}
-                    onChanged={(status) => {
-                      setStatusNotice(
-                        `La cuenta de ${record.fullName} está ${status === 'active' ? 'activa' : 'dada de baja'}.`
-                      );
-                      setAttempt((value) => value + 1);
-                    }}
-                  />
-                )}
-                {!record.userId && record.status === 'active' && (
-                  <button
-                    type="button"
-                    disabled={!!busy}
-                    onClick={() => void invitation(record)}
-                    className="ws-btn"
-                  >
-                    {busy === record.id
-                      ? 'Procesando…'
-                      : record.invitationExpiresAt
-                        ? 'Reemplazar invitación'
-                        : 'Generar invitación'}
-                  </button>
-                )}
-                {record.invitationExpiresAt && (
-                  <button
-                    type="button"
-                    disabled={!!busy}
-                    onClick={() => void invitation(record, true)}
-                    className="ws-btn"
-                  >
-                    Revocar invitación
-                  </button>
-                )}
-              </div>
+              {((!record.userId && record.status === 'active') ||
+                record.invitationExpiresAt) && (
+                <div className="client-row-actions">
+                  {!record.userId && record.status === 'active' && (
+                    <button
+                      type="button"
+                      disabled={!!busy}
+                      onClick={() => void invitation(record)}
+                      className="ws-btn"
+                    >
+                      {busy === record.id
+                        ? 'Procesando…'
+                        : record.invitationExpiresAt
+                          ? 'Reemplazar invitación'
+                          : 'Generar invitación'}
+                    </button>
+                  )}
+                  {record.invitationExpiresAt && (
+                    <button
+                      type="button"
+                      disabled={!!busy}
+                      onClick={() => void invitation(record, true)}
+                      className="ws-btn"
+                    >
+                      Revocar invitación
+                    </button>
+                  )}
+                </div>
+              )}
               {delivery?.clientId === record.id && (
                 <div
                   role="status"
@@ -805,7 +826,7 @@ export default function ClientAccessPanel({
                   </h3>
                   <p>
                     Entrega el código de forma privada. Solo se muestra en esta
-                    entrega. Vence el{' '}
+                    entrega y generar otro invalida este. Vence el{' '}
                     {new Date(delivery.expiresAt).toLocaleString('es-MX')}
                   </p>
                   <label className="block">

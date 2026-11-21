@@ -1,3 +1,4 @@
+import { Icon } from '../components/Icon';
 import type { ReactElement } from 'react';
 import { useLocation } from '../hooks/useLocation';
 import { Link } from '../components/Link';
@@ -39,7 +40,7 @@ export default function AppRoutes(): ReactElement {
         to="/"
         className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-md shadow-indigo-600/25 transition-all"
       >
-        Volver al inicio <span aria-hidden="true">→</span>
+        Volver al inicio <Icon name="arrow-right" size={14} />
       </Link>
     </main>
   );
