@@ -47,6 +47,7 @@ export default function ClientTraining({
 }) {
   const r = useRoutines(clientId, onActivated);
   const [tab, setTab] = useState<Tab>('summary'),
+    [selectedDay, setSelectedDay] = useState<number | undefined>(undefined),
     [choosing, setChoosing] = useState(false),
     [viewing, setViewing] = useState<TrainingVersion | null>(null);
   const editing = r.editor && !r.editor.published ? r.editor : null;
@@ -101,9 +102,13 @@ export default function ClientTraining({
             )}
             {r.active ? (
               <RoutineCard
-                eyebrow="RUTINA ACTIVA"
+                badge={{ label: 'Rutina activa', tone: 'ok' }}
                 routine={r.active}
                 note={`Activa desde ${day(r.active.createdAt)} · es la que ve el cliente en su móvil.`}
+                onSelectDay={(i) => {
+                  setSelectedDay(i);
+                  setTab('routine');
+                }}
               >
                 <button
                   type="button"
@@ -132,7 +137,7 @@ export default function ClientTraining({
               </RoutineCard>
             ) : r.draft ? (
               <RoutineCard
-                eyebrow="BORRADOR"
+                badge={{ label: 'Borrador', tone: 'warn' }}
                 routine={r.draft}
                 note="El cliente todavía no lo ve. Revísalo y actívalo cuando esté listo."
               >
@@ -236,8 +241,8 @@ export default function ClientTraining({
           <section className="ws-card">
             <div className="training-section-head">
               <div>
-                <span className="ws-eyebrow">LO QUE VE EL CLIENTE</span>
-                <h2>{r.active.name}</h2>
+                <Badge tone="ok">Lo que ve el cliente</Badge>
+                <h2 className="mt-1">{r.active.name}</h2>
               </div>
               <button
                 type="button"
@@ -250,7 +255,7 @@ export default function ClientTraining({
                 Editar rutina
               </button>
             </div>
-            <RoutineView routine={r.active} />
+            <RoutineView routine={r.active} initialDay={selectedDay} />
           </section>
         ) : (
           <StartChoices
@@ -272,8 +277,7 @@ export default function ClientTraining({
         <section className="ws-card">
           <div className="training-section-head">
             <div>
-              <span className="ws-eyebrow">HISTORIAL</span>
-              <h2>Rutinas de {name}</h2>
+              <h2>Historial de rutinas · {name}</h2>
               <p>
                 Cada cambio guarda la rutina anterior; los registros del cliente
                 siguen ligados a lo que tenía en ese momento.
@@ -350,20 +354,24 @@ export default function ClientTraining({
 }
 
 function RoutineCard({
-  eyebrow,
+  badge,
   routine,
   note,
+  onSelectDay,
   children,
 }: {
-  eyebrow: string;
+  badge: { label: string; tone: 'ok' | 'warn' };
   routine: TrainingVersion;
   note: string;
+  onSelectDay?: (index: number) => void;
   children: ReactNode;
 }) {
   const stats = routineStats(routine);
   return (
     <section className="ws-card training-routine-card">
-      <span className="ws-eyebrow">{eyebrow}</span>
+      <div className="mb-1">
+        <Badge tone={badge.tone}>{badge.label}</Badge>
+      </div>
       <h2>{routine.name}</h2>
       <p className="training-chips">
         <span>{scheduleLabel(routine)}</span>
@@ -376,7 +384,7 @@ function RoutineCard({
         </span>
         <span>{count(stats.exercises, 'ejercicio')}</span>
       </p>
-      <RoutineWeek routine={routine} />
+      <RoutineWeek routine={routine} onSelectDay={onSelectDay} />
       <p className="training-muted">{note}</p>
       <div className="training-actions">{children}</div>
     </section>
@@ -473,9 +481,32 @@ function RecentActivity({
   );
 }
 
+const COMMON_TIME_ZONES: ReadonlyArray<[string, string]> = [
+  ['America/Mexico_City', 'Ciudad de México / Centro'],
+  ['America/Monterrey', 'Monterrey'],
+  ['America/Tijuana', 'Tijuana / Pacífico'],
+  ['America/Cancun', 'Cancún / Quintana Roo'],
+  ['America/Bogota', 'Bogotá / Colombia'],
+  ['America/Lima', 'Lima / Perú'],
+  ['America/Santiago', 'Santiago / Chile'],
+  ['America/Argentina/Buenos_Aires', 'Buenos Aires / Argentina'],
+  ['Europe/Madrid', 'Madrid / España'],
+];
+
 function TimeZoneCard({ r }: { r: Routines }) {
   const [zone, setZone] = useState('');
+  const [customMode, setCustomMode] = useState(false);
   const current = r.data?.timeZone ?? '';
+  const activeValue = zone || current;
+  const isKnownPreset = COMMON_TIME_ZONES.some(([id]) => id === activeValue);
+  const selectValue = customMode
+    ? '__custom__'
+    : isKnownPreset
+      ? activeValue
+      : activeValue
+        ? '__custom__'
+        : '';
+
   return (
     <details className="ws-card ws-disclosure training-settings">
       <summary>Ajustes · zona horaria ({current || '—'})</summary>
@@ -483,18 +514,43 @@ function TimeZoneCard({ r }: { r: Routines }) {
         Define qué día es «hoy» para el cliente. No cambia registros anteriores.
       </p>
       <label>
-        Zona IANA
-        <input
-          value={zone || current}
-          onChange={(e) => setZone(e.target.value)}
-          placeholder="America/Mexico_City"
-        />
+        Zona horaria
+        <select
+          value={selectValue}
+          onChange={(e) => {
+            const picked = e.target.value;
+            if (picked === '__custom__') {
+              setCustomMode(true);
+            } else {
+              setCustomMode(false);
+              setZone(picked);
+            }
+          }}
+        >
+          <option value="">Selecciona una zona…</option>
+          {COMMON_TIME_ZONES.map(([id, label]) => (
+            <option key={id} value={id}>
+              {label} ({id})
+            </option>
+          ))}
+          <option value="__custom__">Otra zona (IANA)</option>
+        </select>
       </label>
+      {(customMode || (activeValue && !isKnownPreset)) && (
+        <label>
+          Zona IANA personalizada
+          <input
+            value={activeValue}
+            onChange={(e) => setZone(e.target.value)}
+            placeholder="America/Mexico_City"
+          />
+        </label>
+      )}
       <button
         type="button"
         className="ws-btn"
-        disabled={r.busy || !zone || zone === current}
-        onClick={() => void r.saveZone(zone)}
+        disabled={r.busy || !activeValue || activeValue === current}
+        onClick={() => void r.saveZone(activeValue)}
       >
         Guardar zona
       </button>

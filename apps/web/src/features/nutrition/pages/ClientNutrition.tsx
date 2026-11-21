@@ -436,23 +436,27 @@ export default function ClientNutrition({
                 datos confiables para prescribir.
               </p>
               <Link
-                to={`/app/clientes/${clientId}/evaluacion`}
+                to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion/nueva`}
                 className="ws-btn"
                 data-variant="primary"
               >
-                Ir a Evaluación
+                Registrar evaluación física
               </Link>
             </section>
           )}
 
           {active ? (
-            <section className="ws-card training-routine-card">
+            <section className="ws-card training-routine-card space-y-4">
               <div className="training-section-head">
                 <div>
-                  <span className="ws-eyebrow">PLAN ALIMENTICIO ACTIVO</span>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <Badge tone="ok">Plan alimenticio activo</Badge>
+                    <span className="text-xs text-(--ws-muted)">
+                      Versión {active.number}
+                    </span>
+                  </div>
                   <h2>{active.name}</h2>
                   <p className="training-chips">
-                    <span>Versión {active.number}</span>
                     <span>
                       {active.meals.length}{' '}
                       {active.meals.length === 1
@@ -483,11 +487,72 @@ export default function ClientNutrition({
                     className="ws-btn"
                     onClick={() => setTab('plan')}
                   >
-                    Ver detalle
+                    Ver plan completo
                   </button>
                 </div>
               </div>
-              <NutritionView plan={active} />
+              <div className="ws-kpi-strip">
+                <div className="ws-kpi-mini">
+                  <span className="ws-stat-label">Calorías objetivo</span>
+                  <strong className="ws-kpi-mini-value tabular-nums">
+                    {active.caloriesTarget !== null
+                      ? `${active.caloriesTarget} kcal`
+                      : 'Sin definir'}
+                  </strong>
+                  {active.restDayTargets && (
+                    <span className="text-xs text-(--ws-muted)">
+                      Descanso: {active.restDayTargets.caloriesTarget} kcal
+                    </span>
+                  )}
+                </div>
+                <div className="ws-kpi-mini">
+                  <span className="ws-stat-label">Macros (P / C / G)</span>
+                  <strong className="ws-kpi-mini-value tabular-nums">
+                    {active.proteinTargetG ?? '—'} /{' '}
+                    {active.carbsTargetG ?? '—'} / {active.fatTargetG ?? '—'} g
+                  </strong>
+                </div>
+                {(active.hydrationTargetMl != null ||
+                  active.fiberTargetG != null) && (
+                  <div className="ws-kpi-mini">
+                    <span className="ws-stat-label">Hidratación y fibra</span>
+                    <strong className="ws-kpi-mini-value tabular-nums">
+                      {active.hydrationTargetMl != null
+                        ? `${(active.hydrationTargetMl / 1000).toFixed(1)} L`
+                        : '—'}{' '}
+                      ·{' '}
+                      {active.fiberTargetG != null
+                        ? `${active.fiberTargetG} g`
+                        : '—'}
+                    </strong>
+                  </div>
+                )}
+              </div>
+              {active.meals.length > 0 && (
+                <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
+                  {active.meals.map((meal, index) => (
+                    <li
+                      key={meal.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <strong className="block truncate">
+                          {index + 1}. {meal.name}
+                        </strong>
+                        {meal.scheduleTime && (
+                          <span className="text-xs text-(--ws-muted)">
+                            {meal.scheduleTime}
+                          </span>
+                        )}
+                      </div>
+                      <span className="ws-chip shrink-0">
+                        {meal.items.length}{' '}
+                        {meal.items.length === 1 ? 'alimento' : 'alimentos'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="training-muted">
                 Activo desde {formatDay(active.createdAt)} · visible en el móvil
                 del cliente.
@@ -495,7 +560,7 @@ export default function ClientNutrition({
             </section>
           ) : draft ? (
             <section className="ws-card training-routine-card">
-              <span className="ws-eyebrow">BORRADOR</span>
+              <Badge tone="warn">Borrador</Badge>
               <h2>{draft.name}</h2>
               <p className="training-muted">
                 El cliente todavía no lo ve en su aplicación móvil. Revísalo y
@@ -580,6 +645,10 @@ export default function ClientNutrition({
                     : dirty
                       ? 'Cambios sin guardar · el cliente aún no los ve'
                       : 'Borrador guardado · el cliente aún no los ve'}
+                  {editorDoc.caloriesTarget != null ||
+                  editorDoc.proteinTargetG != null
+                    ? ` · Meta: ${editorDoc.caloriesTarget ?? '—'} kcal (P ${editorDoc.proteinTargetG ?? '—'}g / C ${editorDoc.carbsTargetG ?? '—'}g / G ${editorDoc.fatTargetG ?? '—'}g)`
+                    : ''}
                 </small>
               </div>
               <div className="training-actions">
@@ -627,8 +696,8 @@ export default function ClientNutrition({
           <section className="ws-card">
             <div className="training-section-head">
               <div>
-                <span className="ws-eyebrow">LO QUE VE EL CLIENTE</span>
-                <h2>{active.name}</h2>
+                <Badge tone="ok">Vista previa en la app del cliente</Badge>
+                <h2 className="mt-1">{active.name}</h2>
               </div>
               {canWrite && (
                 <button
@@ -675,8 +744,7 @@ export default function ClientNutrition({
         <section className="ws-card">
           <div className="training-section-head">
             <div>
-              <span className="ws-eyebrow">HISTORIAL</span>
-              <h2>Planes alimenticios de {clientName}</h2>
+              <h2>Historial de planes alimenticios · {clientName}</h2>
               <p>
                 Cada activación conserva la versión anterior sin sobrescribir el
                 historial del cliente.

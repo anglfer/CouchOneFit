@@ -15,9 +15,11 @@ const fullWeekdays = [
 export default function RoutineWeek({
   routine,
   compact = false,
+  onSelectDay,
 }: {
   routine: Prescription;
   compact?: boolean;
+  onSelectDay?: (index: number) => void;
 }) {
   return (
     <ol
@@ -42,8 +44,8 @@ export default function RoutineWeek({
           name &&
           name !== label.toLowerCase() &&
           !(routine.schedule === 'weekly' && name === fullWeekdays[i]);
-        return (
-          <li key={day.id} data-kind={day.kind}>
+        const inner = (
+          <>
             <span className="training-week-label">{label}</span>
             {compact ? (
               // Tiny cells: a number (or a dash for rest) reads better than cut words.
@@ -85,6 +87,21 @@ export default function RoutineWeek({
               ) : (
                 <small>Sin ejercicios</small>
               ))}
+          </>
+        );
+        return (
+          <li key={day.id} data-kind={day.kind}>
+            {onSelectDay ? (
+              <button
+                type="button"
+                className="ws-plain training-week-btn"
+                onClick={() => onSelectDay(i)}
+              >
+                {inner}
+              </button>
+            ) : (
+              inner
+            )}
           </li>
         );
       })}

@@ -44,25 +44,22 @@ export default function RecoveryPage() {
   }
   return (
     <AuthShell>
-      <section className="space-y-5 text-slate-700">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+      <section className="space-y-5 text-(--ws-text-2)">
+        <h1 className="text-3xl font-bold tracking-tight text-(--ws-text)">
           Recupera tu acceso
         </h1>
-        <p>
+        <p className="text-sm leading-relaxed">
           Si perdiste tu sesión o dispositivo, primero intenta entrar con tus
           credenciales habituales. Conservarás la misma cuenta y expediente.
         </p>
-        <p>
+        <p className="text-sm leading-relaxed">
           Si olvidaste tu contraseña, contacta a tu profesional; si eres
           profesional, contacta a la administración. Tras corroborar tu
           identidad por la relación conocida te entregarán un código válido por
           30 minutos. No basta con indicar un correo o usuario.
         </p>
         {complete ? (
-          <p
-            role="status"
-            className="rounded-[10px] border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900"
-          >
+          <p role="status" className="ws-alert" data-tone="ok">
             Contraseña actualizada. Todas tus sesiones anteriores se cerraron.
             Inicia sesión con tu nueva contraseña.
           </p>
@@ -70,7 +67,7 @@ export default function RecoveryPage() {
           <form onSubmit={submit}>
             <fieldset disabled={busy} className="space-y-4">
               <legend className="sr-only">Establecer contraseña</legend>
-              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                 Código de recuperación
                 <input
                   name="code"
@@ -79,36 +76,40 @@ export default function RecoveryPage() {
                   autoCapitalize="none"
                   autoComplete="off"
                   spellCheck={false}
-                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                  className="ws-auth-input"
                 />
               </label>
-              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                 Nueva contraseña
                 <input
                   name="password"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                  className="ws-auth-input"
                   aria-describedby="password-rule"
                 />
+                <span
+                  id="password-rule"
+                  className="block text-xs font-normal text-(--ws-muted)"
+                >
+                  De 15 a 128 caracteres. Los espacios cuentan.
+                </span>
               </label>
-              <p id="password-rule" className="text-xs text-slate-500">
-                De 15 a 128 caracteres. Los espacios cuentan.
-              </p>
-              <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                 Confirmar contraseña
                 <input
                   name="passwordConfirmation"
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                  className="ws-auth-input"
                 />
               </label>
               <button
                 type="submit"
-                className="w-full min-h-12 rounded-[10px] bg-indigo-600 p-3 text-base font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="ws-btn min-h-12 w-full text-base"
+                data-variant="primary"
               >
                 {busy ? 'Guardando…' : 'Guardar nueva contraseña'}
               </button>
@@ -116,16 +117,13 @@ export default function RecoveryPage() {
           </form>
         )}
         {error && (
-          <p
-            role="alert"
-            className="rounded-[10px] border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
-          >
+          <p role="alert" className="ws-alert" data-tone="bad">
             {error}
           </p>
         )}
         <Link
           to="/acceso"
-          className="block text-sm font-semibold text-indigo-700 hover:underline"
+          className="block text-sm font-semibold text-(--ws-primary-fg) hover:underline"
         >
           Volver al acceso
         </Link>

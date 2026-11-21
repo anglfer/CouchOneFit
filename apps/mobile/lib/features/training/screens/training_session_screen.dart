@@ -52,6 +52,7 @@ class TrainingSessionScreen extends StatefulWidget {
       this.settings = const AppSettings(),
       this.clock = DateTime.now,
       this.onShowProgress,
+      this.onOpenCheckIn,
       this.onMinimize,
       this.onClose});
   final TrainingContext contextData;
@@ -67,7 +68,7 @@ class TrainingSessionScreen extends StatefulWidget {
 
   /// Injected for tests; wall time keeps timers right after backgrounding.
   final DateTime Function() clock;
-  final VoidCallback? onShowProgress;
+  final VoidCallback? onShowProgress, onOpenCheckIn;
   @override
   State<TrainingSessionScreen> createState() => _TrainingSessionScreenState();
 }
@@ -628,7 +629,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                 volume: _volume,
                 exercises: _summary(results),
                 groups: _groups(),
-                onShowProgress: widget.onShowProgress));
+                onShowProgress: widget.onShowProgress,
+                onOpenCheckIn: widget.onOpenCheckIn));
         final close = widget.onClose;
         if (close == null) {
           await Navigator.pushReplacement(context, summary);
@@ -1551,8 +1553,9 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   Widget _targetText(TrainingExercise e, int index, _Capture c, bool skipped,
       String? comparison, ColorScheme colors) {
     final prescribed = e.sets[index];
+    final targetText = prescribed.targetFor(bodyweight: e.bodyweight);
     final repeated = index > 0 &&
-        e.sets[index - 1].target == prescribed.target &&
+        e.sets[index - 1].targetFor(bodyweight: e.bodyweight) == targetText &&
         e.sets[index - 1].kind == prescribed.kind;
     return Text.rich(
         TextSpan(children: [
@@ -1562,7 +1565,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       ? 'No hecha · sin reps ni carga'
                       : repeated
                           ? ''
-                          : 'Objetivo: ${prescribed.target}')),
+                          : 'Objetivo: $targetText')),
           if (comparison != null)
             TextSpan(
                 text: repeated && c.error == null && !skipped
@@ -1600,7 +1603,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                     children: [
                       SheetHeader(
                           'Serie ${index + 1} · ${prescribed.kindLabel}',
-                          subtitle: 'Objetivo: ${prescribed.target}'),
+                          subtitle:
+                              'Objetivo: ${prescribed.targetFor(bodyweight: e.bodyweight)}'),
                       SheetOption(
                           key: ValueKey('skip-${prescribed.id}'),
                           leading: skipped

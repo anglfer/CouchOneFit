@@ -92,13 +92,16 @@ class PrescribedSet {
       repsMax == null ? '$reps reps' : '$reps–$repsMax reps';
 
   /// Everything the professional prescribed, omitting what was left blank.
-  String get target => [
+  String targetFor({bool bodyweight = false}) => [
         if (kind != 'working') kindLabel,
         repsLabel,
         if (rpe != null) 'RPE ${trainingDecimal(rpe!)}',
         if (rir != null) 'RIR $rir',
-        if (targetLoadKg != null) '${trainingDecimal(targetLoadKg!)} kg',
+        if (targetLoadKg != null && !(bodyweight && targetLoadKg == 0))
+          '${trainingDecimal(targetLoadKg!)} kg',
       ].join(' · ');
+
+  String get target => targetFor();
 }
 
 class TrainingExercise {
@@ -142,7 +145,8 @@ class TrainingExercise {
   String get summary {
     final work = sets.where((s) => !s.warmup).toList();
     final warmups = sets.length - work.length;
-    final targets = work.map((s) => s.target).toSet();
+    final targets =
+        work.map((s) => s.targetFor(bodyweight: bodyweight)).toSet();
     final main = targets.length == 1
         ? '${work.length} × ${targets.first}'
         : '${work.length} series';

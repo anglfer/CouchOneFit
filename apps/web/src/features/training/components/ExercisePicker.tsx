@@ -4,15 +4,19 @@ import ExerciseAnimation from './ExerciseAnimation';
 import Modal from './Modal';
 
 export default function ExercisePicker({
+  mode = 'add',
+  initialSearch = '',
   onSelect,
   onCustom,
   onClose,
 }: {
+  mode?: 'add' | 'replace';
+  initialSearch?: string;
   onSelect: (exercise: CatalogExercise) => void;
-  onCustom: () => void;
+  onCustom?: () => void;
   onClose: () => void;
 }) {
-  const [search, setSearch] = useState(''),
+  const [search, setSearch] = useState(initialSearch),
     [muscle, setMuscle] = useState(''),
     [equipment, setEquipment] = useState(''),
     [offset, setOffset] = useState(0);
@@ -57,8 +61,16 @@ export default function ExercisePicker({
   return (
     <Modal
       wide
-      title="Añadir ejercicios"
-      subtitle="Los nombres están en inglés. Añade varios seguidos; pulsa Listo al terminar."
+      title={
+        mode === 'replace'
+          ? 'Vincular ejercicio del catálogo'
+          : 'Añadir ejercicios'
+      }
+      subtitle={
+        mode === 'replace'
+          ? 'Busca en español o inglés. Se añadirá su GIF y técnica conservando tus series.'
+          : 'Busca en español o inglés (ej. sentadilla, peso muerto rumano, bench press). Añade varios seguidos; pulsa Listo al terminar.'
+      }
       onClose={onClose}
     >
       <div className="training-catalog-filters">
@@ -72,7 +84,7 @@ export default function ExercisePicker({
               setSearch(e.target.value);
               reset();
             }}
-            placeholder="Squat, row, bench press…"
+            placeholder="Sentadilla, peso muerto, bench press, glúteos…"
           />
         </label>
         <label>
@@ -130,6 +142,10 @@ export default function ExercisePicker({
               data-added={count > 0 || undefined}
               onClick={() => {
                 onSelect(e);
+                if (mode === 'replace') {
+                  onClose();
+                  return;
+                }
                 setAdded((list) => [...list, e.id]);
               }}
             >
@@ -140,9 +156,11 @@ export default function ExercisePicker({
                 {e.equipment.length ? ` · ${e.equipment[0]}` : ' · Sin equipo'}
               </small>
               <span className="training-catalog-add">
-                {count
-                  ? `✓ Añadido${count > 1 ? ` ×${count}` : ''}`
-                  : '+ Añadir'}
+                {mode === 'replace'
+                  ? 'Seleccionar y vincular'
+                  : count
+                    ? `✓ Añadido${count > 1 ? ` ×${count}` : ''}`
+                    : '+ Añadir'}
               </span>
             </button>
           );
@@ -154,16 +172,20 @@ export default function ExercisePicker({
         </div>
       )}
       <footer className="training-catalog-foot">
-        <button
-          type="button"
-          className="ws-btn"
-          onClick={() => {
-            onCustom();
-            onClose();
-          }}
-        >
-          Crear ejercicio propio
-        </button>
+        {mode === 'add' && onCustom ? (
+          <button
+            type="button"
+            className="ws-btn"
+            onClick={() => {
+              onCustom();
+              onClose();
+            }}
+          >
+            Crear ejercicio propio
+          </button>
+        ) : (
+          <span />
+        )}
         <div className="training-actions">
           <button
             type="button"
@@ -187,7 +209,9 @@ export default function ExercisePicker({
             data-variant="primary"
             onClick={onClose}
           >
-            Listo{added.length ? ` (${added.length})` : ''}
+            {mode === 'replace'
+              ? 'Cancelar'
+              : `Listo${added.length ? ` (${added.length})` : ''}`}
           </button>
         </div>
       </footer>

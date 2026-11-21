@@ -167,9 +167,15 @@ test('templates remain independent; historical dates, corrections, catalog and S
   await assert.rejects(r.query('COMMIT'),/every prescribed set/);
  }finally{await r.query('ROLLBACK');r.release();}
  assert.equal((await db.query('SELECT count(*) FROM private.training_results WHERE session_id=$1',[capture.id])).rows[0].count,'1');
- await db.query(`INSERT INTO private.training_exercise_catalog(id,name,body_part,muscles,equipment,guidance,images,selectable,source_revision) VALUES('qa-row','Remo','Espalda','["Dorsal ancho"]','["Polea"]','[]','[]',true,'qa')`);
+ await db.query(`INSERT INTO private.training_exercise_catalog(id,name,body_part,muscles,equipment,guidance,images,selectable,source_revision) VALUES('qa-row','Remo','Espalda','["Dorsal ancho"]','["Polea"]','[]','[]',true,'qa'),('qa-rdl','Barbell Romanian Deadlift','Hamstrings','["Hamstrings","Glutes"]','["Barbell"]','[]','[]',true,'qa')`);
  const rc=await runtime.connect();
  try{await rc.query('BEGIN');await rc.query("SELECT set_config('app.subject_id',$1,true)",[a.id]);assert.deepEqual([...(await catalogFacts(rc,['qa-row','missing'])).entries()],[['qa-row',{bodyPart:'Espalda',muscles:['Dorsal ancho'],equipment:['Polea']}]])}finally{await rc.query('ROLLBACK');rc.release()}
  assert.equal((await get('/api/training/templates',a)).status,403);
  assert.equal((await get('/api/training/exercises',coach)).status,200);
+ const rdlSearch=await get('/api/training/exercises?search='+encodeURIComponent('Peso muerto rumano'),coach);
+ assert.equal(rdlSearch.status,200);
+ assert.ok(rdlSearch.body.exercises.some((e:{id:string})=>e.id==='qa-rdl'));
+ const rowSearch=await get('/api/training/exercises?search=Remo',coach);
+ assert.equal(rowSearch.status,200);
+ assert.ok(rowSearch.body.exercises.some((e:{id:string})=>e.id==='qa-row'));
 });

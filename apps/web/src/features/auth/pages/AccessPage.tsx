@@ -15,6 +15,7 @@ export default function AccessPage(): ReactElement {
   const returnTo = params.get('retorno');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const lock = useRef(false);
   useEffect(() => {
     let active = true;
@@ -55,42 +56,30 @@ export default function AccessPage(): ReactElement {
     <AuthShell>
       <section>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
+          <h1 className="mb-2 text-3xl font-bold tracking-tight text-(--ws-text)">
             Qué bueno verte de nuevo.
           </h1>
-          <p className="text-base text-slate-600">
+          <p className="text-base text-(--ws-muted)">
             Entra con tu usuario o correo para acceder a tu espacio.
           </p>
         </div>
 
         {params.get('motivo') === 'sesion' && (
-          <p
-            role="status"
-            className="p-3 mb-4 rounded-xl text-sm font-medium text-amber-900 bg-amber-50 border border-amber-200"
-          >
+          <p role="status" className="ws-alert mb-4" data-tone="warn">
             Tu sesión venció o ya no está disponible. Inicia sesión para
             continuar.
           </p>
         )}
         {params.get('motivo') === 'salida' && (
-          <p
-            role="status"
-            className="p-3 mb-4 rounded-xl text-sm font-medium text-emerald-900 bg-emerald-50 border border-emerald-200"
-          >
+          <p role="status" className="ws-alert mb-4" data-tone="ok">
             Cerraste tu sesión correctamente.
           </p>
         )}
 
-        <Link
-          to="/recuperar"
-          className="block mb-5 text-sm font-semibold text-indigo-700 hover:underline"
-        >
-          ¿Olvidaste tu contraseña o perdiste tu dispositivo?
-        </Link>
         <form onSubmit={submit}>
           <fieldset disabled={busy} className="space-y-4">
             <legend className="sr-only">Acceso a tu cuenta</legend>
-            <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+            <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
               <span>Usuario o correo</span>
               <input
                 name="identifier"
@@ -99,39 +88,55 @@ export default function AccessPage(): ReactElement {
                 required
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                className="ws-auth-input"
               />
             </label>
-            <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+            <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
               <span>Contraseña</span>
-              <input
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
-              />
+              <div className="relative">
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  className="ws-auth-input pr-20!"
+                />
+                <button
+                  type="button"
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="ws-plain absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2.5 py-1 text-xs font-semibold text-(--ws-primary-fg) hover:bg-(--ws-selected)"
+                >
+                  {showPassword ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
             </label>
-            {error && (
-              <p
-                role="alert"
-                className="p-3 rounded-[10px] text-sm font-medium text-red-700 bg-red-50 border border-red-200"
+            <div className="flex justify-end">
+              <Link
+                to="/recuperar"
+                className="text-sm font-semibold text-(--ws-primary-fg) hover:underline"
               >
+                ¿Olvidaste tu contraseña o perdiste tu dispositivo?
+              </Link>
+            </div>
+            {error && (
+              <p role="alert" className="ws-alert" data-tone="bad">
                 {error}
               </p>
             )}
             <button
-              className="w-full min-h-12 py-3 px-4 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
+              className="ws-btn min-h-12 w-full text-base"
+              data-variant="primary"
               type="submit"
             >
               {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
             </button>
           </fieldset>
-          <p className="mt-6 text-center text-sm text-slate-600">
+          <p className="mt-6 text-center text-sm text-(--ws-muted)">
             ¿Todavía no tienes cuenta?{' '}
             <Link
               to="/registro"
-              className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+              className="font-semibold text-(--ws-primary-fg) hover:underline"
             >
               Crear mi cuenta
             </Link>

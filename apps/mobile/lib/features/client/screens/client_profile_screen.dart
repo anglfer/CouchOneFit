@@ -75,7 +75,7 @@ class ClientProfileScreen extends StatelessWidget {
         final horizontal = constraints.maxWidth < 360 ? 16.0 : 20.0;
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 44),
+          padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 96),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),

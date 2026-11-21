@@ -154,7 +154,9 @@ export default function NutritionView({ plan }: { plan: NutritionDocument }) {
 
       {plan.generalInstructions && (
         <section className="nutrition-guidance-card">
-          <span className="ws-eyebrow">INDICACIONES GENERALES</span>
+          <strong className="text-sm font-semibold">
+            Indicaciones generales
+          </strong>
           <p>{plan.generalInstructions}</p>
         </section>
       )}

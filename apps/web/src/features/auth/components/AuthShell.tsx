@@ -16,7 +16,7 @@ export default function AuthShell({
   children: ReactNode;
 }): ReactElement {
   return (
-    <div className="grid min-h-svh bg-[#f8f9fd] text-slate-900 lg:grid-cols-[5fr_6fr]">
+    <div className="ws-auth-shell grid lg:grid lg:grid-cols-[5fr_6fr]">
       <aside
         className="hidden flex-col justify-between p-12 text-white lg:flex"
         style={{ background: 'var(--brand-gradient)' }}
@@ -64,13 +64,15 @@ export default function AuthShell({
           </div>
           <Link
             to="/"
-            className="text-sm font-semibold text-slate-600 hover:text-indigo-700 inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-(--ws-muted) hover:text-(--ws-primary-fg)"
           >
             Volver al inicio <Icon name="arrow-up-right" size={14} />
           </Link>
         </header>
-        <main className="m-auto w-full max-w-md py-8">{children}</main>
-        <footer className="py-2 text-center text-xs text-slate-500 lg:hidden">
+        <main className="m-auto w-full max-w-md py-6">
+          <div className="ws-auth-card p-6 sm:p-8">{children}</div>
+        </main>
+        <footer className="py-2 text-center text-xs text-(--ws-muted) lg:hidden">
           CouchOne Fit · Sistema interno seguro
         </footer>
       </div>

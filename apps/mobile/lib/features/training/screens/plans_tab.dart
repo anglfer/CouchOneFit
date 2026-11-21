@@ -162,9 +162,15 @@ class _PlansTabState extends State<PlansTab> {
         color: today ? colors.primaryContainer : Colors.transparent,
         child: InkWell(
             onTap: () => widget.onShowDay(day),
-            child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            child: Container(
+                decoration: today
+                    ? BoxDecoration(
+                        border: Border(
+                            left:
+                                BorderSide(color: colors.primary, width: 3.5)))
+                    : null,
+                padding: EdgeInsets.symmetric(
+                    horizontal: 14, vertical: rest && !today ? 10 : 13),
                 child: Row(children: [
                   SizedBox(
                       width: 44,

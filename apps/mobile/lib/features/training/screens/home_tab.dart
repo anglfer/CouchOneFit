@@ -4,17 +4,17 @@ import '../../../shared/widgets/gradient_widgets.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
+import '../../../shared/widgets/section_title.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../../shared/widgets/status_view.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
-import '../widgets/muscle_map.dart';
 import 'progress_tab.dart';
-import '../../../shared/widgets/section_title.dart';
 import 'training_views.dart';
 
-/// Inicio: a browsable week, the selected day's workout, recovery and what
-/// is coming next.
+/// Inicio: today's focus — schedule, workout hero, daily check-in & nutrition,
+/// compact weekly consistency and recovery status.
 class HomeTab extends StatefulWidget {
   const HomeTab(
       {super.key,
@@ -24,13 +24,15 @@ class HomeTab extends StatefulWidget {
       required this.opening,
       required this.onStart,
       required this.onShowDay,
-      required this.onOpenProgress});
+      required this.onOpenProgress,
+      this.dailySlot});
   final TrainingContext data;
   final TrainingHistory? history;
   final bool canLog, opening;
   final ValueChanged<String> onStart;
   final ValueChanged<TrainingDay> onShowDay;
   final VoidCallback onOpenProgress;
+  final Widget? dailySlot;
   @override
   State<HomeTab> createState() => _HomeTabState();
 }
@@ -48,30 +50,30 @@ class _HomeTabState extends State<HomeTab> {
     final recoveries = history == null
         ? const <GroupRecovery>[]
         : recovery(history!, data.today);
-    final recentSessions = history?.sessions
-            .where((s) => sessionPerformed(s) > 0)
-            .take(8)
-            .toList() ??
-        const <HistorySession>[];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (plan != null) ...[
         _weekCard(context, plan),
+        if (widget.dailySlot != null) ...[
+          const SizedBox(height: 14),
+          widget.dailySlot!,
+        ],
         const SizedBox(height: 14),
         _weekStats(context, plan),
         ..._missed(context, plan),
-        if (recentSessions.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _volumeCard(context, recentSessions),
-        ],
         if (recoveries.isNotEmpty) ...[
           const SizedBox(height: 12),
           _recoveryCard(context, recoveries),
         ],
-      ] else
+      ] else ...[
         const StatusView(
             icon: Icons.event_note_outlined,
             title: 'Todavía no tienes una rutina asignada',
             message: 'Tu profesional la compartirá aquí cuando esté lista.'),
+        if (widget.dailySlot != null) ...[
+          const SizedBox(height: 14),
+          widget.dailySlot!,
+        ],
+      ],
     ]);
   }
 
@@ -426,81 +428,42 @@ class _HomeTabState extends State<HomeTab> {
     ]);
   }
 
-  Widget _volumeCard(BuildContext context, List<HistorySession> recent) {
-    final colors = Theme.of(context).colorScheme;
-    final stats = TrainingStats(history!, data.today);
-    final ordered = recent.reversed.toList();
-    final values = [for (final s in ordered) sessionVolume(s)];
-    final hasVolume = values.any((v) => v > 0);
-    return Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CardTitle(
-                      icon: Icons.bar_chart_rounded,
-                      title: 'Volumen acumulado',
-                      action: 'Historial',
-                      onAction: widget.onOpenProgress),
-                  const SizedBox(height: 6),
-                  Wrap(
-                      spacing: 10,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.end,
-                      children: [
-                        Text('${trainingThousands(stats.volume)} kg',
-                            style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.6,
-                                fontFeatures: [FontFeature.tabularFigures()])),
-                        Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                                '${trainingCount(stats.total, 'sesión', 'sesiones')} registradas',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: colors.onSurfaceVariant))),
-                      ]),
-                  if (hasVolume && values.length >= 2) ...[
-                    const SizedBox(height: 10),
-                    Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: TrendChart(
-                            values: values,
-                            firstLabel: shortDate(ordered.first.localDate),
-                            lastLabel: shortDate(ordered.last.localDate))),
-                  ],
-                ])));
-  }
-
   Widget _recoveryCard(BuildContext context, List<GroupRecovery> items) {
+    final average =
+        (items.fold<double>(0, (sum, r) => sum + r.ratio) / items.length * 100)
+            .round();
     return Card(
         margin: EdgeInsets.zero,
-        child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CardTitle(
-                      icon: Icons.self_improvement_rounded,
-                      title: 'Recuperación muscular',
-                      action: 'Ver progreso',
-                      onAction: widget.onOpenProgress),
-                  const SizedBox(height: 8),
-                  Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            RecoveryBody(items: items, height: 260),
-                            const SizedBox(height: 16),
-                            ...recoveryRows(items, limit: 3),
-                          ])),
-                ])));
+        child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: widget.onOpenProgress,
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CardTitle(
+                          icon: Icons.self_improvement_rounded,
+                          title: 'Recuperación muscular',
+                          action: 'Ver progreso',
+                          onAction: widget.onOpenProgress),
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        TonePill('General · $average %',
+                            tone: average >= 90
+                                ? BrandColors.success
+                                : average >= 50
+                                    ? BrandColors.warning
+                                    : BrandColors.highlight),
+                        for (final r in items.take(3))
+                          TonePill('${r.group} · ${(r.ratio * 100).round()} %',
+                              tone: r.ratio >= 1
+                                  ? BrandColors.success
+                                  : r.ratio >= .5
+                                      ? BrandColors.warning
+                                      : BrandColors.highlight),
+                      ]),
+                    ]))));
   }
 
   List<Widget> _missed(BuildContext context, TrainingPlan plan) {

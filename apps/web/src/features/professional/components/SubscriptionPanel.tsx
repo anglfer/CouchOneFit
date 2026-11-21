@@ -340,7 +340,8 @@ export default function SubscriptionPanel({
         <div role="alert" className="ws-alert" data-tone="bad">
           <p>{error || catalogError}</p>
           <button
-            className="underline mt-2"
+            type="button"
+            className="ws-btn mt-3"
             onClick={() => {
               setAttempt((n) => n + 1);
               reloadCatalog();
@@ -369,9 +370,11 @@ export default function SubscriptionPanel({
                   : `${plan.maxClients} clientes activos`}
               </p>
               <button
+                type="button"
                 disabled={busy || open}
                 onClick={() => void start(plan)}
-                className="w-full bg-indigo-600"
+                className="ws-btn w-full"
+                data-variant="primary"
               >
                 {busy
                   ? 'Preparando…'
@@ -449,9 +452,11 @@ export default function SubscriptionPanel({
                 <p>Titular: Tarjeta guardada · Vence: 12/30 · CVV: •••</p>
               </div>
               <button
+                type="button"
                 disabled={busy}
                 onClick={() => void operate('confirm')}
-                className="bg-indigo-600"
+                className="ws-btn"
+                data-variant="primary"
               >
                 {busy
                   ? 'Confirmando…'
@@ -470,9 +475,10 @@ export default function SubscriptionPanel({
           )}
           {open && (
             <button
+              type="button"
               disabled={busy}
               onClick={() => void operate('cancel')}
-              className="ml-2"
+              className="ws-btn ml-2"
             >
               Cancelar operación
             </button>
@@ -493,18 +499,18 @@ export default function SubscriptionPanel({
             </div>
           )}
           {payment.status === 'failed' && (
-            <p role="alert">
+            <p role="alert" className="ws-alert" data-tone="bad">
               {failures[payment.failureCode ?? ''] ??
                 'La operación no se completó. Tu plan no cambió.'}
             </p>
           )}
           {payment.status === 'cancelled' && (
-            <p role="status">
+            <p role="status" className="ws-alert" data-tone="warn">
               Operación cancelada. Tu plan y vigencia permanecen sin cambios.
             </p>
           )}
           {!open && (
-            <button onClick={close}>
+            <button type="button" className="ws-btn" onClick={close}>
               {payment.status === 'succeeded'
                 ? 'Volver a los planes'
                 : 'Iniciar un nuevo intento'}

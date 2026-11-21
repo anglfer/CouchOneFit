@@ -73,18 +73,11 @@ function NutritionSectionCard({
             {section.plan.meals.length === 1
               ? 'tiempo de comida'
               : 'tiempos de comida'}
-            {section.plan.caloriesTarget !== null
-              ? ` · ${section.plan.caloriesTarget} kcal`
-              : ''}
-            {section.plan.proteinTargetG !== null
-              ? ` · P ${section.plan.proteinTargetG}g`
-              : ''}
-            {section.plan.carbsTargetG !== null
-              ? ` · C ${section.plan.carbsTargetG}g`
-              : ''}
-            {section.plan.fatTargetG !== null
-              ? ` · G ${section.plan.fatTargetG}g`
-              : ''}
+            {section.plan.meals.length > 0 &&
+              ` · ${section.plan.meals
+                .slice(0, 3)
+                .map((m) => m.name)
+                .join(', ')}${section.plan.meals.length > 3 ? '…' : ''}`}
           </p>
         </div>
       ) : section.status === 'empty' ? (
@@ -160,14 +153,19 @@ export default function ClientRecordSections({
         section={sections.nutritionPlan}
         clientId={clientId}
       />
-      {sections.evaluations.status === 'available' &&
-        sections.evaluations.evaluations.length > 0 && (
-          <Card title="Última evaluación" icon="clipboard">
-            <EvaluationSummary section={sections.evaluations} />
-          </Card>
-        )}
-      <Card title="Progreso" icon="chart" labelId="record-progress-title">
+      <Card
+        title="Progreso y evaluación"
+        icon="chart"
+        labelId="record-progress-title"
+      >
         <div className="space-y-3">
+          {sections.evaluations.status === 'available' &&
+            sections.evaluations.evaluations.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold">Última evaluación</h3>
+                <EvaluationSummary section={sections.evaluations} />
+              </div>
+            )}
           <div>
             <h3 className="text-sm font-semibold">Seguimiento y evolución</h3>
             <EvolutionSummary section={sections.progress} clientId={clientId} />

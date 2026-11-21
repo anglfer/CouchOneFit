@@ -4,6 +4,7 @@ import type { TrainingContext, TrainingVersion } from '../types/training.js'
 import * as validate from '../validators/training.js'
 import * as repository from '../repositories/training.js'
 import { calendarDistance, localDate, scheduledDay } from './calendar.js'
+import { expandCatalogSearchPatterns } from './catalogSearch.js'
 
 export async function readContext(c: PoolClient, identity: SessionIdentity, clientId: string | null, requestedDate: string | null, now: Date, execution = false): Promise<TrainingContext> {
   const scope = (await repository.scope(c,identity,clientId))!
@@ -93,9 +94,10 @@ export async function changeZone(pool: Pool, identity: SessionIdentity, clientId
 export function getCatalog(pool: Pool, identity: SessionIdentity, query: unknown) {
   const q=validate.object(query,['search','muscle','equipment','offset'])
   const offset=q.offset===undefined?0:typeof q.offset==='string' && /^\d+$/.test(q.offset)?validate.number(Number(q.offset),0,100000):validate.invalid()
+  const patterns=expandCatalogSearchPatterns(validate.text(q.search??'',150))
   return repository.read(pool,identity,async c=>{
     await repository.scope(c,identity,null)
-    return repository.catalog(c,validate.text(q.search??'',150),validate.text(q.muscle??'',100),validate.text(q.equipment??'',100),offset)
+    return repository.catalog(c,patterns,validate.text(q.muscle??'',100),validate.text(q.equipment??'',100),offset)
   })
 }
 function offsetOf(query: unknown) {

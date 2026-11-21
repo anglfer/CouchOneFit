@@ -25,9 +25,13 @@ String relativeDayLabel(String date, String today) =>
 /// check-in, saved together with the rest in a single request.
 class CheckInScreen extends StatefulWidget {
   const CheckInScreen(
-      {super.key, required this.service, required this.initial});
+      {super.key,
+      required this.service,
+      required this.initial,
+      this.previousWeightKg});
   final CheckInService service;
   final CheckInContext initial;
+  final double? previousWeightKg;
   @override
   State<CheckInScreen> createState() => _CheckInScreenState();
 }
@@ -188,199 +192,234 @@ class _CheckInScreenState extends State<CheckInScreen> {
     final enabled = _ctx.canWrite && !_saving && !_loading;
     final label = _ctx.trainingLabel;
     final existing = _ctx.checkIn;
-    return DetailScaffold(title: const Text('Check-in diario'), children: [
-      Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            TonePill(existing == null ? 'Pendiente' : 'Registrado',
-                tone: existing == null
-                    ? BrandColors.warning
-                    : BrandColors.success,
-                icon: existing == null
-                    ? Icons.schedule_rounded
-                    : Icons.check_circle_outline_rounded),
-            if (existing != null && existing.revision > 1)
-              Text('Corregido · rev. ${existing.revision}',
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: colors.onSurfaceVariant)),
-          ]),
-      const SizedBox(height: 8),
-      Text(capitalized(longDate(_ctx.localDate)),
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w800)),
-      const SizedBox(height: 4),
-      Text(
-          existing == null
-              ? 'Cuéntale a tu profesional cómo vas. Todo es opcional; guarda lo que tengas.'
-              : 'Ya registraste este día. Puedes corregirlo hasta dos días después.',
-          style: TextStyle(color: colors.onSurfaceVariant)),
-      const SizedBox(height: 14),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        for (final (date, recorded) in _ctx.dates)
-          Semantics(
-              label:
-                  '${relativeDayLabel(date, _ctx.today)}, ${recorded ? 'registrado' : 'pendiente'}',
-              selected: date == _ctx.localDate,
-              button: true,
-              excludeSemantics: true,
-              onTap: _saving ? null : () => _open(date),
-              child: ChoiceChip(
-                  label: Text(relativeDayLabel(date, _ctx.today)),
-                  avatar: Icon(
-                      recorded
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      size: 18),
-                  selected: date == _ctx.localDate,
-                  onSelected: _saving ? null : (_) => _open(date))),
-      ]),
-      if (label != null || _ctx.nutritionApplicable) ...[
-        const SizedBox(height: 12),
-        if (label != null) _InfoRow(icon: Icons.fitness_center, text: label),
-        if (_ctx.nutritionApplicable)
-          _InfoRow(
-              icon: Icons.restaurant_outlined,
-              text: _ctx.nutritionPlanName ?? 'Plan alimenticio vigente'),
-      ],
-      if (!_ctx.canWrite)
-        const NoticeBanner(
-            icon: Icons.pause_circle_outline_rounded,
-            text:
-                'Puedes consultar tu check-in, pero el registro está pausado por ahora.'),
-      if (_loading) const LinearProgressIndicator(),
-      const SizedBox(height: 12),
-      _Section(
-          title: 'Peso corporal',
-          icon: Icons.monitor_weight_outlined,
-          children: [
-            TextField(
-                controller: _weight,
-                enabled: enabled,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
-                ],
-                decoration: InputDecoration(
-                    labelText: 'Peso (kg)',
-                    hintText: '70,5',
-                    suffixText: 'kg',
-                    errorText: _weightError,
-                    helperText:
-                        'Opcional. Pésate en condiciones parecidas, idealmente en ayunas.',
-                    helperMaxLines: 2)),
-          ]),
-      _Section(
-          title: 'Descanso y bienestar',
-          icon: Icons.bedtime_outlined,
-          children: [
-            _SleepField(
-                value: _sleep,
-                enabled: enabled,
-                onChanged: (v) => setState(() => _sleep = v)),
-            const SizedBox(height: 14),
-            _ScaleField(
-                label: 'Estrés',
-                value: _stress,
-                enabled: enabled,
-                words: const [
-                  'Muy bajo',
-                  'Bajo',
-                  'Moderado',
-                  'Alto',
-                  'Muy alto'
-                ],
-                toneFor: (v) => v <= 2
-                    ? BrandColors.success
-                    : v == 3
+    return DetailScaffold(
+        title: const Text('Check-in diario'),
+        bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.96),
+                border: Border(
+                    top: BorderSide(
+                        color: colors.outlineVariant.withValues(alpha: 0.45)))),
+            child: SafeArea(
+                top: false,
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                    child: Align(
+                        alignment: Alignment.center,
+                        heightFactor: 1,
+                        child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 560),
+                            child: GradientActionButton(
+                                label: existing == null
+                                    ? 'Guardar check-in'
+                                    : 'Guardar corrección',
+                                busy: _saving,
+                                busyLabel: 'Guardando…',
+                                icon: Icons.check_rounded,
+                                onPressed: enabled ? _save : null)))))),
+        children: [
+          Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                TonePill(existing == null ? 'Pendiente' : 'Registrado',
+                    tone: existing == null
                         ? BrandColors.warning
-                        : BrandColors.error,
-                onChanged: (v) => setState(() => _stress = v)),
-            _ScaleField(
-                label: 'Energía',
-                value: _energy,
-                enabled: enabled,
-                words: const ['Muy baja', 'Baja', 'Normal', 'Alta', 'Muy alta'],
-                toneFor: (v) => v >= 4
-                    ? BrandColors.success
-                    : v == 3
-                        ? colors.primary
-                        : BrandColors.warning,
-                onChanged: (v) => setState(() => _energy = v)),
-            _ScaleField(
-                label: 'Hambre',
-                value: _hunger,
-                enabled: enabled,
-                words: const [
-                  'Muy poca',
-                  'Poca',
-                  'Moderada',
-                  'Mucha',
-                  'Extrema'
-                ],
-                toneFor: (v) => v <= 2
-                    ? BrandColors.success
-                    : v == 3
-                        ? colors.primary
-                        : BrandColors.warning,
-                onChanged: (v) => setState(() => _hunger = v)),
-          ]),
-      if (_ctx.nutritionApplicable)
-        _Section(
-            title: '¿Seguiste tu plan alimenticio?',
-            icon: Icons.restaurant_menu,
-            children: [
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final value in ['completed', 'partial', 'not_completed'])
-                  ChoiceChip(
-                      label: Text(complianceLabels[value]!),
-                      selected: _nutrition == value,
-                      onSelected: enabled
-                          ? (on) =>
-                              setState(() => _nutrition = on ? value : null)
-                          : null),
+                        : BrandColors.success,
+                    icon: existing == null
+                        ? Icons.schedule_rounded
+                        : Icons.check_circle_outline_rounded),
+                if (existing != null && existing.revision > 1)
+                  Text('Corregido · rev. ${existing.revision}',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurfaceVariant)),
               ]),
-            ]),
-      _Section(title: 'Comentario', icon: Icons.chat_bubble_outline, children: [
-        TextField(
-            controller: _comment,
-            enabled: enabled,
-            maxLength: 500,
-            minLines: 2,
-            maxLines: 5,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-                hintText: 'Algo que tu profesional deba saber (opcional)')),
-      ]),
-      if (_error != null)
-        NoticeBanner(
-            text: _error!,
-            tone: NoticeTone.error,
-            onRetry: _saving || !_ctx.canWrite ? null : _save),
-      const SizedBox(height: 8),
-      ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _weight,
-          builder: (context, weightValue, _) => _SummaryStrip(
-              weightText: weightValue.text.trim(),
-              sleepHours: _sleep,
-              scalesFilled: [_stress, _energy, _hunger]
-                  .where((item) => item != null)
-                  .length,
-              nutrition: _ctx.nutritionApplicable ? _nutrition : null)),
-      const SizedBox(height: 12),
-      GradientActionButton(
-          label: existing == null ? 'Guardar check-in' : 'Guardar corrección',
-          busy: _saving,
-          busyLabel: 'Guardando…',
-          icon: Icons.check_rounded,
-          onPressed: enabled ? _save : null),
-    ]);
+          const SizedBox(height: 8),
+          Text(capitalized(longDate(_ctx.localDate)),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(
+              existing == null
+                  ? 'Cuéntale a tu profesional cómo vas. Todo es opcional; guarda lo que tengas.'
+                  : 'Ya registraste este día. Puedes corregirlo hasta dos días después.',
+              style: TextStyle(color: colors.onSurfaceVariant)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final (date, recorded) in _ctx.dates)
+              Semantics(
+                  label:
+                      '${relativeDayLabel(date, _ctx.today)}, ${recorded ? 'registrado' : 'pendiente'}',
+                  selected: date == _ctx.localDate,
+                  button: true,
+                  excludeSemantics: true,
+                  onTap: _saving ? null : () => _open(date),
+                  child: ChoiceChip(
+                      label: Text(relativeDayLabel(date, _ctx.today)),
+                      avatar: Icon(
+                          recorded
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 18),
+                      selected: date == _ctx.localDate,
+                      onSelected: _saving ? null : (_) => _open(date))),
+          ]),
+          if (label != null || _ctx.nutritionApplicable) ...[
+            const SizedBox(height: 12),
+            if (label != null)
+              _InfoRow(icon: Icons.fitness_center, text: label),
+            if (_ctx.nutritionApplicable)
+              _InfoRow(
+                  icon: Icons.restaurant_outlined,
+                  text: _ctx.nutritionPlanName ?? 'Plan alimenticio vigente'),
+          ],
+          if (!_ctx.canWrite)
+            const NoticeBanner(
+                icon: Icons.pause_circle_outline_rounded,
+                text:
+                    'Puedes consultar tu check-in, pero el registro está pausado por ahora.'),
+          if (_loading) const LinearProgressIndicator(),
+          const SizedBox(height: 12),
+          _Section(
+              title: 'Peso corporal',
+              icon: Icons.monitor_weight_outlined,
+              children: [
+                TextField(
+                    controller: _weight,
+                    enabled: enabled,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
+                    ],
+                    decoration: InputDecoration(
+                        labelText: 'Peso (kg)',
+                        hintText: '70,5',
+                        suffixText: 'kg',
+                        errorText: _weightError,
+                        helperText: existing == null &&
+                                widget.previousWeightKg != null
+                            ? 'Opcional · último registro: ${trainingDecimal(widget.previousWeightKg!)} kg. Idealmente en ayunas.'
+                            : 'Opcional. Pésate en condiciones parecidas, idealmente en ayunas.',
+                        helperMaxLines: 2)),
+              ]),
+          _Section(
+              title: 'Descanso y bienestar',
+              icon: Icons.bedtime_outlined,
+              children: [
+                _SleepField(
+                    value: _sleep,
+                    enabled: enabled,
+                    onChanged: (v) => setState(() => _sleep = v)),
+                const SizedBox(height: 14),
+                _ScaleField(
+                    label: 'Estrés',
+                    value: _stress,
+                    enabled: enabled,
+                    words: const [
+                      'Muy bajo',
+                      'Bajo',
+                      'Moderado',
+                      'Alto',
+                      'Muy alto'
+                    ],
+                    toneFor: (v) => v <= 2
+                        ? BrandColors.success
+                        : v == 3
+                            ? BrandColors.warning
+                            : BrandColors.error,
+                    onChanged: (v) => setState(() => _stress = v)),
+                _ScaleField(
+                    label: 'Energía',
+                    value: _energy,
+                    enabled: enabled,
+                    words: const [
+                      'Muy baja',
+                      'Baja',
+                      'Normal',
+                      'Alta',
+                      'Muy alta'
+                    ],
+                    toneFor: (v) => v >= 4
+                        ? BrandColors.success
+                        : v == 3
+                            ? colors.primary
+                            : BrandColors.warning,
+                    onChanged: (v) => setState(() => _energy = v)),
+                _ScaleField(
+                    label: 'Hambre',
+                    value: _hunger,
+                    enabled: enabled,
+                    words: const [
+                      'Muy poca',
+                      'Poca',
+                      'Moderada',
+                      'Mucha',
+                      'Extrema'
+                    ],
+                    toneFor: (v) => v <= 2
+                        ? BrandColors.success
+                        : v == 3
+                            ? colors.primary
+                            : BrandColors.warning,
+                    onChanged: (v) => setState(() => _hunger = v)),
+              ]),
+          if (_ctx.nutritionApplicable)
+            _Section(
+                title: '¿Seguiste tu plan alimenticio?',
+                icon: Icons.restaurant_menu,
+                children: [
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final value in [
+                      'completed',
+                      'partial',
+                      'not_completed'
+                    ])
+                      ChoiceChip(
+                          label: Text(complianceLabels[value]!),
+                          selected: _nutrition == value,
+                          onSelected: enabled
+                              ? (on) =>
+                                  setState(() => _nutrition = on ? value : null)
+                              : null),
+                  ]),
+                ]),
+          _Section(
+              title: 'Comentario',
+              icon: Icons.chat_bubble_outline,
+              children: [
+                TextField(
+                    controller: _comment,
+                    enabled: enabled,
+                    maxLength: 500,
+                    minLines: 2,
+                    maxLines: 5,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                        hintText:
+                            'Algo que tu profesional deba saber (opcional)')),
+              ]),
+          if (_error != null)
+            NoticeBanner(
+                text: _error!,
+                tone: NoticeTone.error,
+                onRetry: _saving || !_ctx.canWrite ? null : _save),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _weight,
+              builder: (context, weightValue, _) => _SummaryStrip(
+                  weightText: weightValue.text.trim(),
+                  sleepHours: _sleep,
+                  scalesFilled: [_stress, _energy, _hunger]
+                      .where((item) => item != null)
+                      .length,
+                  nutrition: _ctx.nutritionApplicable ? _nutrition : null)),
+        ]);
   }
 }
 
@@ -625,10 +664,11 @@ class _ScaleField extends StatelessWidget {
                                           shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(8)),
-                                          backgroundColor:
-                                              v == n ? colors.primary : null,
+                                          backgroundColor: v == n
+                                              ? actionFill(context)
+                                              : null,
                                           foregroundColor: v == n
-                                              ? colors.onPrimary
+                                              ? Colors.white
                                               : colors.onSurface),
                                       onPressed: enabled
                                           ? () => onChanged(v == n ? null : n)

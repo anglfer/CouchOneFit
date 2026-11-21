@@ -49,10 +49,15 @@ function TrainingSummary({ summary }: { summary?: TrainingClient }) {
   if (!summary) return <div className="client-row-training" />;
   return (
     <div className="client-row-training">
-      <strong>
-        {summary.activeRoutine ??
-          (summary.hasDraft ? 'Borrador de rutina sin activar' : 'Sin rutina')}
-      </strong>
+      <div className="flex flex-wrap items-center gap-2">
+        <strong>
+          {summary.activeRoutine ??
+            (summary.hasDraft
+              ? 'Borrador de rutina sin activar'
+              : 'Sin rutina')}
+        </strong>
+        {summary.checkInToday && <Badge tone="ok">Check-in hoy</Badge>}
+      </div>
       <span>
         {summary.lastSession
           ? `Último entreno ${relativeDay(summary.lastSession)} · ${summary.sessionsLast7} en 7 días`
@@ -90,6 +95,7 @@ export default function ClientAccessPanel({
   const [form, setForm] = useState<ClientForm>(emptyClientForm);
   const [fieldErrors, setFieldErrors] = useState<Partial<ClientForm>>({});
   const [saved, setSaved] = useState('');
+  const [createdClientId, setCreatedClientId] = useState<string | null>(null);
   const [statusNotice, setStatusNotice] = useState('');
   const [delivery, setDelivery] = useState<{
     code: string;
@@ -228,6 +234,7 @@ export default function ClientAccessPanel({
     setError('');
     setFieldErrors({});
     setSaved('');
+    setCreatedClientId(null);
     try {
       const body = {
         fullName: form.fullName,
@@ -262,6 +269,17 @@ export default function ClientAccessPanel({
         );
         return;
       }
+      const createdId =
+        outcome.result &&
+        typeof outcome.result === 'object' &&
+        'client' in outcome.result &&
+        outcome.result.client &&
+        typeof outcome.result.client === 'object' &&
+        'id' in outcome.result.client &&
+        typeof outcome.result.client.id === 'string'
+          ? outcome.result.client.id
+          : null;
+      setCreatedClientId(createdId);
       setSaved('El expediente se guardó correctamente.');
       setAttempt((value) => value + 1);
       onStatusChanged();
@@ -290,10 +308,25 @@ export default function ClientAccessPanel({
         </p>
       )}
       {saved && (
-        <p role="status" className="ws-alert" data-tone="ok">
-          <Icon name="check" size={16} className="inline align-[-3px]" />{' '}
-          {saved}
-        </p>
+        <div
+          role="status"
+          className="ws-alert flex flex-wrap items-center justify-between gap-3"
+          data-tone="ok"
+        >
+          <span>
+            <Icon name="check" size={16} className="inline align-[-3px]" />{' '}
+            {saved}
+          </span>
+          {createdClientId && (
+            <Link
+              to={`/app/clientes/${encodeURIComponent(createdClientId)}`}
+              className="ws-btn"
+              data-variant="primary"
+            >
+              Abrir expediente nuevo
+            </Link>
+          )}
+        </div>
       )}
       <details
         className="ws-card ws-disclosure"
@@ -325,7 +358,7 @@ export default function ClientAccessPanel({
               {fieldErrors.fullName && (
                 <p
                   id="client-full-name-error"
-                  className="text-red-700"
+                  className="text-(--ws-bad-fg)"
                   role="alert"
                 >
                   {fieldErrors.fullName}
@@ -353,7 +386,7 @@ export default function ClientAccessPanel({
               {fieldErrors.birthDate && (
                 <p
                   id="client-birth-date-error"
-                  className="text-red-700"
+                  className="text-(--ws-bad-fg)"
                   role="alert"
                 >
                   {fieldErrors.birthDate}
@@ -383,7 +416,7 @@ export default function ClientAccessPanel({
                 {fieldErrors.heightCm && (
                   <p
                     id="client-height-error"
-                    className="text-red-700"
+                    className="text-(--ws-bad-fg)"
                     role="alert"
                   >
                     {fieldErrors.heightCm}
@@ -412,7 +445,7 @@ export default function ClientAccessPanel({
                 {fieldErrors.baseWeightKg && (
                   <p
                     id="client-weight-error"
-                    className="text-red-700"
+                    className="text-(--ws-bad-fg)"
                     role="alert"
                   >
                     {fieldErrors.baseWeightKg}
@@ -421,98 +454,112 @@ export default function ClientAccessPanel({
               </label>
             </div>
           </div>
-          <fieldset className="space-y-3">
-            <legend>Medidas base opcionales</legend>
-            <p className="text-sm text-(--ws-muted)">
-              Déjalas vacías si no se midieron todavía.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                Grasa medida (%)
-                <input
-                  type="number"
-                  min="2"
-                  max="60"
-                  step="0.1"
-                  inputMode="decimal"
-                  value={form.baseBodyFatPercentage}
-                  onChange={(event) =>
-                    updateField('baseBodyFatPercentage', event.target.value)
-                  }
-                  aria-invalid={!!fieldErrors.baseBodyFatPercentage}
-                  aria-describedby={
-                    fieldErrors.baseBodyFatPercentage
-                      ? 'client-body-fat-error'
-                      : undefined
-                  }
-                  className="block border p-2 rounded-lg w-full"
-                />
-                {fieldErrors.baseBodyFatPercentage && (
-                  <p
-                    id="client-body-fat-error"
-                    className="text-red-700"
-                    role="alert"
-                  >
-                    {fieldErrors.baseBodyFatPercentage}
-                  </p>
-                )}
-              </label>
-              <label className="block">
-                Cintura (cm)
-                <input
-                  type="number"
-                  min="40"
-                  max="250"
-                  step="0.1"
-                  inputMode="decimal"
-                  value={form.waistCm}
-                  onChange={(event) =>
-                    updateField('waistCm', event.target.value)
-                  }
-                  aria-invalid={!!fieldErrors.waistCm}
-                  aria-describedby={
-                    fieldErrors.waistCm ? 'client-waist-error' : undefined
-                  }
-                  className="block border p-2 rounded-lg w-full"
-                />
-                {fieldErrors.waistCm && (
-                  <p
-                    id="client-waist-error"
-                    className="text-red-700"
-                    role="alert"
-                  >
-                    {fieldErrors.waistCm}
-                  </p>
-                )}
-              </label>
-              <label className="block">
-                Cadera (cm)
-                <input
-                  type="number"
-                  min="50"
-                  max="250"
-                  step="0.1"
-                  inputMode="decimal"
-                  value={form.hipCm}
-                  onChange={(event) => updateField('hipCm', event.target.value)}
-                  aria-invalid={!!fieldErrors.hipCm}
-                  aria-describedby={
-                    fieldErrors.hipCm ? 'client-hip-error' : undefined
-                  }
-                  className="block border p-2 rounded-lg w-full"
-                />
-                {fieldErrors.hipCm && (
-                  <p
-                    id="client-hip-error"
-                    className="text-red-700"
-                    role="alert"
-                  >
-                    {fieldErrors.hipCm}
-                  </p>
-                )}
-              </label>
-            </div>
-          </fieldset>
+          <details
+            className="rounded-xl border border-(--ws-border-subtle) bg-(--ws-surface-2) p-3"
+            open={Boolean(
+              fieldErrors.baseBodyFatPercentage ||
+              fieldErrors.waistCm ||
+              fieldErrors.hipCm
+            )}
+          >
+            <summary className="cursor-pointer text-sm font-semibold text-(--ws-text-2)">
+              Medidas base opcionales (grasa %, cintura, cadera)
+            </summary>
+            <fieldset className="mt-3 space-y-3 border-0! bg-transparent! p-0!">
+              <legend className="sr-only">Medidas base opcionales</legend>
+              <p className="text-sm text-(--ws-muted)">
+                Déjalas vacías si no se midieron todavía.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block">
+                  Grasa medida (%)
+                  <input
+                    type="number"
+                    min="2"
+                    max="60"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={form.baseBodyFatPercentage}
+                    onChange={(event) =>
+                      updateField('baseBodyFatPercentage', event.target.value)
+                    }
+                    aria-invalid={!!fieldErrors.baseBodyFatPercentage}
+                    aria-describedby={
+                      fieldErrors.baseBodyFatPercentage
+                        ? 'client-body-fat-error'
+                        : undefined
+                    }
+                    className="block border p-2 rounded-lg w-full"
+                  />
+                  {fieldErrors.baseBodyFatPercentage && (
+                    <p
+                      id="client-body-fat-error"
+                      className="text-(--ws-bad-fg)"
+                      role="alert"
+                    >
+                      {fieldErrors.baseBodyFatPercentage}
+                    </p>
+                  )}
+                </label>
+                <label className="block">
+                  Cintura (cm)
+                  <input
+                    type="number"
+                    min="40"
+                    max="250"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={form.waistCm}
+                    onChange={(event) =>
+                      updateField('waistCm', event.target.value)
+                    }
+                    aria-invalid={!!fieldErrors.waistCm}
+                    aria-describedby={
+                      fieldErrors.waistCm ? 'client-waist-error' : undefined
+                    }
+                    className="block border p-2 rounded-lg w-full"
+                  />
+                  {fieldErrors.waistCm && (
+                    <p
+                      id="client-waist-error"
+                      className="text-(--ws-bad-fg)"
+                      role="alert"
+                    >
+                      {fieldErrors.waistCm}
+                    </p>
+                  )}
+                </label>
+                <label className="block">
+                  Cadera (cm)
+                  <input
+                    type="number"
+                    min="50"
+                    max="250"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={form.hipCm}
+                    onChange={(event) =>
+                      updateField('hipCm', event.target.value)
+                    }
+                    aria-invalid={!!fieldErrors.hipCm}
+                    aria-describedby={
+                      fieldErrors.hipCm ? 'client-hip-error' : undefined
+                    }
+                    className="block border p-2 rounded-lg w-full"
+                  />
+                  {fieldErrors.hipCm && (
+                    <p
+                      id="client-hip-error"
+                      className="text-(--ws-bad-fg)"
+                      role="alert"
+                    >
+                      {fieldErrors.hipCm}
+                    </p>
+                  )}
+                </label>
+              </div>
+            </fieldset>
+          </details>
           <GoalField
             value={form.goal}
             onChange={(value) => updateField('goal', value)}
@@ -520,10 +567,7 @@ export default function ClientAccessPanel({
             errorId="client-goal-error"
             className="block border p-2 rounded-lg w-full"
           />
-          <button
-            disabled={!!busy}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-          >
+          <button disabled={!!busy} className="ws-btn" data-variant="primary">
             {busy === 'new' ? 'Guardando…' : 'Crear expediente'}
           </button>
         </form>
@@ -647,10 +691,11 @@ export default function ClientAccessPanel({
           <div className="ws-skeleton h-24" />
         </div>
       ) : listError ? (
-        <div role="alert">
+        <div role="alert" className="ws-alert space-y-2" data-tone="bad">
           <p>{listError}</p>
           <button
             type="button"
+            className="ws-btn"
             onClick={() => setAttempt((value) => value + 1)}
           >
             Reintentar consulta
@@ -842,14 +887,14 @@ export default function ClientAccessPanel({
                     <button
                       type="button"
                       onClick={() => void copyCode()}
-                      className="px-4 py-2 border rounded-lg"
+                      className="ws-btn"
                     >
                       {copied ? 'Copiado' : 'Copiar código'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setDelivery(null)}
-                      className="px-4 py-2 rounded-lg"
+                      className="ws-btn"
                     >
                       Ocultar código
                     </button>
@@ -868,14 +913,14 @@ export default function ClientAccessPanel({
           type="button"
           disabled={!!busy || loading || cursors.length <= 1}
           onClick={() => setCursors((current) => current.slice(0, -1))}
-          className="px-3 py-1.5 border rounded-lg disabled:opacity-40"
+          className="ws-btn"
         >
           Anterior
         </button>
         <span>Página {cursors.length}</span>
         <button
           type="button"
-          className="px-3 py-1.5 border rounded-lg disabled:opacity-40"
+          className="ws-btn"
           disabled={!!busy || loading || !!listError || !pageInfo?.hasMore}
           onClick={() => {
             if (pageInfo?.nextCursor)
@@ -886,10 +931,11 @@ export default function ClientAccessPanel({
         </button>
       </nav>
       {error && (
-        <div role="alert">
+        <div role="alert" className="ws-alert space-y-2" data-tone="bad">
           <p>{error}</p>
           <button
             type="button"
+            className="ws-btn"
             onClick={() => {
               setAttempt((value) => value + 1);
             }}

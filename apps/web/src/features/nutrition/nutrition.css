@@ -1128,9 +1128,38 @@
   transition: opacity 0.15s;
 }
 
-/* Column labels only on the first food of each meal. */
-.nutrition-item-card + .nutrition-item-card .nutrition-item-cell > label {
-  display: none;
+.nutrition-items-head {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2.4fr) minmax(90px, 0.85fr) minmax(105px, 1fr)
+    92px;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ws-muted);
+}
+
+@media (max-width: 780px) {
+  .nutrition-items-head {
+    display: none;
+  }
+}
+
+@media (min-width: 781px) {
+  .nutrition-item-main .nutrition-item-cell > label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 /* Grid/flex items default to min-width:auto; long food names forced phone overflow. */

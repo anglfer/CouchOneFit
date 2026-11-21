@@ -260,15 +260,29 @@ export async function trainingWrite(
   if (navigator.onLine !== false) void flushOutbox();
   return { queued: true };
 }
-export function setTarget(set: PrescribedSet): string {
+export function setKindBadge(kind: SetKind, workingIndex: number): string {
+  return SET_KINDS[kind].short || String(workingIndex);
+}
+export function setTarget(
+  set: PrescribedSet,
+  options?: {
+    loadMode?: 'external' | 'bodyweight';
+    includeKind?: boolean;
+  }
+): string {
+  const includeKind = options?.includeKind ?? true;
+  const hideZeroBodyweight =
+    options?.loadMode === 'bodyweight' && set.targetLoadKg === 0;
   return [
-    set.kind !== 'working' && SET_KINDS[set.kind].label,
+    includeKind && set.kind !== 'working' && SET_KINDS[set.kind].label,
     set.repsMax === null
       ? `${set.reps} reps`
       : `${set.reps}–${set.repsMax} reps`,
     set.rpe !== null && `RPE ${set.rpe}`,
     set.rir !== null && `RIR ${set.rir}`,
-    set.targetLoadKg !== null && `${set.targetLoadKg} kg`,
+    set.targetLoadKg !== null &&
+      !hideZeroBodyweight &&
+      `${set.targetLoadKg} kg`,
   ]
     .filter(Boolean)
     .join(' · ');

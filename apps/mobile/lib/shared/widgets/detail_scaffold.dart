@@ -10,15 +10,18 @@ class DetailScaffold extends StatelessWidget {
       required this.children,
       this.title,
       this.maxWidth = 560,
-      this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 32)});
+      this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      this.bottomNavigationBar});
   final Widget? title;
   final List<Widget> children;
   final double maxWidth;
   final EdgeInsetsGeometry padding;
+  final Widget? bottomNavigationBar;
 
   @override
   Widget build(BuildContext context) => Scaffold(
       extendBodyBehindAppBar: true,
+      bottomNavigationBar: bottomNavigationBar,
       appBar: AppBar(backgroundColor: Colors.transparent, title: title),
       body: DecoratedBox(
           decoration: brandGlow(context),

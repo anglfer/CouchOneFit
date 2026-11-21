@@ -39,6 +39,7 @@ export default function AdminPage(): ReactElement {
   const [attempt, setAttempt] = useState(0);
   const [checking, setChecking] = useState(true);
   const [leaving, setLeaving] = useState(false);
+  const [proTab, setProTab] = useState<'directory' | 'support'>('directory');
 
   const pathname = rawPath.replace(/\/$/, '') || '/admin';
   const isProfilePage = pathname === '/admin/perfil';
@@ -187,9 +188,36 @@ export default function AdminPage(): ReactElement {
         ) : isPlanesPage ? (
           <PlanCatalog />
         ) : isProfesionalesPage ? (
-          <div className="space-y-6">
-            <ProfessionalDirectory />
-            <SupportPanel />
+          <div className="space-y-5">
+            <div
+              className="client-subtabs"
+              role="tablist"
+              aria-label="Secciones de profesionales"
+            >
+              <button
+                type="button"
+                role="tab"
+                className="ws-plain"
+                aria-selected={proTab === 'directory'}
+                onClick={() => setProTab('directory')}
+              >
+                Directorio de profesionales
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className="ws-plain"
+                aria-selected={proTab === 'support'}
+                onClick={() => setProTab('support')}
+              >
+                Soporte a clientes
+              </button>
+            </div>
+            {proTab === 'directory' ? (
+              <ProfessionalDirectory />
+            ) : (
+              <SupportPanel />
+            )}
           </div>
         ) : !knownRoute ? (
           <section className="ws-card ws-empty">

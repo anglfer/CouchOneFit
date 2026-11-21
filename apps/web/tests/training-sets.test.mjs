@@ -89,4 +89,25 @@ test('labels non-working sets and keeps working sets unchanged', () => {
     training.setTarget(set({ kind: 'top', targetLoadKg: 100, rir: 1 })),
     'Top set · 8–12 reps · RIR 1 · 100 kg'
   );
+  assert.equal(
+    training.setTarget(set({ targetLoadKg: 0 }), { loadMode: 'bodyweight' }),
+    '8–12 reps · RIR 2'
+  );
+  assert.equal(
+    training.setTarget(set({ targetLoadKg: 20 }), {
+      loadMode: 'external',
+      includeKind: false,
+    }),
+    '8–12 reps · RIR 2 · 20 kg'
+  );
+  assert.equal(
+    training.setTarget(set({ kind: 'top', targetLoadKg: 60 }), {
+      loadMode: 'external',
+      includeKind: false,
+    }),
+    '8–12 reps · RIR 2 · 60 kg'
+  );
+  assert.equal(training.setKindBadge('warmup', 1), 'C');
+  assert.equal(training.setKindBadge('top', 2), 'T');
+  assert.equal(training.setKindBadge('working', 3), '3');
 });

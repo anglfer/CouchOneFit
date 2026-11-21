@@ -39,7 +39,7 @@ export default function EvolutionSection({
     }
   }, []);
   const enabled = started || initialStatus !== 'not_integrated';
-  const defaultMetric = 'measuredBodyFatPercentage';
+  const defaultMetric: EvolutionMetric = 'measuredBodyFatPercentage';
   const state = useEvolution(
     clientId,
     accountId,
@@ -47,17 +47,48 @@ export default function EvolutionSection({
     selectedMetric ?? defaultMetric,
     enabled
   );
-  const metric =
+  const availableMetrics = (
+    [
+      'candidateBodyFat',
+      ...(Object.keys(evolutionMetrics) as EvolutionMetric[]),
+    ] as EvolutionMetric[]
+  )
+    .filter((key, index, self) => self.indexOf(key) === index)
+    .filter((key) =>
+      state.samples.some((sample) => hasEvolutionMeasurement(sample, key))
+    );
+  const fallbackWithData: EvolutionMetric =
+    availableMetrics.find((m) =>
+      ['weightKg', 'waistCm', 'hipCm', 'measuredBodyFatPercentage'].includes(m)
+    ) ??
+    availableMetrics[0] ??
+    defaultMetric;
+  const metric: EvolutionMetric =
     selectedMetric ??
     (state.samples.some((sample) =>
       hasEvolutionMeasurement(sample, 'candidateBodyFat')
     )
       ? 'candidateBodyFat'
-      : defaultMetric);
+      : state.samples.length === 0 ||
+          state.samples.some((sample) =>
+            hasEvolutionMeasurement(sample, defaultMetric)
+          )
+        ? defaultMetric
+        : fallbackWithData);
   const [label, unit] = evolutionMetrics[metric];
   const points = state.samples.filter((s) =>
     hasEvolutionMeasurement(s, metric)
   );
+  const firstPointVal =
+    points.length >= 2 ? readEvolutionValue(points[0], metric) : undefined;
+  const lastPointVal =
+    points.length >= 2
+      ? readEvolutionValue(points[points.length - 1], metric)
+      : undefined;
+  const totalDelta =
+    typeof firstPointVal === 'number' && typeof lastPointVal === 'number'
+      ? Number((lastPointVal - firstPointVal).toFixed(1))
+      : null;
   function apply(next: EvolutionFilters) {
     const error = validateEvolutionFilters(next);
     setFilterError(error ?? '');
@@ -100,12 +131,12 @@ export default function EvolutionSection({
           e.preventDefault();
           apply(draft);
         }}
-        className="space-y-4"
+        className="space-y-3"
         noValidate
         aria-label="Filtros de evolución"
       >
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <label className="block text-sm font-medium">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <label className="block min-w-56 flex-1 text-sm font-medium sm:max-w-xs">
             Medición
             <select
               className="ws-input mt-1 w-full min-h-11"
@@ -114,106 +145,130 @@ export default function EvolutionSection({
                 setSelectedMetric(e.target.value as EvolutionMetric)
               }
             >
-              {Object.entries(evolutionMetrics)
-
-                .map(([key, meta]) => (
-                  <option key={key} value={key}>
-                    {key === 'weightKg' ? 'Peso de evaluación' : meta[0]} (
-                    {meta[1]})
-                  </option>
-                ))}
+              {Object.entries(evolutionMetrics).map(([key, meta]) => (
+                <option key={key} value={key}>
+                  {key === 'weightKg' ? 'Peso de evaluación' : meta[0]} (
+                  {meta[1]})
+                </option>
+              ))}
             </select>
           </label>
-          <label className="block text-sm font-medium">
-            Método
-            <select
-              className="ws-input mt-1 w-full min-h-11"
-              value={draft.method}
-              onChange={(e) => change('method', e.target.value)}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="flex flex-wrap gap-1.5"
+              role="group"
+              aria-label="Periodos rápidos"
             >
-              <option value="">Todos los métodos</option>
-              <option value="perimetros">Perímetros corporales</option>
-              <option value="pliegues">Pliegues cutáneos</option>
-              <option value="bioimpedancia">Bioimpedancia</option>
-              <option value="legacy">Heredadas · método desconocido</option>
-            </select>
-          </label>
-          <label className="block text-sm font-medium">
-            Desde
-            <input
-              className="ws-input mt-1 w-full min-h-11"
-              type="date"
-              value={draft.from}
-              onChange={(e) => change('from', e.target.value)}
-              aria-invalid={!!filterError}
-              aria-describedby={
-                filterError ? 'evolution-filter-error' : undefined
-              }
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Hasta
-            <input
-              className="ws-input mt-1 w-full min-h-11"
-              type="date"
-              value={draft.to}
-              onChange={(e) => change('to', e.target.value)}
-              aria-invalid={!!filterError}
-              aria-describedby={
-                filterError ? 'evolution-filter-error' : undefined
-              }
-            />
-          </label>
-        </div>
-        {filterError && (
-          <p id="evolution-filter-error" role="alert" className="text-sm">
-            {filterError}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            className="ws-btn min-h-11"
-            data-variant="primary"
-            type="submit"
-          >
-            Aplicar filtros
-          </button>
-          <span
-            className="flex flex-wrap gap-2"
-            role="group"
-            aria-label="Periodos rápidos"
-          >
-            {[30, 90, 365].map((days) => (
+              {[
+                [30, '30 d'],
+                [90, '90 d'],
+                [365, '1 año'],
+              ].map(([days, shortLabel]) => (
+                <button
+                  className="ws-btn min-h-11"
+                  type="button"
+                  key={days}
+                  aria-label={`Últimos ${days} días`}
+                  onClick={() =>
+                    apply({
+                      ...draft,
+                      ...quickEvolutionPeriod(days as number),
+                    })
+                  }
+                >
+                  {shortLabel}
+                </button>
+              ))}
               <button
-                className="ws-btn min-h-11"
                 type="button"
-                key={days}
-                onClick={() =>
-                  apply({ ...draft, ...quickEvolutionPeriod(days) })
-                }
+                className="ws-btn min-h-11"
+                onClick={() => apply({ ...draft, from: '', to: '' })}
               >
-                Últimos {days} días
+                Todo
               </button>
-            ))}
-            <button
-              type="button"
-              className="ws-btn min-h-11"
-              onClick={() => apply({ ...draft, from: '', to: '' })}
-            >
-              Todo el historial
-            </button>
-          </span>
-          {enabled && (
-            <button
-              type="button"
-              className="ws-btn min-h-11 sm:ml-auto"
-              disabled={state.loading}
-              onClick={state.reload}
-            >
-              Actualizar evolución
-            </button>
-          )}
+            </span>
+            {enabled && (
+              <button
+                type="button"
+                className="ws-btn min-h-11"
+                disabled={state.loading}
+                onClick={state.reload}
+              >
+                Actualizar evolución
+              </button>
+            )}
+          </div>
         </div>
+        <details className="rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) p-3">
+          <summary className="cursor-pointer text-sm font-medium text-(--ws-text-2)">
+            Filtros avanzados (método y fechas)
+            {(filters.method || filters.from || filters.to) && (
+              <span className="ml-2 text-xs text-(--ws-primary-fg)">
+                · activos
+              </span>
+            )}
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <label className="block text-sm font-medium">
+              Método
+              <select
+                className="ws-input mt-1 w-full min-h-11"
+                value={draft.method}
+                onChange={(e) => change('method', e.target.value)}
+              >
+                <option value="">Todos los métodos</option>
+                <option value="perimetros">Perímetros corporales</option>
+                <option value="pliegues">Pliegues cutáneos</option>
+                <option value="bioimpedancia">Bioimpedancia</option>
+                <option value="legacy">Heredadas · método desconocido</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              Desde
+              <input
+                className="ws-input mt-1 w-full min-h-11"
+                type="date"
+                value={draft.from}
+                onChange={(e) => change('from', e.target.value)}
+                aria-invalid={!!filterError}
+                aria-describedby={
+                  filterError ? 'evolution-filter-error' : undefined
+                }
+              />
+            </label>
+            <label className="block text-sm font-medium">
+              Hasta
+              <input
+                className="ws-input mt-1 w-full min-h-11"
+                type="date"
+                value={draft.to}
+                onChange={(e) => change('to', e.target.value)}
+                aria-invalid={!!filterError}
+                aria-describedby={
+                  filterError ? 'evolution-filter-error' : undefined
+                }
+              />
+            </label>
+          </div>
+          {filterError && (
+            <p
+              id="evolution-filter-error"
+              role="alert"
+              className="mt-2 text-sm"
+            >
+              {filterError}
+            </p>
+          )}
+          <div className="mt-3">
+            <button
+              className="ws-btn min-h-11"
+              data-variant="primary"
+              type="submit"
+            >
+              Aplicar filtros
+            </button>
+          </div>
+        </details>
       </form>
       {metric === 'candidateBodyFat' && (
         <p className="text-sm text-(--ws-muted)">
@@ -264,6 +319,54 @@ export default function EvolutionSection({
             {state.samples.length === 1 ? 'evaluación' : 'evaluaciones'} ·{' '}
             {points.length} con {label.toLowerCase()}
           </p>
+          {points.length >= 2 &&
+            typeof firstPointVal === 'number' &&
+            typeof lastPointVal === 'number' &&
+            totalDelta !== null && (
+              <div
+                aria-label="Resumen de tendencia seleccionada"
+                className="ws-kpi-strip"
+              >
+                <div className="ws-kpi-mini">
+                  <span className="ws-stat-label">Inicio</span>
+                  <strong className="ws-kpi-mini-value tabular-nums">
+                    {evolutionValue(firstPointVal)} {unit}
+                  </strong>
+                  <span className="text-xs text-(--ws-muted)">
+                    {evolutionDate(points[0].date)}
+                  </span>
+                </div>
+                <div className="ws-kpi-mini">
+                  <span className="ws-stat-label">Más reciente</span>
+                  <strong className="ws-kpi-mini-value tabular-nums">
+                    {evolutionValue(lastPointVal)} {unit}
+                  </strong>
+                  <span className="text-xs text-(--ws-muted)">
+                    {evolutionDate(points[points.length - 1].date)}
+                  </span>
+                </div>
+                <div className="ws-kpi-mini">
+                  <span className="ws-stat-label">Cambio en el periodo</span>
+                  <strong className="ws-kpi-mini-value tabular-nums">
+                    {Math.abs(totalDelta) < 0.05
+                      ? `0.0 ${unit}`
+                      : `${totalDelta > 0 ? '+' : '−'}${evolutionValue(Math.abs(totalDelta))} ${unit}`}
+                  </strong>
+                  <span
+                    className="ws-delta w-fit"
+                    data-sign={
+                      Math.abs(totalDelta) < 0.05
+                        ? 'flat'
+                        : totalDelta > 0
+                          ? 'up'
+                          : 'down'
+                    }
+                  >
+                    {points.length} registros con dato
+                  </span>
+                </div>
+              </div>
+            )}
           {state.page.pageInfo.hasMore && (
             <p role="status" className="ws-alert" data-tone="warn">
               Consulta incompleta: hay páginas pendientes. La tabla y la gráfica

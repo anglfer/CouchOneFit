@@ -181,7 +181,7 @@ export default function ProfessionalHome({
             </p>
           )}
 
-          <div className="ws-stats">
+          <div className="ws-stats-home">
             <section className="ws-card" aria-labelledby="stat-clients">
               <h2 id="stat-clients" className="ws-stat-label">
                 Clientes activos
@@ -237,6 +237,13 @@ export default function ProfessionalHome({
                   <p className="ws-stat-note">
                     Con al menos un registro en 7 días
                   </p>
+                  {activeClients.length > 0 && (
+                    <Meter
+                      value={trainedWeek}
+                      max={activeClients.length}
+                      label="Clientes que entrenaron esta semana"
+                    />
+                  )}
                 </section>
                 <section className="ws-card" aria-labelledby="stat-checkin">
                   <h2 id="stat-checkin" className="ws-stat-label">
@@ -254,6 +261,13 @@ export default function ProfessionalHome({
                       ? 'Nadie sin check-in hoy'
                       : `${activeClients.length - checkedToday} sin check-in hoy`}
                   </p>
+                  {activeClients.length > 0 && (
+                    <Meter
+                      value={checkedToday}
+                      max={activeClients.length}
+                      label="Clientes con check-in hoy"
+                    />
+                  )}
                 </section>
                 <section className="ws-card" aria-labelledby="stat-routine">
                   <h2 id="stat-routine" className="ws-stat-label">
@@ -286,6 +300,13 @@ export default function ProfessionalHome({
                       ? 'Sin días con plan en 7 días'
                       : `Cobertura ${percentLabel(summary.adherence.training.coveragePercent)}`}
                   </p>
+                  {summary.adherence.training.observedPercent !== null && (
+                    <Meter
+                      value={summary.adherence.training.observedPercent}
+                      max={100}
+                      label="Adherencia entrenamiento 7 días"
+                    />
+                  )}
                 </section>
                 <section
                   className="ws-card"
@@ -302,6 +323,13 @@ export default function ProfessionalHome({
                       ? 'Sin días con plan en 7 días'
                       : `Cobertura ${percentLabel(summary.adherence.nutrition.coveragePercent)}`}
                   </p>
+                  {summary.adherence.nutrition.observedPercent !== null && (
+                    <Meter
+                      value={summary.adherence.nutrition.observedPercent}
+                      max={100}
+                      label="Adherencia alimentación 7 días"
+                    />
+                  )}
                 </section>
               </>
             )}

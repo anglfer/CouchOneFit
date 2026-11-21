@@ -9,6 +9,7 @@ import 'package:couchonefit_mobile/features/training/models/training.dart';
 import 'package:couchonefit_mobile/features/training/models/training_progress.dart';
 import 'package:couchonefit_mobile/features/training/services/training_service.dart';
 import 'package:couchonefit_mobile/features/training/screens/client_shell.dart';
+import 'package:couchonefit_mobile/features/training/screens/progress_tab.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_session_screen.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_views.dart';
 import 'package:couchonefit_mobile/features/training/widgets/muscle_map.dart';
@@ -919,6 +920,77 @@ void main() {
     expect(orm(), '116,5 kg');
     expect(find.text('≈ 10 reps'), findsOneWidget);
     expect(find.textContaining('pierde precisión'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'bodyweight target omits 0 kg, ExerciseDetail toggles GIF pause and ProgressTab separates Cuerpo',
+      (tester) async {
+    final bwZero = PrescribedSet({
+      'id': 's-bw',
+      'kind': 'working',
+      'reps': 10,
+      'repsMax': 12,
+      'rpe': null,
+      'rir': 2,
+      'targetLoadKg': 0
+    });
+    expect(bwZero.targetFor(bodyweight: true), '10–12 reps · RIR 2');
+    expect(bwZero.targetFor(bodyweight: false), '10–12 reps · RIR 2 · 0 kg');
+
+    final exercise = TrainingExercise({
+      'id': 'ex-1',
+      'catalogId': 'cat-1',
+      'name': 'Puente de glúteos',
+      'instructions': '',
+      'loadMode': 'bodyweight',
+      'restSeconds': 60,
+      'guidance': ['Eleva la cadera.'],
+      'images': [
+        'https://example.invalid/still.jpg',
+        'https://example.invalid/anim.gif',
+      ],
+      'muscles': ['Glúteo mayor'],
+      'equipment': <String>[],
+      'bodyPart': 'Glúteos',
+      'sets': [
+        {
+          'id': 's-bw',
+          'kind': 'working',
+          'reps': 10,
+          'repsMax': 12,
+          'rpe': null,
+          'rir': 2,
+          'targetLoadKg': 0
+        }
+      ]
+    });
+    await tester.pumpWidget(
+        host(ExerciseDetailScreen(exercise: exercise), Brightness.light));
+    await tester.pumpAndSettle();
+    expect(find.text('10–12 reps · RIR 2'), findsOneWidget);
+    expect(find.text('Pausar'), findsOneWidget);
+    await tester.tap(find.text('Pausar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reanudar'), findsOneWidget);
+
+    await tester.pumpWidget(host(
+        Scaffold(
+            body: SingleChildScrollView(
+                child: ProgressTab(
+          history: TrainingHistory(historyFixture()),
+          failed: false,
+          today: '2026-11-04',
+          onRetry: () {},
+          overviewFooter: const Text('Bloque corporal de seguimiento'),
+        ))),
+        Brightness.light));
+    await tester.pumpAndSettle();
+    expect(find.text('Cuerpo'), findsOneWidget);
+    expect(find.text('Bloque corporal de seguimiento'), findsNothing);
+    await tester.tap(find.text('Cuerpo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bloque corporal de seguimiento'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

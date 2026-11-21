@@ -22,6 +22,7 @@ export default function RegistrationPage(): ReactElement {
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
   const [error, setError] = useState('');
   const submitLock = useRef(false);
   const messageRef = useRef<HTMLDivElement>(null);
@@ -78,39 +79,41 @@ export default function RegistrationPage(): ReactElement {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fd] py-6 px-4 sm:px-6 lg:px-8">
-      <header className="max-w-6xl mx-auto flex items-center justify-between py-4 mb-6">
+    <div className="ws-auth-shell px-4 py-6 sm:px-6 lg:px-8">
+      <header className="mx-auto mb-6 flex w-full max-w-6xl items-center justify-between py-4">
         <Brand />
         <div>
           <Link
             to="/"
-            className="text-xs sm:text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-muted) transition-colors hover:text-(--ws-primary-fg) sm:text-sm"
           >
             Volver al inicio <Icon name="arrow-up-right" size={14} />
           </Link>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-        <aside className="lg:col-span-5 space-y-6 pt-4">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide text-indigo-700 bg-indigo-50 border border-indigo-200/80">
-            DA EL SIGUIENTE PASO
+      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-10 lg:grid-cols-12">
+        <aside className="space-y-6 pt-4 lg:col-span-5">
+          <span className="ws-badge" data-tone="info">
+            Registro profesional
           </span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-(--ws-text) sm:text-5xl">
             Tu experiencia.
-            <span className="block text-indigo-600">Un nuevo espacio.</span>
+            <span className="block text-(--ws-primary-fg)">
+              Un nuevo espacio.
+            </span>
           </h1>
-          <p className="text-base text-slate-600 leading-relaxed">
+          <p className="text-base leading-relaxed text-(--ws-text-2)">
             Prepara tu cuenta para organizar tus planes y acompañar el progreso
             de tus clientes de forma conectada y profesional.
           </p>
-          <div className="p-6 rounded-2xl bg-white border border-indigo-100/90 shadow-xs space-y-2">
-            <span className="text-[11px] font-bold tracking-wider text-indigo-600 uppercase">
-              {selectedPlan ? 'EL PLAN QUE ELEGISTE' : 'A TU RITMO'}
+          <div className="ws-card space-y-2 p-6!">
+            <span className="text-xs font-semibold text-(--ws-primary-fg)">
+              {selectedPlan ? 'Plan seleccionado' : 'A tu ritmo'}
             </span>
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-(--ws-text)">
               {selectedPlan?.name ?? 'Empieza por tu cuenta'}
             </h2>
-            <p className="text-sm text-slate-600 font-medium">
+            <p className="text-sm font-medium text-(--ws-muted)">
               {selectedPlan
                 ? `${formatPlanPrice(selectedPlan.priceMxn)} MXN · ${planCapacity(selectedPlan)}`
                 : 'Puedes elegir un plan más adelante.'}
@@ -118,19 +121,19 @@ export default function RegistrationPage(): ReactElement {
             <div className="pt-2">
               <a
                 href="/#planes"
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-primary-fg) hover:underline"
               >
                 Ver todos los planes <Icon name="arrow-right" size={14} />
               </a>
             </div>
           </div>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-(--ws-muted)">
             Crear tu cuenta no realiza un cobro ni activa un plan.
           </p>
         </aside>
 
         <section
-          className="lg:col-span-7 p-6 sm:p-10 rounded-2xl bg-white border border-slate-200/80 shadow-xs"
+          className="ws-auth-card p-6 sm:p-10 lg:col-span-7"
           aria-labelledby="registration-title"
         >
           {isComplete ? (
@@ -140,16 +143,16 @@ export default function RegistrationPage(): ReactElement {
               role="status"
               className="space-y-4 py-8 text-center"
             >
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
-                ✓ YA DISTE EL PRIMER PASO
+              <span className="ws-badge" data-tone="ok">
+                Registro completado
               </span>
               <h2
                 id="registration-title"
-                className="text-3xl font-extrabold text-slate-900 tracking-tight"
+                className="text-3xl font-extrabold tracking-tight text-(--ws-text)"
               >
                 Tu cuenta está lista.
               </h2>
-              <p className="text-sm text-slate-600 max-w-md mx-auto">
+              <p className="mx-auto max-w-md text-sm text-(--ws-muted)">
                 Guardamos tu registro.{' '}
                 {selectedPlan
                   ? `Tu interés en ${selectedPlan.name} quedó registrado.`
@@ -158,13 +161,14 @@ export default function RegistrationPage(): ReactElement {
               </p>
               <div className="pt-4">
                 <Link
-                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs shadow-indigo-600/30"
+                  className="ws-btn min-h-11"
+                  data-variant="primary"
                   to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
                 >
                   Ir al acceso <Icon name="arrow-right" size={14} />
                 </Link>
               </div>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-(--ws-muted)">
                 Inicia sesión para entrar a tu espacio.
               </p>
             </div>
@@ -172,18 +176,18 @@ export default function RegistrationPage(): ReactElement {
             <>
               <h2
                 id="registration-title"
-                className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2"
+                className="mb-2 text-2xl font-extrabold tracking-tight text-(--ws-text) sm:text-3xl"
               >
                 Hagamos equipo.
               </h2>
-              <p className="text-base text-slate-600 mb-6">
+              <p className="mb-6 text-base text-(--ws-muted)">
                 Cuéntanos lo esencial para empezar. Todos los campos son
                 obligatorios, excepto donde se indica.
               </p>
               <form onSubmit={submit} className="space-y-4">
                 <fieldset disabled={isSubmitting} className="space-y-4">
                   <legend className="sr-only">Datos de registro</legend>
-                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+                  <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                     <span>Nombre completo</span>
                     <input
                       name="fullName"
@@ -192,11 +196,11 @@ export default function RegistrationPage(): ReactElement {
                       minLength={3}
                       maxLength={240}
                       placeholder="Tu nombre completo"
-                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                      className="ws-auth-input"
                     />
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                       <span>Usuario</span>
                       <input
                         name="username"
@@ -204,10 +208,16 @@ export default function RegistrationPage(): ReactElement {
                         required
                         maxLength={60}
                         aria-describedby="username-help"
-                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                        className="ws-auth-input"
                       />
+                      <span
+                        id="username-help"
+                        className="block text-xs font-normal text-(--ws-muted)"
+                      >
+                        3–30 letras, números, puntos o guion bajo.
+                      </span>
                     </label>
-                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                       <span>Teléfono (opcional)</span>
                       <input
                         name="phone"
@@ -217,69 +227,79 @@ export default function RegistrationPage(): ReactElement {
                         pattern="[0-9]{10,15}"
                         maxLength={15}
                         aria-describedby="phone-help"
-                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                        className="ws-auth-input"
                       />
+                      <span
+                        id="phone-help"
+                        className="block text-xs font-normal text-(--ws-muted)"
+                      >
+                        10–15 dígitos, sin espacios ni prefijo +.
+                      </span>
                     </label>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500">
-                    <p id="username-help">
-                      3–30 letras, números, puntos o guion bajo.
-                    </p>
-                    <p id="phone-help">
-                      10–15 dígitos, sin espacios ni prefijo +.
-                    </p>
-                  </div>
-                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
-                    <span>Correo electrónico</span>
-                    <input
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      maxLength={254}
-                      placeholder="nombre@correo.com"
-                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
-                    />
-                  </label>
-                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
-                    <span>Confirma tu correo</span>
-                    <input
-                      name="emailConfirmation"
-                      type="email"
-                      autoComplete="off"
-                      required
-                      maxLength={254}
-                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
-                    />
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
-                      <span>Contraseña</span>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+                      <span>Correo electrónico</span>
                       <input
-                        name="password"
-                        type="password"
-                        autoComplete="new-password"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
                         required
-                        aria-describedby="password-help"
-                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                        maxLength={254}
+                        placeholder="nombre@correo.com"
+                        className="ws-auth-input"
                       />
                     </label>
-                    <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+                      <span>Confirma tu correo</span>
+                      <input
+                        name="emailConfirmation"
+                        type="email"
+                        autoComplete="off"
+                        required
+                        maxLength={254}
+                        className="ws-auth-input"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+                      <span>Contraseña</span>
+                      <div className="relative">
+                        <input
+                          name="password"
+                          type={showPasswords ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          required
+                          aria-describedby="password-help"
+                          className="ws-auth-input pr-20!"
+                        />
+                        <button
+                          type="button"
+                          aria-pressed={showPasswords}
+                          onClick={() => setShowPasswords((v) => !v)}
+                          className="ws-plain absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2.5 py-1 text-xs font-semibold text-(--ws-primary-fg) hover:bg-(--ws-selected)"
+                        >
+                          {showPasswords ? 'Ocultar' : 'Mostrar'}
+                        </button>
+                      </div>
+                    </label>
+                    <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                       <span>Confirma tu contraseña</span>
                       <input
                         name="passwordConfirmation"
-                        type="password"
+                        type={showPasswords ? 'text' : 'password'}
                         autoComplete="new-password"
                         required
-                        className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                        className="ws-auth-input"
                       />
                     </label>
                   </div>
-                  <p className="text-xs text-slate-500" id="password-help">
+                  <p className="text-xs text-(--ws-muted)" id="password-help">
                     15–128 caracteres. Puedes usar una frase; no necesitas
                     combinar mayúsculas, números y símbolos.
                   </p>
-                  <label className="block text-sm font-semibold text-slate-800 space-y-1.5">
+                  <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
                     <span>Plan que te interesa (opcional)</span>
                     <select
                       name="planInterestId"
@@ -288,7 +308,7 @@ export default function RegistrationPage(): ReactElement {
                       onChange={(event) =>
                         setSelectedPlanId(event.target.value)
                       }
-                      className="w-full min-h-11 px-3.5 py-2.5 text-base text-slate-900 bg-white border border-slate-300 rounded-[10px] hover:border-indigo-400 focus:outline-2 focus:outline-offset-0 focus:outline-indigo-600 transition-colors"
+                      className="ws-auth-input"
                     >
                       <option value="">Lo elegiré después</option>
                       {plans.map((plan) => (
@@ -299,40 +319,42 @@ export default function RegistrationPage(): ReactElement {
                     </select>
                   </label>
                   {catalogError && (
-                    <p role="alert">
+                    <p role="alert" className="ws-alert" data-tone="bad">
                       {catalogError}{' '}
-                      <button type="button" onClick={reloadCatalog}>
+                      <button
+                        type="button"
+                        className="ws-btn ml-2"
+                        onClick={reloadCatalog}
+                      >
                         Reintentar planes
                       </button>
                     </p>
                   )}
-                  <details className="p-4 rounded-[10px] bg-slate-50 border border-slate-200/80 text-sm text-slate-700">
-                    <summary className="font-semibold text-slate-800 cursor-pointer">
+                  <details className="rounded-xl border border-(--ws-border) bg-(--ws-surface-2) p-4 text-sm text-(--ws-text-2)">
+                    <summary className="cursor-pointer font-semibold text-(--ws-text)">
                       Sobre tu registro
                     </summary>
                     <p className="mt-2 leading-relaxed">
                       {REGISTRATION_NOTICE}
                     </p>
                   </details>
-                  <label className="flex items-start gap-2.5 text-sm text-slate-800 cursor-pointer pt-1">
+                  <label className="flex cursor-pointer items-start gap-2.5 pt-1 text-sm text-(--ws-text-2)">
                     <input
                       name="acceptsNotice"
                       type="checkbox"
                       required
-                      className="w-5 h-5 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                      className="mt-0.5 h-5 w-5 rounded accent-(--ws-primary)"
                     />
                     <span>He leído la información sobre mi registro.</span>
                   </label>
                   {error && (
-                    <p
-                      role="alert"
-                      className="p-3 rounded-[10px] text-sm font-medium text-red-700 bg-red-50 border border-red-200"
-                    >
+                    <p role="alert" className="ws-alert" data-tone="bad">
                       {error}
                     </p>
                   )}
                   <button
-                    className="w-full min-h-12 py-3 px-4 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] rounded-xl shadow-xs shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
+                    className="ws-btn min-h-12 w-full text-base"
+                    data-variant="primary"
                     type="submit"
                   >
                     {isSubmitting
@@ -340,11 +362,11 @@ export default function RegistrationPage(): ReactElement {
                       : 'Crear mi cuenta'}
                   </button>
                 </fieldset>
-                <p className="pt-4 text-center text-sm text-slate-600">
+                <p className="pt-4 text-center text-sm text-(--ws-muted)">
                   ¿Ya tienes una cuenta?{' '}
                   <Link
                     to={`/acceso?retorno=${encodeURIComponent('/app/suscripcion')}`}
-                    className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline inline-flex items-center gap-1"
+                    className="inline-flex items-center gap-1 font-semibold text-(--ws-primary-fg) hover:underline"
                   >
                     Ir al acceso
                   </Link>

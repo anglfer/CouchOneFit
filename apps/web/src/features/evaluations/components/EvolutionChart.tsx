@@ -67,12 +67,18 @@ export default function EvolutionChart({
   const chosen = points.find((s) => s.id === selected);
   return (
     <figure
-      className="min-w-0 rounded-xl border border-(--ws-border) p-3"
+      className="min-w-0 rounded-xl border border-(--ws-border) bg-(--ws-surface) p-4"
       aria-labelledby={`${id}-title`}
     >
-      <figcaption id={`${id}-title`} className="font-semibold">
-        Gráfica de {label.toLowerCase()} ({unit})
-      </figcaption>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <figcaption id={`${id}-title`} className="font-semibold">
+          Gráfica de {label.toLowerCase()} ({unit})
+        </figcaption>
+        <span className="text-xs text-(--ws-muted) tabular-nums">
+          {evolutionDate(points[0].date)} —{' '}
+          {evolutionDate(points[points.length - 1].date)}
+        </span>
+      </div>
       <div ref={container} className="mt-3 min-w-0">
         <svg
           role="group"
@@ -91,6 +97,7 @@ export default function EvolutionChart({
                   y1={y(tick)}
                   y2={y(tick)}
                   stroke="var(--ws-border)"
+                  strokeDasharray="3 4"
                 />
                 <text x="48" y={y(tick) + 4} textAnchor="end">
                   {evolutionValue(tick)}
@@ -154,6 +161,7 @@ export default function EvolutionChart({
                 role="button"
                 tabIndex={0}
                 aria-label={`Evaluación ${i + 1}: ${evolutionDate(s.date)}, ${evolutionValue(values[i])} ${unit}, ${evolutionMethod(s.method)}, evaluación profesional, ${evolutionProvenance(s.provenance)}. ID ${s.id}`}
+                onMouseEnter={() => setSelected(s.id)}
                 onFocus={() => setSelected(s.id)}
                 onClick={() => setSelected(s.id)}
                 onKeyDown={(e) => {
@@ -244,21 +252,19 @@ export default function EvolutionChart({
         {segments.length > 0 && (
           <details className="mt-2 text-sm">
             <summary className="min-h-11 cursor-pointer py-2">
-              Registros conectados ({segments.length})
+              Comparabilidad entre evaluaciones ({segments.length})
             </summary>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {segments.map((s) => (
                 <li key={`${s.from.id}:${s.to.id}`}>
                   {evolutionDate(s.from.date)}:{' '}
                   {evolutionValue(readEvolutionValue(s.from, metric)!)} {unit} →{' '}
                   {evolutionDate(s.to.date)}:{' '}
                   {evolutionValue(readEvolutionValue(s.to, metric)!)} {unit}.{' '}
-                  {s.heterogeneous
-                    ? 'Guía entre registros heterogéneos.'
-                    : 'Mismo contexto de captura declarado.'}
-                  <span className="block break-all text-xs">
-                    IDs de inicio: {s.fromIds.join(', ')}. IDs de fin:{' '}
-                    {s.toIds.join(', ')}.
+                  <span className="text-xs text-(--ws-muted)">
+                    {s.heterogeneous
+                      ? 'Guía entre registros heterogéneos.'
+                      : 'Mismo contexto de captura declarado.'}
                   </span>
                 </li>
               ))}

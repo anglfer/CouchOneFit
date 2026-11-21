@@ -93,6 +93,16 @@ function ClientRecordContent({
     node?.scrollIntoView?.({ block: 'nearest' });
   }, []);
   useOnSynced(refresh);
+  useEffect(() => {
+    const close = (event: PointerEvent) =>
+      document
+        .querySelectorAll<HTMLDetailsElement>('details.ws-actions-menu[open]')
+        .forEach((menu) => {
+          if (!menu.contains(event.target as Node)) menu.open = false;
+        });
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, []);
   const error = loading ? '' : result.error;
   const sections = result.record?.sections;
   useEffect(() => {
@@ -146,6 +156,7 @@ function ClientRecordContent({
                 {record.status === 'active' ? 'Activo' : 'Inactivo'}
               </Badge>
               {sections && <RoutineBadge section={sections.trainingPlan} />}
+              {sections && <NutritionBadge section={sections.nutritionPlan} />}
             </>
           }
           facts={[
@@ -159,7 +170,6 @@ function ClientRecordContent({
               <button
                 type="button"
                 className="ws-btn"
-                data-variant="primary"
                 disabled={isEditing || loading || statusBusy || hasPending}
                 onClick={() => {
                   setSaved(false);
@@ -168,38 +178,49 @@ function ClientRecordContent({
               >
                 Editar datos base
               </button>
-              <button
-                type="button"
-                className="ws-btn"
-                disabled={isEditing || loading || statusBusy}
-                onClick={refresh}
-                title="Vuelve a leer los datos del servidor"
-              >
-                <Icon name="refresh" size={16} />
-                Actualizar expediente
-              </button>
-              <ClientStatusAction
-                sessionReady={sessionReady}
-                clientId={clientId}
-                status={record.status}
-                accountId={accountId}
-                disabled={isEditing || loading || hasPending}
-                onQueued={() =>
-                  setStatusSaved(
-                    'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
-                  )
-                }
-                onBusyChange={setStatusBusy}
-                onChanged={(updated) => {
-                  updateProfile(updated);
-                  setStatusSaved(
-                    updated.status === 'active'
-                      ? 'El expediente está activo.'
-                      : 'El expediente está inactivo.'
-                  );
-                  onStatusChanged();
-                }}
-              />
+              <details className="ws-actions-menu">
+                <summary className="ws-btn">
+                  Más acciones <Icon name="chevron-down" size={16} />
+                </summary>
+                <div className="ws-actions-menu-body">
+                  <button
+                    type="button"
+                    className="ws-btn"
+                    disabled={isEditing || loading || statusBusy}
+                    onClick={refresh}
+                    title="Vuelve a leer los datos del servidor"
+                  >
+                    <Icon name="refresh" size={16} />
+                    Actualizar expediente
+                  </button>
+                  <Link to="/app/clientes" className="ws-btn">
+                    <Icon name="key" size={16} />
+                    Gestionar acceso en Clientes
+                  </Link>
+                  <ClientStatusAction
+                    sessionReady={sessionReady}
+                    clientId={clientId}
+                    status={record.status}
+                    accountId={accountId}
+                    disabled={isEditing || loading || hasPending}
+                    onQueued={() =>
+                      setStatusSaved(
+                        'Los cambios se guardaron en este dispositivo y se enviarán cuando haya conexión.'
+                      )
+                    }
+                    onBusyChange={setStatusBusy}
+                    onChanged={(updated) => {
+                      updateProfile(updated);
+                      setStatusSaved(
+                        updated.status === 'active'
+                          ? 'El expediente está activo.'
+                          : 'El expediente está inactivo.'
+                      );
+                      onStatusChanged();
+                    }}
+                  />
+                </div>
+              </details>
             </>
           }
         />
@@ -311,7 +332,11 @@ function ClientRecordContent({
                       </Link>
                     </p>
                   )}
-                  <ActivityStats section={sections.trainingPlan} />
+                  <CrossModuleStats
+                    record={record}
+                    sections={sections}
+                    clientId={clientId}
+                  />
                   <div className="client-hub-grid">
                     <RoutineCard
                       section={sections.trainingPlan}
@@ -361,59 +386,158 @@ function RoutineBadge({ section }: { section: TrainingSection }) {
   return null;
 }
 
-/** Quick numbers from the routine and the client's own log. */
-function ActivityStats({ section }: { section: TrainingSection }) {
-  if (section.status !== 'available') return null;
-  const stats = routineStats(section.plan);
-  const activity = section.activity;
-  return (
-    <div className="ws-stats">
-      <div className="ws-card">
-        <p className="ws-stat-label">Rutina</p>
+type NutritionSection = ProfessionalRecord['sections']['nutritionPlan'];
+
+function NutritionBadge({ section }: { section: NutritionSection }) {
+  if (section.status === 'available')
+    return <Badge tone="ok">Plan alimenticio activo</Badge>;
+  if (section.status === 'empty')
+    return <Badge tone="warn">Sin plan alimenticio</Badge>;
+  return null;
+}
+
+/** Balanced cross-module KPI row for active sections without duplicating alerts. */
+function CrossModuleStats({
+  record,
+  sections,
+  clientId,
+}: {
+  record: ClientBaseRecord;
+  sections: ProfessionalRecord['sections'];
+  clientId: string;
+}) {
+  const cards: React.ReactElement[] = [];
+
+  if (sections.trainingPlan.status === 'available') {
+    const stats = routineStats(sections.trainingPlan.plan);
+    const activity = sections.trainingPlan.activity;
+    cards.push(
+      <Link
+        to={`/app/clientes/${encodeURIComponent(clientId)}/entrenamiento`}
+        className="ws-card ws-card-link"
+        key="training"
+      >
+        <p className="ws-stat-label flex items-center justify-between gap-2">
+          <span>Entrenamiento</span>
+          <Icon name="arrow-right" size={14} />
+        </p>
         <p className="ws-stat-value client-hub-stat-text">
-          {section.plan.name}
+          {activity
+            ? `${activity.sessionsLast7} de ${stats.trainingDays} en 7 d`
+            : sections.trainingPlan.plan.name}
         </p>
         <p className="ws-stat-note">
-          {scheduleLabel(section.plan)} ·{' '}
-          {count(
-            stats.trainingDays,
-            'día de entrenamiento',
-            'días de entrenamiento'
-          )}
+          {activity?.lastSession
+            ? `Último ${relativeDay(activity.lastSession)} · ${activity.setsLast30} series/30 d`
+            : `${scheduleLabel(sections.trainingPlan.plan)} · ${count(stats.trainingDays, 'día', 'días')}`}
         </p>
-      </div>
-      {activity && (
-        <>
-          <div className="ws-card">
-            <p className="ws-stat-label">Último entrenamiento</p>
-            <p className="ws-stat-value client-hub-stat-text">
-              {activity.lastSession
-                ? relativeDay(activity.lastSession)
-                : 'Aún sin registros'}
-            </p>
-            <p className="ws-stat-note">
-              {activity.lastSession
-                ? 'Registrado por el cliente en su móvil'
-                : 'Aparecerá cuando registre su primera sesión'}
-            </p>
-          </div>
-          <div className="ws-card">
-            <p className="ws-stat-label">Entrenamientos en 7 días</p>
-            <p className="ws-stat-value">{activity.sessionsLast7}</p>
-            <p className="ws-stat-note">
-              Meta semanal: {stats.trainingDays} · {activity.sessionsLast30} en
-              30 días
-            </p>
-          </div>
-          <div className="ws-card">
-            <p className="ws-stat-label">Series hechas en 30 días</p>
-            <p className="ws-stat-value">{activity.setsLast30}</p>
-            <p className="ws-stat-note">Detalle por serie en Entrenamiento</p>
-          </div>
-        </>
-      )}
-    </div>
-  );
+      </Link>
+    );
+  }
+
+  if (sections.nutritionPlan.status === 'available') {
+    const plan = sections.nutritionPlan.plan;
+    cards.push(
+      <Link
+        to={`/app/clientes/${encodeURIComponent(clientId)}/nutricion`}
+        className="ws-card ws-card-link"
+        key="nutrition"
+      >
+        <p className="ws-stat-label flex items-center justify-between gap-2">
+          <span>Alimentación activa</span>
+          <Icon name="arrow-right" size={14} />
+        </p>
+        <p className="ws-stat-value client-hub-stat-text">
+          {plan.caloriesTarget !== null
+            ? `${plan.caloriesTarget} kcal`
+            : plan.name}
+        </p>
+        <p className="ws-stat-note">
+          {plan.proteinTargetG !== null ? `P ${plan.proteinTargetG}g` : ''}
+          {plan.carbsTargetG !== null ? ` · C ${plan.carbsTargetG}g` : ''}
+          {plan.fatTargetG !== null ? ` · G ${plan.fatTargetG}g` : ''}
+          {plan.proteinTargetG === null &&
+            `${plan.meals.length} ${plan.meals.length === 1 ? 'comida' : 'comidas'}`}
+        </p>
+      </Link>
+    );
+  }
+
+  if (
+    sections.bodyWeightHistory.status === 'available' &&
+    sections.bodyWeightHistory.entries.length > 0
+  ) {
+    const entries = sections.bodyWeightHistory.entries;
+    const latest = entries[0];
+    const older = entries.at(-1);
+    const diff =
+      entries.length > 1 && older
+        ? Number((latest.weightKg - older.weightKg).toFixed(1))
+        : null;
+    cards.push(
+      <Link
+        to={`/app/clientes/${encodeURIComponent(clientId)}/seguimiento`}
+        className="ws-card ws-card-link"
+        key="weight"
+      >
+        <p className="ws-stat-label flex items-center justify-between gap-2">
+          <span>Peso en check-ins</span>
+          <Icon name="arrow-right" size={14} />
+        </p>
+        <p className="ws-stat-value client-hub-stat-text">
+          {latest.weightKg} kg
+        </p>
+        <p className="ws-stat-note">
+          {diff !== null
+            ? `${diff >= 0 ? '+' : '−'}${Math.abs(diff)} kg en últimos registros`
+            : 'Último check-in · ver seguimiento'}
+        </p>
+      </Link>
+    );
+  }
+
+  if (
+    sections.evaluations.status === 'available' &&
+    sections.evaluations.evaluations.length > 0
+  ) {
+    const latestEval = sections.evaluations.evaluations[0];
+    const evalWeight =
+      latestEval.weightKg ?? latestEval.assessment?.measurements.weightKg;
+    const fat = latestBodyFat(sections.evaluations);
+    cards.push(
+      <Link
+        to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion`}
+        className="ws-card ws-card-link"
+        key="evaluation"
+      >
+        <p className="ws-stat-label flex items-center justify-between gap-2">
+          <span>Última evaluación</span>
+          <Icon name="arrow-right" size={14} />
+        </p>
+        <p className="ws-stat-value client-hub-stat-text">
+          {fat
+            ? `${fat.value.toFixed(1)} % grasa`
+            : evalWeight !== null && evalWeight !== undefined
+              ? `${evalWeight} kg`
+              : `${sections.evaluations.evaluations.length} registrada${sections.evaluations.evaluations.length === 1 ? '' : 's'}`}
+        </p>
+        <p className="ws-stat-note">
+          {evalWeight !== null && evalWeight !== undefined && fat
+            ? `${evalWeight} kg · `
+            : ''}
+          {sections.evaluations.evaluations.length}{' '}
+          {sections.evaluations.evaluations.length === 1
+            ? 'evaluación'
+            : 'evaluaciones'}
+        </p>
+      </Link>
+    );
+  } else if (cards.length === 0 && record.goal) {
+    return null;
+  }
+
+  if (cards.length === 0) return null;
+  return <div className="ws-stats">{cards}</div>;
 }
 
 function RoutineCard({

@@ -16,6 +16,7 @@ import {
 } from '../services/training';
 import ExercisePicker from './ExercisePicker';
 import ExerciseAnimation from './ExerciseAnimation';
+import ExerciseDemoModal from './ExerciseDemoModal';
 
 // Blank optional inputs mean "not prescribed", never zero.
 const optionalNumber = (input: HTMLInputElement) =>
@@ -49,7 +50,9 @@ const newSet = (kind: SetKind = 'working'): PrescribedSet => ({
 function exerciseSummary(e: TrainingExercise) {
   const warmups = e.sets.filter((s) => s.kind === 'warmup').length;
   const work = e.sets.filter((s) => s.kind !== 'warmup');
-  const targets = new Set(work.map(setTarget));
+  const targets = new Set(
+    work.map((s) => setTarget(s, { loadMode: e.loadMode }))
+  );
   const main =
     targets.size === 1
       ? `${work.length} × ${[...targets][0]}`
@@ -68,7 +71,12 @@ export default function PrescriptionEditor({
   disabled?: boolean;
 }) {
   const [selected, setSelected] = useState(0),
-    [picker, setPicker] = useState(false);
+    [picker, setPicker] = useState(false),
+    [previewing, setPreviewing] = useState<{
+      index: number;
+      exercise: TrainingExercise;
+    } | null>(null),
+    [linkingIndex, setLinkingIndex] = useState<number | null>(null);
   const index = Math.min(selected, value.days.length - 1),
     day = value.days[index];
   const change = (work: (p: Prescription) => void) => {
@@ -110,6 +118,26 @@ export default function PrescriptionEditor({
     });
   }
   const copyDay = () => clonePrescription({ ...value, days: [day] }).days[0];
+  function linkCatalogExercise(ei: number, source: CatalogExercise) {
+    changeDay((d) => {
+      const target = d.exercises[ei];
+      if (!target) return;
+      const hasTargetLoads = target.sets.some(
+        (s) => s.targetLoadKg !== null && s.targetLoadKg > 0
+      );
+      target.catalogId = source.id;
+      target.name = source.name;
+      target.images = source.images;
+      target.guidance = source.guidance;
+      if (!hasTargetLoads) {
+        target.loadMode =
+          source.equipment.length === 0 ? 'bodyweight' : 'external';
+        target.sets.forEach((s) => {
+          s.targetLoadKg = null;
+        });
+      }
+    });
+  }
   return (
     <fieldset className="training-editor" disabled={disabled}>
       <section className="training-panel">
@@ -395,7 +423,7 @@ export default function PrescriptionEditor({
 
           {day.kind === 'rest' ? (
             <div className="training-rest">
-              <span aria-hidden="true">☾</span>
+              <Icon name="moon" size={28} />
               <h4>Día de descanso</h4>
               <p>El cliente verá que hoy toca recuperarse. No hay series.</p>
             </div>
@@ -415,6 +443,8 @@ export default function PrescriptionEditor({
                     exercise={exercise}
                     order={ei}
                     last={ei === day.exercises.length - 1}
+                    onPreview={() => setPreviewing({ index: ei, exercise })}
+                    onLinkCatalog={() => setLinkingIndex(ei)}
                     onChange={(work) => changeDay((d) => work(d.exercises[ei]))}
                     onMove={(delta) =>
                       changeDay((d) => {
@@ -467,6 +497,30 @@ export default function PrescriptionEditor({
           onClose={() => setPicker(false)}
         />
       )}
+      {linkingIndex !== null &&
+        !disabled &&
+        day &&
+        day.exercises[linkingIndex] && (
+          <ExercisePicker
+            mode="replace"
+            initialSearch={
+              day.exercises[linkingIndex].name !== 'Ejercicio propio'
+                ? day.exercises[linkingIndex].name
+                : ''
+            }
+            onSelect={(source) => linkCatalogExercise(linkingIndex, source)}
+            onClose={() => setLinkingIndex(null)}
+          />
+        )}
+      {previewing && (
+        <ExerciseDemoModal
+          exercise={previewing.exercise}
+          onClose={() => setPreviewing(null)}
+          onLinkCatalog={
+            !disabled ? () => setLinkingIndex(previewing.index) : undefined
+          }
+        />
+      )}
     </fieldset>
   );
 }
@@ -475,6 +529,8 @@ function ExerciseCard({
   exercise,
   order,
   last,
+  onPreview,
+  onLinkCatalog,
   onChange,
   onMove,
   onDuplicate,
@@ -483,6 +539,8 @@ function ExerciseCard({
   exercise: TrainingExercise;
   order: number;
   last: boolean;
+  onPreview: () => void;
+  onLinkCatalog: () => void;
   onChange: (work: (e: TrainingExercise) => void) => void;
   onMove: (delta: number) => void;
   onDuplicate: () => void;
@@ -516,11 +574,24 @@ function ExerciseCard({
     <li className="training-exercise">
       <header className="training-exercise-head">
         <span className="training-order">{order + 1}</span>
-        <ExerciseAnimation
-          images={exercise.images}
-          name={exercise.name}
-          size={64}
-        />
+        <button
+          type="button"
+          className="ws-plain training-anim-btn"
+          aria-label={`Ver demostración de ${exercise.name}`}
+          title="Ver demostración y técnica"
+          onClick={onPreview}
+        >
+          <ExerciseAnimation
+            images={exercise.images}
+            name={exercise.name}
+            size={64}
+          />
+          {exercise.images.length > 0 && (
+            <span className="training-anim-zoom" aria-hidden="true">
+              <Icon name="arrow-up-right" size={11} />
+            </span>
+          )}
+        </button>
         <button
           type="button"
           className="ws-plain training-exercise-title"
@@ -543,7 +614,7 @@ function ExerciseCard({
             title="Subir"
             onClick={() => onMove(-1)}
           >
-            ↑
+            <Icon name="chevron-up" size={16} />
           </button>
           <button
             type="button"
@@ -553,7 +624,7 @@ function ExerciseCard({
             title="Bajar"
             onClick={() => onMove(1)}
           >
-            ↓
+            <Icon name="chevron-down" size={16} />
           </button>
           <button
             type="button"
@@ -562,7 +633,7 @@ function ExerciseCard({
             title="Duplicar"
             onClick={onDuplicate}
           >
-            ⧉
+            <Icon name="copy" size={15} />
           </button>
           <button
             type="button"
@@ -579,6 +650,33 @@ function ExerciseCard({
       {open && (
         <div className="training-exercise-body">
           <div className="training-fields">
+            {!exercise.catalogId && (
+              <div className="training-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) px-3 py-2 text-xs">
+                <span className="text-(--ws-muted)">
+                  Ejercicio personalizado sin animación GIF del catálogo.
+                </span>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={onLinkCatalog}
+                >
+                  <Icon name="link" size={14} /> Vincular del catálogo (añadir
+                  GIF)
+                </button>
+              </div>
+            )}
+            {exercise.catalogId && (
+              <div className="training-span-2 flex flex-wrap items-center justify-between gap-2 text-xs text-(--ws-muted)">
+                <span>Vinculado al catálogo con demostración GIF.</span>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={onLinkCatalog}
+                >
+                  <Icon name="swap" size={14} /> Cambiar del catálogo
+                </button>
+              </div>
+            )}
             {!exercise.catalogId && (
               <label className="training-span-2">
                 Nombre del ejercicio

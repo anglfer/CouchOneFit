@@ -111,6 +111,9 @@ export default function NutritionEditor({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [pickerMealId, setPickerMealId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [collapsedMeals, setCollapsedMeals] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const markTouched = (key: string) =>
     setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
@@ -291,10 +294,13 @@ export default function NutritionEditor({
       <section className="training-panel">
         <div className="training-section-head" style={{ marginBottom: 0 }}>
           <div>
-            <span className="ws-eyebrow">OBJETIVOS Y GUÍA DIARIA</span>
             <h3 className="training-panel-title">
               Identificación y metas del plan
             </h3>
+            <p className="text-xs text-(--ws-muted)">
+              Define los objetivos diarios y las guías generales antes de
+              detallar las comidas.
+            </p>
           </div>
           <div className="training-actions">
             {value.suggestionMeta && (
@@ -600,12 +606,16 @@ export default function NutritionEditor({
         />
 
         <div className="nutrition-accordions">
-          <details
-            className="nutrition-accordion"
-            open={Boolean(value.restDayTargets)}
-          >
+          <details className="nutrition-accordion">
             <summary>
-              Días de descanso / Ciclado de carbohidratos (opcional)
+              <span>
+                Días de descanso / Ciclado de carbohidratos (opcional)
+              </span>
+              {value.restDayTargets && (
+                <span className="ws-chip ml-auto">
+                  Configurado · {value.restDayTargets.caloriesTarget} kcal
+                </span>
+              )}
             </summary>
             <div className="nutrition-accordion-body">
               <label className="nutrition-check-row">
@@ -723,12 +733,12 @@ export default function NutritionEditor({
             </div>
           </details>
 
-          <details
-            className="nutrition-accordion"
-            open={Boolean(value.periWorkout)}
-          >
+          <details className="nutrition-accordion">
             <summary>
-              Nutrición peri-entreno (pre / intra / post opcional)
+              <span>Nutrición peri-entreno (pre / intra / post opcional)</span>
+              {value.periWorkout && (
+                <span className="ws-chip ml-auto">Configurado · pre/post</span>
+              )}
             </summary>
             <div className="nutrition-accordion-body">
               <label className="nutrition-check-row">
@@ -871,11 +881,13 @@ export default function NutritionEditor({
             </div>
           </details>
 
-          <details
-            className="nutrition-accordion"
-            open={Boolean(value.generalInstructions)}
-          >
-            <summary>Indicaciones generales del profesional (opcional)</summary>
+          <details className="nutrition-accordion">
+            <summary>
+              <span>Indicaciones generales del profesional (opcional)</span>
+              {value.generalInstructions?.trim() && (
+                <span className="ws-chip ml-auto">Con indicaciones</span>
+              )}
+            </summary>
             <div className="nutrition-accordion-body">
               <div className="nutrition-group-pills">
                 {QUICK_GUIDANCE_SNIPPETS.map(([label, text]) => (
@@ -921,12 +933,31 @@ export default function NutritionEditor({
 
       <div className="nutrition-meals-toolbar">
         <div>
-          <span className="ws-eyebrow">ESTRUCTURA DIARIA</span>
           <h3 className="training-panel-title">
             Tiempos de comida ({value.meals.length}/12)
           </h3>
         </div>
         <div className="nutrition-meals-toolbar-actions">
+          {value.meals.length > 1 && (
+            <button
+              type="button"
+              className="ws-btn"
+              onClick={() => {
+                const anyCollapsed = value.meals.some(
+                  (m) => collapsedMeals[m.id]
+                );
+                setCollapsedMeals(
+                  anyCollapsed
+                    ? {}
+                    : Object.fromEntries(value.meals.map((m) => [m.id, true]))
+                );
+              }}
+            >
+              {value.meals.some((m) => collapsedMeals[m.id])
+                ? 'Expandir todas'
+                : 'Contraer todas'}
+            </button>
+          )}
           <select
             aria-label="Insertar plantilla de comida"
             disabled={disabled || value.meals.length >= 12}
@@ -984,6 +1015,8 @@ export default function NutritionEditor({
           Boolean(
             showAllErrors && mealErr && Object.keys(mealErr.items).length > 0
           );
+        const mealCollapsed =
+          Boolean(collapsedMeals[meal.id]) && !mealHasVisibleError;
 
         return (
           <section
@@ -993,86 +1026,123 @@ export default function NutritionEditor({
           >
             <div className="nutrition-meal-head">
               <div className="nutrition-meal-title-row">
+                <button
+                  type="button"
+                  className="ws-plain training-icon-btn"
+                  aria-expanded={!mealCollapsed}
+                  aria-label={
+                    mealCollapsed
+                      ? `Expandir ${meal.name || `comida ${mealIndex + 1}`}`
+                      : `Contraer ${meal.name || `comida ${mealIndex + 1}`}`
+                  }
+                  onClick={() =>
+                    setCollapsedMeals((prev) => ({
+                      ...prev,
+                      [meal.id]: !mealCollapsed,
+                    }))
+                  }
+                >
+                  <Icon
+                    name={mealCollapsed ? 'chevron-down' : 'chevron-up'}
+                    size={16}
+                  />
+                </button>
                 <span className="training-order" aria-hidden="true">
                   {mealIndex + 1}
                 </span>
-                <div className="nutrition-meal-fields-grid">
-                  <div>
+                {mealCollapsed ? (
+                  <div className="min-w-0 flex-1 py-1">
+                    <strong className="block truncate">
+                      {meal.name || `Comida ${mealIndex + 1}`}
+                      {meal.scheduleTime ? ` · ${meal.scheduleTime}` : ''}
+                    </strong>
+                    <span className="text-xs text-(--ws-muted) tabular-nums">
+                      {meal.items.length}{' '}
+                      {meal.items.length === 1 ? 'alimento' : 'alimentos'}
+                      {mealSummary.itemsWithMacros > 0
+                        ? ` · ${mealSummary.calories} kcal · P ${Math.round(mealSummary.proteinG)}g · C ${Math.round(mealSummary.carbsG)}g · G ${Math.round(mealSummary.fatG)}g`
+                        : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="nutrition-meal-fields-grid">
+                    <div>
+                      <label>
+                        Tiempo de comida *
+                        <input
+                          type="text"
+                          maxLength={100}
+                          disabled={disabled}
+                          value={meal.name}
+                          aria-invalid={showMealNameErr ? 'true' : 'false'}
+                          aria-describedby={
+                            showMealNameErr
+                              ? `meal-name-err-${meal.id}`
+                              : undefined
+                          }
+                          onBlur={() => markTouched(mealNameKey)}
+                          onChange={(e) =>
+                            updateMeal(meal.id, (m) => ({
+                              ...m,
+                              name: e.target.value,
+                            }))
+                          }
+                          placeholder="Ej. Desayuno, Colación, Pre-entreno..."
+                        />
+                      </label>
+                      {showMealNameErr && (
+                        <span
+                          id={`meal-name-err-${meal.id}`}
+                          className="nutrition-field-error"
+                        >
+                          Error: {mealErr?.name}
+                        </span>
+                      )}
+                    </div>
+
                     <label>
-                      Tiempo de comida *
-                      <input
-                        type="text"
-                        maxLength={100}
+                      Categoría
+                      <select
                         disabled={disabled}
-                        value={meal.name}
-                        aria-invalid={showMealNameErr ? 'true' : 'false'}
-                        aria-describedby={
-                          showMealNameErr
-                            ? `meal-name-err-${meal.id}`
-                            : undefined
-                        }
-                        onBlur={() => markTouched(mealNameKey)}
+                        value={meal.category ?? ''}
                         onChange={(e) =>
                           updateMeal(meal.id, (m) => ({
                             ...m,
-                            name: e.target.value,
+                            category: e.target.value
+                              ? (e.target.value as NutritionMealCategory)
+                              : null,
                           }))
                         }
-                        placeholder="Ej. Desayuno, Colación, Pre-entreno..."
+                      >
+                        <option value="">Sin categoría</option>
+                        {MEAL_CATEGORY_OPTIONS.map(([cat, label]) => (
+                          <option key={cat} value={cat}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Horario sugerido
+                      <input
+                        type="text"
+                        maxLength={40}
+                        disabled={disabled}
+                        value={meal.scheduleTime ?? ''}
+                        onChange={(e) =>
+                          updateMeal(meal.id, (m) => ({
+                            ...m,
+                            scheduleTime: e.target.value.trim()
+                              ? e.target.value
+                              : null,
+                          }))
+                        }
+                        placeholder="Ej. 08:00 o 60 min pre"
                       />
                     </label>
-                    {showMealNameErr && (
-                      <span
-                        id={`meal-name-err-${meal.id}`}
-                        className="nutrition-field-error"
-                      >
-                        Error: {mealErr?.name}
-                      </span>
-                    )}
                   </div>
-
-                  <label>
-                    Categoría
-                    <select
-                      disabled={disabled}
-                      value={meal.category ?? ''}
-                      onChange={(e) =>
-                        updateMeal(meal.id, (m) => ({
-                          ...m,
-                          category: e.target.value
-                            ? (e.target.value as NutritionMealCategory)
-                            : null,
-                        }))
-                      }
-                    >
-                      <option value="">Sin categoría</option>
-                      {MEAL_CATEGORY_OPTIONS.map(([cat, label]) => (
-                        <option key={cat} value={cat}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Horario sugerido
-                    <input
-                      type="text"
-                      maxLength={40}
-                      disabled={disabled}
-                      value={meal.scheduleTime ?? ''}
-                      onChange={(e) =>
-                        updateMeal(meal.id, (m) => ({
-                          ...m,
-                          scheduleTime: e.target.value.trim()
-                            ? e.target.value
-                            : null,
-                        }))
-                      }
-                      placeholder="Ej. 08:00 o 60 min pre"
-                    />
-                  </label>
-                </div>
+                )}
               </div>
 
               <div className="training-icon-row">
@@ -1130,7 +1200,7 @@ export default function NutritionEditor({
               </div>
             </div>
 
-            {(mealSummary.itemsWithMacros > 0 || guide) && (
+            {!mealCollapsed && (mealSummary.itemsWithMacros > 0 || guide) && (
               <div className="nutrition-meal-progress">
                 {(
                   [
@@ -1174,32 +1244,34 @@ export default function NutritionEditor({
               </div>
             )}
 
-            <div>
-              <label>
-                Indicaciones de la comida (opcional)
-                <input
-                  type="text"
-                  maxLength={2000}
-                  disabled={disabled}
-                  value={meal.instructions ?? ''}
-                  aria-invalid={mealErr?.instructions ? 'true' : 'false'}
-                  onChange={(e) =>
-                    updateMeal(meal.id, (m) => ({
-                      ...m,
-                      instructions: e.target.value.trim()
-                        ? e.target.value
-                        : null,
-                    }))
-                  }
-                  placeholder="Forma de preparación, verduras libres o momento del día"
-                />
-              </label>
-              {mealErr?.instructions && (
-                <span className="nutrition-field-error">
-                  Error: {mealErr.instructions}
-                </span>
-              )}
-            </div>
+            {!mealCollapsed && (
+              <div>
+                <label>
+                  Indicaciones de la comida (opcional)
+                  <input
+                    type="text"
+                    maxLength={2000}
+                    disabled={disabled}
+                    value={meal.instructions ?? ''}
+                    aria-invalid={mealErr?.instructions ? 'true' : 'false'}
+                    onChange={(e) =>
+                      updateMeal(meal.id, (m) => ({
+                        ...m,
+                        instructions: e.target.value.trim()
+                          ? e.target.value
+                          : null,
+                      }))
+                    }
+                    placeholder="Forma de preparación, verduras libres o momento del día"
+                  />
+                </label>
+                {mealErr?.instructions && (
+                  <span className="nutrition-field-error">
+                    Error: {mealErr.instructions}
+                  </span>
+                )}
+              </div>
+            )}
 
             {mealErr?.itemsGeneral && showAllErrors && (
               <span className="nutrition-field-error">
@@ -1207,23 +1279,338 @@ export default function NutritionEditor({
               </span>
             )}
 
-            {meal.items.length === 0 ? (
-              <div className="nutrition-meal-empty">
-                <p>
-                  {guide
-                    ? 'Deja que el asistente proponga alimentos y porciones para esta guía, o elígelos tú.'
-                    : 'Elige alimentos del catálogo con macros y sustitutos o agrega uno libre.'}
-                </p>
+            {!mealCollapsed &&
+              (meal.items.length === 0 ? (
+                <div className="nutrition-meal-empty">
+                  <p>
+                    {guide
+                      ? 'Deja que el asistente proponga alimentos y porciones para esta guía, o elígelos tú.'
+                      : 'Elige alimentos del catálogo con macros y sustitutos o agrega uno libre.'}
+                  </p>
+                  <div className="training-actions">
+                    {guide && (
+                      <button
+                        type="button"
+                        className="ws-btn"
+                        data-variant="primary"
+                        disabled={disabled}
+                        onClick={() => void fillMeal(meal)}
+                      >
+                        <Icon name="sparkle" size={14} /> Sugerir alimentos
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ws-btn"
+                      disabled={disabled}
+                      onClick={() => setPickerMealId(meal.id)}
+                    >
+                      <Icon name="plus" size={14} /> Elegir del catálogo
+                    </button>
+                    <button
+                      type="button"
+                      className="ws-btn"
+                      disabled={disabled}
+                      onClick={() =>
+                        updateMeal(meal.id, (m) => ({
+                          ...m,
+                          items: [...m.items, emptyItem()],
+                        }))
+                      }
+                    >
+                      Alimento libre
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="nutrition-items-list">
+                  <div className="nutrition-items-head" aria-hidden="true">
+                    <span>Alimento</span>
+                    <span>Cantidad</span>
+                    <span>Unidad</span>
+                    <span />
+                  </div>
+                  {meal.items.map((item, itemIndex) => {
+                    const itemErr = mealErr?.items[item.id];
+                    const nameKey = `item:${item.id}:name`;
+                    const qtyKey = `item:${item.id}:quantity`;
+                    const unitKey = `item:${item.id}:unit`;
+
+                    return (
+                      <div key={item.id} className="nutrition-item-card">
+                        <div className="nutrition-item-main">
+                          <div className="nutrition-item-cell">
+                            <label>
+                              Alimento *{' '}
+                              {item.foodGroup && (
+                                <span className="nutrition-inline-group">
+                                  · {item.foodGroup}
+                                </span>
+                              )}
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={150}
+                              aria-label="Alimento"
+                              disabled={disabled}
+                              value={item.name}
+                              aria-invalid={
+                                isShown(nameKey, itemErr?.name)
+                                  ? 'true'
+                                  : 'false'
+                              }
+                              aria-describedby={
+                                isShown(nameKey, itemErr?.name)
+                                  ? `item-name-err-${item.id}`
+                                  : undefined
+                              }
+                              onBlur={() => markTouched(nameKey)}
+                              onChange={(e) =>
+                                updateItem(meal.id, item.id, (i) => ({
+                                  ...i,
+                                  name: e.target.value,
+                                }))
+                              }
+                              placeholder="Ej. Pechuga de pollo"
+                            />
+                            {isShown(nameKey, itemErr?.name) && (
+                              <span
+                                id={`item-name-err-${item.id}`}
+                                className="nutrition-field-error"
+                              >
+                                Error: {itemErr?.name}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="nutrition-item-cell">
+                            <label>Cantidad *</label>
+                            <input
+                              type="number"
+                              min={0.1}
+                              max={10000}
+                              step={0.1}
+                              aria-label={`Cantidad de ${item.name || 'alimento'}`}
+                              disabled={disabled}
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              aria-invalid={
+                                isShown(qtyKey, itemErr?.quantity)
+                                  ? 'true'
+                                  : 'false'
+                              }
+                              aria-describedby={
+                                isShown(qtyKey, itemErr?.quantity)
+                                  ? `item-qty-err-${item.id}`
+                                  : undefined
+                              }
+                              onBlur={() => markTouched(qtyKey)}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                const parsed =
+                                  raw.trim() === '' ? 0 : Number(raw);
+                                const nextQty = Number.isFinite(parsed)
+                                  ? parsed
+                                  : 0;
+                                updateItem(meal.id, item.id, (i) => {
+                                  const catalogMatch = findCatalogMatch(i);
+                                  if (!catalogMatch) {
+                                    return { ...i, quantity: nextQty };
+                                  }
+                                  const scaled = calculateFoodMacros(
+                                    catalogMatch,
+                                    nextQty
+                                  );
+                                  return {
+                                    ...i,
+                                    quantity: nextQty,
+                                    calories:
+                                      nextQty > 0 ? scaled.calories : null,
+                                    proteinG:
+                                      nextQty > 0 ? scaled.proteinG : null,
+                                    carbsG: nextQty > 0 ? scaled.carbsG : null,
+                                    fatG: nextQty > 0 ? scaled.fatG : null,
+                                  };
+                                });
+                              }}
+                              placeholder="150"
+                            />
+                            {isShown(qtyKey, itemErr?.quantity) && (
+                              <span
+                                id={`item-qty-err-${item.id}`}
+                                className="nutrition-field-error"
+                              >
+                                Error: {itemErr?.quantity}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="nutrition-item-cell">
+                            <label>Unidad *</label>
+                            <input
+                              type="text"
+                              list="nutrition-common-units"
+                              aria-label={`Unidad de ${item.name || 'alimento'}`}
+                              maxLength={50}
+                              disabled={disabled}
+                              value={item.unit}
+                              aria-invalid={
+                                isShown(unitKey, itemErr?.unit)
+                                  ? 'true'
+                                  : 'false'
+                              }
+                              aria-describedby={
+                                isShown(unitKey, itemErr?.unit)
+                                  ? `item-unit-err-${item.id}`
+                                  : undefined
+                              }
+                              onBlur={() => markTouched(unitKey)}
+                              onChange={(e) =>
+                                updateItem(meal.id, item.id, (i) => ({
+                                  ...i,
+                                  unit: e.target.value,
+                                }))
+                              }
+                              placeholder="g, ml, pza"
+                            />
+                            {isShown(unitKey, itemErr?.unit) && (
+                              <span
+                                id={`item-unit-err-${item.id}`}
+                                className="nutrition-field-error"
+                              >
+                                Error: {itemErr?.unit}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="nutrition-item-actions">
+                            <button
+                              type="button"
+                              className="ws-plain training-icon-btn"
+                              aria-label="Subir alimento"
+                              title="Subir"
+                              disabled={disabled || itemIndex === 0}
+                              onClick={() =>
+                                updateMeal(meal.id, (m) => ({
+                                  ...m,
+                                  items: moveInArray(m.items, itemIndex, -1),
+                                }))
+                              }
+                            >
+                              <Icon name="chevron-up" size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="ws-plain training-icon-btn"
+                              aria-label="Bajar alimento"
+                              title="Bajar"
+                              disabled={
+                                disabled || itemIndex === meal.items.length - 1
+                              }
+                              onClick={() =>
+                                updateMeal(meal.id, (m) => ({
+                                  ...m,
+                                  items: moveInArray(m.items, itemIndex, 1),
+                                }))
+                              }
+                            >
+                              <Icon name="chevron-down" size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="ws-plain training-icon-btn"
+                              data-danger
+                              aria-label="Eliminar alimento"
+                              title="Eliminar alimento"
+                              disabled={disabled}
+                              onClick={() =>
+                                updateMeal(meal.id, (m) => ({
+                                  ...m,
+                                  items: m.items.filter(
+                                    (x) => x.id !== item.id
+                                  ),
+                                }))
+                              }
+                            >
+                              <Icon name="close" size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <details className="nutrition-item-more">
+                          <summary>
+                            {item.calories != null
+                              ? `${Math.round(item.calories)} kcal · P ${item.proteinG ?? 0} · C ${item.carbsG ?? 0} · G ${item.fatG ?? 0}`
+                              : 'Sin macros de referencia'}
+                            {(item.instructions || item.substitutes) && (
+                              <span className="nutrition-item-more-hint">
+                                {[
+                                  item.instructions,
+                                  item.substitutes &&
+                                    `Sustituto: ${item.substitutes}`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            )}
+                          </summary>
+                          <div className="nutrition-item-extras">
+                            <div className="nutrition-item-cell">
+                              <label>Preparación o nota (opcional)</label>
+                              <input
+                                type="text"
+                                maxLength={1000}
+                                disabled={disabled}
+                                value={item.instructions ?? ''}
+                                onChange={(e) =>
+                                  updateItem(meal.id, item.id, (i) => ({
+                                    ...i,
+                                    instructions: e.target.value.trim()
+                                      ? e.target.value
+                                      : null,
+                                  }))
+                                }
+                                placeholder="En crudo, cocido, sin aceite..."
+                              />
+                            </div>
+
+                            <div className="nutrition-item-cell">
+                              <label>Equivalente / sustituto (opcional)</label>
+                              <input
+                                type="text"
+                                maxLength={500}
+                                disabled={disabled}
+                                value={item.substitutes ?? ''}
+                                onChange={(e) =>
+                                  updateItem(meal.id, item.id, (i) => ({
+                                    ...i,
+                                    substitutes: e.target.value.trim()
+                                      ? e.target.value
+                                      : null,
+                                  }))
+                                }
+                                placeholder="Ej. Pavo, pescado blanco o tofu"
+                              />
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+            {!mealCollapsed &&
+              meal.items.length > 0 &&
+              meal.items.length < 30 && (
                 <div className="training-actions">
                   {guide && (
                     <button
                       type="button"
                       className="ws-btn"
-                      data-variant="primary"
                       disabled={disabled}
                       onClick={() => void fillMeal(meal)}
                     >
-                      <Icon name="sparkle" size={14} /> Sugerir alimentos
+                      <Icon name="sparkle" size={14} /> Volver a sugerir
                     </button>
                   )}
                   <button
@@ -1245,310 +1632,10 @@ export default function NutritionEditor({
                       }))
                     }
                   >
-                    Alimento libre
+                    + Alimento libre
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="nutrition-items-list">
-                {meal.items.map((item, itemIndex) => {
-                  const itemErr = mealErr?.items[item.id];
-                  const nameKey = `item:${item.id}:name`;
-                  const qtyKey = `item:${item.id}:quantity`;
-                  const unitKey = `item:${item.id}:unit`;
-
-                  return (
-                    <div key={item.id} className="nutrition-item-card">
-                      <div className="nutrition-item-main">
-                        <div className="nutrition-item-cell">
-                          <label>
-                            Alimento *{' '}
-                            {item.foodGroup && (
-                              <span className="nutrition-inline-group">
-                                · {item.foodGroup}
-                              </span>
-                            )}
-                          </label>
-                          <input
-                            type="text"
-                            maxLength={150}
-                            aria-label="Alimento"
-                            disabled={disabled}
-                            value={item.name}
-                            aria-invalid={
-                              isShown(nameKey, itemErr?.name) ? 'true' : 'false'
-                            }
-                            aria-describedby={
-                              isShown(nameKey, itemErr?.name)
-                                ? `item-name-err-${item.id}`
-                                : undefined
-                            }
-                            onBlur={() => markTouched(nameKey)}
-                            onChange={(e) =>
-                              updateItem(meal.id, item.id, (i) => ({
-                                ...i,
-                                name: e.target.value,
-                              }))
-                            }
-                            placeholder="Ej. Pechuga de pollo"
-                          />
-                          {isShown(nameKey, itemErr?.name) && (
-                            <span
-                              id={`item-name-err-${item.id}`}
-                              className="nutrition-field-error"
-                            >
-                              Error: {itemErr?.name}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="nutrition-item-cell">
-                          <label>Cantidad *</label>
-                          <input
-                            type="number"
-                            min={0.1}
-                            max={10000}
-                            step={0.1}
-                            aria-label={`Cantidad de ${item.name || 'alimento'}`}
-                            disabled={disabled}
-                            value={item.quantity === 0 ? '' : item.quantity}
-                            aria-invalid={
-                              isShown(qtyKey, itemErr?.quantity)
-                                ? 'true'
-                                : 'false'
-                            }
-                            aria-describedby={
-                              isShown(qtyKey, itemErr?.quantity)
-                                ? `item-qty-err-${item.id}`
-                                : undefined
-                            }
-                            onBlur={() => markTouched(qtyKey)}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const parsed =
-                                raw.trim() === '' ? 0 : Number(raw);
-                              const nextQty = Number.isFinite(parsed)
-                                ? parsed
-                                : 0;
-                              updateItem(meal.id, item.id, (i) => {
-                                const catalogMatch = findCatalogMatch(i);
-                                if (!catalogMatch) {
-                                  return { ...i, quantity: nextQty };
-                                }
-                                const scaled = calculateFoodMacros(
-                                  catalogMatch,
-                                  nextQty
-                                );
-                                return {
-                                  ...i,
-                                  quantity: nextQty,
-                                  calories:
-                                    nextQty > 0 ? scaled.calories : null,
-                                  proteinG:
-                                    nextQty > 0 ? scaled.proteinG : null,
-                                  carbsG: nextQty > 0 ? scaled.carbsG : null,
-                                  fatG: nextQty > 0 ? scaled.fatG : null,
-                                };
-                              });
-                            }}
-                            placeholder="150"
-                          />
-                          {isShown(qtyKey, itemErr?.quantity) && (
-                            <span
-                              id={`item-qty-err-${item.id}`}
-                              className="nutrition-field-error"
-                            >
-                              Error: {itemErr?.quantity}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="nutrition-item-cell">
-                          <label>Unidad *</label>
-                          <input
-                            type="text"
-                            list="nutrition-common-units"
-                            aria-label={`Unidad de ${item.name || 'alimento'}`}
-                            maxLength={50}
-                            disabled={disabled}
-                            value={item.unit}
-                            aria-invalid={
-                              isShown(unitKey, itemErr?.unit) ? 'true' : 'false'
-                            }
-                            aria-describedby={
-                              isShown(unitKey, itemErr?.unit)
-                                ? `item-unit-err-${item.id}`
-                                : undefined
-                            }
-                            onBlur={() => markTouched(unitKey)}
-                            onChange={(e) =>
-                              updateItem(meal.id, item.id, (i) => ({
-                                ...i,
-                                unit: e.target.value,
-                              }))
-                            }
-                            placeholder="g, ml, pza"
-                          />
-                          {isShown(unitKey, itemErr?.unit) && (
-                            <span
-                              id={`item-unit-err-${item.id}`}
-                              className="nutrition-field-error"
-                            >
-                              Error: {itemErr?.unit}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="nutrition-item-actions">
-                          <button
-                            type="button"
-                            className="ws-plain training-icon-btn"
-                            aria-label="Subir alimento"
-                            title="Subir"
-                            disabled={disabled || itemIndex === 0}
-                            onClick={() =>
-                              updateMeal(meal.id, (m) => ({
-                                ...m,
-                                items: moveInArray(m.items, itemIndex, -1),
-                              }))
-                            }
-                          >
-                            <Icon name="chevron-up" size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-plain training-icon-btn"
-                            aria-label="Bajar alimento"
-                            title="Bajar"
-                            disabled={
-                              disabled || itemIndex === meal.items.length - 1
-                            }
-                            onClick={() =>
-                              updateMeal(meal.id, (m) => ({
-                                ...m,
-                                items: moveInArray(m.items, itemIndex, 1),
-                              }))
-                            }
-                          >
-                            <Icon name="chevron-down" size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="ws-plain training-icon-btn"
-                            data-danger
-                            aria-label="Eliminar alimento"
-                            title="Eliminar alimento"
-                            disabled={disabled}
-                            onClick={() =>
-                              updateMeal(meal.id, (m) => ({
-                                ...m,
-                                items: m.items.filter((x) => x.id !== item.id),
-                              }))
-                            }
-                          >
-                            <Icon name="close" size={14} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <details className="nutrition-item-more">
-                        <summary>
-                          {item.calories != null
-                            ? `${Math.round(item.calories)} kcal · P ${item.proteinG ?? 0} · C ${item.carbsG ?? 0} · G ${item.fatG ?? 0}`
-                            : 'Sin macros de referencia'}
-                          {(item.instructions || item.substitutes) && (
-                            <span className="nutrition-item-more-hint">
-                              {[
-                                item.instructions,
-                                item.substitutes &&
-                                  `Sustituto: ${item.substitutes}`,
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          )}
-                        </summary>
-                        <div className="nutrition-item-extras">
-                          <div className="nutrition-item-cell">
-                            <label>Preparación o nota (opcional)</label>
-                            <input
-                              type="text"
-                              maxLength={1000}
-                              disabled={disabled}
-                              value={item.instructions ?? ''}
-                              onChange={(e) =>
-                                updateItem(meal.id, item.id, (i) => ({
-                                  ...i,
-                                  instructions: e.target.value.trim()
-                                    ? e.target.value
-                                    : null,
-                                }))
-                              }
-                              placeholder="En crudo, cocido, sin aceite..."
-                            />
-                          </div>
-
-                          <div className="nutrition-item-cell">
-                            <label>Equivalente / sustituto (opcional)</label>
-                            <input
-                              type="text"
-                              maxLength={500}
-                              disabled={disabled}
-                              value={item.substitutes ?? ''}
-                              onChange={(e) =>
-                                updateItem(meal.id, item.id, (i) => ({
-                                  ...i,
-                                  substitutes: e.target.value.trim()
-                                    ? e.target.value
-                                    : null,
-                                }))
-                              }
-                              placeholder="Ej. Pavo, pescado blanco o tofu"
-                            />
-                          </div>
-                        </div>
-                      </details>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {meal.items.length > 0 && meal.items.length < 30 && (
-              <div className="training-actions">
-                {guide && (
-                  <button
-                    type="button"
-                    className="ws-btn"
-                    disabled={disabled}
-                    onClick={() => void fillMeal(meal)}
-                  >
-                    <Icon name="sparkle" size={14} /> Volver a sugerir
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="ws-btn"
-                  disabled={disabled}
-                  onClick={() => setPickerMealId(meal.id)}
-                >
-                  <Icon name="plus" size={14} /> Elegir del catálogo
-                </button>
-                <button
-                  type="button"
-                  className="ws-btn"
-                  disabled={disabled}
-                  onClick={() =>
-                    updateMeal(meal.id, (m) => ({
-                      ...m,
-                      items: [...m.items, emptyItem()],
-                    }))
-                  }
-                >
-                  + Alimento libre
-                </button>
-              </div>
-            )}
+              )}
           </section>
         );
       })}

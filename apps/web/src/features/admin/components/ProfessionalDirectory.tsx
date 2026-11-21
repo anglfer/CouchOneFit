@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { sessionRequest } from '../../auth/services/session';
 
-import { Badge, type Tone } from '../../../components/ui';
+import { Badge, PageHeader, type Tone } from '../../../components/ui';
 import type { ProfessionalRecord } from '../types/admin';
 const labels = {
   active: 'Activa',
@@ -72,23 +72,27 @@ export default function ProfessionalDirectory() {
   }, [page, search, status, attempt]);
   return (
     <section className="space-y-4">
-      <div className="ws-page-header">
-        <div>
-          <span className="ws-eyebrow">Directorio</span>
-          <h1 className="ws-title">Profesionales y suscripciones</h1>
-        </div>
-      </div>
+      <PageHeader
+        title="Profesionales y suscripciones"
+        lead="Consulta el estado de cada cuenta profesional, su plan y la ocupación actual."
+      />
       {error && (
-        <div role="alert">
+        <div role="alert" className="ws-alert space-y-2" data-tone="bad">
           <p>{error}</p>
-          <button onClick={() => setAttempt((n) => n + 1)}>Reintentar</button>
+          <button
+            type="button"
+            className="ws-btn"
+            onClick={() => setAttempt((n) => n + 1)}
+          >
+            Reintentar
+          </button>
         </div>
       )}
       <div className="ws-card flex flex-wrap items-end gap-4 p-4!">
         <label className="min-w-56 flex-1">
           Buscar por nombre o correo
           <input
-            className="block border rounded-lg p-2"
+            className="ws-input mt-1 block w-full min-h-11"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -99,7 +103,7 @@ export default function ProfessionalDirectory() {
         <label>
           Suscripción
           <select
-            className="block border rounded-lg p-2"
+            className="ws-input mt-1 block min-h-11"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -187,8 +191,10 @@ export default function ProfessionalDirectory() {
               No hay profesionales con estos filtros.
             </p>
           )}
-          <div className="flex items-center justify-end gap-4 text-sm text-(--ws-muted)">
+          <div className="flex items-center justify-end gap-3 text-sm text-(--ws-muted)">
             <button
+              type="button"
+              className="ws-btn"
               disabled={page === 1}
               onClick={() => {
                 setPage((n) => n - 1);
@@ -200,6 +206,8 @@ export default function ProfessionalDirectory() {
               Página {page} · {directory.total} profesionales
             </span>
             <button
+              type="button"
+              className="ws-btn"
               disabled={page * 20 >= directory.total}
               onClick={() => {
                 setPage((n) => n + 1);

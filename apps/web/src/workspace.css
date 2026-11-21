@@ -228,7 +228,8 @@
 
 .ws-segmented {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 2px;
   margin: 2px 4px 6px;
   padding: 3px;
@@ -330,6 +331,16 @@
   /* Two per row on phones, a full row on desktop. */
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
+}
+.ws-stats-home {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.ws-stats-home > .ws-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .ws-stat-label {
   font-size: 12px;
@@ -502,10 +513,14 @@
   background: var(--ws-warn-bg);
   color: var(--ws-warn-fg);
 }
-.ws-alert[data-tone='ok'] {
-  border-color: var(--ws-ok-fg);
-  background: var(--ws-ok-bg);
-  color: var(--ws-ok-fg);
+.ws-alert[data-tone='info'] {
+  border-color: var(--ws-info-fg);
+  background: var(--ws-info-bg);
+  color: var(--ws-info-fg);
+}
+
+[hidden] {
+  display: none !important;
 }
 
 .ws-skeleton {
@@ -877,10 +892,15 @@ html:has(.client-hub) {
 }
 
 .ws-content p[role='alert'],
-.ws-content [role='alert'] > p {
+.ws-content [role='alert'] > p,
+.ws-content span[role='alert'] {
   color: var(--ws-bad-fg);
   font-size: 13px;
   font-weight: 500;
+}
+.ws-content span[role='alert'] {
+  display: block;
+  margin-top: 4px;
 }
 .ws-content small {
   font-size: 12.5px;
@@ -1128,120 +1148,55 @@ html:has(.client-hub) {
   background: var(--ws-selected);
 }
 
-/* ---------- Auth & Standalone Surface ---------- */
-
-.ws-auth-shell {
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  background:
-    radial-gradient(900px 420px at 50% -120px, var(--ws-glow), transparent 70%),
-    var(--ws-bg);
-  color: var(--ws-text);
-}
-.ws-auth-card {
-  border: 1px solid var(--ws-border);
-  border-radius: 20px;
-  background: var(--ws-surface);
-  color: var(--ws-text);
-  box-shadow: var(--ws-pop-shadow);
-}
-.ws-auth-input {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 14px;
-  border: 1px solid var(--ws-border);
-  border-radius: 12px;
-  background: var(--ws-surface-2);
-  color: var(--ws-text);
-  font-size: 14px;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s,
-    background 0.15s;
-}
-.ws-auth-input::placeholder {
-  color: var(--ws-muted);
-  opacity: 0.75;
-}
-.ws-auth-input:hover:not(:disabled) {
-  border-color: var(--ws-primary);
-}
-.ws-auth-input:focus-visible {
-  outline: 2px solid var(--ws-primary);
-  outline-offset: 0;
-  border-color: var(--ws-primary);
-  background: var(--ws-surface);
-  box-shadow: 0 0 0 4px var(--ws-ring);
-}
-.ws-auth-input[aria-invalid='true'] {
-  border-color: var(--ws-bad-fg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ws-nav-link,
-  .ws-account-trigger,
-  .ws-btn,
-  .ws-bottom-link,
-  .ws-bottom-link-pill,
-  .ws-auth-input {
-    transition: none;
+@media (min-width: 768px) {
+  .ws-bottom-nav {
+    display: none;
   }
 }
 
-/* ---------- Mobile Bottom Navigation ---------- */
-
-.ws-bottom-nav {
-  position: fixed;
-  inset-inline: 0;
-  bottom: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  min-height: 64px;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--ws-border-subtle);
-  background: var(--ws-topbar);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 -8px 24px #00000018;
-}
-.ws-bottom-link {
+.ws-actions-menu {
   position: relative;
-  display: flex;
-  flex: 1;
-  max-width: 112px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  min-height: 48px;
-  padding: 4px 8px;
+}
+.ws-actions-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.ws-actions-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.ws-actions-menu-body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--ws-border);
   border-radius: 12px;
-  color: var(--ws-muted);
-  font-size: 11.5px;
-  font-weight: 600;
+  background: var(--ws-surface);
+  box-shadow: var(--ws-pop-shadow);
+}
+.ws-actions-menu-body .ws-btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+a.ws-card-link {
+  display: grid;
+  gap: 2px;
   text-decoration: none;
+  color: inherit;
   transition:
-    color 0.16s,
-    background 0.16s;
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
 }
-.ws-bottom-link-pill {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 28px;
-  border-radius: 999px;
-  transition:
-    background 0.16s,
-    transform 0.16s;
-}
-.ws-bottom-link[aria-current='page'] {
-  color: var(--ws-primary-fg);
-  font-weight: 700;
-}
-.ws-bottom-link[aria-current='page'] .ws-bottom-link-pill {
-  background: var(--ws-selected);
+a.ws-card-link:hover,
+a.ws-card-link:focus-visible {
+  border-color: var(--ws-primary);
+  background: var(--ws-surface-2);
 }
 
 /* ---------- Auth & Standalone Surface ---------- */
@@ -1303,6 +1258,137 @@ html:has(.client-hub) {
   .ws-auth-input {
     transition: none;
   }
+}
+
+/* ---------- Utilerías UX · evaluaciones, KPIs, chips y comparación ---------- */
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--ws-border);
+  border-radius: 999px;
+  background: var(--ws-surface-2);
+  color: var(--ws-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ws-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  background: var(--ws-neutral-bg);
+  color: var(--ws-neutral-fg);
+}
+.ws-delta[data-sign='up'] {
+  background: var(--ws-info-bg);
+  color: var(--ws-info-fg);
+}
+.ws-delta[data-sign='down'] {
+  background: var(--ws-ok-bg);
+  color: var(--ws-ok-fg);
+}
+
+.ws-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.ws-kpi-mini {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  background: var(--ws-surface);
+  box-shadow: var(--ws-shadow);
+}
+.ws-kpi-mini-value {
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.15;
+  color: var(--ws-text);
+}
+
+.ws-subtab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid var(--ws-border);
+  border-radius: 999px;
+  background: var(--ws-surface);
+  color: var(--ws-text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ws-subtab-chip:hover {
+  border-color: var(--ws-primary);
+  background: var(--ws-surface-2);
+}
+.ws-subtab-chip[aria-pressed='true'] {
+  border-color: var(--ws-primary);
+  background: var(--ws-selected);
+  color: var(--ws-primary-fg);
+}
+
+.ws-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  gap: 8px;
+}
+
+.ws-segment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--ws-border-subtle);
+  border-radius: 10px;
+  background: var(--ws-surface-2);
+}
+.ws-segment-row {
+  display: grid;
+  gap: 4px;
+}
+.ws-segment-meter {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ws-segment-meter::-webkit-meter-bar {
+  background: var(--ws-border);
+  border-radius: 999px;
+  border: 0;
+}
+.ws-segment-meter::-webkit-meter-optimum-value {
+  background: var(--ws-primary);
+  border-radius: 999px;
+}
+
+.ws-skinfold-required {
+  padding: 14px;
+  border: 1px solid color-mix(in oklab, var(--ws-primary) 42%, var(--ws-border));
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--ws-selected) 35%, var(--ws-surface));
+}
+.ws-skinfold-optional {
+  padding: 14px;
+  border: 1px dashed var(--ws-border);
+  border-radius: 10px;
+  background: var(--ws-surface);
 }
 
 /* ---------- Referencia anatómica ---------- */

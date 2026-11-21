@@ -334,7 +334,7 @@ export default function NutritionSuggestionAssistant({
       <div className="nutrition-assistant-layout">
         <div className="nutrition-assistant-form">
           <div className="nutrition-assistant-block">
-            <span className="ws-eyebrow">DATOS DEL CLIENTE</span>
+            <h3 className="training-panel-title">Datos del cliente</h3>
             <div className="nutrition-assistant-grid">
               <div className="nutrition-fact">
                 <span className="nutrition-mini-label">
@@ -428,7 +428,7 @@ export default function NutritionSuggestionAssistant({
           </div>
 
           <div className="nutrition-assistant-block">
-            <span className="ws-eyebrow">OBJETIVO Y ACTIVIDAD</span>
+            <h3 className="training-panel-title">Objetivo y actividad</h3>
             <div className="nutrition-fact">
               <span className="nutrition-mini-label">Objetivo</span>
               <div className="nutrition-group-pills" role="group">

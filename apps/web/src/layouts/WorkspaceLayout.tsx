@@ -448,14 +448,7 @@ export default function WorkspaceLayout({
       </div>
 
       {navigation.length > 1 && (
-        <nav
-          className="ws-topbar fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-around px-2 md:hidden"
-          style={{
-            borderBottom: 0,
-            borderTop: '1px solid var(--ws-border-subtle)',
-          }}
-          aria-label={`${area} (móvil)`}
-        >
+        <nav className="ws-bottom-nav" aria-label={`${area} (móvil)`}>
           {navigation.map(({ href, label, icon }) => {
             const active = isCurrentPath(pathname, href);
             return (
@@ -463,13 +456,11 @@ export default function WorkspaceLayout({
                 key={href}
                 to={href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-w-16 flex-col items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium no-underline ${
-                  active
-                    ? 'font-bold text-(--ws-primary-fg)'
-                    : 'text-(--ws-muted)'
-                }`}
+                className="ws-bottom-link"
               >
-                <Icon name={icon} size={21} />
+                <span className="ws-bottom-link-pill" aria-hidden="true">
+                  <Icon name={icon} size={20} />
+                </span>
                 <span>{label}</span>
               </Link>
             );

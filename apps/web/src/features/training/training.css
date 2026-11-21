@@ -751,12 +751,45 @@ button.training-template-card:hover {
 .training-anim {
   position: relative;
   flex: none;
+  flex-shrink: 0;
   width: 100%;
   max-width: 220px;
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
   background: white;
+}
+.training-anim-btn {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--ws-border-subtle);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.training-anim-btn:hover,
+.training-anim-btn:focus-visible {
+  border-color: var(--ws-primary);
+  transform: scale(1.02);
+}
+.training-anim-btn .training-anim {
+  border-radius: 11px;
+}
+.training-anim-zoom {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(10, 7, 19, 0.78);
+  color: white;
 }
 .training-anim[data-empty] {
   display: grid;
@@ -854,6 +887,26 @@ button.training-template-card:hover {
 .training-week[data-compact] > li[data-kind='rest'] small {
   color: var(--ws-muted);
 }
+.training-week-btn {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.training-week > li:has(> .training-week-btn) {
+  padding: 0;
+}
+.training-week > li:has(> .training-week-btn) > .training-week-btn {
+  padding: 10px;
+  border-radius: 9px;
+}
+.training-week > li:has(> .training-week-btn):hover {
+  border-color: var(--ws-primary);
+}
 .training-view {
   display: grid;
   gap: 12px;
@@ -891,16 +944,49 @@ button.training-template-card:hover {
 }
 .training-view-list > li {
   display: flex;
+  align-items: flex-start;
   gap: 14px;
   padding: 12px;
   border: 1px solid var(--ws-border-subtle);
   border-radius: 12px;
 }
-.training-view-list > li > div {
+.training-view-list > li > .training-view-body {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   align-content: start;
+  flex: 1;
   min-width: 0;
+}
+.training-view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+.training-custom-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ws-neutral-bg);
+  color: var(--ws-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.training-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ws-selected);
+  color: var(--ws-primary-fg);
+  font-size: 12px;
+  font-weight: 650;
+}
+.training-link-btn:hover {
+  filter: brightness(1.06);
 }
 .training-view-list small,
 .training-view-list em {
@@ -916,14 +1002,71 @@ button.training-template-card:hover {
   padding: 0;
 }
 .training-view-sets li {
-  padding: 4px 10px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 5px;
+  border-radius: 999px;
   background: var(--ws-neutral-bg);
   font-size: 12.5px;
 }
-.training-view-sets b {
+.training-view-sets .training-set-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  font-size: 11.5px;
+}
+.training-demo-stage {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--ws-border-subtle);
+  border-radius: 14px;
+  background: var(--ws-surface-2);
+}
+.training-demo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.training-demo-chips span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ws-neutral-bg);
+  color: var(--ws-neutral-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.training-demo-chips span[data-tone='custom'] {
+  background: var(--ws-warn-bg);
+  color: var(--ws-warn-fg);
+}
+.training-demo-steps {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.training-demo-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.training-demo-steps li > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ws-selected);
   color: var(--ws-primary-fg);
-  margin-right: 4px;
+  font-size: 12px;
+  font-weight: 800;
 }
 .training-view-week summary {
   cursor: pointer;
@@ -1156,7 +1299,9 @@ button.training-template-card:hover {
     flex-wrap: wrap;
   }
   .training-exercise-head .training-anim {
-    display: none;
+    width: 44px !important;
+    height: 44px !important;
+    max-width: 44px !important;
   }
   /* Name gets the full row; the action icons drop below it. */
   .training-exercise-title {

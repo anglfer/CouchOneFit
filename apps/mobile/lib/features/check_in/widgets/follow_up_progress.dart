@@ -19,6 +19,7 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
   List<CheckIn>? _history;
   SharedProgress? _shared;
   String? _historyError, _sharedError;
+  String _evalMetric = 'weight';
 
   @override
   void initState() {
@@ -54,28 +55,37 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
 
   @override
   Widget build(BuildContext context) {
+    final bothFailed = _historyError != null && _sharedError != null;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SizedBox(height: 24),
-      const SectionTitle('Peso corporal'),
-      const SizedBox(height: 12),
-      if (_historyError != null)
+      if (bothFailed)
         NoticeBanner(
-            text: _historyError!, tone: NoticeTone.error, onRetry: _load)
-      else if (_history != null) ...[
-        _weightCard(context, _history!),
-        if (_history!.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _recentCheckInsCard(context, _history!),
+            text:
+                'No pudimos consultar tu seguimiento ni lo compartido por tu profesional. Reintenta.',
+            tone: NoticeTone.error,
+            onRetry: _load)
+      else ...[
+        const SectionTitle('Peso corporal'),
+        const SizedBox(height: 12),
+        if (_historyError != null)
+          NoticeBanner(
+              text: _historyError!, tone: NoticeTone.error, onRetry: _load)
+        else if (_history != null) ...[
+          _weightCard(context, _history!),
+          if (_history!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _recentCheckInsCard(context, _history!),
+          ],
         ],
+        const SizedBox(height: 24),
+        const SectionTitle('Compartido por tu profesional'),
+        const SizedBox(height: 12),
+        if (_sharedError != null)
+          NoticeBanner(
+              text: _sharedError!, tone: NoticeTone.error, onRetry: _load)
+        else if (_shared != null)
+          ..._sharedCards(context, _shared!),
       ],
-      const SizedBox(height: 24),
-      const SectionTitle('Compartido por tu profesional'),
-      const SizedBox(height: 12),
-      if (_sharedError != null)
-        NoticeBanner(
-            text: _sharedError!, tone: NoticeTone.error, onRetry: _load)
-      else if (_shared != null)
-        ..._sharedCards(context, _shared!),
     ]);
   }
 
@@ -225,11 +235,28 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
       for (final m in ordered)
         if (m.bodyFatPercentage != null) (m.date, m.bodyFatPercentage!)
     ];
-    final (trendLabel, trendSeries, trendUnit) = trendWeights.length >= 2
-        ? ('Peso en evaluaciones (kg)', trendWeights, 'kilos')
-        : trendWaists.length >= 2
-            ? ('Cintura en evaluaciones (cm)', trendWaists, 'centímetros')
-            : ('Grasa corporal (%)', trendFat, 'por ciento');
+    final availableMetrics =
+        <(String, String, String, List<(String, double)>, String)>[
+      if (trendWeights.length >= 2)
+        ('weight', 'Peso', 'Peso en evaluaciones (kg)', trendWeights, 'kilos'),
+      if (trendWaists.length >= 2)
+        (
+          'waist',
+          'Cintura',
+          'Cintura en evaluaciones (cm)',
+          trendWaists,
+          'centímetros',
+        ),
+      if (trendFat.length >= 2)
+        ('fat', 'Grasa', 'Grasa corporal (%)', trendFat, 'por ciento'),
+    ];
+    final activeMetric = availableMetrics.firstWhere(
+      (item) => item.$1 == _evalMetric,
+      orElse: () => availableMetrics.isNotEmpty
+          ? availableMetrics.first
+          : ('fat', 'Grasa', 'Grasa corporal (%)', trendFat, 'por ciento'),
+    );
+    final (_, _, trendLabel, trendSeries, trendUnit) = activeMetric;
 
     return [
       if (shared.adherenceShared &&
@@ -282,6 +309,23 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
                                 title:
                                     'Última evaluación · ${shortDate(measurements.first.date)}'),
                             if (trendSeries.length >= 2) ...[
+                              if (availableMetrics.length >= 2) ...[
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    for (final (key, shortLabel, _, _, _)
+                                        in availableMetrics)
+                                      ChoiceChip(
+                                        label: Text(shortLabel),
+                                        selected: activeMetric.$1 == key,
+                                        onSelected: (_) =>
+                                            setState(() => _evalMetric = key),
+                                      ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 10),
                               Text(trendLabel,
                                   style: TextStyle(

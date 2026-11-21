@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/utils/friendly_date.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
@@ -62,7 +63,7 @@ class _NutritionPlanViewState extends State<NutritionPlanView> {
             icon: Icons.cloud_off_outlined,
             tone: NoticeTone.warning,
             text:
-                'Lectura guardada · actualizada ${widget.cachedAt!.toLocal().toString().substring(0, 16)}. Desliza hacia abajo para actualizar.',
+                'Lectura guardada · actualizada ${friendlySavedAt(widget.cachedAt!)}. Desliza hacia abajo para actualizar.',
           ),
           const SizedBox(height: 12),
         ],

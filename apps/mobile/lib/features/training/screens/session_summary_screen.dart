@@ -39,14 +39,15 @@ class SessionSummaryScreen extends StatelessWidget {
       required this.volume,
       required this.exercises,
       required this.groups,
-      this.onShowProgress});
+      this.onShowProgress,
+      this.onOpenCheckIn});
   final String dayName, date;
   final Duration duration;
   final int sets;
   final double volume;
   final List<SummaryExercise> exercises;
   final List<MapEntry<String, int>> groups;
-  final VoidCallback? onShowProgress;
+  final VoidCallback? onShowProgress, onOpenCheckIn;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +189,16 @@ class SessionSummaryScreen extends StatelessWidget {
             },
             icon: const Icon(Icons.insights_outlined),
             label: const Text('Ver mi progreso')),
+      ],
+      if (onOpenCheckIn != null) ...[
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              onOpenCheckIn!();
+            },
+            icon: const Icon(Icons.monitor_weight_outlined),
+            label: const Text('Registrar check-in de hoy')),
       ],
     ]);
   }

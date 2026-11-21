@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Icon } from '../../../components/Icon';
 import { sessionRequest, sessionMutation } from '../../auth/services/session';
 import type { PlanSaaS } from '../types/admin';
 import { ApiError } from '../../../services/api';
-import { PageHeader } from '../../../components/ui';
+import { Badge, PageHeader } from '../../../components/ui';
 import { confirmDialog } from '../../../services/confirm';
 
 export default function PlanCatalog() {
@@ -11,11 +12,11 @@ export default function PlanCatalog() {
   const [error, setError] = useState('');
 
   const [busy, setBusy] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [isActive, setIsActive] = useState(true);
-  // Estados del formulario
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [limit, setLimit] = useState<string>(''); // Vacio o número
+  const [limit, setLimit] = useState<string>('');
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [price, setPrice] = useState('');
 
@@ -107,6 +108,7 @@ export default function PlanCatalog() {
     setPrice('');
     setIsUnlimited(false);
     setIsActive(true);
+    setFormOpen(false);
   }
 
   function editPlan(plan: PlanSaaS) {
@@ -116,6 +118,7 @@ export default function PlanCatalog() {
     setIsUnlimited(plan.maxClients === null);
     setLimit(plan.maxClients !== null ? plan.maxClients.toString() : '');
     setPrice(plan.priceMxn.toString());
+    setFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -124,139 +127,170 @@ export default function PlanCatalog() {
       <PageHeader
         title="Planes"
         lead="Precios y límites de clientes de cada plan SaaS."
+        actions={
+          <button
+            type="button"
+            className="ws-btn"
+            data-variant="primary"
+            onClick={() => {
+              if (formOpen && !isEditing) {
+                resetForm();
+              } else {
+                setIsEditing(null);
+                setName('');
+                setLimit('');
+                setPrice('');
+                setIsUnlimited(false);
+                setIsActive(true);
+                setFormOpen(true);
+              }
+            }}
+          >
+            <Icon name={formOpen && !isEditing ? 'close' : 'plus'} size={16} />
+            {formOpen && !isEditing ? 'Ocultar formulario' : 'Nuevo plan'}
+          </button>
+        }
       />
-      <section className="ws-card">
-        <h2 className="ws-card-title mb-4 text-lg!">
-          {isEditing ? 'Editar Plan' : 'Crear Nuevo Plan'}
-        </h2>
-        {error && (
-          <p role="alert" className="ws-alert mb-4" data-tone="bad">
-            {error}
-          </p>
-        )}
 
-        <form
-          aria-busy={busy}
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        >
-          <label className="block">
-            <span className="text-sm font-medium">
-              Nombre del Plan (Ej. Pro 30)
-            </span>
-            <input
-              required
-              minLength={3}
-              maxLength={50}
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Precio (MXN)</span>
-            <input
-              required
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg"
-            />
-          </label>
+      {error && (
+        <p role="alert" className="ws-alert" data-tone="bad">
+          {error}
+        </p>
+      )}
 
-          <div className="col-span-1 rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) p-4 md:col-span-2">
-            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isUnlimited}
-                onChange={(e) => setIsUnlimited(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm font-bold">Plan con cupo ilimitado</span>
-            </label>
-            {!isUnlimited && (
-              <label className="block">
-                <span className="text-sm font-medium">
-                  Límite de clientes activos
-                </span>
-                <input
-                  required={!isUnlimited}
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={limit}
-                  onChange={(e) => setLimit(e.target.value)}
-                  className="mt-1 w-full p-2 border rounded-lg"
-                />
-              </label>
-            )}
+      {(formOpen || isEditing) && (
+        <section className="ws-card space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="ws-card-title text-lg!">
+              {isEditing ? 'Editar plan' : 'Crear nuevo plan'}
+            </h2>
           </div>
 
-          <div className="col-span-1 mt-2 flex flex-wrap items-center gap-3 md:col-span-2">
-            <label className="mr-auto block">
+          <form
+            aria-busy={busy}
+            onSubmit={handleSubmit}
+            className="grid grid-cols-1 gap-4 md:grid-cols-2"
+          >
+            <label className="block">
+              Nombre del plan (Ej. Pro 30)
               <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-              />{' '}
-              Disponible para nuevas asignaciones
+                required
+                minLength={3}
+                maxLength={50}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="ws-input mt-1 w-full min-h-11"
+              />
             </label>
-            <button
-              disabled={busy}
-              type="submit"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700"
-            >
-              {isEditing ? 'Guardar Cambios' : 'Crear Plan'}
-            </button>
-            {isEditing && (
+            <label className="block">
+              Precio (MXN)
+              <input
+                required
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="ws-input mt-1 w-full min-h-11"
+              />
+            </label>
+
+            <div className="col-span-1 space-y-3 rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) p-4 md:col-span-2">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isUnlimited}
+                  onChange={(e) => setIsUnlimited(e.target.checked)}
+                />
+                <span className="text-sm font-semibold">
+                  Plan con cupo ilimitado
+                </span>
+              </label>
+              {!isUnlimited && (
+                <label className="block">
+                  Límite de clientes activos
+                  <input
+                    required={!isUnlimited}
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={limit}
+                    onChange={(e) => setLimit(e.target.value)}
+                    className="ws-input mt-1 w-full min-h-11"
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="col-span-1 mt-2 flex flex-wrap items-center gap-3 md:col-span-2">
+              <label className="mr-auto flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                />
+                Disponible para nuevas asignaciones
+              </label>
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg font-semibold hover:bg-slate-300"
+                className="ws-btn"
+                disabled={busy}
               >
                 Cancelar
               </button>
-            )}
-          </div>
-        </form>
-      </section>
+              <button
+                disabled={busy}
+                type="submit"
+                className="ws-btn"
+                data-variant="primary"
+              >
+                {isEditing ? 'Guardar cambios' : 'Crear plan'}
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="ws-card overflow-x-auto p-0!">
         {loading ? (
-          <p className="p-6" role="status">
-            Cargando catálogo...
-          </p>
+          <div className="space-y-3 p-5" role="status" aria-busy="true">
+            <span className="sr-only">Cargando catálogo…</span>
+            <div className="ws-skeleton h-10" />
+            <div className="ws-skeleton h-10" />
+          </div>
+        ) : plans.length === 0 ? (
+          <p className="ws-empty">Todavía no hay planes configurados.</p>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+            <thead>
               <tr>
-                <th className="p-4 font-semibold">Plan</th>
-                <th className="p-4 font-semibold">Límite</th>
-                <th className="p-4 font-semibold">Precio (MXN)</th>
-                <th className="p-4 font-semibold">Acciones</th>
+                <th className="p-4">Plan</th>
+                <th className="p-4">Estado</th>
+                <th className="p-4">Límite</th>
+                <th className="p-4">Precio (MXN)</th>
+                <th className="p-4">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody>
               {plans.map((plan) => (
-                <tr
-                  key={plan.id}
-                  className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
-                >
-                  <td className="p-4 font-medium">
-                    {plan.name}
-                    {!plan.isActive && ' (No disponible)'}
-                  </td>
+                <tr key={plan.id}>
+                  <td className="p-4 font-semibold">{plan.name}</td>
                   <td className="p-4">
+                    <Badge tone={plan.isActive ? 'ok' : 'neutral'}>
+                      {plan.isActive ? 'Disponible' : 'No disponible'}
+                    </Badge>
+                  </td>
+                  <td className="p-4 tabular-nums">
                     {plan.maxClients === null ? 'Ilimitado' : plan.maxClients}
                   </td>
-                  <td className="p-4">${plan.priceMxn}</td>
+                  <td className="p-4 tabular-nums">${plan.priceMxn} MXN</td>
                   <td className="p-4">
                     <button
+                      type="button"
                       onClick={() => editPlan(plan)}
-                      className="text-indigo-600 font-semibold hover:underline"
+                      className="ws-btn"
                     >
                       Editar
                     </button>

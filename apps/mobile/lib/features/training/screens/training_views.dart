@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
+import '../../../shared/widgets/gradient_widgets.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/section_title.dart';
 import '../../../shared/widgets/status_view.dart';
@@ -248,13 +249,23 @@ class _DetailSection extends StatelessWidget {
       ]));
 }
 
-class ExerciseDetailScreen extends StatelessWidget {
+class ExerciseDetailScreen extends StatefulWidget {
   const ExerciseDetailScreen({super.key, required this.exercise});
   final TrainingExercise exercise;
   @override
+  State<ExerciseDetailScreen> createState() => _ExerciseDetailScreenState();
+}
+
+class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
+  bool _paused = false;
+
+  @override
   Widget build(BuildContext context) {
+    final exercise = widget.exercise;
     final text = Theme.of(context).textTheme;
     final colors = Theme.of(context).colorScheme;
+    final canPause =
+        exercise.images.length > 1 && !MediaQuery.disableAnimationsOf(context);
     return DetailScaffold(
         title: const Text('Ejercicio'),
         maxWidth: 520,
@@ -267,11 +278,35 @@ class ExerciseDetailScreen extends StatelessWidget {
                       ? colors.surfaceContainerHighest
                       : Colors.white,
                   borderRadius: BorderRadius.circular(24)),
-              child: Center(
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 280),
-                      child: ExerciseAnimation(
-                          images: exercise.images, label: exercise.name)))),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Center(
+                    child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        child: ExerciseAnimation(
+                            images: exercise.images,
+                            label: exercise.name,
+                            paused: _paused))),
+                if (canPause) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                      style:
+                          TextButton.styleFrom(foregroundColor: Colors.black87),
+                      onPressed: () => setState(() => _paused = !_paused),
+                      icon: Icon(
+                          _paused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          size: 18),
+                      label: Text(_paused ? 'Reanudar' : 'Pausar')),
+                ],
+              ])),
+          if (exercise.images.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Ejercicio personalizado · sin animación de catálogo',
+                textAlign: TextAlign.center,
+                style:
+                    TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant)),
+          ],
           const SizedBox(height: 20),
           Semantics(
               header: true,
@@ -308,7 +343,9 @@ class ExerciseDetailScreen extends StatelessWidget {
                           text: exercise.badgeFor(entry.key)),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: Text(entry.value.target,
+                          child: Text(
+                              entry.value
+                                  .targetFor(bodyweight: exercise.bodyweight),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600))),
                     ])),
@@ -364,8 +401,14 @@ class _StepNumber extends StatelessWidget {
 }
 
 class TrainingDayScreen extends StatelessWidget {
-  const TrainingDayScreen({super.key, required this.day});
+  const TrainingDayScreen(
+      {super.key,
+      required this.day,
+      this.onStart,
+      this.startLabel = 'Empezar entrenamiento'});
   final TrainingDay day;
+  final VoidCallback? onStart;
+  final String startLabel;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -393,6 +436,13 @@ class TrainingDayScreen extends StatelessWidget {
           for (final g in groups)
             TrainingChip(g, icon: Icons.accessibility_new),
         ]),
+      ],
+      if (onStart != null) ...[
+        const SizedBox(height: 16),
+        GradientActionButton(
+            label: startLabel,
+            icon: Icons.play_arrow_rounded,
+            onPressed: onStart),
       ],
       const SizedBox(height: 20),
       GroupCard(indent: 86, children: [

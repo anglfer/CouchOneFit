@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
-import { Card } from '../../../components/ui';
+import { Badge, Card, Meter } from '../../../components/ui';
 import {
   COMPLIANCE_LABEL,
   fetchFollowUp,
@@ -33,12 +33,17 @@ const kg = (value: number) => `${value.toLocaleString('es-MX')} kg`;
 const dash = (value: number | string | null, suffix = '') =>
   value === null ? '—' : `${value}${suffix}`;
 
-const prescribedLabel = (set: FollowUpSessionSet) =>
+const prescribedLabel = (
+  set: FollowUpSessionSet,
+  loadMode: 'external' | 'bodyweight'
+) =>
   [
     set.prescribedRepsMax === null
       ? `${set.prescribedReps} reps`
       : `${set.prescribedReps}–${set.prescribedRepsMax} reps`,
-    set.targetLoadKg !== null && `${set.targetLoadKg} kg`,
+    set.targetLoadKg !== null &&
+      !(loadMode === 'bodyweight' && set.targetLoadKg === 0) &&
+      `${set.targetLoadKg} kg`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -59,6 +64,9 @@ function AdherenceStat({
           ? 'Sin días con plan en el periodo'
           : `Cobertura ${percentLabel(summary.coveragePercent)} · ${summary.recordedDays} de ${summary.applicableDays} días con registro`}
       </p>
+      {summary.observedPercent !== null && (
+        <Meter value={summary.observedPercent} max={100} label={title} />
+      )}
     </div>
   );
 }
@@ -125,6 +133,7 @@ function WeightChart({ entries }: { entries: BodyWeightEntry[] }) {
             role="button"
             tabIndex={0}
             aria-label={`${dateLabel(p.localDate)}: ${kg(p.weightKg)}, check-in del cliente, revisión ${p.revision}`}
+            onMouseEnter={() => setSelectedId(p.checkInId)}
             onFocus={() => setSelectedId(p.checkInId)}
             onClick={() => setSelectedId(p.checkInId)}
             onKeyDown={(e) => {
@@ -180,7 +189,7 @@ function WeightChart({ entries }: { entries: BodyWeightEntry[] }) {
       <p className="text-sm text-(--ws-muted)" aria-live="polite">
         {selected
           ? `${dateLabel(selected.localDate)} · ${kg(selected.weightKg)} · check-in del cliente · rev. ${selected.revision}`
-          : 'Usa Tab para enfocar cada punto o consulta la tabla inferior.'}
+          : 'Pasa el cursor o enfoca un punto para ver el registro exacto.'}
       </p>
     </div>
   );
@@ -394,66 +403,77 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="ws-segmented" role="group" aria-label="Periodo">
-          {PERIODS.map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className="ws-plain"
-              aria-pressed={days === value}
-              onClick={() => {
-                setRangeError('');
-                setDays(value);
-                setAppliedRange({ days: value });
-              }}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="ws-card flex flex-wrap items-end justify-between gap-4 p-4!">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="ws-segmented" role="group" aria-label="Periodo">
+            {PERIODS.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className="ws-plain"
+                aria-pressed={days === value}
+                onClick={() => {
+                  setRangeError('');
+                  setDays(value);
+                  setAppliedRange({ days: value });
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Link
+            to={`/app/clientes/${clientId}/entrenamiento`}
+            className="ws-btn"
+          >
+            Ir a Entrenamiento
+          </Link>
         </div>
-        <Link to={`/app/clientes/${clientId}/entrenamiento`} className="ws-btn">
-          Ir a Entrenamiento
-        </Link>
-      </div>
 
-      <form
-        onSubmit={applyCustomRange}
-        className="flex flex-wrap items-end gap-3"
-        aria-label="Periodo personalizado"
-        noValidate
-      >
-        <label className="text-sm font-medium">
-          Desde
-          <input
-            type="date"
-            className="ws-input mt-1 block min-h-10"
-            value={customDraft.from}
-            onChange={(e) =>
-              setCustomDraft((d) => ({ ...d, from: e.target.value }))
-            }
-          />
-        </label>
-        <label className="text-sm font-medium">
-          Hasta
-          <input
-            type="date"
-            className="ws-input mt-1 block min-h-10"
-            value={customDraft.to}
-            onChange={(e) =>
-              setCustomDraft((d) => ({ ...d, to: e.target.value }))
-            }
-          />
-        </label>
-        <button type="submit" className="ws-btn min-h-10">
-          Aplicar
-        </button>
-        {rangeError && (
-          <p role="alert" className="text-sm text-(--ws-bad-fg)">
-            {rangeError}
-          </p>
-        )}
-      </form>
+        <details className="rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium text-(--ws-text-2)">
+            Rango personalizado
+            {days === null && ' · activo'}
+          </summary>
+          <form
+            onSubmit={applyCustomRange}
+            className="mt-3 flex flex-wrap items-end gap-3"
+            aria-label="Periodo personalizado"
+            noValidate
+          >
+            <label className="text-sm font-medium">
+              Desde
+              <input
+                type="date"
+                className="ws-input mt-1 block min-h-10"
+                value={customDraft.from}
+                onChange={(e) =>
+                  setCustomDraft((d) => ({ ...d, from: e.target.value }))
+                }
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Hasta
+              <input
+                type="date"
+                className="ws-input mt-1 block min-h-10"
+                value={customDraft.to}
+                onChange={(e) =>
+                  setCustomDraft((d) => ({ ...d, to: e.target.value }))
+                }
+              />
+            </label>
+            <button type="submit" className="ws-btn min-h-10">
+              Aplicar
+            </button>
+            {rangeError && (
+              <p role="alert" className="text-sm text-(--ws-bad-fg)">
+                {rangeError}
+              </p>
+            )}
+          </form>
+        </details>
+      </div>
 
       {loading && !data ? (
         <div className="space-y-3" role="status" aria-busy="true">
@@ -475,10 +495,26 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
       ) : (
         data && (
           <div className="space-y-5" aria-busy={loading}>
-            <p className="text-sm text-(--ws-muted)">
-              Periodo: {dateLabel(data.from)} — {dateLabel(data.to)} ·{' '}
-              {data.timeZone}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-(--ws-muted)">
+              <p>
+                Periodo: {dateLabel(data.from)} — {dateLabel(data.to)} ·{' '}
+                {data.timeZone}
+              </p>
+              <a
+                href="#compartir-con-cliente"
+                className="ws-chip hover:border-(--ws-primary)"
+              >
+                Visible en app:{' '}
+                {data.visibility.measurements || data.visibility.adherence
+                  ? [
+                      data.visibility.measurements && 'Medidas',
+                      data.visibility.adherence && 'Adherencia',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : 'Solo sus check-ins'}
+              </a>
+            </div>
             <div className="ws-stats">
               <AdherenceStat
                 title="Adherencia al entrenamiento"
@@ -558,7 +594,7 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
                       Check-ins del cliente, del más reciente al más antiguo.
                       Estrés, energía y hambre en escala de 1 (bajo) a 5 (alto).
                     </caption>
-                    <thead className="bg-(--ws-canvas)">
+                    <thead className="bg-(--ws-surface-2)">
                       <tr>
                         {[
                           'Fecha',
@@ -598,21 +634,67 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
                             {c.bodyWeightKg === null ? '—' : kg(c.bodyWeightKg)}
                           </td>
                           <td className="px-3 py-3 tabular-nums">
-                            {dash(c.sleepHours, ' h')}
+                            {c.sleepHours !== null && c.sleepHours < 6 ? (
+                              <span
+                                className="font-semibold text-(--ws-warn-fg)"
+                                title="Menos de 6 horas"
+                              >
+                                {dash(c.sleepHours, ' h')}
+                              </span>
+                            ) : (
+                              dash(c.sleepHours, ' h')
+                            )}
                           </td>
                           <td className="px-3 py-3 tabular-nums">
-                            {dash(c.stress, '/5')}
+                            {c.stress !== null && c.stress >= 4 ? (
+                              <span
+                                className="font-semibold text-(--ws-bad-fg)"
+                                title="Estrés alto"
+                              >
+                                {dash(c.stress, '/5')}
+                              </span>
+                            ) : (
+                              dash(c.stress, '/5')
+                            )}
                           </td>
                           <td className="px-3 py-3 tabular-nums">
-                            {dash(c.energy, '/5')}
+                            {c.energy !== null && c.energy <= 2 ? (
+                              <span
+                                className="font-semibold text-(--ws-warn-fg)"
+                                title="Energía baja"
+                              >
+                                {dash(c.energy, '/5')}
+                              </span>
+                            ) : c.energy !== null && c.energy >= 4 ? (
+                              <span
+                                className="font-semibold text-(--ws-ok-fg)"
+                                title="Energía alta"
+                              >
+                                {dash(c.energy, '/5')}
+                              </span>
+                            ) : (
+                              dash(c.energy, '/5')
+                            )}
                           </td>
                           <td className="px-3 py-3 tabular-nums">
                             {dash(c.hunger, '/5')}
                           </td>
                           <td className="px-3 py-3">
-                            {c.nutritionCompliance
-                              ? COMPLIANCE_LABEL[c.nutritionCompliance]
-                              : '—'}
+                            {c.nutritionCompliance ? (
+                              <Badge
+                                tone={
+                                  c.nutritionCompliance === 'completed'
+                                    ? 'ok'
+                                    : c.nutritionCompliance === 'partial'
+                                      ? 'warn'
+                                      : 'bad'
+                                }
+                              >
+                                {COMPLIANCE_LABEL[c.nutritionCompliance]}
+                              </Badge>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td className="max-w-80 px-3 py-3 break-words">
                             {c.comment ?? '—'}
@@ -657,7 +739,7 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
                             </h4>
                             <div className="overflow-x-auto rounded-lg border border-(--ws-border)">
                               <table className="w-full text-left text-sm">
-                                <thead className="bg-(--ws-canvas)">
+                                <thead className="bg-(--ws-surface-2)">
                                   <tr>
                                     {[
                                       'Serie',
@@ -691,7 +773,7 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
                                         {s.ordinal}
                                       </th>
                                       <td className="px-3 py-2 tabular-nums">
-                                        {prescribedLabel(s)}
+                                        {prescribedLabel(s, exercise.loadMode)}
                                       </td>
                                       <td className="px-3 py-2">
                                         {s.state === 'performed'
@@ -733,16 +815,18 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
                 </div>
               )}
             </Card>
-            <SharingCard
-              clientId={clientId}
-              data={data}
-              onSaved={(visibility) =>
-                setResult((r) =>
-                  r.data ? { ...r, data: { ...r.data, visibility } } : r
-                )
-              }
-              onRefresh={() => setAttempt((n) => n + 1)}
-            />
+            <div id="compartir-con-cliente" className="scroll-mt-6">
+              <SharingCard
+                clientId={clientId}
+                data={data}
+                onSaved={(visibility) =>
+                  setResult((r) =>
+                    r.data ? { ...r, data: { ...r.data, visibility } } : r
+                  )
+                }
+                onRefresh={() => setAttempt((n) => n + 1)}
+              />
+            </div>
           </div>
         )
       )}

@@ -33,6 +33,8 @@ export default function AssessmentForm({
   clientId,
   clientName,
   birthDate,
+  baseHeightCm = null,
+  previousEvaluations = [],
   onSaved,
   onQueued,
   onBusyChange,
@@ -40,6 +42,8 @@ export default function AssessmentForm({
   clientId: string;
   clientName: string;
   birthDate: string | null;
+  baseHeightCm?: number | null;
+  previousEvaluations?: Evaluation[];
   onSaved: (evaluation: Evaluation) => void;
   onQueued: (operation: Operation) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -70,6 +74,28 @@ export default function AssessmentForm({
   const sending = useRef(false);
   const dirty = useRef(false);
   const attempt = useRef<{ payload: string; id: string } | null>(null);
+  const lastMeasurements = (() => {
+    const out: Partial<Record<MeasurementField, number>> = {};
+    for (const item of previousEvaluations) {
+      for (const key of Object.keys(measurementFields) as MeasurementField[]) {
+        if (out[key] !== undefined) continue;
+        const fromAssessment = item.assessment?.measurements[key];
+        if (typeof fromAssessment === 'number') {
+          out[key] = fromAssessment;
+          continue;
+        }
+        const fromLegacy = (item as unknown as Record<string, unknown>)[key];
+        if (typeof fromLegacy === 'number') out[key] = fromLegacy;
+      }
+    }
+    return out;
+  })();
+  const lastSkinfoldEquation: 'male' | 'female' | null =
+    previousEvaluations
+      .map((item) => item.assessment?.equation)
+      .find(
+        (eq): eq is 'male' | 'female' => eq === 'male' || eq === 'female'
+      ) ?? null;
   useEffect(
     () =>
       guardNavigation(
@@ -241,13 +267,40 @@ export default function AssessmentForm({
       aria-busy={busy}
       className="space-y-6"
     >
-      <p className="text-sm text-(--ws-muted)">
-        {phase === 'saved'
-          ? 'Confirmada por el servidor'
-          : phase === 'queued'
-            ? 'Conservada localmente'
-            : 'Borrador de evaluación'}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--ws-border-subtle) bg-(--ws-surface-2) px-4 py-2.5 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-2 text-(--ws-muted)">
+          <span className="font-semibold text-(--ws-primary-fg)">
+            1. Método y fecha
+          </span>
+          <span aria-hidden="true">·</span>
+          <span
+            className={
+              Object.keys(measurements).length > 0
+                ? 'font-semibold text-(--ws-primary-fg)'
+                : ''
+            }
+          >
+            2. Mediciones ({Object.keys(measurements).length})
+          </span>
+          <span aria-hidden="true">·</span>
+          <span
+            className={
+              phase === 'saved' || phase === 'queued'
+                ? 'font-semibold text-(--ws-ok-fg)'
+                : ''
+            }
+          >
+            3. Revisión y guardado
+          </span>
+        </div>
+        <span className="text-(--ws-muted)">
+          {phase === 'saved'
+            ? 'Confirmada por el servidor'
+            : phase === 'queued'
+              ? 'Conservada localmente'
+              : 'Borrador de evaluación'}
+        </span>
+      </div>
       <fieldset disabled={locked}>
         <legend className="font-semibold mb-3">Metodología</legend>
         <div className="grid gap-3 lg:grid-cols-3">
@@ -258,6 +311,13 @@ export default function AssessmentForm({
               aria-pressed={method === item.id}
               onClick={() => {
                 setMethod(item.id);
+                if (
+                  item.id === 'pliegues' &&
+                  equation === 'not_applicable' &&
+                  lastSkinfoldEquation
+                ) {
+                  setEquation(lastSkinfoldEquation);
+                }
                 setErrors({});
                 setActive(null);
               }}
@@ -339,144 +399,249 @@ export default function AssessmentForm({
       </p>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(21rem,25.5rem)]">
         <div className="space-y-4">
-          {[
-            {
-              title: 'Datos generales de la evaluación',
-              fields: fieldsByMethod[method].filter((k) =>
-                ['weightKg', 'heightCm'].includes(k)
-              ),
-            },
-            {
-              title:
-                method === 'perimetros'
-                  ? 'Perímetros · cinta métrica'
-                  : method === 'pliegues'
-                    ? 'Pliegues · plicómetro'
-                    : 'Composición corporal · valores del equipo',
-              fields: fieldsByMethod[method].filter(
-                (k) => !['weightKg', 'heightCm'].includes(k)
-              ),
-            },
-          ].map((group) => (
-            <fieldset
-              key={group.title}
-              disabled={locked}
-              className="grid gap-5 rounded-xl border border-(--ws-border) p-5 sm:grid-cols-2"
-            >
-              <legend className="px-2 font-semibold">{group.title}</legend>
-              {group.fields.map((key) => {
-                const [label, unit, min, max] = measurementFields[key];
-                const required = requiredSkinfolds.includes(key);
-                return (
-                  <label key={key} className="block">
-                    {label} ({unit}){' '}
-                    <span
-                      aria-hidden={required || undefined}
-                      className={
-                        required
-                          ? 'text-xs font-semibold'
-                          : 'text-xs text-(--ws-muted)'
-                      }
-                    >
-                      {required ? 'obligatorio' : 'opcional'}
+          {(() => {
+            const renderField = (key: MeasurementField) => {
+              const [label, unit, min, max] = measurementFields[key];
+              const required = requiredSkinfolds.includes(key);
+              const previousValue = lastMeasurements[key];
+              const currentValue = draft[key] ?? '';
+              const parsedCurrent =
+                currentValue.trim() === '' ? NaN : Number(currentValue);
+              const liveDelta =
+                previousValue !== undefined && Number.isFinite(parsedCurrent)
+                  ? Number((parsedCurrent - previousValue).toFixed(1))
+                  : null;
+              return (
+                <label key={key} className="block">
+                  <span className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span>
+                      {label} ({unit}){' '}
+                      <span
+                        aria-hidden={required || undefined}
+                        className={
+                          required
+                            ? 'text-xs font-semibold text-(--ws-primary-fg)'
+                            : 'text-xs text-(--ws-muted)'
+                        }
+                      >
+                        {required ? 'obligatorio' : 'opcional'}
+                      </span>
                     </span>
-                    <input
-                      id={`assessment-${key}`}
-                      name={key}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      min={min}
-                      max={max}
-                      required={required}
-                      value={draft[key] ?? ''}
-                      onFocus={() => setActive(key)}
-                      onChange={(e) => {
-                        setDrafts((current) => ({
-                          ...current,
-                          [method]: {
-                            ...current[method],
-                            [key]: e.target.value,
-                          },
-                        }));
-                        setErrors({});
-                      }}
-                      aria-invalid={!!errors[key]}
-                      aria-describedby={
-                        errors[key] ? `assessment-error-${key}` : undefined
-                      }
-                      className="mt-1 min-h-11 block w-full rounded-lg border border-(--ws-border) bg-(--ws-surface) p-2"
-                    />
-                    {errors[key] && (
-                      <span id={`assessment-error-${key}`} role="alert">
-                        {errors[key]}
+                    {previousValue !== undefined && (
+                      <span className="text-xs font-normal text-(--ws-muted) tabular-nums">
+                        Última: {previousValue} {unit}
+                        {liveDelta !== null && (
+                          <span className="ml-1 font-semibold text-(--ws-text-2)">
+                            (
+                            {liveDelta > 0
+                              ? `+${liveDelta}`
+                              : liveDelta === 0
+                                ? '0'
+                                : `−${Math.abs(liveDelta)}`}{' '}
+                            {unit})
+                          </span>
+                        )}
                       </span>
                     )}
-                  </label>
-                );
-              })}
-            </fieldset>
-          ))}
-          {method === 'bioimpedancia' && (
-            <fieldset disabled={locked} className="space-y-3">
-              <legend className="font-semibold">
-                Segmentos opcionales · valores homogéneos en kg
-              </legend>
-              <label>
-                Tipo de medición
-                <select
-                  value={segmentType}
-                  onChange={(e) => {
-                    const next = e.target.value as typeof segmentType;
-                    void (async () => {
-                      if (
-                        Object.values(segments).some(Boolean) &&
-                        !(await confirmDialog({
-                          title: '¿Cambiar el tipo de medición segmental?',
-                          message:
-                            'Los valores anteriores se borrarán para evitar reinterpretar masa muscular como masa grasa.',
-                          confirmLabel: 'Cambiar y vaciar valores',
-                        }))
-                      )
-                        return;
-                      setSegments({});
-                      setSegmentType(next);
-                    })();
-                  }}
-                  className="block min-h-11 border rounded-lg p-2"
+                  </span>
+                  <input
+                    id={`assessment-${key}`}
+                    name={key}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    min={min}
+                    max={max}
+                    required={required}
+                    value={currentValue}
+                    onFocus={() => setActive(key)}
+                    onChange={(e) => {
+                      setDrafts((current) => ({
+                        ...current,
+                        [method]: {
+                          ...current[method],
+                          [key]: e.target.value,
+                        },
+                      }));
+                      setErrors({});
+                    }}
+                    aria-invalid={!!errors[key]}
+                    aria-describedby={
+                      errors[key] ? `assessment-error-${key}` : undefined
+                    }
+                    className="mt-1 block min-h-11 w-full rounded-lg border border-(--ws-border) bg-(--ws-surface) p-2"
+                  />
+                  {key === 'heightCm' &&
+                    baseHeightCm !== null &&
+                    !currentValue.trim() && (
+                      <button
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          dirty.current = true;
+                          setDrafts((current) => ({
+                            ...current,
+                            [method]: {
+                              ...current[method],
+                              heightCm: String(baseHeightCm),
+                            },
+                          }));
+                          setErrors({});
+                        }}
+                        className="mt-1.5 text-xs font-semibold text-(--ws-primary-fg) underline"
+                      >
+                        Usar estatura del expediente ({baseHeightCm} cm)
+                      </button>
+                    )}
+                  {errors[key] && (
+                    <span id={`assessment-error-${key}`} role="alert">
+                      {errors[key]}
+                    </span>
+                  )}
+                </label>
+              );
+            };
+
+            const generalFields = fieldsByMethod[method].filter((k) =>
+              ['weightKg', 'heightCm'].includes(k)
+            );
+            const methodFields = fieldsByMethod[method].filter(
+              (k) => !['weightKg', 'heightCm'].includes(k)
+            );
+            const methodTitle =
+              method === 'perimetros'
+                ? 'Perímetros · cinta métrica'
+                : method === 'pliegues'
+                  ? 'Pliegues · plicómetro'
+                  : 'Composición corporal · valores del equipo';
+
+            const showSplitSkinfolds =
+              method === 'pliegues' && requiredSkinfolds.length > 0;
+            const optionalSkinfolds = showSplitSkinfolds
+              ? methodFields.filter((k) => !requiredSkinfolds.includes(k))
+              : [];
+
+            return (
+              <>
+                <fieldset
+                  disabled={locked}
+                  className="grid gap-5 rounded-xl border border-(--ws-border) p-5 sm:grid-cols-2"
                 >
-                  <option value="muscle_mass">Masa muscular</option>
-                  <option value="fat_mass">Masa grasa</option>
-                </select>
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ['leftArm', 'Brazo izquierdo'],
-                  ['rightArm', 'Brazo derecho'],
-                  ['trunk', 'Tronco'],
-                  ['leftLeg', 'Pierna izquierda'],
-                  ['rightLeg', 'Pierna derecha'],
-                ].map(([key, label]) => (
-                  <label key={key}>
-                    {label} (kg)
-                    <input
-                      type="number"
-                      min="0.1"
-                      step="0.1"
-                      className="block w-full min-h-11 rounded-lg border p-2"
-                      value={segments[key] ?? ''}
-                      onChange={(e) =>
-                        setSegments((v) => ({ ...v, [key]: e.target.value }))
-                      }
-                    />
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs">
-                Solo transcribe masas en kg del mismo tipo; índices y
-                porcentajes segmentales no son compatibles con esta captura.
-              </p>
-            </fieldset>
+                  <legend className="px-2 font-semibold">
+                    Datos generales de la evaluación
+                  </legend>
+                  {generalFields.map(renderField)}
+                </fieldset>
+                <fieldset
+                  disabled={locked}
+                  className="space-y-4 rounded-xl border border-(--ws-border) p-5"
+                >
+                  <legend className="px-2 font-semibold">{methodTitle}</legend>
+                  {showSplitSkinfolds ? (
+                    <>
+                      <div className="ws-skinfold-required space-y-3">
+                        <p className="text-xs font-semibold text-(--ws-primary-fg)">
+                          Pliegues obligatorios para la ecuación (3)
+                        </p>
+                        <div className="grid gap-5 sm:grid-cols-2">
+                          {requiredSkinfolds.map(renderField)}
+                        </div>
+                      </div>
+                      <details
+                        className="ws-skinfold-optional"
+                        open={optionalSkinfolds.some((k) =>
+                          Boolean(draft[k]?.trim())
+                        )}
+                      >
+                        <summary className="cursor-pointer text-xs font-medium text-(--ws-muted)">
+                          Pliegues complementarios (opcionales ·{' '}
+                          {optionalSkinfolds.length} campos)
+                        </summary>
+                        <div className="mt-3 grid gap-5 sm:grid-cols-2">
+                          {optionalSkinfolds.map(renderField)}
+                        </div>
+                      </details>
+                    </>
+                  ) : (
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      {methodFields.map(renderField)}
+                    </div>
+                  )}
+                </fieldset>
+              </>
+            );
+          })()}
+          {method === 'bioimpedancia' && (
+            <details
+              className="rounded-xl border border-(--ws-border) p-4"
+              open={Object.values(segments).some(Boolean)}
+            >
+              <summary className="cursor-pointer font-semibold">
+                Segmentos opcionales · valores en kg (5 segmentos)
+              </summary>
+              <fieldset
+                disabled={locked}
+                className="mt-3 space-y-3 border-0! bg-transparent! p-0!"
+              >
+                <legend className="sr-only">
+                  Segmentos opcionales · valores homogéneos en kg
+                </legend>
+                <label>
+                  Tipo de medición
+                  <select
+                    value={segmentType}
+                    onChange={(e) => {
+                      const next = e.target.value as typeof segmentType;
+                      void (async () => {
+                        if (
+                          Object.values(segments).some(Boolean) &&
+                          !(await confirmDialog({
+                            title: '¿Cambiar el tipo de medición segmental?',
+                            message:
+                              'Los valores anteriores se borrarán para evitar reinterpretar masa muscular como masa grasa.',
+                            confirmLabel: 'Cambiar y vaciar valores',
+                          }))
+                        )
+                          return;
+                        setSegments({});
+                        setSegmentType(next);
+                      })();
+                    }}
+                    className="block min-h-11 border rounded-lg p-2"
+                  >
+                    <option value="muscle_mass">Masa muscular</option>
+                    <option value="fat_mass">Masa grasa</option>
+                  </select>
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['leftArm', 'Brazo izquierdo'],
+                    ['rightArm', 'Brazo derecho'],
+                    ['trunk', 'Tronco'],
+                    ['leftLeg', 'Pierna izquierda'],
+                    ['rightLeg', 'Pierna derecha'],
+                  ].map(([key, label]) => (
+                    <label key={key}>
+                      {label} (kg)
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        className="block w-full min-h-11 rounded-lg border p-2"
+                        value={segments[key] ?? ''}
+                        onChange={(e) =>
+                          setSegments((v) => ({ ...v, [key]: e.target.value }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-(--ws-muted)">
+                  Solo transcribe masas en kg del mismo tipo; índices y
+                  porcentajes segmentales no son compatibles con esta captura.
+                </p>
+              </fieldset>
+            </details>
           )}
         </div>
         <aside className="space-y-5 xl:sticky xl:top-4">
@@ -504,52 +669,64 @@ export default function AssessmentForm({
         </aside>
       </div>
       {errors.form && (
-        <p role="alert" className="ws-alert" data-tone="danger">
+        <p role="alert" className="ws-alert" data-tone="bad">
           {errors.form}
         </p>
       )}
       <div aria-live="polite" className="space-y-3">
         {phase === 'validating' && <p role="status">Validando los campos…</p>}
         {phase === 'saving' && (
-          <div role="status">
-            <p>Guardando · esperando confirmación del servidor…</p>
+          <div role="status" className="ws-alert space-y-2" data-tone="info">
+            <p className="font-medium">
+              Guardando evaluación en el expediente…
+            </p>
             <progress
               aria-label="Guardando evaluación"
               className="w-full max-w-md"
             />
             <p className="text-sm">
-              Se comprueban sesión, CSRF y persistencia. Si no hay confirmación
-              en 20 segundos, se intentará conservar esta misma operación en la
-              cola local.
+              Si no hay confirmación de red, intentaremos conservar esta
+              evaluación localmente para sincronizarla después.
             </p>
           </div>
         )}
         {phase === 'saved' && (
-          <p role="status" className="ws-alert" data-tone="success">
-            La evaluación se guardó correctamente. El servidor confirmó la
-            persistencia.
-          </p>
+          <div role="status" className="ws-alert space-y-2" data-tone="ok">
+            <p className="font-semibold">
+              La evaluación se guardó correctamente. El servidor confirmó la
+              persistencia.
+            </p>
+            <p className="text-sm">
+              Puedes revisar la gráfica de evolución, abrir el historial o
+              capturar otra medición con otro método.
+            </p>
+          </div>
         )}
         {phase === 'queued' && (
-          <div role="status" className="ws-alert" data-tone="warn">
-            <p>
+          <div role="status" className="ws-alert space-y-2" data-tone="warn">
+            <p className="font-semibold">
               {queuedOperation?.state === 'failed'
                 ? 'Operación fallida: requiere atención y no está confirmada.'
                 : queuedOperation
                   ? 'Evaluación pendiente de sincronización: guardada en este dispositivo, todavía no confirmada por el servidor.'
                   : 'La operación ya no figura en la bandeja local. Consulta el historial para comprobar el resultado confirmado.'}
               {queuedOperation?.error && (
-                <span className="block">{queuedOperation.error}</span>
+                <span className="mt-1 block font-normal">
+                  {queuedOperation.error}
+                </span>
               )}
             </p>
-            <p>
+            <p className="text-sm">
               La fecha de creación se asignará al aceptarla el servidor; la
               fecha efectiva capturada se conserva.
             </p>
-            <p className="break-all">
-              Operación: <code>{operationId}</code>
-            </p>
-            <Link to="/app/pendientes" className="underline">
+            <details className="text-xs">
+              <summary className="cursor-pointer">Detalle técnico</summary>
+              <p className="mt-1 break-all">
+                Operación: <code>{operationId}</code>
+              </p>
+            </details>
+            <Link to="/app/pendientes" className="ws-btn">
               Revisar pendientes
             </Link>
           </div>
@@ -562,7 +739,7 @@ export default function AssessmentForm({
           </p>
         )}
         {phase === 'uncertain' && (
-          <p role="alert">
+          <p role="alert" className="ws-alert" data-tone="warn">
             Resultado incierto. Reintentar comprobará la misma operación, sin
             crear una nueva. Las mediciones se mantienen bloqueadas para
             conservar esa identidad.
@@ -584,8 +761,40 @@ export default function AssessmentForm({
                 : 'Guardar evaluación'}
           </button>
         )}
+        {phase === 'saved' && (
+          <>
+            <Link
+              to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion#evolucion-antropometrica`}
+              className="ws-btn min-h-11"
+              data-variant="primary"
+            >
+              Ver evolución
+            </Link>
+            <Link
+              to={`/app/clientes/${encodeURIComponent(clientId)}/nutricion`}
+              className="ws-btn min-h-11"
+            >
+              Ir a Nutrición
+            </Link>
+            <button
+              type="button"
+              className="ws-btn min-h-11"
+              onClick={() => {
+                setConfirmed(null);
+                setOperationId('');
+                attempt.current = null;
+                setDrafts((current) => ({ ...current, [method]: {} }));
+                if (method === 'bioimpedancia') setSegments({});
+                setPhase('draft');
+                setErrors({});
+              }}
+            >
+              Registrar otra evaluación
+            </button>
+          </>
+        )}
         <Link
-          to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion`}
+          to={`/app/clientes/${encodeURIComponent(clientId)}/evaluacion#historial`}
           className="ws-btn min-h-11"
         >
           Volver al historial

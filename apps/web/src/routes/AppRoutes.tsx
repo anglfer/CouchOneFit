@@ -25,23 +25,22 @@ export default function AppRoutes(): ReactElement {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f9fd] text-slate-900 flex flex-col items-center justify-center p-6 text-center">
-      <LogoMark size={120} title="CouchOne Fit" className="mb-8" />
-      <span className="px-3.5 py-1 rounded-full text-xs font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 uppercase mb-3">
-        404
-      </span>
-      <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
-        Esta página no está disponible.
-      </h1>
-      <p className="text-sm sm:text-base text-slate-500 max-w-md mx-auto mb-8">
-        Vuelve al inicio para conocer CouchOne Fit y el estado del producto.
-      </p>
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-md shadow-indigo-600/25 transition-all"
-      >
-        Volver al inicio <Icon name="arrow-right" size={14} />
-      </Link>
+    <main className="ws-auth-shell items-center justify-center p-6 text-center">
+      <div className="ws-auth-card max-w-md space-y-4 p-8">
+        <LogoMark size={96} title="CouchOne Fit" className="mx-auto" />
+        <span className="ws-badge mx-auto" data-tone="info">
+          Error 404
+        </span>
+        <h1 className="text-2xl font-extrabold tracking-tight text-(--ws-text) sm:text-3xl">
+          Esta página no está disponible.
+        </h1>
+        <p className="text-sm text-(--ws-muted)">
+          Vuelve al inicio para conocer CouchOne Fit y continuar en tu espacio.
+        </p>
+        <Link to="/" className="ws-btn min-h-11 w-full" data-variant="primary">
+          Volver al inicio <Icon name="arrow-right" size={14} />
+        </Link>
+      </div>
     </main>
   );
 }

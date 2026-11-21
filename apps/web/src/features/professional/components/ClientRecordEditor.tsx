@@ -223,68 +223,96 @@ export default function ClientRecordEditor({
     }
   }
   return (
-    <form aria-label="Editar datos base" onSubmit={save} className="space-y-3">
-      <h2 className="font-bold">Editar datos base y objetivo</h2>
-      <p>
-        Estos datos base no modifican evaluaciones fechadas ni registros
-        históricos.
-      </p>
+    <form
+      aria-label="Editar datos base"
+      onSubmit={save}
+      className="ws-card space-y-5"
+    >
+      <div>
+        <h2 className="ws-card-title text-lg!">Editar datos base y objetivo</h2>
+        <p className="mt-1 text-sm text-(--ws-muted)">
+          Estos datos base no modifican evaluaciones fechadas ni registros
+          históricos.
+        </p>
+      </div>
       {base.birthDate === null && (
-        <p>
+        <p className="ws-alert" data-tone="warn">
           Expediente anterior incompleto. Al completar fecha, estatura o peso,
           completa los tres datos.
         </p>
       )}
-      {fields.map(([key, label, type]) =>
-        key === 'goal' ? (
-          <GoalField
-            key={key}
-            value={draft.goal}
-            disabled={busy}
-            onChange={(value) => setDraft((prev) => ({ ...prev, goal: value }))}
-            error={errors.goal}
-            errorId="edit-goal-error"
-            className="block border rounded p-2"
-          />
-        ) : (
-          <label className="block" key={key}>
-            {label}
-            <input
-              className="block border rounded p-2"
-              type={type}
-              step={type === 'number' ? '0.1' : undefined}
-              disabled={busy}
-              value={draft[key]}
-              aria-invalid={!!errors[key]}
-              aria-describedby={errors[key] ? `edit-${key}-error` : undefined}
-              min={ranges[key]?.[0]}
-              max={ranges[key]?.[1]}
-              onChange={(event) =>
-                setDraft((value) => ({ ...value, [key]: event.target.value }))
-              }
-            />
-            {errors[key] && (
-              <span id={`edit-${key}-error`} role="alert">
-                {errors[key]}
-              </span>
-            )}
-          </label>
-        )
+      <div className="grid gap-4 sm:grid-cols-2">
+        {fields.map(([key, label, type]) =>
+          key === 'goal' ? (
+            <div key={key} className="sm:col-span-2">
+              <GoalField
+                value={draft.goal}
+                disabled={busy}
+                onChange={(value) =>
+                  setDraft((prev) => ({ ...prev, goal: value }))
+                }
+                error={errors.goal}
+                errorId="edit-goal-error"
+                className="ws-input mt-1 block w-full min-h-11"
+              />
+            </div>
+          ) : (
+            <label
+              className={key === 'fullName' ? 'block sm:col-span-2' : 'block'}
+              key={key}
+            >
+              {label}
+              <input
+                className="ws-input mt-1 block w-full min-h-11"
+                type={type}
+                step={type === 'number' ? '0.1' : undefined}
+                disabled={busy}
+                value={draft[key]}
+                aria-invalid={!!errors[key]}
+                aria-describedby={errors[key] ? `edit-${key}-error` : undefined}
+                min={ranges[key]?.[0]}
+                max={ranges[key]?.[1]}
+                onChange={(event) =>
+                  setDraft((value) => ({ ...value, [key]: event.target.value }))
+                }
+              />
+              {errors[key] && (
+                <span id={`edit-${key}-error`} role="alert">
+                  {errors[key]}
+                </span>
+              )}
+            </label>
+          )
+        )}
+      </div>
+      {message && (
+        <p
+          role="status"
+          className="ws-alert"
+          data-tone={blocked || Object.keys(errors).length ? 'bad' : 'info'}
+        >
+          {message}
+        </p>
       )}
-      {message && <p role="status">{message}</p>}
       {current && (
-        <section aria-label="Comparar versión actual" className="border p-3">
-          <h3>Versión actual: {current.version}</h3>
-          <dl>
+        <section
+          aria-label="Comparar versión actual"
+          className="space-y-3 rounded-xl border border-(--ws-border) bg-(--ws-surface-2) p-4"
+        >
+          <h3 className="font-semibold">Versión actual: {current.version}</h3>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
             {fields.map(([key, label]) => (
-              <div key={key}>
-                <dt>{label}</dt>
-                <dd>{current[key] ?? 'Sin registrar'}</dd>
+              <div key={key} className="flex justify-between gap-2">
+                <dt className="text-(--ws-muted)">{label}</dt>
+                <dd className="font-medium">
+                  {current[key] ?? 'Sin registrar'}
+                </dd>
               </div>
             ))}
           </dl>
           <button
             type="button"
+            className="ws-btn"
             disabled={busy}
             onClick={() => {
               const previous = draftOf(base),
@@ -310,15 +338,32 @@ export default function ClientRecordEditor({
           </button>
         </section>
       )}
-      <button disabled={busy || blocked} type="submit">
-        {busy ? 'Procesando…' : 'Guardar cambios'}
-      </button>
-      <button disabled={busy} type="button" onClick={() => void compare()}>
-        Consultar estado actual
-      </button>
-      <button disabled={busy} type="button" onClick={onCancel}>
-        Cancelar edición
-      </button>
+      <div className="flex flex-wrap items-center gap-3 border-t border-(--ws-border) pt-4">
+        <button
+          className="ws-btn"
+          data-variant="primary"
+          disabled={busy || blocked}
+          type="submit"
+        >
+          {busy ? 'Procesando…' : 'Guardar cambios'}
+        </button>
+        <button
+          className="ws-btn"
+          disabled={busy}
+          type="button"
+          onClick={() => void compare()}
+        >
+          Consultar estado actual
+        </button>
+        <button
+          className="ws-btn"
+          disabled={busy}
+          type="button"
+          onClick={onCancel}
+        >
+          Cancelar edición
+        </button>
+      </div>
     </form>
   );
 }

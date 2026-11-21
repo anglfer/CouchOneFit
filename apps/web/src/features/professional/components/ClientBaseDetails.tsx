@@ -18,13 +18,10 @@ export default function ClientBaseDetails({
   const value = (number: number | null, unit: string) =>
     number === null ? 'Sin registrar' : `${number} ${unit}`;
   const items: Array<[string, string]> = [
-    ['Estado', record.status === 'active' ? 'Activo' : 'Inactivo'],
     [
       'Fecha de nacimiento',
       record.birthDate ? calendarDate(record.birthDate) : 'Sin registrar',
     ],
-    ['Estatura', value(record.heightCm, 'cm')],
-    ['Peso base', value(record.baseWeightKg, 'kg')],
     ['Grasa medida base', value(record.baseBodyFatPercentage, '%')],
     ...(currentFat
       ? ([
@@ -36,7 +33,6 @@ export default function ClientBaseDetails({
       : []),
     ['Cintura inicial', value(record.waistCm, 'cm')],
     ['Cadera inicial', value(record.hipCm, 'cm')],
-    ['Objetivo', record.goal ?? 'Sin registrar'],
   ];
   return (
     <>

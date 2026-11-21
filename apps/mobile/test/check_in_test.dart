@@ -421,4 +421,22 @@ void main() {
     expect(find.text('Check-in de hoy'), findsOneWidget);
     expect(find.text('Alimentación de hoy'), findsOneWidget);
   });
+
+  testWidgets('dark theme selected scale button uses AA nightAction fill',
+      (tester) async {
+    final s = service((request) async =>
+        ApiHttpResponse(statusCode: 200, body: saved(request.body!)));
+    await tester.pumpWidget(MaterialApp(
+        theme: mobileTheme(Brightness.dark),
+        home: CheckInScreen(
+            service: s, initial: CheckInContext(contextFixture()))));
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.bySemanticsLabel('Energía 4 de 5, Alta'));
+    await tester.pumpAndSettle();
+    final button = tester.widget<TextButton>(find.descendant(
+        of: find.bySemanticsLabel('Energía 4 de 5, Alta'),
+        matching: find.byType(TextButton)));
+    expect(button.style?.backgroundColor?.resolve({}), BrandColors.nightAction);
+    expect(button.style?.foregroundColor?.resolve({}), Colors.white);
+  });
 }

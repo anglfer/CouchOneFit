@@ -159,9 +159,20 @@ export async function catalogFacts(c: PoolClient, ids: string[]) {
   const {rows} = ids.length ? await c.query('SELECT id,body_part,muscles,equipment FROM private.training_exercise_catalog WHERE id=ANY($1)',[ids]) : {rows:[]}
   return new Map<string,{bodyPart:string,muscles:string[],equipment:string[]}>(rows.map(r=>[r.id,{bodyPart:r.body_part,muscles:r.muscles,equipment:r.equipment}]))
 }
-export async function catalog(c: PoolClient, search: string, muscle: string, equipment: string, offset: number) {
+export async function catalog(c: PoolClient, searchPatterns: string[], muscle: string, equipment: string, offset: number) {
   const {rows} = await c.query(`SELECT id,name,body_part AS "bodyPart",muscles,equipment,guidance,images,selectable FROM private.training_exercise_catalog
-    WHERE selectable AND ($1='' OR name ILIKE '%'||$1||'%') AND ($2='' OR muscles ? $2 OR body_part=$2) AND ($3='' OR equipment ? $3) ORDER BY name,id LIMIT 41 OFFSET $4`,[search,muscle,equipment,offset])
+    WHERE selectable
+      AND (
+        cardinality($1::text[]) = 0
+        OR name ILIKE ANY($1::text[])
+        OR body_part ILIKE ANY($1::text[])
+        OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(muscles) m WHERE m ILIKE ANY($1::text[]))
+        OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(equipment) eq WHERE eq ILIKE ANY($1::text[]))
+      )
+      AND ($2='' OR muscles ? $2 OR body_part=$2)
+      AND ($3='' OR equipment ? $3)
+    ORDER BY CASE WHEN cardinality($1::text[]) > 0 AND name ILIKE ANY($1::text[]) THEN 0 ELSE 1 END, name, id
+    LIMIT 41 OFFSET $4`,[searchPatterns,muscle,equipment,offset])
   const {rows:[filters]}=await c.query(`SELECT (SELECT COALESCE(jsonb_agg(x ORDER BY x),'[]') FROM (SELECT DISTINCT jsonb_array_elements_text(muscles) x FROM private.training_exercise_catalog WHERE selectable) m) muscles,
     (SELECT COALESCE(jsonb_agg(x ORDER BY x),'[]') FROM (SELECT DISTINCT jsonb_array_elements_text(equipment) x FROM private.training_exercise_catalog WHERE selectable) e) equipment`)
   return {exercises:rows.slice(0,40),nextOffset:rows.length>40?offset+40:null,filters,attribution:'© Gym visual — https://gymvisual.com/'}

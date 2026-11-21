@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/utils/friendly_date.dart';
 import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
 import '../../../shared/widgets/notice_banner.dart';
@@ -68,6 +69,7 @@ class _ClientShellState extends State<ClientShell> {
   CheckInContext? _checkIn;
   String? _checkInError;
   bool _checkInLoading = true;
+  double? _lastKnownWeight;
 
   // Live workout kept mounted while minimized, until it is finalized.
   Widget? _session;
@@ -147,7 +149,12 @@ class _ClientShellState extends State<ClientShell> {
       if (data.clientId != widget.profile.id) {
         throw const FormatException('Cuenta distinta');
       }
-      setState(() => _checkIn = data);
+      setState(() {
+        _checkIn = data;
+        if (data.checkIn?.bodyWeightKg != null) {
+          _lastKnownWeight = data.checkIn!.bodyWeightKg;
+        }
+      });
     } catch (error) {
       if (!mounted || epoch != _epoch) return;
       setState(() {
@@ -172,9 +179,15 @@ class _ClientShellState extends State<ClientShell> {
       final saved = await Navigator.push<CheckIn>(
           context,
           MaterialPageRoute(
-              builder: (_) =>
-                  CheckInScreen(service: _checkInService, initial: data)));
+              builder: (_) => CheckInScreen(
+                    service: _checkInService,
+                    initial: data,
+                    previousWeightKg: _lastKnownWeight,
+                  )));
       if (saved == null || !mounted) return;
+      if (saved.bodyWeightKg != null) {
+        _lastKnownWeight = saved.bodyWeightKg;
+      }
       // Inicio reflects the check-in only after the server confirmed it.
       messenger
         ..hideCurrentSnackBar()
@@ -278,6 +291,9 @@ class _ClientShellState extends State<ClientShell> {
             history: _history,
             settings: _settings.value,
             onShowProgress: () => setState(() => _selected = 2),
+            onOpenCheckIn: _checkIn?.checkIn == null && data.canWrite
+                ? () => _openCheckIn(data.today)
+                : null,
             onMinimize: () => setState(() => _minimized = true),
             onClose: _closeSession);
       });
@@ -406,8 +422,31 @@ class _ClientShellState extends State<ClientShell> {
                     ]))));
   }
 
-  void _showDay(TrainingDay day) => Navigator.push(context,
-      MaterialPageRoute<void>(builder: (_) => TrainingDayScreen(day: day)));
+  void _showDay(TrainingDay day) {
+    final data = _data;
+    final isToday = data != null &&
+        data.plan?.dayFor(data.today)?.id == day.id &&
+        day.kind == 'training' &&
+        _canLog;
+    final session = isToday ? _history?.on(data.today) : null;
+    final label = session == null
+        ? 'Empezar entrenamiento'
+        : session.status == 'draft'
+            ? 'Continuar entrenamiento'
+            : 'Ver o corregir registro';
+    Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+            builder: (_) => TrainingDayScreen(
+                day: day,
+                startLabel: label,
+                onStart: isToday
+                    ? () {
+                        Navigator.pop(context);
+                        _openSession(data.today);
+                      }
+                    : null)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +507,7 @@ class _ClientShellState extends State<ClientShell> {
                                       key: PageStorageKey(
                                           'client-tab-$_selected'),
                                       padding: EdgeInsets.fromLTRB(
-                                          gutter, 16, gutter, 44),
+                                          gutter, 16, gutter, 96),
                                       physics:
                                           const AlwaysScrollableScrollPhysics(),
                                       children: [
@@ -653,17 +692,47 @@ class _ClientShellState extends State<ClientShell> {
             failed: _historyFailed && !_loading,
             today: today,
             onRetry: _load,
-            service: widget.service),
-        FollowUpProgress(key: ValueKey(_epoch), service: _checkInService),
+            service: widget.service,
+            overviewFooter: FollowUpProgress(
+                key: ValueKey(_epoch), service: _checkInService)),
       ]);
     }
+    final homeErrors = [
+      if (_error != null) 1,
+      if (_checkInError != null && _checkIn == null) 1,
+      if (_nutritionError != null && _nutritionPlan == null) 1,
+    ].length;
+    final unifyHomeErrors = _selected == 0 && homeErrors >= 2;
+    final showTopCheckIn = _selected == 0 &&
+        data == null &&
+        (_checkIn != null || (!unifyHomeErrors && _checkInError != null));
+    final homeDailySlot = (_selected == 0 && data != null)
+        ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (_checkIn != null || (!unifyHomeErrors && _checkInError != null))
+              CheckInCard(
+                  context_: _checkIn,
+                  loading: _checkInLoading,
+                  error: unifyHomeErrors ? null : _checkInError,
+                  onOpen: _openCheckIn,
+                  onRetry: _loadCheckIn),
+            _homeNutritionCard(context, suppressError: unifyHomeErrors),
+          ])
+        : null;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       header,
-      if (_selected == 0 && (_checkIn != null || _checkInError != null)) ...[
+      if (unifyHomeErrors) ...[
+        NoticeBanner(
+            text:
+                'No pudimos cargar tu información de hoy. Revisa tu conexión.',
+            tone: NoticeTone.error,
+            onRetry: _loading ? null : _load),
+        const SizedBox(height: 12),
+      ],
+      if (showTopCheckIn) ...[
         CheckInCard(
             context_: _checkIn,
             loading: _checkInLoading,
-            error: _checkInError,
+            error: unifyHomeErrors ? null : _checkInError,
             onOpen: _openCheckIn,
             onRetry: _loadCheckIn),
         const SizedBox(height: 14),
@@ -671,7 +740,7 @@ class _ClientShellState extends State<ClientShell> {
       if (_loading && data == null)
         const _LoadingCard()
       else ...[
-        if (_error != null)
+        if (_error != null && !unifyHomeErrors)
           NoticeBanner(
               text: _error!,
               tone: NoticeTone.error,
@@ -681,7 +750,7 @@ class _ClientShellState extends State<ClientShell> {
               icon: Icons.cloud_off_outlined,
               tone: NoticeTone.warning,
               text:
-                  'Lectura guardada · actualizada ${_cachedAt!.toLocal().toString().substring(0, 16)}. Conéctate para actualizar o registrar series.'),
+                  'Lectura guardada · actualizada ${friendlySavedAt(_cachedAt!)}. Conéctate para actualizar o registrar series.'),
         if (data != null && plan != null && !data.canWrite)
           const NoticeBanner(
               icon: Icons.pause_circle_outline_rounded,
@@ -695,7 +764,8 @@ class _ClientShellState extends State<ClientShell> {
               opening: _opening,
               onStart: _openSession,
               onShowDay: _showDay,
-              onOpenProgress: () => setState(() => _selected = 2)),
+              onOpenProgress: () => setState(() => _selected = 2),
+              dailySlot: homeDailySlot),
         if (data != null && _selected == 1)
           PlansTab(
             plan: plan,
@@ -710,14 +780,17 @@ class _ClientShellState extends State<ClientShell> {
             onSectionChanged: (v) => setState(() => _plansNutrition = v),
           ),
       ],
-      if (_selected == 0) _homeNutritionCard(context),
+      if (_selected == 0 && data == null)
+        _homeNutritionCard(context, suppressError: unifyHomeErrors),
     ]);
   }
 
   /// HU-035: independent nutrition summary on Inicio (works even if training fails).
-  Widget _homeNutritionCard(BuildContext context) {
+  Widget _homeNutritionCard(BuildContext context,
+      {bool suppressError = false}) {
     final colors = Theme.of(context).colorScheme;
     if (_nutritionError != null && _nutritionPlan == null) {
+      if (suppressError) return const SizedBox.shrink();
       return Padding(
           padding: const EdgeInsets.only(top: 12),
           child: NoticeBanner(
@@ -794,7 +867,7 @@ class _ClientShellState extends State<ClientShell> {
                       if (_nutritionCachedAt != null) ...[
                         const SizedBox(height: 6),
                         Text(
-                            'Lectura guardada · ${_nutritionCachedAt!.toLocal().toString().substring(0, 16)}',
+                            'Lectura guardada · ${friendlySavedAt(_nutritionCachedAt!)}',
                             style: TextStyle(
                                 fontSize: 12, color: colors.onSurfaceVariant)),
                       ],

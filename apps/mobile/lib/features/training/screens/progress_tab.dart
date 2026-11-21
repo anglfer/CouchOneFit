@@ -23,7 +23,8 @@ class ProgressTab extends StatefulWidget {
       required this.failed,
       required this.today,
       required this.onRetry,
-      this.service});
+      this.service,
+      this.overviewFooter});
   final TrainingHistory? history;
   final bool failed;
   final String today;
@@ -31,13 +32,16 @@ class ProgressTab extends StatefulWidget {
 
   /// Lets the full history screen load more pages.
   final TrainingService? service;
+
+  /// Optional extra section shown under the Resumen overview tab only.
+  final Widget? overviewFooter;
   @override
   State<ProgressTab> createState() => _ProgressTabState();
 }
 
 enum _Analysis { balance, recovery, strength }
 
-enum _ProgressSection { overview, muscles, lifts, sessions }
+enum _ProgressSection { overview, body, muscles, lifts }
 
 class _ProgressTabState extends State<ProgressTab> {
   bool _volume = false;
@@ -67,20 +71,21 @@ class _ProgressTabState extends State<ProgressTab> {
     final exercises = exerciseProgress(h);
     final showOverview = _section == _ProgressSection.overview;
     if (h.sessions.isEmpty) {
-      return const [
-        StatusView(
+      return [
+        const StatusView(
             icon: Icons.insights_outlined,
             title: 'Aún no hay entrenamientos registrados',
             message:
                 'Cuando registres tu primera sesión verás aquí tu progreso.'),
+        if (widget.overviewFooter != null) widget.overviewFooter!,
       ];
     }
     return [
       ChoiceBar<_ProgressSection>(options: const [
         (_ProgressSection.overview, 'Resumen'),
+        (_ProgressSection.body, 'Cuerpo'),
         (_ProgressSection.muscles, 'Músculos'),
         (_ProgressSection.lifts, 'Ejercicios'),
-        (_ProgressSection.sessions, 'Sesiones'),
       ], selected: _section, onChanged: (v) => setState(() => _section = v)),
       const SizedBox(height: 14),
       if (showOverview) ...[
@@ -113,6 +118,13 @@ class _ProgressTabState extends State<ProgressTab> {
         const SizedBox(height: 12),
         _activity(context, h),
       ],
+      if (_section == _ProgressSection.body) ...[
+        widget.overviewFooter ??
+            const NoticeBanner(
+                icon: Icons.monitor_weight_outlined,
+                text:
+                    'Tu seguimiento corporal y evaluaciones compartidas aparecerán aquí.'),
+      ],
       if (showOverview || _section == _ProgressSection.muscles) ...[
         if (showOverview) const SizedBox(height: 12),
         _analysisCard(context, h, exercises),
@@ -123,10 +135,10 @@ class _ProgressTabState extends State<ProgressTab> {
         const SectionTitle('Tus ejercicios'),
         const SizedBox(height: 10),
         GroupCard(children: [
-          for (final e in exercises.take(showOverview ? 4 : exercises.length))
+          for (final e in exercises.take(showOverview ? 3 : exercises.length))
             _exerciseRow(context, e),
         ]),
-        if (showOverview && exercises.length > 4)
+        if (showOverview && exercises.length > 3)
           TextButton.icon(
               onPressed: () =>
                   setState(() => _section = _ProgressSection.lifts),
@@ -138,22 +150,16 @@ class _ProgressTabState extends State<ProgressTab> {
             text:
                 'Registra series completadas para ver el avance por ejercicio.'),
       ],
-      if (showOverview || _section == _ProgressSection.sessions) ...[
-        SizedBox(height: showOverview ? 24 : 4),
-        const SectionTitle('Últimas sesiones'),
-        const SizedBox(height: 10),
-        GroupCard(children: [
-          for (final s in h.sessions.take(showOverview ? 3 : 10))
-            SessionRow(session: s),
-        ]),
-        TextButton.icon(
+      if (showOverview) ...[
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
             onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
                     builder: (_) =>
                         HistoryScreen(initial: h, service: widget.service))),
             icon: const Icon(Icons.history),
-            label: const Text('Ver todo el historial')),
+            label: Text('Ver historial completo (${h.sessions.length})')),
       ],
     ];
   }
@@ -332,12 +338,23 @@ class _ProgressTabState extends State<ProgressTab> {
       Text('Series por grupo muscular',
           style: TextStyle(color: colors.onSurfaceVariant)),
       const SizedBox(height: 8),
-      ChoiceBar<int>(options: const [
-        (7, 'Semana'),
-        (30, '30 d'),
-        (90, '90 d'),
-        (0, 'Todo')
-      ], selected: _period, onChanged: (v) => setState(() => _period = v)),
+      Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          for (final (value, text) in const [
+            (7, 'Semana'),
+            (30, '30 d'),
+            (90, '90 d'),
+            (0, 'Todo'),
+          ])
+            ChoiceChip(
+              label: Text(text),
+              selected: _period == value,
+              onSelected: (_) => setState(() => _period = value),
+            ),
+        ],
+      ),
       const SizedBox(height: 12),
       if (groups.isEmpty)
         Text('Sin series con grupo muscular en este periodo.',
