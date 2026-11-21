@@ -2,7 +2,12 @@ import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from '../components/Link';
 import { useLocation } from '../hooks/useLocation';
-import { applyAppUpdate, installApp } from '../services/pwa';
+import {
+  applyAppUpdate,
+  ensurePwaRegistered,
+  installApp,
+} from '../services/pwa';
+import { canNavigate } from '../utils/navigation';
 import { usePwa } from '../hooks/usePwa';
 import { useOfflineData } from '../hooks/useOfflineData';
 import { useOperations } from '../hooks/useOperations';
@@ -239,6 +244,16 @@ function AccountMenu({
             <Icon name="external" size={18} />
             Sitio público
           </a>
+          <a
+            role="menuitem"
+            className="ws-menu-item"
+            href="/privacidad"
+            target="_blank"
+            rel="noopener"
+          >
+            <Icon name="shield" size={18} />
+            Privacidad y condiciones
+          </a>
 
           {onLogout && (
             <>
@@ -280,6 +295,9 @@ export default function WorkspaceLayout({
   const { needsRefresh, isOnline } = usePwa();
   const { staleSince } = useOfflineData();
   const pending = useOperations();
+  useEffect(() => {
+    ensurePwaRegistered();
+  }, []);
   useEffect(() => (pendingHref ? startOutboxSync() : undefined), [pendingHref]);
   const showingSaved = !isOnline || staleSince !== null;
   const homeHref = navigation[0]?.href ?? '/';
@@ -423,13 +441,19 @@ export default function WorkspaceLayout({
               >
                 <span className="flex items-center gap-2">
                   <Icon name="sparkle" size={16} />
-                  Hay una nueva versión de CouchOne Fit disponible.
+                  {pending.length > 0
+                    ? 'Hay una nueva versión de CouchOne Fit disponible. Tus cambios pendientes están guardados y se conservarán al actualizar.'
+                    : 'Hay una nueva versión de CouchOne Fit disponible.'}
                 </span>
                 <button
                   type="button"
                   className="ws-btn"
                   data-variant="primary"
-                  onClick={applyAppUpdate}
+                  onClick={() => {
+                    void canNavigate().then((ok) => {
+                      if (ok) applyAppUpdate();
+                    });
+                  }}
                 >
                   Actualizar
                 </button>

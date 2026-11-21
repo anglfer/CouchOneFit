@@ -89,6 +89,10 @@ export async function saveDraft(
 ): Promise<NutritionVersion> {
   const targetId = uuid(clientId);
   const targetPlanId = planId ? uuid(planId) : undefined;
+  const rawBody =
+    body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+  const preferredPlanId = !targetPlanId && rawBody?.id !== undefined ? uuid(rawBody.id) : undefined;
+  const targetVersionId = rawBody?.versionId !== undefined ? uuid(rawBody.versionId) : randomUUID();
   const document = nutritionDocument(body);
   return nutritionRepository.read(pool, identity, async (c) => {
     await nutritionRepository.scope(c, identity, targetId, true);
@@ -98,9 +102,9 @@ export async function saveDraft(
       await nutritionRepository.ownedPlan(c, identity, targetPlanId, targetId);
       resolvedPlanId = targetPlanId;
     } else {
-      resolvedPlanId = await nutritionRepository.getOrCreatePlanId(c, identity, targetId);
+      resolvedPlanId = await nutritionRepository.getOrCreatePlanId(c, identity, targetId, preferredPlanId);
     }
-    return nutritionRepository.storeVersion(c, resolvedPlanId, randomUUID(), document);
+    return nutritionRepository.storeVersion(c, resolvedPlanId, targetVersionId, document);
   });
 }
 

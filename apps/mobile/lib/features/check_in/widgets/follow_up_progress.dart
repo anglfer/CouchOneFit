@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/utils/friendly_date.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/section_title.dart';
 import '../../training/models/training.dart';
@@ -6,17 +7,19 @@ import '../../training/screens/training_views.dart';
 import '../models/check_in.dart';
 import '../services/check_in_service.dart';
 
-/// Progreso: own body weight & check-ins (always visible, the client wrote
-/// them) and what the professional shares (HU-036). Loaded fresh, never cached.
+/// Progreso: own body weight & check-ins (always visible, cached encrypted for
+/// offline reading per RNF24) and what the professional shares (HU-036, never cached).
 class FollowUpProgress extends StatefulWidget {
-  const FollowUpProgress({super.key, required this.service});
+  const FollowUpProgress({super.key, required this.service, this.clientId});
   final CheckInService service;
+  final String? clientId;
   @override
   State<FollowUpProgress> createState() => _FollowUpProgressState();
 }
 
 class _FollowUpProgressState extends State<FollowUpProgress> {
   List<CheckIn>? _history;
+  DateTime? _cachedAt;
   SharedProgress? _shared;
   String? _historyError, _sharedError;
   String _evalMetric = 'weight';
@@ -30,12 +33,19 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
   Future<void> _load() async {
     setState(() => _historyError = _sharedError = null);
     await Future.wait([
-      widget.service.history().then((v) {
-        if (mounted) setState(() => _history = v);
+      widget.service.historyWithCache(clientId: widget.clientId).then((v) {
+        if (mounted) {
+          setState(() {
+            _history = v.checkIns;
+            _cachedAt = v.cachedAt;
+          });
+        }
       }).catchError((Object _) {
         if (mounted) {
-          setState(
-              () => _historyError = 'No pudimos consultar tu peso. Reintenta.');
+          setState(() {
+            _cachedAt = null;
+            _historyError = 'No pudimos consultar tu peso. Reintenta.';
+          });
         }
       }),
       widget.service.progress().then((v) {
@@ -65,6 +75,14 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
             tone: NoticeTone.error,
             onRetry: _load)
       else ...[
+        if (_cachedAt != null) ...[
+          NoticeBanner(
+              icon: Icons.cloud_off_outlined,
+              tone: NoticeTone.warning,
+              text:
+                  'Lectura guardada · actualizada ${friendlySavedAt(_cachedAt!)}. Conéctate para registrar o consultar lo compartido por tu profesional.'),
+          const SizedBox(height: 12),
+        ],
         const SectionTitle('Peso corporal'),
         const SizedBox(height: 12),
         if (_historyError != null)
@@ -80,9 +98,14 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
         const SizedBox(height: 24),
         const SectionTitle('Compartido por tu profesional'),
         const SizedBox(height: 12),
-        if (_sharedError != null)
+        if (_sharedError != null && _cachedAt == null)
           NoticeBanner(
               text: _sharedError!, tone: NoticeTone.error, onRetry: _load)
+        else if (_sharedError != null && _cachedAt != null)
+          Text(
+              'Conéctate para consultar lo que tu profesional comparte contigo.',
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant))
         else if (_shared != null)
           ..._sharedCards(context, _shared!),
       ],

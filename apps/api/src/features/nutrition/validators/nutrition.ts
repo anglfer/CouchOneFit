@@ -189,6 +189,8 @@ function validateSuggestionMeta(value: unknown): NutritionSuggestionMeta | null 
 
 export function nutritionDocument(value: unknown): NutritionDocument {
   const input = object(value, [
+    'id',
+    'versionId',
     'name',
     'meals',
     'caloriesTarget',

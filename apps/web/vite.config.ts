@@ -18,6 +18,7 @@ export default defineConfig({
       // La nueva versión se aplica cuando el usuario lo confirma (ver src/services/pwa.ts).
       registerType: 'prompt',
       workbox: {
+        navigateFallbackAllowlist: [/^\/app(\/|$)/, /^\/admin(\/|$)/],
         navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
       },

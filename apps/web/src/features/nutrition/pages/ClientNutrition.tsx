@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, type IconName } from '../../../components/Icon';
 import { Link } from '../../../components/Link';
 import { Badge } from '../../../components/ui';
+import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import { confirmDialog } from '../../../services/confirm';
 import type { ProfessionalRecord } from '../../professional/types/record';
 import { latestBodyFat } from '../../evaluations/types/evaluation';
@@ -12,12 +13,11 @@ import NutritionEditor from '../components/NutritionEditor';
 import NutritionSuggestionAssistant from '../components/NutritionSuggestionAssistant';
 import NutritionView from '../components/NutritionView';
 import {
-  activateNutritionVersion,
+  activateNutritionVersionOffline,
   cloneNutritionDocument,
-  createNutritionDraft,
   emptyNutritionDocument,
   readNutritionVersions,
-  updateNutritionDraft,
+  saveNutritionDraftOffline,
 } from '../services/nutrition';
 import type {
   NutritionDocument,
@@ -71,13 +71,58 @@ export default function ClientNutrition({
   const [viewing, setViewing] = useState<NutritionVersion | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const provisionalIdsRef = useRef<{
+    planId: string;
+    versionId: string;
+  } | null>(null);
+
+  const base = `/api/clients/${encodeURIComponent(clientId)}/nutrition-plans`;
+  const operations = useOperations();
+
+  // Unsent drafts stay visible until the outbox finishes syncing.
+  const mergedVersions = useMemo(() => {
+    const list = [...versions];
+    for (const op of operations.filter(
+      (item) => item.readEndpoint === base && item.kind === 'nutrition.save'
+    )) {
+      const opVersionId = String(
+        op.body.versionId ?? op.endpoint.match(/\/versions\/([^/]+)/)?.[1] ?? ''
+      );
+      const opPlanId = String(
+        op.body.id ??
+          op.endpoint.match(/nutrition-plans\/([^/]+)/)?.[1] ??
+          op.entityKey ??
+          ''
+      );
+      if (!opVersionId || !opPlanId) continue;
+      const existingIndex = list.findIndex((v) => v.id === opVersionId);
+      const doc = op.body as unknown as NutritionDocument;
+      const localVersion: NutritionVersion = {
+        ...doc,
+        id: opVersionId,
+        planId: opPlanId,
+        clientId,
+        number:
+          existingIndex >= 0 ? list[existingIndex].number : list.length + 1,
+        revision:
+          typeof op.body.revision === 'number' ? op.body.revision + 1 : 1,
+        published: false,
+        createdAt: new Date(op.createdAt).toISOString(),
+      };
+      if (existingIndex >= 0) list[existingIndex] = localVersion;
+      else list.unshift(localVersion);
+    }
+    return list;
+  }, [versions, operations, base, clientId]);
+
+  const hasPending = operations.some((op) => op.readEndpoint === base);
 
   // The API refuses to prescribe without a physical evaluation; mirror it here.
   const needsEvaluation = record?.sections.evaluations.status === 'empty';
   const canPrescribe = canWrite && !needsEvaluation;
-  const active = versions.find((v) => v.id === activeVersionId) ?? null;
-  const draft = versions.find((v) => !v.published) ?? null;
-  const planId = versions[0]?.planId;
+  const active = mergedVersions.find((v) => v.id === activeVersionId) ?? null;
+  const draft = mergedVersions.find((v) => !v.published) ?? null;
+  const planId = mergedVersions[0]?.planId;
 
   const validation = useMemo(
     () => (editorDoc ? validateNutritionDocument(editorDoc) : null),
@@ -143,6 +188,10 @@ export default function ClientNutrition({
     }
   }, [clientId]);
 
+  useOnSynced(() => {
+    void load();
+  });
+
   useEffect(() => {
     let activeRequest = true;
     readNutritionVersions(clientId)
@@ -177,6 +226,10 @@ export default function ClientNutrition({
     setShowValidation(false);
     setEditingVersionId(null);
     setEditingRevision(1);
+    provisionalIdsRef.current = {
+      planId: planId ?? crypto.randomUUID(),
+      versionId: crypto.randomUUID(),
+    };
     setEditorDoc(
       source ? cloneNutritionDocument(source) : emptyNutritionDocument()
     );
@@ -193,6 +246,7 @@ export default function ClientNutrition({
     setShowValidation(false);
     setEditingVersionId(target.id);
     setEditingRevision(target.revision);
+    provisionalIdsRef.current = { planId: target.planId, versionId: target.id };
     setEditorDoc(cloneNutritionDocument(target));
     setDirty(false);
     setTab('plan');
@@ -288,22 +342,32 @@ export default function ClientNutrition({
     setError(null);
     setNotice(null);
     try {
-      const saved =
-        editingVersionId && planId
-          ? await updateNutritionDraft(
-              clientId,
-              planId,
-              editingVersionId,
-              editingRevision,
-              editorDoc
-            )
-          : await createNutritionDraft(clientId, planId, editorDoc);
+      const ids = (provisionalIdsRef.current ??= {
+        planId: planId ?? crypto.randomUUID(),
+        versionId: crypto.randomUUID(),
+      });
+      const outcome = await saveNutritionDraftOffline({
+        clientId,
+        clientName,
+        planId,
+        provisionalPlanId: ids.planId,
+        versionId: editingVersionId ?? undefined,
+        provisionalVersionId: ids.versionId,
+        revision: editingRevision,
+        document: editorDoc,
+        existingCount: mergedVersions.length,
+      });
+      const saved = outcome.version;
       setEditingVersionId(saved.id);
       setEditingRevision(saved.revision);
       setDirty(false);
       setShowValidation(false);
-      setNotice('Borrador nutricional guardado.');
-      await load();
+      if (outcome.queued) {
+        setNotice('Guardado en este dispositivo · se enviará al reconectar.');
+      } else {
+        setNotice('Borrador nutricional guardado.');
+        await load();
+      }
       return saved;
     } catch (err) {
       setError(
@@ -321,36 +385,55 @@ export default function ClientNutrition({
     setError(null);
     setNotice(null);
     try {
-      const saved =
-        dirty || !editingVersionId
-          ? editingVersionId && planId
-            ? await updateNutritionDraft(
-                clientId,
-                planId,
-                editingVersionId,
-                editingRevision,
-                editorDoc
-              )
-            : await createNutritionDraft(clientId, planId, editorDoc)
-          : (versions.find((v) => v.id === editingVersionId) ?? null);
+      let wasQueued = false;
+      let saved: NutritionVersion | null = null;
+      if (dirty || !editingVersionId) {
+        const ids = (provisionalIdsRef.current ??= {
+          planId: planId ?? crypto.randomUUID(),
+          versionId: crypto.randomUUID(),
+        });
+        const saveOutcome = await saveNutritionDraftOffline({
+          clientId,
+          clientName,
+          planId,
+          provisionalPlanId: ids.planId,
+          versionId: editingVersionId ?? undefined,
+          provisionalVersionId: ids.versionId,
+          revision: editingRevision,
+          document: editorDoc,
+          existingCount: mergedVersions.length,
+        });
+        saved = saveOutcome.version;
+        wasQueued = saveOutcome.queued;
+      } else {
+        saved = mergedVersions.find((v) => v.id === editingVersionId) ?? null;
+      }
 
       if (!saved) return;
 
-      await activateNutritionVersion(
+      const activation = await activateNutritionVersionOffline({
         clientId,
-        saved.planId,
-        saved.id,
-        activeRevision
-      );
+        clientName,
+        planId: saved.planId,
+        versionId: saved.id,
+        expectedActiveRevision: activeRevision,
+        planName: saved.name,
+      });
       setEditorDoc(null);
       setEditingVersionId(null);
       setDirty(false);
       setShowValidation(false);
-      setNotice(
-        'Plan alimenticio activado. El cliente ya puede consultarlo en su móvil.'
-      );
-      await load();
-      onActivated?.();
+      if (wasQueued || activation.queued) {
+        setNotice(
+          'Activación pendiente de enviar · el cliente conservará su plan anterior hasta que vuelva la conexión.'
+        );
+      } else {
+        setNotice(
+          'Plan alimenticio activado. El cliente ya puede consultarlo en su móvil.'
+        );
+        await load();
+        onActivated?.();
+      }
       setTab('summary');
     } catch (err) {
       setError(
@@ -391,6 +474,14 @@ export default function ClientNutrition({
         ))}
       </div>
 
+      {hasPending && (
+        <p className="ws-alert" data-tone="warn" role="status">
+          Este plan tiene cambios pendientes de enviar en este dispositivo.{' '}
+          <Link to="/app/pendientes" className="font-semibold underline">
+            Ver pendientes
+          </Link>
+        </p>
+      )}
       {error && (
         <div className="ws-alert" data-tone="bad" role="alert">
           {error}
@@ -751,11 +842,11 @@ export default function ClientNutrition({
               </p>
             </div>
           </div>
-          {versions.length === 0 && (
+          {mergedVersions.length === 0 && (
             <p className="ws-empty">Todavía no hay planes alimenticios.</p>
           )}
           <ol className="training-history">
-            {versions.map((v) => (
+            {mergedVersions.map((v) => (
               <li key={v.id}>
                 <div>
                   <strong>{v.name}</strong>

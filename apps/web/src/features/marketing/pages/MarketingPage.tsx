@@ -131,13 +131,21 @@ export default function MarketingPage(): ReactElement {
             <p className="mx-auto mt-5 max-w-xl text-lg text-white/85">
               Un lugar para planificar. Una forma de estar más cerca.
             </p>
-            <Link
-              to="/registro"
-              className="mt-9 inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-base font-semibold text-indigo-700 shadow-lg transition-colors hover:bg-indigo-50"
-            >
-              Crear mi cuenta
-              <Icon name="arrow-right" size={18} />
-            </Link>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/registro"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-base font-semibold text-indigo-700 shadow-lg transition-colors hover:bg-indigo-50"
+              >
+                Crear mi cuenta
+                <Icon name="arrow-right" size={18} />
+              </Link>
+              <Link
+                to="/registro"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/40 bg-white/10 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-white/20"
+              >
+                Contáctanos
+              </Link>
+            </div>
           </div>
         </section>
       </main>
@@ -196,6 +204,22 @@ export default function MarketingPage(): ReactElement {
                     className="hover:text-indigo-700 hover:underline"
                   >
                     Recuperar acceso
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/registro"
+                    className="hover:text-indigo-700 hover:underline"
+                  >
+                    Contáctanos
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/privacidad"
+                    className="hover:text-indigo-700 hover:underline"
+                  >
+                    Privacidad y condiciones
                   </Link>
                 </li>
               </ul>

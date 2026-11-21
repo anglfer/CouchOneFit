@@ -337,6 +337,15 @@ export default function RegistrationPage(): ReactElement {
                     <p className="mt-2 leading-relaxed">
                       {REGISTRATION_NOTICE}
                     </p>
+                    <p className="mt-2">
+                      <Link
+                        to="/privacidad"
+                        className="font-semibold text-(--ws-primary-fg) hover:underline"
+                      >
+                        Consultar aviso de privacidad y condiciones (v
+                        {NOTICE_VERSION})
+                      </Link>
+                    </p>
                   </details>
                   <label className="flex cursor-pointer items-start gap-2.5 pt-1 text-sm text-(--ws-text-2)">
                     <input

@@ -50,10 +50,26 @@ window.addEventListener('online', () => update({ isOnline: true }));
 window.addEventListener('offline', () => update({ isOnline: false }));
 
 // La nueva versión espera confirmación para no recargar un formulario en curso.
-const updateServiceWorker = registerSW({
-  immediate: true,
-  onNeedRefresh: () => update({ needsRefresh: true }),
-});
+// El registro se activa solo en el área privada (/app/* o /admin/*), no en la landing.
+let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null =
+  null;
+
+export function ensurePwaRegistered(): void {
+  if (updateServiceWorker) return;
+  updateServiceWorker = registerSW({
+    immediate: true,
+    onNeedRefresh: () => update({ needsRefresh: true }),
+  });
+}
+
+const currentPath = window.location.pathname;
+if (
+  currentPath.startsWith('/app') ||
+  currentPath.startsWith('/admin') ||
+  state.isInstalled
+) {
+  ensurePwaRegistered();
+}
 
 export async function installApp(): Promise<boolean> {
   if (!deferredPrompt) return false;
@@ -66,7 +82,7 @@ export async function installApp(): Promise<boolean> {
 }
 
 export function applyAppUpdate(): void {
-  void updateServiceWorker(true);
+  void updateServiceWorker?.(true);
 }
 
 export const isAppleMobile =

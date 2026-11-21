@@ -9,6 +9,7 @@ import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/section_title.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../../shared/widgets/tone_pill.dart';
+import '../../auth/widgets/privacy_notice_sheet.dart';
 import '../../settings/models/app_settings.dart';
 import '../../settings/services/settings_controller.dart';
 import '../../settings/widgets/settings_panel.dart';
@@ -162,6 +163,12 @@ class ClientProfileScreen extends StatelessWidget {
                         'Animaciones de ejercicios',
                         '© Gym visual · gymvisual.com',
                         null),
+                    tile(
+                        Icons.privacy_tip_outlined,
+                        colors.secondary,
+                        'Privacidad y condiciones',
+                        'Versión $registrationNoticeVersion · Aviso informativo',
+                        () => showPrivacyNoticeSheet(context)),
                   ]),
                   const SizedBox(height: 16),
                   group([

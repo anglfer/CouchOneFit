@@ -37,21 +37,30 @@ const fieldLabels: Record<string, string> = {
   waistCm: 'Cintura (cm)',
   hipCm: 'Cadera (cm)',
   status: 'Estado del expediente',
+  measurements: 'Compartir evolución de medidas',
+  adherence: 'Compartir adherencia',
 };
 
 const show = (value: unknown) =>
   value === null || value === undefined || value === ''
     ? 'Sin registrar'
-    : value === 'active'
-      ? 'Activo'
-      : value === 'inactive'
-        ? 'Inactivo'
-        : typeof value === 'object'
-          ? JSON.stringify(value, null, 2)
-          : String(value);
+    : value === true
+      ? 'Sí'
+      : value === false
+        ? 'No'
+        : value === 'active'
+          ? 'Activo'
+          : value === 'inactive'
+            ? 'Inactivo'
+            : typeof value === 'object'
+              ? JSON.stringify(value, null, 2)
+              : String(value);
 
 function Comparison({ operation }: { operation: Operation }): ReactElement {
-  if (operation.kind.startsWith('training.'))
+  if (
+    operation.kind.startsWith('training.') ||
+    operation.kind.startsWith('nutrition.')
+  )
     return (
       <div className="grid gap-3 md:grid-cols-2">
         <div>
@@ -210,7 +219,7 @@ export default function PendingOperations(): ReactElement {
                         : operation.dependsOn?.some((id) =>
                               operations.some((item) => item.id === id)
                             )
-                          ? 'Se enviará cuando se envíe el cambio anterior de esta rutina.'
+                          ? 'Se enviará cuando se envíe el cambio anterior de este cliente.'
                           : 'Se enviará en unos segundos.'}
                     </p>
                   )}
@@ -220,8 +229,11 @@ export default function PendingOperations(): ReactElement {
                   {operation.state === 'conflict' && (
                     <>
                       <p className="text-sm">
-                        Este expediente cambió en otro dispositivo mientras
-                        capturabas. No se pisó nada: elige qué conservar.
+                        {operation.kind.startsWith('nutrition.')
+                          ? 'Este plan nutricional cambió en otro dispositivo mientras capturabas. No se pisó nada: elige qué conservar.'
+                          : operation.kind === 'followup.visibility'
+                            ? 'La visibilidad del seguimiento cambió en otro dispositivo. No se pisó nada: elige qué conservar.'
+                            : 'Este expediente cambió en otro dispositivo mientras capturabas. No se pisó nada: elige qué conservar.'}
                       </p>
                       <Comparison operation={operation} />
                     </>

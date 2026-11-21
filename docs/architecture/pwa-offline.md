@@ -1,6 +1,6 @@
 # PWA con uso sin conexión
 
-**Estado:** decidido en [DEC-018](../../plan/PLAN_TRABAJO_V2.md) y aceptado por la persona responsable del producto el 3 de noviembre de 2026 (respuestas en §8). **Fases 1 (lectura) y 2 (escritura y sincronización) implementadas localmente el 3-nov; fase 3 pendiente** (ver §11).
+**Estado:** decidido en [DEC-018](../../plan/PLAN_TRABAJO_V2.md) y aceptado por la persona responsable del producto el 3 de noviembre de 2026 (respuestas en §8). **Fases 1 (lectura) y 2 (escritura y sincronización) implementadas el 3-nov y ampliadas a EP-04/05/06/07 y móvil `RNF24` el 21-nov; validación en dispositivos reales pendiente** (ver §11).
 **Origen:** instrucción de la persona responsable del producto en chat: la PWA debe poder usarse sin internet en **casi toda** la aplicación, no solo en lo que ya existe. Alcance elegido: **leer y escribir sin conexión, con sincronización**.
 **Sustituye** la regla transversal 9 de V2 (_no cachear respuestas privadas; instalable no significa offline_) y las frases «sin escrituras offline». Esos textos ya se corrigieron en el plan.
 
@@ -24,10 +24,10 @@ Todo módulo del panel profesional debe funcionar con ambas, salvo las excepcion
 | Carcasa y rutas `/app/*` | Sí | — | Fase 1 |
 | Inicio, perfil, cupo y vigencia | Sí | — | Fase 1 |
 | Cartera y expedientes (EP-03) | Sí | Crear expediente; editar datos base; activar/inactivar | Fases 1–2 |
-| Evaluaciones físicas (EP-04) | Sí | Registrar evaluación (solo-añadir) | Al construir el módulo |
-| Planes de alimentación (EP-05) | Sí | Crear/editar plan y versión activa (con `version`) | Al construir el módulo |
-| Rutinas y entrenamiento (EP-06) | Sí | Crear/editar rutina y versión activa (con `version`) | Al construir el módulo |
-| Seguimiento y check-ins (EP-07) | Sí | Marcar revisado y notas (solo-añadir o con `version`) | Al construir el módulo |
+| Evaluaciones físicas (EP-04) | Sí | Registrar evaluación (solo-añadir) | Implementado |
+| Planes de alimentación (EP-05) | Sí | Crear/editar plan, sugerencia offline y activar versión (con `revision`/`expectedActiveRevision`) | Implementado (`EP-08`) |
+| Rutinas y entrenamiento (EP-06) | Sí | Crear/editar rutina, activar y zona horaria (con `revision`) | Implementado |
+| Seguimiento y check-ins (EP-07) | Sí | Visibilidad compartida con cliente (con `revision`); lectura de seguimiento y adherencia | Implementado (`EP-08`) |
 | Administración: directorio y planes | Sí (solo lectura) | No (ver §2.2) | Fase 1 |
 
 ### 2.2 Excepciones que siempre exigen conexión
@@ -154,9 +154,9 @@ Decisión: **solo lectura** de lo esencial, no todo. La persona pidió poder ver
 
 | Contenido | Sin conexión | Estado del módulo |
 | --------- | ------------ | ----------------- |
-| Plan de entrenamiento (rutina activa) | Ver | Por construir (EP-06) |
-| Plan de alimentación | Ver | Por construir (EP-05) |
-| Registro de pesos (historial) | Ver | Por construir (EP-07, captura única en check-in) |
+| Plan de entrenamiento (rutina activa) | Ver | Implementado (`TrainingCache`) |
+| Plan de alimentación | Ver | Implementado (`NutritionCache`) |
+| Registro de pesos (historial propio) | Ver | Implementado (`CheckInCache` — `RNF24`, sin cachear progreso compartido `DEC-009`) |
 | Perfil y datos base ya visibles | Ver | Implementado |
 
 Reglas:
@@ -215,6 +215,13 @@ Evidencia:
 - **No verificado:** pruebas con dos computadoras reales; teléfonos reales y Safari/iPhone; Background Sync del navegador (no se usa; se sincroniza al volver la conexión, al enfocar y cada 30 s); la API en un despliegue distinto del local.
 
 Atajos conocidos de la fase 2: no se puede **editar** un expediente creado sin conexión que aún no se envió (se descarta y se vuelve a crear); un expediente con cambios pendientes no admite otra edición hasta enviarse o descartarse (evita conflictos con uno mismo); el aviso de posible duplicado compara solo el nombre (la lista del servidor no incluye fecha de nacimiento); el detalle del cambio pendiente muestra los campos, no una vista previa completa del expediente.
+
+### Ampliación EP-08 — Cobertura completa de módulos y delimitacion del SW (21-nov-2026)
+
+- **Service Worker acotado (`HU-040`):** `navigateFallbackAllowlist` limita el fallback SPA a `/app/*` y `/admin/*`, y `ensurePwaRegistered()` evita registrar el SW automáticamente en la landing pública `/`. Al actualizar la app con una nueva versión, `WorkspaceLayout` protege formularios abiertos con `canNavigate()` y avisa que los cambios pendientes en cola se conservan.
+- **EP-05 Nutrición:** lectura `/api/clients/:clientId/nutrition-plans` cacheada; `nutrition.save` y `nutrition.activate` con `Idempotency-Key` en API (`private.idempotency_keys`) y resolución de `409 NUTRITION_CONFLICT`; motor de sugerencias `HU-025` replicado en cliente puro (`utils/suggestionEngine.ts`) ante fallo de red.
+- **EP-07 Seguimiento e Inicio:** lecturas `/api/training/clients`, `/api/clients/:clientId/training-sessions`, `/api/follow-up/summary` y `/api/clients/:clientId/follow-up` cacheadas; `PATCH /api/clients/:clientId/visibility` encolable (`followup.visibility`) con resolución de `409 CHECK_IN_CONFLICT`.
+- **Móvil (`RNF24`):** `CheckInCache` guarda cifrado el historial propio de check-ins/peso (`30 días`, aislado por `clientId` y limpiado en logout/login/`401`/`403`) sin cachear jamás `GET /api/me/progress` (`DEC-009`).
 
 ## 9. Referencias
 

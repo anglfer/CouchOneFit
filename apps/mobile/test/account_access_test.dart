@@ -93,6 +93,29 @@ void main() {
     expect(
         find.widgetWithText(FilledButton, 'Activar mi cuenta'), findsOneWidget);
   });
+
+  testWidgets('HU-041 activation opens full versioned privacy notice sheet',
+      (tester) async {
+    await open(tester, AccountAccessMode.activation, (_) async {
+      return const ApiHttpResponse(statusCode: 200);
+    });
+    final link = find.text('Consultar aviso de privacidad y condiciones');
+    await tester.dragUntilVisible(
+      link,
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(link);
+    await tester.pumpAndSettle();
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+    expect(find.text('Privacidad y condiciones'), findsOneWidget);
+    expect(
+      find.text('Versión vigente 2026-10-15.1 · Aviso informativo'),
+      findsOneWidget,
+    );
+  });
   testWidgets(
       'activation transport error preserves fields without automatic retry',
       (tester) async {

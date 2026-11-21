@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 // DEC-018 fase 2: bandeja de salida, sincronización, conflictos y duplicados.
 let vite, dom;
 let cache, store, outbox, sync, writes, leave, confirm, session, connection;
-let calls, handler, realNow, training;
+let calls, handler, realNow, training, nutrition, followUp;
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -65,6 +65,8 @@ before(async () => {
   session = await load('/src/features/auth/services/session.ts');
   connection = await load('/src/services/offline/connection.ts');
   training = await load('/src/features/training/services/training.ts');
+  nutrition = await load('/src/features/nutrition/services/nutrition.ts');
+  followUp = await load('/src/features/follow-up/services/followUp.ts');
   realNow = Date.now;
 });
 after(async () => {
@@ -638,4 +640,207 @@ test('HU-021 a confirmation deadline preserves the original idempotency key desp
   };
   await sync.flushOutbox();
   assert.equal(outbox.getOperations().length, 0);
+});
+
+test('nutrition: merge unsent draft, chain activation, sync resolved ids and resolve 409 conflict', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: false },
+    configurable: true,
+  });
+  const doc = {
+    ...nutrition.emptyNutritionDocument(),
+    name: 'Plan inicial',
+  };
+  const first = await nutrition.saveNutritionDraftOffline({
+    clientId: 'c1',
+    clientName: 'Ana',
+    provisionalPlanId: 'p-local',
+    provisionalVersionId: 'v-local',
+    document: doc,
+    existingCount: 0,
+  });
+  assert.equal(first.queued, true);
+  assert.equal(outbox.getOperations().length, 1);
+
+  await nutrition.saveNutritionDraftOffline({
+    clientId: 'c1',
+    clientName: 'Ana',
+    planId: 'p-local',
+    versionId: 'v-local',
+    revision: 1,
+    document: { ...doc, name: 'Plan editado' },
+    existingCount: 1,
+  });
+  assert.equal(outbox.getOperations().length, 1);
+  assert.equal(outbox.getOperations()[0].body.name, 'Plan editado');
+  assert.equal(outbox.getOperations()[0].body.revision, undefined);
+
+  await nutrition.activateNutritionVersionOffline({
+    clientId: 'c1',
+    clientName: 'Ana',
+    planId: 'p-local',
+    versionId: 'v-local',
+    expectedActiveRevision: 0,
+    planName: 'Plan editado',
+  });
+  assert.equal(outbox.getOperations().length, 2);
+  await assert.rejects(
+    nutrition.activateNutritionVersionOffline({
+      clientId: 'c1',
+      clientName: 'Ana',
+      planId: 'p-local',
+      versionId: 'v-local',
+      expectedActiveRevision: 0,
+      planName: 'Plan editado',
+    }),
+    /Ya hay una activación/
+  );
+
+  handler = (url) => {
+    if (url === '/api/clients/c1/nutrition-plans') {
+      return json(
+        {
+          ...doc,
+          name: 'Plan editado',
+          id: 'p-v-server',
+          planId: 'p-server',
+          clientId: 'c1',
+          number: 1,
+          revision: 1,
+          published: false,
+          createdAt: '2026-11-20T00:00:00.000Z',
+        },
+        201
+      );
+    }
+    return json({
+      version: { id: 'p-v-server', published: true },
+      activeRevision: 1,
+    });
+  };
+  globalThis.navigator.onLine = true;
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations().length, 0);
+  const sent = writesMade();
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].url, '/api/clients/c1/nutrition-plans');
+  assert.equal(
+    sent[1].url,
+    '/api/clients/c1/nutrition-plans/p-server/versions/p-v-server/activate'
+  );
+
+  calls = [];
+  globalThis.navigator.onLine = false;
+  await nutrition.saveNutritionDraftOffline({
+    clientId: 'c1',
+    clientName: 'Ana',
+    planId: 'p-server',
+    versionId: 'v-draft',
+    revision: 1,
+    document: { ...doc, name: 'Edición con conflicto' },
+    existingCount: 2,
+  });
+  handler = (_url, options) => {
+    if (options.method === 'PATCH') {
+      const body = JSON.parse(options.body);
+      return body.revision === 1
+        ? apiError(409, 'NUTRITION_CONFLICT', 'El plan nutricional cambió.')
+        : json({
+            ...doc,
+            name: 'Edición con conflicto',
+            id: 'v-draft',
+            planId: 'p-server',
+            clientId: 'c1',
+            number: 2,
+            revision: 4,
+            published: false,
+            createdAt: '2026-11-20T00:00:00.000Z',
+          });
+    }
+    return json({
+      versions: [{ id: 'v-draft', revision: 3, published: false }],
+      activeRevision: 1,
+    });
+  };
+  globalThis.navigator.onLine = true;
+  await sync.flushOutbox();
+  const conflicted = outbox.getOperations()[0];
+  assert.equal(conflicted.state, 'conflict');
+  assert.equal(conflicted.server.revision, 3);
+  await sync.reapplyOnServerVersion(conflicted.id);
+  assert.equal(outbox.getOperations().length, 0);
+  assert.equal(JSON.parse(writesMade().at(-1).body).revision, 3);
+});
+
+test('nutrition: suggestion falls back to local pure engine when offline', async () => {
+  handler = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  const suggestion = await nutrition.requestNutritionSuggestion('c1', {
+    sex: 'male',
+    ageYears: 30,
+    weightKg: 76,
+    heightCm: 174,
+    bodyFatPct: 16.5,
+    formula: 'katch_mcardle',
+    activityLevel: 'moderate',
+    neatLevel: 'medium',
+    experience: 'intermediate',
+    goal: 'fat_loss',
+    pace: 'normal',
+    trainingDaysPerWeek: 4,
+    sessionDurationMin: 60,
+    macroPreference: 'balanced',
+    enableCarbCycling: true,
+    restrictions: [],
+  });
+  assert.equal(suggestion.meta.engineVersion, 'hu025-fitnextfy-v2');
+  assert.ok(suggestion.bmr > 0);
+  assert.ok(suggestion.trainingDayTargets.caloriesTarget > 0);
+});
+
+test('followup.visibility: queues offline, keeps Idempotency-Key and resolves 409 CHECK_IN_CONFLICT', async () => {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: true },
+    configurable: true,
+  });
+  handler = () => {
+    throw new TypeError('Failed to fetch');
+  };
+  const outcome = await followUp.submitVisibility(
+    'c1',
+    { measurements: true, adherence: false },
+    2,
+    'Ana'
+  );
+  assert.equal(outcome.status, 'queued');
+  const firstKey = idOf(writesMade()[0]);
+  assert.equal(outbox.getOperations()[0].id, firstKey);
+
+  handler = (_url, options) => {
+    if (options.method === 'PATCH') {
+      const body = JSON.parse(options.body);
+      return body.revision === 2
+        ? apiError(409, 'CHECK_IN_CONFLICT', 'Cambió en otra sesión.')
+        : json({
+            visibility: {
+              measurements: true,
+              adherence: false,
+              revision: 5,
+            },
+          });
+    }
+    return json({
+      visibility: { measurements: false, adherence: true, revision: 4 },
+    });
+  };
+  await sync.flushOutbox();
+  const conflicted = outbox.getOperations()[0];
+  assert.equal(conflicted.state, 'conflict');
+  assert.equal(conflicted.server.revision, 4);
+  await sync.reapplyOnServerVersion(conflicted.id);
+  assert.equal(outbox.getOperations().length, 0);
+  const lastPatch = writesMade().at(-1);
+  assert.equal(idOf(lastPatch), firstKey);
+  assert.equal(JSON.parse(lastPatch.body).revision, 4);
 });

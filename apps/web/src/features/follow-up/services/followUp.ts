@@ -1,4 +1,8 @@
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
+import {
+  submitWrite,
+  type WriteOutcome,
+} from '../../../services/offline/writes';
 import type {
   AdherenceSummary,
   BodyWeightEntry,
@@ -176,6 +180,39 @@ export async function updateVisibility(
   if (!object(value) || !isVisibility(value.visibility))
     throw new Error('No pudimos confirmar el cambio.');
   return value.visibility;
+}
+
+export async function submitVisibility(
+  clientId: string,
+  next: Omit<Visibility, 'revision'>,
+  revision: number,
+  clientName?: string | null
+): Promise<WriteOutcome<Visibility>> {
+  return submitWrite(
+    {
+      kind: 'followup.visibility',
+      method: 'PATCH',
+      endpoint: `/api/clients/${encodeURIComponent(clientId)}/visibility`,
+      readEndpoint: `/api/clients/${encodeURIComponent(clientId)}/follow-up?days=28`,
+      body: { ...next, revision },
+      label: clientName
+        ? `Actualizar información compartida: ${clientName}`
+        : 'Actualizar información compartida',
+      clientId,
+      clientName: clientName ?? null,
+    },
+    async (headers) => {
+      const value = await sessionMutation<unknown>(
+        `/api/clients/${encodeURIComponent(clientId)}/visibility`,
+        { ...next, revision },
+        'PATCH',
+        headers
+      );
+      if (!object(value) || !isVisibility(value.visibility))
+        throw new Error('No pudimos confirmar el cambio.');
+      return value.visibility;
+    }
+  );
 }
 
 export const shiftDate = (value: string, days: number) =>

@@ -94,7 +94,13 @@ after(async () => {
   await owner.end();
 });
 
-async function send(method: 'post' | 'patch', path: string, body: unknown, who = pro) {
+async function send(
+  method: 'post' | 'patch',
+  path: string,
+  body: unknown,
+  who = pro,
+  idempotencyKey?: string,
+) {
   let call = request(app)[method](path);
   if (who === client || who === clientB) {
     call = call.set('Authorization', `Bearer ${who.token}`);
@@ -108,6 +114,7 @@ async function send(method: 'post' | 'patch', path: string, body: unknown, who =
       ])
       .set('X-CSRF-Token', csrf.body.csrfToken);
   }
+  if (idempotencyKey) call = call.set('Idempotency-Key', idempotencyKey);
   return call.send(body as object);
 }
 
@@ -379,4 +386,72 @@ test('HU-024 a HU-027: sugerencia sin persistencia, versiones enriquecidas, expe
     await r.query('ROLLBACK');
     r.release();
   }
+});
+
+test('HU-040: escrituras nutricionales del profesional soportan Idempotency-Key sin duplicar ni reescribir', async () => {
+  const idemClient = await actor('client', pro);
+  await db.query('INSERT INTO private.client_evaluations(client_id,weight_kg) VALUES($1,74)', [idemClient.clientId]);
+  const base = `/api/clients/${idemClient.clientId}/nutrition-plans`;
+
+  const planId = randomUUID();
+  const versionId = randomUUID();
+  const createKey = randomUUID();
+  const createBody = {
+    ...enrichedDocument('Plan offline idempotente', 74),
+    id: planId,
+    versionId,
+  };
+
+  const firstCreate = await send('post', base, createBody, pro, createKey);
+  assert.equal(firstCreate.status, 201, JSON.stringify(firstCreate.body));
+  assert.equal(firstCreate.body.planId, planId);
+  assert.equal(firstCreate.body.id, versionId);
+
+  const replayCreate = await send('post', base, createBody, pro, createKey);
+  assert.equal(replayCreate.status, 201);
+  assert.equal(replayCreate.headers['idempotent-replayed'], 'true');
+  assert.deepEqual(replayCreate.body, firstCreate.body);
+
+  const reusedCreate = await send(
+    'post',
+    base,
+    { ...createBody, name: 'Otro nombre con misma clave' },
+    pro,
+    createKey,
+  );
+  assert.equal(reusedCreate.status, 422);
+  assert.equal(reusedCreate.body.error.code, 'IDEMPOTENCY_KEY_REUSED');
+
+  const patchKey = randomUUID();
+  const patchBody = { ...enrichedDocument('Plan offline editado', 74), revision: 1 };
+  const firstPatch = await send('patch', `${base}/${planId}/versions/${versionId}`, patchBody, pro, patchKey);
+  assert.equal(firstPatch.status, 201, JSON.stringify(firstPatch.body));
+  assert.equal(firstPatch.body.revision, 2);
+
+  const replayPatch = await send('patch', `${base}/${planId}/versions/${versionId}`, patchBody, pro, patchKey);
+  assert.equal(replayPatch.status, 201);
+  assert.equal(replayPatch.headers['idempotent-replayed'], 'true');
+  assert.equal(replayPatch.body.revision, 2);
+
+  const activateKey = randomUUID();
+  const firstActivate = await send(
+    'post',
+    `${base}/${planId}/versions/${versionId}/activate`,
+    { expectedActiveRevision: 0 },
+    pro,
+    activateKey,
+  );
+  assert.equal(firstActivate.status, 200, JSON.stringify(firstActivate.body));
+  assert.equal(firstActivate.body.activeRevision, 1);
+
+  const replayActivate = await send(
+    'post',
+    `${base}/${planId}/versions/${versionId}/activate`,
+    { expectedActiveRevision: 0 },
+    pro,
+    activateKey,
+  );
+  assert.equal(replayActivate.status, 200);
+  assert.equal(replayActivate.headers['idempotent-replayed'], 'true');
+  assert.equal(replayActivate.body.activeRevision, 1);
 });

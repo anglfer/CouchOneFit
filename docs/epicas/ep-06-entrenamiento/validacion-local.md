@@ -136,3 +136,15 @@ Pendiente: recorrido con API (login, activación, registrar y finalizar una sesi
 | T | APK debug normal reinstalado en el emulador, con la sesión ya guardada y `API_BASE_URL` productiva: solo se abrió, una lectura | La API no respondió; se muestra «No pudimos abrir tu expediente» con «Reintentar consulta». Sin errores de Flutter en logcat. No acredita el recorrido con API. |
 
 Pendiente: recorrido con API real, finalizar una sesión en dispositivo (solo cubierto por pruebas de widgets), teclado en pantalla (el emulador no lo mostró), GIF reales, TalkBack, `integration_test/` y revisión humana del resultado visual.
+
+## Catálogo de ejercicios en Supabase — 21-nov-2026
+
+- **T** Importación de producción autorizada en CouchOneFit (Supabase). Se usó
+  la descarga y transformación del [importador versionado](../../../apps/api/scripts/import-training-catalog.ts)
+  con la revisión `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`. Se verificó que
+  la tabla estaba vacía y se insertó el catálogo en una operación atómica.
+- **T** PostgreSQL devolvió 1 324 ejercicios, de los cuales 1 230 son
+  seleccionables. Todos tienen instrucciones y referencias a miniatura y GIF.
+  RLS está habilitado y `anon` carece de permiso de lectura.
+- **T** `GET /api/training/exercises` mediante la Web publicada devolvió 401
+  sin sesión. Queda pendiente probar el selector con una cuenta profesional.

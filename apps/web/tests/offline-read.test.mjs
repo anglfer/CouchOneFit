@@ -264,3 +264,27 @@ test('HU-021 historical evaluation pages use the existing encrypted account-scop
     false
   );
 });
+
+test('EP-05, EP-06 y EP-07: lecturas de nutrición, sesiones y seguimiento se guardan; rutas prohibidas siguen fuera', () => {
+  for (const ok of [
+    '/api/training/clients',
+    '/api/clients/c1/training-sessions?offset=0',
+    '/api/clients/c1/nutrition-plans',
+    '/api/follow-up/summary',
+    '/api/clients/c1/follow-up',
+    '/api/clients/c1/follow-up?days=28',
+    '/api/clients/c1/follow-up?from=2026-11-01&to=2026-11-20',
+  ]) {
+    assert.equal(cache.isCacheableRead(ok), true, ok);
+  }
+  for (const no of [
+    '/api/clients/c1/nutrition-plans/suggestion',
+    '/api/clients/c1/follow-up?days=28&secret=1',
+    '/api/admin/support/clients?q=a',
+    '/api/accounts/recovery-targets',
+    '/api/me/payments',
+    '/api/clients/c1/invitations',
+  ]) {
+    assert.equal(cache.isCacheableRead(no), false, no);
+  }
+});

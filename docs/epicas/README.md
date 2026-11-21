@@ -41,3 +41,5 @@ EP-05 incorpora [Alimentación y prescripción nutricional](ep-05-alimentacion/R
 EP-06 incorpora [Entrenamiento](ep-06-entrenamiento/README.md): HU-028 a HU-031 (rutina, historial, activación móvil y registro por serie con RPE/RIR), con la decisión del usuario del 04-nov-2026 que amplía DEC-006.
 
 EP-07 incorpora [Seguimiento integrado](ep-07-seguimiento/README.md): HU-032 a HU-037 (check-in diario con peso corporal como única fuente, seguimiento y adherencia en Web, inicio profesional con check-ins, tarjeta del día en móvil e información compartida por el profesional), con el replanteamiento del 20-nov-2026 frente al backlog. HU-038 (fotos) sigue fuera de V2.
+
+EP-08 incorpora [Portal, PWA con uso sin conexión y privacidad](ep-08-portal-y-pwa/README.md): HU-039 (portal público con catálogo y CTAs hacia registro, incluido «Contáctanos»), HU-040 (PWA privada en `/app/*` y `/admin/*`, caché/outbox/idempotencia en EP-05 y EP-07, motor offline de sugerencias nutricionales y caché cifrada de historial propio de peso en móvil según `RNF24` / `DEC-018`) y HU-041 (aviso versionado `2026-10-15.1` de privacidad y condiciones en Web `/privacidad` y móvil).

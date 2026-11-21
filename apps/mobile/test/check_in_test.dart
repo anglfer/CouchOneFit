@@ -439,4 +439,101 @@ void main() {
     expect(button.style?.backgroundColor?.resolve({}), BrandColors.nightAction);
     expect(button.style?.foregroundColor?.resolve({}), Colors.white);
   });
+
+  testWidgets(
+      'RNF24 / DEC-009: Progreso caches own weight offline, never caches shared progress, and isolates accounts',
+      (tester) async {
+    var offline = false;
+    var now = DateTime.utc(2026, 11, 20, 12);
+    final cache = CheckInCache(now: () => now);
+    final s = CheckInService(
+      cache: cache,
+      apiClient: ApiClient(
+        sessionStorage: InMemorySessionStorage(
+          initialSession: StoredSession(
+            accessToken: 't',
+            refreshToken: 't',
+            expiresAt: DateTime.utc(2040),
+          ),
+        ),
+        httpHandler: (request) async {
+          if (offline) {
+            return const ApiHttpResponse(statusCode: 503, body: {
+              'error': {
+                'code': 'SERVICE_UNAVAILABLE',
+                'message': 'Sin conexión'
+              }
+            });
+          }
+          if (request.path.startsWith('/api/me/progress')) {
+            return const ApiHttpResponse(statusCode: 200, body: {
+              'visibility': {'measurements': true, 'adherence': false},
+              'measurements': [
+                {
+                  'date': '2026-11-18',
+                  'weightKg': 70.0,
+                  'waistCm': 80.0,
+                  'hipCm': null,
+                  'bodyFatPercentage': null,
+                  'source': 'professional_evaluation',
+                  'method': 'perimetros'
+                },
+              ],
+            });
+          }
+          return const ApiHttpResponse(statusCode: 200, body: {
+            'checkIns': [
+              {
+                'id': 'c1',
+                'localDate': '2026-11-20',
+                'revision': 1,
+                'bodyWeightKg': 70.8
+              },
+            ],
+            'nextOffset': null
+          });
+        },
+      ),
+    );
+    var reloadKey = 0;
+    late StateSetter rebuild;
+    await tester.pumpWidget(MaterialApp(
+      theme: mobileTheme(Brightness.light),
+      home: StatefulBuilder(builder: (context, setState) {
+        rebuild = setState;
+        return Scaffold(
+          body: ListView(children: [
+            FollowUpProgress(
+              key: ValueKey(reloadKey),
+              service: s,
+              clientId: 'client-a',
+            )
+          ]),
+        );
+      }),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('70,8 kg'), findsOneWidget);
+    expect(find.text('Evaluación profesional'), findsOneWidget);
+
+    offline = true;
+    rebuild(() => reloadKey++);
+    await tester.pumpAndSettle();
+    expect(find.text('70,8 kg'), findsOneWidget);
+    expect(find.textContaining('Lectura guardada'), findsOneWidget);
+    expect(find.text('Evaluación profesional'), findsNothing);
+
+    // Client isolation & 30-day expiry.
+    expect(await cache.read(clientId: 'client-b'), isNull);
+    await cache.save('client-a', [
+      {
+        'id': 'c1',
+        'localDate': '2026-11-20',
+        'revision': 1,
+        'bodyWeightKg': 70.8
+      }
+    ]);
+    now = now.add(const Duration(days: 30));
+    expect(await cache.read(clientId: 'client-a'), isNull);
+  });
 }

@@ -163,7 +163,12 @@ export async function ownedPlan(c: PoolClient, identity: SessionIdentity, planId
   await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [planId]);
 }
 
-export async function getOrCreatePlanId(c: PoolClient, identity: SessionIdentity, clientId: string): Promise<string> {
+export async function getOrCreatePlanId(
+  c: PoolClient,
+  identity: SessionIdentity,
+  clientId: string,
+  preferredPlanId?: string,
+): Promise<string> {
   const {
     rows: [row],
   } = await c.query('SELECT id FROM private.nutrition_plans WHERE owner_id=$1 AND client_id=$2::uuid', [
@@ -171,7 +176,7 @@ export async function getOrCreatePlanId(c: PoolClient, identity: SessionIdentity
     clientId,
   ]);
   if (row) return row.id;
-  const newId = randomUUID();
+  const newId = preferredPlanId ?? randomUUID();
   await c.query('INSERT INTO private.nutrition_plans(id, owner_id, client_id) VALUES($1, $2, $3)', [
     newId,
     identity.id,

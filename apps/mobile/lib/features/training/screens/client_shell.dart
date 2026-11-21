@@ -694,7 +694,9 @@ class _ClientShellState extends State<ClientShell> {
             onRetry: _load,
             service: widget.service,
             overviewFooter: FollowUpProgress(
-                key: ValueKey(_epoch), service: _checkInService)),
+                key: ValueKey(_epoch),
+                service: _checkInService,
+                clientId: widget.profile.id)),
       ]);
     }
     final homeErrors = [

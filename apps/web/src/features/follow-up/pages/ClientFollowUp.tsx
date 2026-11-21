@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from '../../../components/Link';
 import { Badge, Card, Meter } from '../../../components/ui';
+import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import {
   COMPLIANCE_LABEL,
   fetchFollowUp,
   percentLabel,
-  updateVisibility,
+  submitVisibility,
 } from '../services/followUp';
 import type {
   AdherenceSummary,
@@ -197,11 +198,15 @@ function WeightChart({ entries }: { entries: BodyWeightEntry[] }) {
 
 function SharingCard({
   clientId,
+  clientName,
+  pending,
   data,
   onSaved,
   onRefresh,
 }: {
   clientId: string;
+  clientName?: string;
+  pending?: { measurements?: unknown; adherence?: unknown } | null;
   data: FollowUp;
   onSaved: (next: FollowUp['visibility']) => void;
   onRefresh: () => void;
@@ -217,8 +222,14 @@ function SharingCard({
       ? edited
       : {
           key: revisionKey,
-          measurements: data.visibility.measurements,
-          adherence: data.visibility.adherence,
+          measurements:
+            typeof pending?.measurements === 'boolean'
+              ? pending.measurements
+              : data.visibility.measurements,
+          adherence:
+            typeof pending?.adherence === 'boolean'
+              ? pending.adherence
+              : data.visibility.adherence,
         };
   const [state, setState] = useState<{
     busy: boolean;
@@ -237,18 +248,27 @@ function SharingCard({
   async function save() {
     setState({ busy: true, message: '', conflictKey: null });
     try {
-      onSaved(
-        await updateVisibility(
-          clientId,
-          { measurements: draft.measurements, adherence: draft.adherence },
-          data.visibility.revision
-        )
+      const outcome = await submitVisibility(
+        clientId,
+        { measurements: draft.measurements, adherence: draft.adherence },
+        data.visibility.revision,
+        clientName
       );
-      setState({
-        busy: false,
-        message: 'Listo. El cliente verá el cambio en su próxima consulta.',
-        conflictKey: null,
-      });
+      if (outcome.status === 'done') {
+        onSaved(outcome.result);
+        setState({
+          busy: false,
+          message: 'Listo. El cliente verá el cambio en su próxima consulta.',
+          conflictKey: null,
+        });
+      } else {
+        setState({
+          busy: false,
+          message:
+            'Cambio guardado en este dispositivo. Se enviará al volver la conexión.',
+          conflictKey: null,
+        });
+      }
     } catch (error) {
       const isConflict =
         error instanceof Error && 'status' in error && error.status === 409;
@@ -266,6 +286,7 @@ function SharingCard({
       title="Información compartida con el cliente"
       subtitle="Sus check-ins y su peso siempre los ve: los registró él. Aquí decides qué de lo tuyo ve en su app."
       icon="shield"
+      action={pending ? <Badge tone="warn">Pendiente de enviar</Badge> : null}
     >
       <div className="space-y-3">
         {(
@@ -329,12 +350,22 @@ function SharingCard({
 }
 
 /** HU-033: chronological follow-up of one client, without automatic diagnosis. */
-export default function ClientFollowUp({ clientId }: { clientId: string }) {
+export default function ClientFollowUp({
+  clientId,
+  clientName,
+}: {
+  clientId: string;
+  clientName?: string;
+}) {
   const [days, setDays] = useState<number | null>(28);
   const [customDraft, setCustomDraft] = useState({ from: '', to: '' });
   const [appliedRange, setAppliedRange] = useState<FollowUpRange>({ days: 28 });
   const [rangeError, setRangeError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const pendingVisibility = useOperations().find(
+    (op) => op.clientId === clientId && op.kind === 'followup.visibility'
+  );
+  useOnSynced(() => setAttempt((n) => n + 1));
   const [result, setResult] = useState<{
     key: string;
     data: FollowUp | null;
@@ -818,6 +849,8 @@ export default function ClientFollowUp({ clientId }: { clientId: string }) {
             <div id="compartir-con-cliente" className="scroll-mt-6">
               <SharingCard
                 clientId={clientId}
+                clientName={clientName}
+                pending={pendingVisibility?.body ?? null}
                 data={data}
                 onSaved={(visibility) =>
                   setResult((r) =>

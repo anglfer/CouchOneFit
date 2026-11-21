@@ -20,6 +20,9 @@ export type OperationKind =
   | 'training.save'
   | 'training.activate'
   | 'training.zone'
+  | 'nutrition.save'
+  | 'nutrition.activate'
+  | 'followup.visibility'
   | 'evaluation.create';
 export type OperationState =
   'pending' | 'syncing' | 'failed' | 'conflict' | 'duplicate';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/session_models.dart';
 import '../services/auth_service.dart';
+import '../widgets/privacy_notice_sheet.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
@@ -308,11 +309,24 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                             style: TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 6),
                         Text(
-                          'Versión 2026-10-15.1. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
+                          'Versión $registrationNoticeVersion. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
                           style: TextStyle(
                             fontSize: 13.5,
                             height: 1.4,
                             color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _busy
+                                ? null
+                                : () => showPrivacyNoticeSheet(context),
+                            icon: const Icon(Icons.privacy_tip_outlined,
+                                size: 18),
+                            label: const Text(
+                              'Consultar aviso de privacidad y condiciones',
+                            ),
                           ),
                         ),
                         Material(

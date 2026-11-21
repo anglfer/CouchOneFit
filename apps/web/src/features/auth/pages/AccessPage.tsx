@@ -141,6 +141,14 @@ export default function AccessPage(): ReactElement {
               Crear mi cuenta
             </Link>
           </p>
+          <p className="mt-2 text-center text-xs text-(--ws-muted)">
+            <Link
+              to="/privacidad"
+              className="font-medium text-(--ws-muted) hover:text-(--ws-primary-fg) hover:underline"
+            >
+              Privacidad y condiciones de uso
+            </Link>
+          </p>
         </form>
       </section>
     </AuthShell>

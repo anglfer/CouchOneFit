@@ -1,4 +1,13 @@
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
+import { isConnectionFailure } from '../../../services/offline/connection';
+import {
+  enqueue,
+  getOperations,
+  updateOperation,
+  type OperationSpec,
+} from '../../../services/offline/outbox';
+import { flushOutbox } from '../../../services/offline/sync';
+import { generateNutritionSuggestion } from '../utils/suggestionEngine';
 import type {
   NutritionDayTargets,
   NutritionDocument,
@@ -143,11 +152,202 @@ export async function requestNutritionSuggestion(
   input: NutritionSuggestionInput
 ): Promise<NutritionSuggestionResult> {
   const endpoint = `/api/clients/${encodeURIComponent(clientId)}/nutrition-plans/suggestion`;
-  const response = await sessionMutation<unknown>(endpoint, input, 'POST');
-  if (!isRecord(response) || !isRecord(response.suggestion)) {
-    throw new Error('No pudimos interpretar la sugerencia nutricional.');
+  try {
+    const response = await sessionMutation<unknown>(endpoint, input, 'POST');
+    if (!isRecord(response) || !isRecord(response.suggestion)) {
+      throw new Error('No pudimos interpretar la sugerencia nutricional.');
+    }
+    return response.suggestion as unknown as NutritionSuggestionResult;
+  } catch (error) {
+    if (!isConnectionFailure(error)) throw error;
+    return generateNutritionSuggestion(input);
   }
-  return response.suggestion as unknown as NutritionSuggestionResult;
+}
+
+const NUTRITION_DOCUMENT_KEYS = [
+  'name',
+  'meals',
+  'caloriesTarget',
+  'proteinTargetG',
+  'carbsTargetG',
+  'fatTargetG',
+  'generalInstructions',
+  'fiberTargetG',
+  'hydrationTargetMl',
+  'restDayTargets',
+  'periWorkout',
+  'suggestionMeta',
+] as const;
+
+function mergeNutritionBody(
+  previous: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  method: 'POST' | 'PATCH'
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...previous };
+  for (const key of NUTRITION_DOCUMENT_KEYS) {
+    if (key in incoming) next[key] = incoming[key];
+  }
+  if (method === 'POST') delete next.revision;
+  return next;
+}
+
+export async function nutritionWrite(
+  spec: Omit<OperationSpec, 'id'>
+): Promise<{ queued: boolean; result?: unknown }> {
+  const related = getOperations().filter(
+    (op) => op.entityKey === spec.entityKey
+  );
+  if (related.some((op) => op.state === 'failed' || op.state === 'conflict')) {
+    throw new Error(
+      'Este plan nutricional tiene un cambio sin enviar que necesita tu decisión. Resuélvelo en «Pendientes de enviar»; tu captura sigue aquí.'
+    );
+  }
+  if (
+    spec.kind === 'nutrition.activate' &&
+    related.some((op) => op.kind === spec.kind && op.endpoint === spec.endpoint)
+  ) {
+    throw new Error(
+      'Ya hay una activación igual pendiente de enviar. Revísala en «Pendientes de enviar».'
+    );
+  }
+  const last = related.at(-1);
+  if (
+    last &&
+    last.state === 'pending' &&
+    last.attempts === 0 &&
+    last.kind === 'nutrition.save' &&
+    spec.kind === 'nutrition.save'
+  ) {
+    await updateOperation(last.id, {
+      body: mergeNutritionBody(last.body, spec.body, last.method),
+      label: spec.label,
+    });
+    return { queued: true };
+  }
+  const id = crypto.randomUUID();
+  const dependencies = related.map((op) => op.id);
+  if (!dependencies.length && navigator.onLine !== false) {
+    try {
+      return {
+        queued: false,
+        result: await sessionMutation(spec.endpoint, spec.body, spec.method, {
+          'Idempotency-Key': id,
+        }),
+      };
+    } catch (error) {
+      if (!isConnectionFailure(error)) throw error;
+      const operation = await enqueue({ ...spec, id, dependsOn: dependencies });
+      if (!operation) throw error;
+      await updateOperation(id, { attempts: 1 });
+      return { queued: true };
+    }
+  }
+  const operation = await enqueue({ ...spec, id, dependsOn: dependencies });
+  if (!operation) {
+    throw new Error('No pudimos guardar el cambio en este dispositivo.');
+  }
+  if (navigator.onLine !== false) void flushOutbox();
+  return { queued: true };
+}
+
+export async function saveNutritionDraftOffline(params: {
+  clientId: string;
+  clientName: string;
+  planId?: string;
+  provisionalPlanId?: string;
+  versionId?: string;
+  provisionalVersionId?: string;
+  revision?: number;
+  document: NutritionDocument;
+  existingCount: number;
+}): Promise<{ queued: boolean; version: NutritionVersion }> {
+  const base = `/api/clients/${encodeURIComponent(params.clientId)}/nutrition-plans`;
+  const isUpdate = Boolean(params.versionId && params.planId);
+  const resolvedPlanId =
+    params.planId ?? params.provisionalPlanId ?? crypto.randomUUID();
+  const resolvedVersionId =
+    params.versionId ?? params.provisionalVersionId ?? crypto.randomUUID();
+  const endpoint = isUpdate
+    ? `${base}/${encodeURIComponent(resolvedPlanId)}/versions/${encodeURIComponent(resolvedVersionId)}`
+    : params.planId
+      ? `${base}/${encodeURIComponent(resolvedPlanId)}/versions`
+      : base;
+  const method: 'POST' | 'PATCH' = isUpdate ? 'PATCH' : 'POST';
+  const body = isUpdate
+    ? { ...params.document, revision: params.revision ?? 1 }
+    : params.planId
+      ? { ...params.document, versionId: resolvedVersionId }
+      : {
+          ...params.document,
+          id: resolvedPlanId,
+          versionId: resolvedVersionId,
+        };
+
+  const outcome = await nutritionWrite({
+    kind: 'nutrition.save',
+    method,
+    endpoint,
+    body,
+    label: `Guardar plan alimenticio: ${params.document.name}`,
+    clientId: params.clientId,
+    clientName: params.clientName,
+    entityKey: resolvedPlanId,
+    readEndpoint: base,
+  });
+
+  if (outcome.queued) {
+    return {
+      queued: true,
+      version: {
+        ...params.document,
+        id: resolvedVersionId,
+        planId: resolvedPlanId,
+        clientId: params.clientId,
+        number: params.existingCount + 1,
+        revision: isUpdate ? (params.revision ?? 1) + 1 : 1,
+        published: false,
+        createdAt: new Date().toISOString(),
+      },
+    };
+  }
+  if (!isNutritionVersion(outcome.result)) {
+    throw new Error(
+      'La respuesta del servidor no coincide con el plan nutricional.'
+    );
+  }
+  return { queued: false, version: outcome.result };
+}
+
+export async function activateNutritionVersionOffline(params: {
+  clientId: string;
+  clientName: string;
+  planId: string;
+  versionId: string;
+  expectedActiveRevision: number;
+  planName: string;
+}): Promise<{
+  queued: boolean;
+  result?: { version: NutritionVersion; activeRevision: number };
+}> {
+  const base = `/api/clients/${encodeURIComponent(params.clientId)}/nutrition-plans`;
+  const endpoint = `${base}/${encodeURIComponent(params.planId)}/versions/${encodeURIComponent(params.versionId)}/activate`;
+  const outcome = await nutritionWrite({
+    kind: 'nutrition.activate',
+    method: 'POST',
+    endpoint,
+    body: { expectedActiveRevision: params.expectedActiveRevision },
+    label: `Activar plan alimenticio: ${params.planName}`,
+    clientId: params.clientId,
+    clientName: params.clientName,
+    entityKey: params.planId,
+    readEndpoint: base,
+  });
+  return {
+    queued: outcome.queued,
+    result: outcome.result as
+      { version: NutritionVersion; activeRevision: number } | undefined,
+  };
 }
 
 export async function createNutritionDraft(

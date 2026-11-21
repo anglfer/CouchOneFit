@@ -12,6 +12,11 @@ export function guardNavigation(check: Guard): () => void {
   };
 }
 
+/** Runs the active navigation guard without moving routes (e.g. before applying a PWA update). */
+export async function canNavigate(): Promise<boolean> {
+  return guard ? Boolean(await guard()) : true;
+}
+
 function notify(): void {
   listeners.forEach((listener) => listener());
 }

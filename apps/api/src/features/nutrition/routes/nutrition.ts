@@ -2,6 +2,7 @@ import { Router, json } from 'express';
 import type { Pool } from 'pg';
 import { requireClient, requireProfessional } from '../../auth/middleware/session.js';
 import { requireCsrf } from '../../auth/middleware/session-http.js';
+import { idempotent } from '../../idempotency/middleware/idempotency.js';
 import { nutritionControllers } from '../controllers/nutrition.js';
 
 export function nutritionRoutes(pool: Pool, now?: () => Date) {
@@ -10,6 +11,7 @@ export function nutritionRoutes(pool: Pool, now?: () => Date) {
   const pro = requireProfessional(pool, now);
   const client = requireClient(pool, now);
   const payload = json({ limit: '1mb' });
+  const idem = idempotent(pool);
 
   // Profesional: gestión de versiones, borradores, sugerencia inicial (HU-025) y activación (HU-024, HU-026)
   router.get('/clients/:clientId/nutrition-plans', pro, controller.versions);
@@ -20,14 +22,22 @@ export function nutritionRoutes(pool: Pool, now?: () => Date) {
     payload,
     controller.suggest,
   );
-  router.post('/clients/:clientId/nutrition-plans', pro, requireCsrf, payload, controller.write);
-  router.post('/clients/:clientId/nutrition-plans/:planId/versions', pro, requireCsrf, payload, controller.write);
-  router.patch('/clients/:clientId/nutrition-plans/:planId/versions/:versionId', pro, requireCsrf, payload, controller.write);
+  router.post('/clients/:clientId/nutrition-plans', pro, requireCsrf, payload, idem, controller.write);
+  router.post('/clients/:clientId/nutrition-plans/:planId/versions', pro, requireCsrf, payload, idem, controller.write);
+  router.patch(
+    '/clients/:clientId/nutrition-plans/:planId/versions/:versionId',
+    pro,
+    requireCsrf,
+    payload,
+    idem,
+    controller.write,
+  );
   router.post(
     '/clients/:clientId/nutrition-plans/:planId/versions/:versionId/activate',
     pro,
     requireCsrf,
     payload,
+    idem,
     controller.activate,
   );
 

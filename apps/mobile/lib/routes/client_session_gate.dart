@@ -14,6 +14,7 @@ import '../features/auth/services/auth_service.dart';
 import '../features/client/models/client_profile.dart';
 import '../features/client/screens/client_profile_screen.dart';
 import '../features/client/services/client_profile_service.dart';
+import '../features/check_in/services/check_in_service.dart';
 import '../features/nutrition/services/nutrition_service.dart';
 
 class ClientSessionGate extends StatefulWidget {
@@ -59,6 +60,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     if (!mounted || result == null) return;
     await widget.trainingService?.cache.clear();
     await NutritionCache().clear();
+    await CheckInCache().clear();
     if (!mounted) return;
     if (result == 'activated') {
       await _restoreSession();
@@ -106,6 +108,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       if (validateSession && account == null) {
         await widget.trainingService?.cache.clear();
         await NutritionCache().clear();
+        await CheckInCache().clear();
         if (!mounted || epoch != _epoch) return;
         setState(() {
           _hasSession = false;
@@ -136,6 +139,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       if (TrainingService.denied(error)) {
         await widget.trainingService?.cache.clear();
         await NutritionCache().clear();
+        await CheckInCache().clear();
       }
       final cached = TrainingService.disconnected(error)
           ? await widget.trainingService?.cache
@@ -191,6 +195,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     try {
       await widget.trainingService?.cache.clear();
       await NutritionCache().clear();
+      await CheckInCache().clear();
       final account = await widget.authService
           .login(identifier: identifier, password: password);
       if (!mounted) return;
@@ -234,6 +239,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       await widget.authService.logout();
       await widget.trainingService?.cache.clear();
       await NutritionCache().clear();
+      await CheckInCache().clear();
       if (!mounted) return;
       setState(() {
         _profile = null;

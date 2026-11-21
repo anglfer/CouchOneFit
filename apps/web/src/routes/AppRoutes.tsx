@@ -9,6 +9,7 @@ import AccessPage from '../features/auth/pages/AccessPage';
 import ProfessionalPage from '../features/professional/pages/ProfessionalPage';
 import AdminPage from '../features/admin/pages/AdminPage';
 import RecoveryPage from '../features/auth/pages/RecoveryPage';
+import PrivacyPage from '../features/auth/pages/PrivacyPage';
 
 export default function AppRoutes(): ReactElement {
   const { pathname } = useLocation();
@@ -17,6 +18,7 @@ export default function AppRoutes(): ReactElement {
   if (pathname === '/registro') return <RegistrationPage />;
   if (pathname === '/acceso') return <AccessPage />;
   if (pathname === '/recuperar') return <RecoveryPage />;
+  if (pathname === '/privacidad') return <PrivacyPage />;
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
     return <AdminPage />;
   }

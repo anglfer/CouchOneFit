@@ -27,7 +27,12 @@ function historyPath(endpoint: string): string | null {
 const CACHEABLE = [
   /^\/api\/clients\/[^/?]+\/evaluations(\?offset=\d+)?$/,
   /^\/api\/training\/(templates|exercises)(\?.*)?$/,
+  /^\/api\/training\/clients$/,
   /^\/api\/clients\/[^/?]+\/training-plans$/,
+  /^\/api\/clients\/[^/?]+\/training-sessions(\?offset=\d+)?$/,
+  /^\/api\/clients\/[^/?]+\/nutrition-plans$/,
+  /^\/api\/follow-up\/summary$/,
+  /^\/api\/clients\/[^/?]+\/follow-up(\?(days=\d+|from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}))?$/,
   /^\/api\/auth\/session$/,
   /^\/api\/admin\/session$/,
   /^\/api\/professional\/profile$/,

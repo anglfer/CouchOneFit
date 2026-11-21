@@ -308,7 +308,10 @@ function ClientRecordContent({
                   refresh={refresh}
                 />
               ) : active === 'followUp' ? (
-                <ClientFollowUp clientId={clientId} />
+                <ClientFollowUp
+                  clientId={clientId}
+                  clientName={record.fullName}
+                />
               ) : active === 'nutrition' ? (
                 <div className="training-page">
                   <ClientNutrition

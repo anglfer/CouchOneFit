@@ -86,6 +86,36 @@ async function serverCopy(
       return null;
     }
   }
+  if (operation.kind.startsWith('nutrition.') && operation.readEndpoint) {
+    try {
+      const response = await freshRequest<{
+        versions: Record<string, unknown>[];
+        activeRevision: number;
+      }>(operation.readEndpoint);
+      const versionId =
+        operation.body.versionId ??
+        operation.endpoint.match(/\/versions\/([^/]+)/)?.[1];
+      const version =
+        response.versions.find((v) => v.id === versionId) ??
+        response.versions.find((v) => v.published === false);
+      return {
+        ...(version ?? {}),
+        activeRevision: response.activeRevision,
+      };
+    } catch {
+      return null;
+    }
+  }
+  if (operation.kind === 'followup.visibility' && operation.readEndpoint) {
+    try {
+      const response = await freshRequest<{
+        visibility?: Record<string, unknown>;
+      }>(operation.readEndpoint);
+      return response.visibility ?? null;
+    } catch {
+      return null;
+    }
+  }
   if (!operation.clientId) return null;
   try {
     const { client } = await freshRequest<{
@@ -128,7 +158,12 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
     }
     if (
       error.status === 409 &&
-      ['CLIENT_RECORD_CONFLICT', 'TRAINING_CONFLICT'].includes(error.code)
+      [
+        'CLIENT_RECORD_CONFLICT',
+        'TRAINING_CONFLICT',
+        'NUTRITION_CONFLICT',
+        'CHECK_IN_CONFLICT',
+      ].includes(error.code)
     ) {
       await updateOperation(operation.id, {
         state: 'conflict',
@@ -219,6 +254,41 @@ async function attempt(operation: Operation): Promise<Outcome> {
           await updateOperation(next.id, {
             body: { ...next.body, revision: version.revision },
           });
+      }
+    }
+    if (
+      operation.kind === 'nutrition.save' &&
+      response &&
+      typeof response === 'object' &&
+      'id' in response &&
+      'planId' in response &&
+      'revision' in response &&
+      typeof response.id === 'string' &&
+      typeof response.planId === 'string' &&
+      typeof response.revision === 'number'
+    ) {
+      const dependents = getOperations().filter(
+        (op) =>
+          op.entityKey === operation.entityKey &&
+          op.dependsOn?.includes(operation.id) &&
+          op.attempts === 0
+      );
+      for (const next of dependents) {
+        const nextEndpoint =
+          operation.clientId !== null
+            ? next.kind === 'nutrition.activate'
+              ? `/api/clients/${encodeURIComponent(operation.clientId)}/nutrition-plans/${encodeURIComponent(response.planId)}/versions/${encodeURIComponent(response.id)}/activate`
+              : `/api/clients/${encodeURIComponent(operation.clientId)}/nutrition-plans/${encodeURIComponent(response.planId)}/versions/${encodeURIComponent(response.id)}`
+            : next.endpoint;
+        const nextBody =
+          next.kind === 'nutrition.save' &&
+          typeof next.body.revision === 'number'
+            ? { ...next.body, revision: response.revision }
+            : next.body;
+        await updateOperation(next.id, {
+          endpoint: nextEndpoint,
+          body: nextBody,
+        });
       }
     }
     await removeOperation(operation.id);
@@ -350,6 +420,72 @@ export async function reapplyOnServerVersion(id: string): Promise<void> {
           ? { activeRevision: server.activeRevision }
           : {}),
       },
+      server,
+      state: 'pending',
+      error: undefined,
+    });
+    await flushOutbox();
+    return;
+  }
+  if (operation.kind.startsWith('nutrition.')) {
+    if (operation.kind === 'nutrition.save') {
+      if (
+        !server ||
+        typeof server.revision !== 'number' ||
+        server.published === true
+      ) {
+        await updateOperation(id, {
+          error:
+            'La versión ya está publicada o no está disponible. Abre Nutrición y crea un borrador nuevo; tu captura sigue aquí.',
+        });
+        return;
+      }
+      await updateOperation(id, {
+        body: { ...operation.body, revision: server.revision },
+        server,
+        state: 'pending',
+        error: undefined,
+      });
+      await flushOutbox();
+      return;
+    }
+    if (!server || typeof server.activeRevision !== 'number') {
+      await updateOperation(id, {
+        error:
+          'No pudimos consultar la versión activa actual. Inténtalo con conexión.',
+      });
+      return;
+    }
+    await updateOperation(id, {
+      body: {
+        ...operation.body,
+        expectedActiveRevision: server.activeRevision,
+      },
+      server,
+      state: 'pending',
+      error: undefined,
+    });
+    await flushOutbox();
+    return;
+  }
+  if (operation.kind === 'followup.visibility') {
+    if (!server || typeof server.revision !== 'number') {
+      await updateOperation(id, {
+        error:
+          'No pudimos consultar la configuración actual. Inténtalo con conexión.',
+      });
+      return;
+    }
+    if (
+      server.measurements === operation.body.measurements &&
+      server.adherence === operation.body.adherence
+    ) {
+      await removeOperation(id);
+      syncedListeners.forEach((listener) => listener());
+      return;
+    }
+    await updateOperation(id, {
+      body: { ...operation.body, revision: server.revision },
       server,
       state: 'pending',
       error: undefined,
