@@ -9,9 +9,12 @@ export interface CatalogPlan {
 export const readPlanCatalog = () =>
   apiClient<{ plans: CatalogPlan[] }>('/api/plans');
 export const formatPlanPrice = (price: number | string) =>
-  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
-    Number(price)
-  );
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    // Precios enteros sin centavos ($299); si algún plan los tiene, se muestran.
+    minimumFractionDigits: Number.isInteger(Number(price)) ? 0 : 2,
+  }).format(Number(price));
 export const planCapacity = (plan: CatalogPlan) =>
   plan.isUnlimited
     ? 'Clientes ilimitados'

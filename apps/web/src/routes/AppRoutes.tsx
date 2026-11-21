@@ -29,15 +29,18 @@ export default function AppRoutes(): ReactElement {
   return (
     <main className="ws-auth-shell items-center justify-center p-6 text-center">
       <div className="ws-auth-card max-w-md space-y-4 p-8">
-        <LogoMark size={96} title="CouchOne Fit" className="mx-auto" />
-        <span className="ws-badge mx-auto" data-tone="info">
-          Error 404
-        </span>
-        <h1 className="text-2xl font-extrabold tracking-tight text-(--ws-text) sm:text-3xl">
+        <LogoMark
+          size={96}
+          variant="ink"
+          title="CouchOne Fit"
+          className="mx-auto"
+        />
+        <h1 className="sg-display text-2xl font-bold leading-tight text-(--ws-text) sm:text-3xl">
           Esta página no está disponible.
         </h1>
         <p className="text-sm text-(--ws-muted)">
-          Vuelve al inicio para conocer CouchOne Fit y continuar en tu espacio.
+          Error 404. Vuelve al inicio para conocer CouchOne Fit y continuar en
+          tu espacio.
         </p>
         <Link to="/" className="ws-btn min-h-11 w-full" data-variant="primary">
           Volver al inicio <Icon name="arrow-right" size={14} />

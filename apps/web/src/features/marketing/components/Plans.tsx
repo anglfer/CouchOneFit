@@ -9,23 +9,22 @@ export function Plans(): ReactElement {
   const { plans, loading, error, reload } = usePlanCatalog();
   return (
     <section
-      className="border-y border-slate-200 bg-slate-50 py-24"
+      className="border-t-[3px] border-(--sg-ink) py-24 lg:py-32"
       id="planes"
       aria-labelledby="plans-title"
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+      <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-8">
         <SectionHeading
           id="plans-title"
-          eyebrow="Planes"
-          title="Un plan para tu forma de trabajar"
-          align="center"
+          title="Paga por el tamaño de tu cartera."
         >
-          Elige según el tamaño de tu cartera. Empieza creando tu cuenta.
+          Todos los planes incluyen el panel, la app para tus clientes y todos
+          los módulos. Cambia cuántos clientes activos acompañas.
         </SectionHeading>
 
         {loading && (
           <div
-            className="grid gap-6 md:grid-cols-3"
+            className="mt-14 grid border-[3px] border-(--sg-ink) md:grid-cols-3"
             role="status"
             aria-busy="true"
           >
@@ -33,7 +32,7 @@ export function Plans(): ReactElement {
             {[0, 1, 2].map((key) => (
               <div
                 key={key}
-                className="h-60 animate-pulse rounded-2xl bg-slate-200/70"
+                className="h-64 animate-pulse bg-[#efefef] motion-reduce:animate-none [&:nth-child(n+3)]:border-t-[3px] md:[&:nth-child(n+3)]:border-l-[3px] md:[&:nth-child(n+3)]:border-t-0"
               />
             ))}
           </div>
@@ -41,58 +40,60 @@ export function Plans(): ReactElement {
         {error && (
           <p
             role="alert"
-            className="mx-auto max-w-md rounded-xl border border-red-200 bg-red-50 p-4 text-center text-red-800"
+            className="mt-14 max-w-xl border-[3px] border-(--sg-ink) p-5 text-base"
           >
             {error}{' '}
-            <button className="font-semibold underline" onClick={reload}>
+            <button
+              type="button"
+              className="font-bold text-(--sg-cobalt) underline underline-offset-4"
+              onClick={reload}
+            >
               Reintentar
             </button>
           </p>
         )}
         {!loading && !error && !plans.length && (
-          <p className="text-center text-slate-600">
-            No hay planes disponibles en este momento.
+          <p className="mt-14 text-base text-(--sg-ink-2)">
+            No hay planes disponibles en este momento. Puedes crear tu cuenta y
+            elegir uno después.
           </p>
         )}
 
-        <div
-          className="grid gap-6 md:grid-cols-3"
-          aria-label="Planes disponibles"
-        >
-          {plans.map((plan) => (
-            <article
-              className="flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
-              key={plan.id}
-            >
-              <h3 className="text-lg font-semibold text-slate-900">
-                {plan.name}
-              </h3>
-              <p className="mt-5 flex flex-wrap items-baseline gap-x-2">
-                <span className="text-4xl font-bold tracking-tight text-slate-900 xl:text-5xl">
-                  {formatPlanPrice(plan.priceMxn)}
-                </span>
-                <span className="whitespace-nowrap text-sm font-medium text-slate-500">
-                  MXN / mes
-                </span>
-              </p>
-              <p className="mt-5 flex items-center gap-2.5 text-base text-slate-700">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-                  <Icon name="check" size={12} strokeWidth={2.5} />
-                </span>
-                {planCapacity(plan)}
-              </p>
-              <Link
-                className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700"
-                to={`/registro?plan=${plan.id}`}
+        {plans.length > 0 && (
+          <ul
+            className="m-0 mt-14 grid list-none border-[3px] border-(--sg-ink) p-0 md:grid-cols-3"
+            aria-label="Planes disponibles"
+          >
+            {plans.map((plan) => (
+              <li
+                key={plan.id}
+                className="sg-plan flex flex-col border-(--sg-ink) p-6 sm:p-8 [&:nth-child(n+2)]:border-t-[3px] md:[&:nth-child(n+2)]:border-l-[3px] md:[&:nth-child(n+2)]:border-t-0"
               >
-                Elegir plan
-                <Icon name="arrow-right" size={18} />
-              </Link>
-            </article>
-          ))}
-        </div>
+                <h3 className="sg-display text-xl font-bold">{plan.name}</h3>
+                <p className="mt-8 flex flex-wrap items-baseline gap-x-2">
+                  <span className="sg-display text-[2.6rem] font-bold leading-none">
+                    {formatPlanPrice(plan.priceMxn)}
+                  </span>
+                  <span className="sg-plan-muted text-sm font-semibold text-(--sg-ink-2)">
+                    MXN al mes
+                  </span>
+                </p>
+                <p className="sg-plan-muted mt-4 text-base text-(--sg-ink-2)">
+                  {planCapacity(plan)}
+                </p>
+                <Link
+                  className="sg-btn mt-10 w-full"
+                  data-variant="line"
+                  to={`/registro?plan=${plan.id}`}
+                >
+                  Elegir {plan.name} <Icon name="arrow-right" size={18} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
 
-        <p className="mt-8 text-center text-sm text-slate-500">
+        <p className="mt-6 text-sm text-(--sg-ink-2)">
           Crear tu cuenta no realiza un cobro ni activa una suscripción.
         </p>
       </div>

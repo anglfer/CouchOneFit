@@ -11,50 +11,52 @@ import {
 /** HU-041: información clara y versionada sobre privacidad y condiciones. */
 export default function PrivacyPage(): ReactElement {
   return (
-    <div className="ws-auth-shell px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mx-auto mb-6 flex w-full max-w-4xl items-center justify-between py-4">
-        <Brand />
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-muted) transition-colors hover:text-(--ws-primary-fg) sm:text-sm"
-        >
-          Volver al inicio <Icon name="arrow-up-right" size={14} />
-        </Link>
+    <div className="ws-auth-shell">
+      <header className="sg-on-color bg-(--sg-cobalt)">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Brand tone="white" />
+          <Link
+            to="/"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-white underline-offset-4 hover:underline"
+          >
+            Volver al inicio <Icon name="arrow-up-right" size={14} />
+          </Link>
+        </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl space-y-6 pb-12">
+      <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10 sm:px-6 lg:py-14">
         <section
-          className="ws-auth-card space-y-6 p-6 sm:p-10"
+          className="ws-auth-card space-y-8 pt-8"
           aria-labelledby="privacy-title"
         >
-          <div className="space-y-2 border-b border-(--ws-border-subtle) pb-6">
-            <span className="ws-badge" data-tone="info">
-              Versión {NOTICE_VERSION}
-            </span>
+          <div className="space-y-3 border-b-[3px] border-(--sg-ink) pb-8">
             <h1
               id="privacy-title"
-              className="text-3xl font-extrabold tracking-tight text-(--ws-text) sm:text-4xl"
+              className="sg-display text-[clamp(1.8rem,5vw,2.6rem)] font-bold leading-tight text-(--ws-text)"
             >
               Privacidad y condiciones de uso
             </h1>
-            <p className="text-sm leading-relaxed text-(--ws-text-2)">
+            <p className="text-sm font-semibold text-(--ws-text-2)">
+              Versión {NOTICE_VERSION}
+            </p>
+            <p className="max-w-[68ch] text-base leading-relaxed text-(--ws-text-2)">
               {REGISTRATION_NOTICE}
             </p>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-7">
             {PRIVACY_SECTIONS.map((section) => (
-              <article key={section.title} className="space-y-1.5">
-                <h2 className="text-base font-bold text-(--ws-text)">
+              <article key={section.title} className="space-y-2">
+                <h2 className="sg-display text-lg font-bold text-(--ws-text)">
                   {section.title}
                 </h2>
-                <p className="text-sm leading-relaxed text-(--ws-text-2)">
+                <p className="max-w-[68ch] text-base leading-relaxed text-(--ws-text-2)">
                   {section.body}
                 </p>
               </article>
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-(--ws-border-subtle) pt-6">
+          <div className="flex flex-wrap items-center gap-3 border-t-[3px] border-(--sg-ink) pt-8">
             <Link to="/registro" className="ws-btn" data-variant="primary">
               Crear mi cuenta <Icon name="arrow-right" size={14} />
             </Link>

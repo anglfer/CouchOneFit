@@ -2,6 +2,7 @@ import { Icon } from '../../../components/Icon';
 import { useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { Brand } from '../../../components/Brand';
 import { Link } from '../../../components/Link';
+import { SignTitle } from '../../../components/SignTitle';
 import { ApiError } from '../../../services/api';
 import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
 import { formatPlanPrice, planCapacity } from '../../../services/planCatalog';
@@ -79,55 +80,47 @@ export default function RegistrationPage(): ReactElement {
   }
 
   return (
-    <div className="ws-auth-shell px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mx-auto mb-6 flex w-full max-w-6xl items-center justify-between py-4">
-        <Brand />
-        <div>
+    <div className="ws-auth-shell">
+      <header className="sg-on-color bg-(--sg-cobalt)">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <Brand tone="white" />
           <Link
             to="/"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-muted) transition-colors hover:text-(--ws-primary-fg) sm:text-sm"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-white underline-offset-4 hover:underline"
           >
             Volver al inicio <Icon name="arrow-up-right" size={14} />
           </Link>
         </div>
       </header>
-      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-10 lg:grid-cols-12">
-        <aside className="space-y-6 pt-4 lg:col-span-5">
-          <span className="ws-badge" data-tone="info">
-            Registro profesional
-          </span>
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-(--ws-text) sm:text-5xl">
-            Tu experiencia.
-            <span className="block text-(--ws-primary-fg)">
-              Un nuevo espacio.
-            </span>
-          </h1>
-          <p className="text-base leading-relaxed text-(--ws-text-2)">
-            Prepara tu cuenta para organizar tus planes y acompañar el progreso
-            de tus clientes de forma conectada y profesional.
+      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-12 px-4 py-10 sm:px-6 lg:grid-cols-12 lg:px-8 lg:py-16">
+        <aside className="space-y-7 lg:sticky lg:top-10 lg:col-span-5">
+          <SignTitle
+            lines={['Crea tu', 'cuenta', 'profesional.']}
+            className="text-[clamp(2.1rem,8vw,3.1rem)] lg:text-[clamp(2.1rem,3.4vw,3.1rem)]"
+          />
+          <p className="max-w-md text-lg leading-relaxed text-(--ws-text-2)">
+            Después abres el expediente de tu primer cliente y le envías su
+            código para que entre a la app.
           </p>
-          <div className="ws-card space-y-2 p-6!">
-            <span className="text-xs font-semibold text-(--ws-primary-fg)">
-              {selectedPlan ? 'Plan seleccionado' : 'A tu ritmo'}
-            </span>
-            <h2 className="text-2xl font-bold text-(--ws-text)">
-              {selectedPlan?.name ?? 'Empieza por tu cuenta'}
-            </h2>
-            <p className="text-sm font-medium text-(--ws-muted)">
+          <div className="border-[3px] border-(--sg-ink) p-6">
+            <h2 className="sg-display text-xl font-bold text-(--ws-text)">
               {selectedPlan
-                ? `${formatPlanPrice(selectedPlan.priceMxn)} MXN · ${planCapacity(selectedPlan)}`
+                ? `Plan ${selectedPlan.name}`
+                : 'Sin plan por ahora'}
+            </h2>
+            <p className="mt-2 text-base text-(--ws-text-2)">
+              {selectedPlan
+                ? `${formatPlanPrice(selectedPlan.priceMxn)} MXN al mes · ${planCapacity(selectedPlan)}`
                 : 'Puedes elegir un plan más adelante.'}
             </p>
-            <div className="pt-2">
-              <a
-                href="/#planes"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-primary-fg) hover:underline"
-              >
-                Ver todos los planes <Icon name="arrow-right" size={14} />
-              </a>
-            </div>
+            <a
+              href="/#planes"
+              className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-(--sg-cobalt) underline-offset-4 hover:underline"
+            >
+              Ver todos los planes <Icon name="arrow-right" size={14} />
+            </a>
           </div>
-          <p className="text-sm text-(--ws-muted)">
+          <p className="text-sm text-(--ws-text-2)">
             Crear tu cuenta no realiza un cobro ni activa un plan.
           </p>
         </aside>
@@ -143,12 +136,9 @@ export default function RegistrationPage(): ReactElement {
               role="status"
               className="space-y-4 py-8 text-center"
             >
-              <span className="ws-badge" data-tone="ok">
-                Registro completado
-              </span>
               <h2
                 id="registration-title"
-                className="text-3xl font-extrabold tracking-tight text-(--ws-text)"
+                className="sg-display text-[1.85rem] font-bold leading-tight text-(--ws-text)"
               >
                 Tu cuenta está lista.
               </h2>
@@ -176,7 +166,7 @@ export default function RegistrationPage(): ReactElement {
             <>
               <h2
                 id="registration-title"
-                className="mb-2 text-2xl font-extrabold tracking-tight text-(--ws-text) sm:text-3xl"
+                className="sg-display mb-3 text-[1.6rem] font-bold leading-tight text-(--ws-text) sm:text-[1.85rem]"
               >
                 Hagamos equipo.
               </h2>
@@ -330,9 +320,15 @@ export default function RegistrationPage(): ReactElement {
                       </button>
                     </p>
                   )}
-                  <details className="rounded-xl border border-(--ws-border) bg-(--ws-surface-2) p-4 text-sm text-(--ws-text-2)">
-                    <summary className="cursor-pointer font-semibold text-(--ws-text)">
+                  <details className="group border-2 border-(--ws-border) p-4 text-sm text-(--ws-text-2)">
+                    <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-4 font-semibold text-(--ws-text)">
                       Sobre tu registro
+                      <Icon
+                        name="plus"
+                        size={18}
+                        strokeWidth={2.4}
+                        className="shrink-0 transition-transform group-open:rotate-45 motion-reduce:transition-none"
+                      />
                     </summary>
                     <p className="mt-2 leading-relaxed">
                       {REGISTRATION_NOTICE}

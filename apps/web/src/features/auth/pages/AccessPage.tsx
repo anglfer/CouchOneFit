@@ -56,7 +56,7 @@ export default function AccessPage(): ReactElement {
     <AuthShell>
       <section>
         <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-(--ws-text)">
+          <h1 className="sg-display mb-3 text-[1.85rem] font-bold leading-tight text-(--ws-text)">
             Qué bueno verte de nuevo.
           </h1>
           <p className="text-base text-(--ws-muted)">
@@ -139,14 +139,6 @@ export default function AccessPage(): ReactElement {
               className="font-semibold text-(--ws-primary-fg) hover:underline"
             >
               Crear mi cuenta
-            </Link>
-          </p>
-          <p className="mt-2 text-center text-xs text-(--ws-muted)">
-            <Link
-              to="/privacidad"
-              className="font-medium text-(--ws-muted) hover:text-(--ws-primary-fg) hover:underline"
-            >
-              Privacidad y condiciones de uso
             </Link>
           </p>
         </form>

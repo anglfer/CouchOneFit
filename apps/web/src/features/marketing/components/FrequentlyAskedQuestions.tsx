@@ -6,60 +6,55 @@ const questions = [
   {
     question: '¿Para quién está pensado CouchOne Fit?',
     answer:
-      'Para entrenadores y nutriólogos que llevan el seguimiento individual de sus clientes. El profesional administra expedientes, evaluaciones, alimentación y entrenamiento; el cliente consulta lo asignado y registra su seguimiento diario.',
+      'Para entrenadores y nutriólogos que llevan el seguimiento individual de sus clientes. Tú administras expedientes, evaluaciones, alimentación y entrenamiento; tu cliente consulta lo asignado y registra su día.',
   },
   {
     question: '¿La web y la app móvil hacen lo mismo?',
     answer:
-      'No. La web/PWA es el espacio de trabajo del profesional, pensado para computadoras, tablets y móviles. La aplicación móvil del cliente está enfocada en consultar su día, sus planes activos y el historial habilitado, además de registrar check-ins. Ambas experiencias compartirán el mismo origen de información.',
+      'No. La web es tu espacio de trabajo y se instala como app en computadora, tablet o móvil. La app del cliente muestra su día, sus planes activos y el historial que habilites, y es donde registra sus check-ins y sus series. Ambas usan la misma información.',
   },
   {
-    question: '¿Cómo se vincula un cliente con su profesional?',
+    question: '¿Cómo se vincula un cliente conmigo?',
     answer:
-      'Primero, el profesional crea el expediente. Después, el cliente se registra con usuario, correo y contraseña, sus confirmaciones y un código individual de un solo uso. Ese código lo vincula con su profesional y con su expediente existente, sin capturar otra vez sus datos físicos. En los accesos posteriores utiliza sus credenciales, no el código.',
+      'Primero creas su expediente. Después le das un código individual de un solo uso; con él crea su usuario y contraseña y queda vinculado a ese expediente, sin volver a capturar sus datos. En adelante entra con sus credenciales.',
   },
   {
-    question: '¿El cliente puede cambiar sus planes o medidas?',
+    question: '¿Mi cliente puede cambiar sus planes o sus medidas?',
     answer:
-      'Los datos base del expediente, las evaluaciones y las prescripciones los administra el profesional. El cliente consulta la información habilitada y registra el cumplimiento de sus sesiones y sus check-ins; no modifica lo prescrito.',
+      'No. Los datos base, las evaluaciones y lo que prescribes los administras tú. Tu cliente registra el cumplimiento de sus sesiones y sus check-ins, y puede corregirlos hasta dos días después.',
   },
   {
-    question: '¿Ya puedo registrarme o contratar un plan?',
+    question: '¿Crear mi cuenta tiene costo?',
     answer:
-      'Ya puedes crear tu cuenta desde Contáctanos o elegir un plan para iniciar el registro. Registrarte no realiza un cobro ni activa una suscripción. Después de registrarte puedes iniciar sesión y consultar tu perfil.',
+      'No. Registrarte no realiza un cobro ni activa una suscripción. Puedes elegir un plan desde el inicio o más adelante.',
   },
 ];
 
 export function FrequentlyAskedQuestions(): ReactElement {
   return (
     <section
-      className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8"
+      className="border-t-[3px] border-(--sg-ink)"
       id="preguntas"
       aria-labelledby="faq-title"
     >
-      <div className="grid gap-12 lg:grid-cols-[2fr_3fr]">
-        <SectionHeading
-          id="faq-title"
-          eyebrow="Preguntas frecuentes"
-          title="Antes de dar el siguiente paso"
-        >
-          Lo esencial sobre CouchOne Fit.
-        </SectionHeading>
-        <div className="flex flex-col gap-3">
+      <div className="mx-auto grid w-full max-w-[1360px] gap-12 px-4 py-24 sm:px-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:py-32">
+        <SectionHeading id="faq-title" title="Antes de empezar." />
+        <div className="sg-faq border-b-[3px] border-(--sg-ink)">
           {questions.map((item) => (
             <details
               key={item.question}
-              className="group rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm open:border-indigo-300"
+              className="group border-t-[3px] border-(--sg-ink)"
             >
-              <summary className="flex cursor-pointer list-none select-none items-center justify-between gap-4 text-base font-semibold text-slate-900">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-6 py-5 text-[17px] font-bold">
                 <span>{item.question}</span>
                 <Icon
-                  name="chevron"
-                  size={20}
-                  className="shrink-0 text-slate-500 transition-transform group-open:rotate-180"
+                  name="plus"
+                  size={22}
+                  strokeWidth={2.4}
+                  className="shrink-0 transition-transform group-open:rotate-45 motion-reduce:transition-none"
                 />
               </summary>
-              <p className="mt-3 leading-relaxed text-slate-600">
+              <p className="max-w-[62ch] pb-6 text-base leading-relaxed text-(--sg-ink-2)">
                 {item.answer}
               </p>
             </details>

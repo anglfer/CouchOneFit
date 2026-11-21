@@ -1,130 +1,95 @@
 import type { ReactElement } from 'react';
-import { Icon, type IconName } from '../../../components/Icon';
+import { PanelShot } from '../../../components/ProductShot';
 import { SectionHeading } from './SectionHeading';
+import { ModuleChip, type ModuleId } from '../modules';
 
-const features: {
-  icon: IconName;
+const prescribes: { text: string; module?: ModuleId }[] = [
+  {
+    text: 'Evaluaciones por bioimpedancia, perímetros o pliegues, con su evolución.',
+    module: 'evaluacion',
+  },
+  {
+    text: 'Rutinas por día con series, repeticiones, carga y descanso.',
+    module: 'entrenamiento',
+  },
+  {
+    text: 'Planes de alimentación con tiempos de comida, equivalentes y macros.',
+    module: 'alimentacion',
+  },
+  {
+    text: 'Qué medidas y qué adherencia ve tu cliente en su app.',
+    module: 'seguimiento',
+  },
+];
+const records: { text: string; module?: ModuleId }[] = [
+  {
+    text: 'Su check-in diario: peso, sueño, energía, estrés, hambre y cumplimiento.',
+  },
+  { text: 'Cada serie de su rutina, mientras entrena.' },
+  { text: 'Correcciones de su registro hasta dos días después.' },
+  { text: 'Nunca cambia lo que tú prescribiste.' },
+];
+
+function Column({
+  title,
+  items,
+}: {
   title: string;
-  text: string;
-  tags: string[];
-}[] = [
-  {
-    icon: 'dumbbell',
-    title: 'Entrenamiento con intención',
-    text: 'Rutinas por día, ejercicios, series, repeticiones e intensidad. Una versión activa para el cliente y las anteriores en su historial.',
-    tags: ['Planifica', 'Asigna', 'Acompaña'],
-  },
-  {
-    icon: 'bowl',
-    title: 'Tu criterio, en cada comida',
-    text: 'Planes con alimentos, cantidades e instrucciones. Objetivos de calorías y macronutrientes cuando los necesites, siempre bajo tu revisión.',
-    tags: ['Alimentos', 'Cantidades', 'Indicaciones'],
-  },
-];
-
-const record: [string, string][] = [
-  ['Su objetivo', 'Crear constancia'],
-  ['Su punto de partida', 'Evaluación inicial'],
-  ['Su recorrido', 'Evaluaciones con fecha'],
-];
+  items: { text: string; module?: ModuleId }[];
+}): ReactElement {
+  return (
+    <div>
+      <h3 className="sg-display text-xl font-bold text-white sm:text-2xl">
+        {title}
+      </h3>
+      <ul className="m-0 mt-6 list-none p-0">
+        {items.map((item) => (
+          <li
+            key={item.text}
+            className="flex items-center gap-4 border-t-2 border-white/80 py-4 text-[17px] leading-snug text-white"
+          >
+            {item.module && <ModuleChip id={item.module} size={34} outlined />}
+            <span>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function ProductFeatures(): ReactElement {
   return (
-    <section
-      className="mx-auto w-full max-w-6xl px-5 py-24 sm:px-8"
-      id="producto"
-      aria-labelledby="features-title"
-    >
-      <SectionHeading
-        id="features-title"
-        eyebrow="El producto"
-        title="Menos información dispersa. Más contexto para acompañar."
-      >
-        Estamos reuniendo lo que necesitas para planificar y dar seguimiento,
-        sin perder de vista a la persona detrás de cada plan.
-      </SectionHeading>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <article className="flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm lg:row-span-1">
-          <span
-            className="mb-5 grid size-11 place-items-center rounded-xl bg-indigo-50 text-indigo-600"
-            aria-hidden="true"
+    <section id="producto" aria-labelledby="record-title">
+      <div className="grid lg:grid-cols-2">
+        <div className="bg-(--sg-cobalt) px-4 pb-16 pt-20 sm:px-8 lg:pb-14 lg:pl-[max(2rem,calc((100vw-1360px)/2+2rem))] lg:pr-14 lg:pt-28">
+          <SectionHeading
+            id="record-title"
+            tone="white"
+            title="Un expediente. Dos lados."
           >
-            <Icon name="clipboard" size={22} />
-          </span>
-          <h3 className="text-xl font-semibold tracking-tight text-slate-900">
-            Una persona. Toda su historia.
-          </h3>
-          <p className="mt-3 leading-relaxed text-slate-600">
-            Datos personales, objetivos y evaluaciones físicas en un expediente.
-            Peso, medidas y evolución, con su historial como referencia.
-          </p>
-          <div
-            className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4"
-            aria-label="Ejemplo conceptual de un expediente"
-          >
-            <div className="mb-3 flex items-center gap-3">
-              <span
-                className="grid size-9 place-items-center rounded-full bg-indigo-600 text-sm font-semibold text-white"
-                aria-hidden="true"
-              >
-                AT
-              </span>
-              <div className="leading-tight">
-                <strong className="block text-sm font-semibold text-slate-900">
-                  Ana Torres
-                </strong>
-                <span className="text-xs text-slate-500">
-                  Expediente de ejemplo
-                </span>
-              </div>
-            </div>
-            <dl className="m-0 divide-y divide-slate-200 text-sm">
-              {record.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3 py-2"
-                >
-                  <dt className="text-slate-500">{label}</dt>
-                  <dd className="m-0 font-medium text-slate-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
+            Lo que tú prescribes y lo que tu cliente vive cada día quedan en el
+            mismo lugar, con fecha.
+          </SectionHeading>
+          <div className="mt-12">
+            <Column title="Tú prescribes" items={prescribes} />
           </div>
-        </article>
-
-        {features.map((feature) => (
-          <article
-            key={feature.title}
-            className="flex flex-col rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
-          >
-            <span
-              className="mb-5 grid size-11 place-items-center rounded-xl bg-indigo-50 text-indigo-600"
-              aria-hidden="true"
-            >
-              <Icon name={feature.icon} size={22} />
-            </span>
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">
-              {feature.title}
-            </h3>
-            <p className="mt-3 leading-relaxed text-slate-600">
-              {feature.text}
-            </p>
-            <ul
-              className="m-0 mt-auto flex list-none flex-wrap gap-2 p-0 pt-6"
-              aria-label="Incluye"
-            >
-              {feature.tags.map((tag) => (
-                <li
-                  key={tag}
-                  className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700"
-                >
-                  {tag}
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
+        </div>
+        <div className="flex flex-col justify-end bg-(--sg-pink) px-4 pb-14 pt-16 sm:px-8 lg:pl-14 lg:pr-[max(2rem,calc((100vw-1360px)/2+2rem))]">
+          <Column title="Tu cliente registra" items={records} />
+        </div>
+      </div>
+      <div className="bg-(--sg-pink) px-6 pb-24 pt-16 sm:px-8 lg:bg-[linear-gradient(90deg,var(--sg-cobalt)_50%,var(--sg-pink)_50%)] lg:pb-28">
+        <PanelShot
+          screen="panel-expediente"
+          alt="Expediente de una clienta en el panel con su entrenamiento de la semana, plan alimenticio, peso en check-ins, última evaluación y medidas base."
+          rings={{
+            gap: 'var(--sg-paper)',
+            ring1: 'var(--sg-ink)',
+            ring2: 'var(--sg-orange)',
+            ring3: 'var(--sg-ink)',
+          }}
+          className="mx-auto aspect-square max-w-[980px] md:aspect-[16/10]"
+        />
       </div>
     </section>
   );

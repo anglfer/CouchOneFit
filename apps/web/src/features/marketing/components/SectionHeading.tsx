@@ -1,40 +1,32 @@
 import type { ReactElement, ReactNode } from 'react';
 
-/** Encabezado de sección: sección en mayúsculas, título y descripción. */
+/** Título de sección en la tipografía de señalética, con su texto de apoyo. */
 export function SectionHeading({
   id,
-  eyebrow,
   title,
   children,
-  align = 'left',
-  tone = 'light',
+  tone = 'ink',
+  className = '',
 }: {
   id: string;
-  eyebrow: string;
   title: string;
   children?: ReactNode;
-  align?: 'left' | 'center';
-  tone?: 'light' | 'dark';
+  /** `ink` sobre blanco o naranja; `white` sobre cobalto, rosa o negro. */
+  tone?: 'ink' | 'white';
+  className?: string;
 }): ReactElement {
-  const dark = tone === 'dark';
+  const white = tone === 'white';
   return (
-    <div
-      className={`mb-12 max-w-2xl ${align === 'center' ? 'mx-auto text-center' : ''}`}
-    >
-      <p
-        className={`mb-3 text-sm font-semibold uppercase tracking-wider ${dark ? 'text-indigo-300' : 'text-indigo-600'}`}
-      >
-        {eyebrow}
-      </p>
+    <div className={`max-w-[44rem] ${className}`}>
       <h2
         id={id}
-        className={`text-3xl font-bold leading-tight tracking-tight sm:text-4xl ${dark ? 'text-white' : 'text-slate-900'}`}
+        className={`sg-display text-[clamp(1.85rem,3.6vw,3rem)] font-bold leading-[1.1] ${white ? 'text-white' : 'text-(--sg-ink)'}`}
       >
         {title}
       </h2>
       {children && (
         <p
-          className={`mt-4 text-lg leading-relaxed ${dark ? 'text-slate-300' : 'text-slate-600'}`}
+          className={`mt-5 max-w-[38rem] text-lg leading-relaxed ${white ? 'text-white/90' : 'text-(--sg-ink-2)'}`}
         >
           {children}
         </p>

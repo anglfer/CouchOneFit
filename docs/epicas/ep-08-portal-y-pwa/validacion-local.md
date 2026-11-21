@@ -49,3 +49,50 @@ Convención del repositorio:
 - **Revisión independiente y coordinación de PR (`CONTRIBUTING.md`):**
   - Pendiente revisión de pares (incluyendo responsables originales: Omar para `HU-039`/`HU-041` y Franela Whaite para `HU-040`).
   - Existen cambios locales en archivos compartidos (`AppRoutes.tsx`, `WorkspaceLayout.tsx`, `vite.config.ts`, `pwa.ts`, `navigation.ts`, `ClientRecordView.tsx`, `PendingOperations.tsx`, `client_shell.dart`, `client_session_gate.dart`) que requieren revisión/PR coordinada antes de integrar o desplegar (`TT-016`/`TT-017` post-despliegue también pendiente).
+
+## 4. Rediseño del portal y del acceso (`HU-039`, 21-nov-2026)
+
+Petición de la persona usuaria: el acceso Web se veía poco profesional y la landing era muy básica; pidió capturas reales del sistema (panel y móvil). Decisiones suyas en esta sesión: reemplazar por completo el mundo visual público (no solo recomponer), aplicarlo a acceso, registro y recuperación, sembrar datos de demostración en la BD local de desarrollo y la dirección «Señalética deportiva mexicana».
+
+### Alcance
+
+- **Web:** nueva landing (`features/marketing/*`, `Hero` con pestañas de módulos que cambian la captura real), marco de acceso (`AuthShell`), registro, recuperación, privacidad y 404 en el mismo mundo (`src/signage.css`, tokens `--sg-*`, re-skin de `ws-auth-*` por tokens). Se eliminó la demo simulada `ProductPreview.tsx`. Fuente display Unbounded (OFL) autoalojada en `public/fonts/` (50 KB). `formatPlanPrice` omite centavos en precios enteros.
+- **Capturas:** 9 WebP en `public/marketing/` (~800 KB, diferidas salvo el hero), tomadas del panel local con Chrome sin ventana y de la app Flutter en el emulador Android, con la procedencia incrustada en cada archivo. Contienen solo datos sintéticos.
+- **Datos de demostración (BD local `CouchOneFit_dev`, sin tocar Supabase):** profesional «Valeria Montes» (plan Pro), 8 clientes ficticios (6 con cuenta activada por invitación real), evaluaciones cada dos semanas, rutina y plan de alimentación activos, 132 check-ins y 84 sesiones en 4 semanas. Identidades por SQL como los scripts `prepare-*-e2e`; el resto por la API con su validación. Usuarios `demo.*` y correos `@example.com`.
+- **Sin cambios** en API, BD (esquema), contratos, móvil ni panel interno.
+
+### Evidencia
+
+- **T.** `npx prettier --check` sobre los 24 archivos Web tocados: aprobado (`apps/web/README.md` ya no cumplía Prettier antes de este cambio y no se reformateó).
+- **T.** `npm --prefix apps/web run lint` (oxlint): exit 0, sin hallazgos.
+- **T.** `npm --prefix apps/web run build` (`tsc -b && vite build`): exit 0; el precache del SW sigue en 28 entradas (las capturas WebP y la fuente no se precachean). Aviso de chunk > 500 kB preexistente.
+- **T.** `npm --prefix apps/web test`: 163 pruebas, 163 aprobadas.
+- **T.** Capturas de página completa con Chrome sin ventana a 1440 y 390 px de `/`, `/acceso`, `/registro`, `/recuperar` y `/privacidad`: sin desbordamiento horizontal.
+- **T.** Navegador integrado: las pestañas del hero responden a clic y a flechas/Inicio/Fin con `aria-selected`, foco itinerante y `aria-labelledby` correctos.
+- **T.** Detector de Impeccable: solo «fuente fuera de DESIGN.md» (resuelto al documentar) y un falso positivo de borde sobre tarjeta redondeada (`border-radius: 0` en la misma regla).
+- **E.** Contraste: texto blanco sobre rosa 4,5:1 y sobre cobalto 8,7:1; texto negro sobre naranja 7,3:1 y sobre verde 6,4:1.
+- **E.** Revisión final independiente de Impeccable (agente sin contexto de la construcción, sobre capturas y código):
+  - Primera ronda (`fix`): 8 hallazgos materiales, todos corregidos:
+    - título de registro en tres líneas;
+    - foco blanco sobre campos de color;
+    - recorte móvil de capturas;
+    - controles nativos de registro;
+    - pictogramas de módulo en toda la landing;
+    - «Cómo funciona» como ruta numerada;
+    - aviso de datos de demostración;
+    - «Contáctanos», resuelto citando la HU-039.
+  - Segunda ronda: 2 regresiones (orden de anillos del hero y final de la ruta), corregidas.
+  - Veredicto final: `ship`.
+- **E.** Documentación del sistema: `apps/web/DESIGN.md` se sobrescribió (describía el mundo índigo descartado) y se generó `apps/web/.impeccable/design.json`. Al documentar aparecieron 4 detalles, ya corregidos:
+  - la etiqueta de la pestaña activa pasa a tinta negra sobre naranja y verde;
+  - `theme-color` público en blanco (`theme.ts` e `index.html`);
+  - una sola pila de fuentes;
+  - esqueleto de planes sin animación con movimiento reducido.
+
+  Tras esas correcciones se repitieron Prettier, oxlint, build y pruebas, con el mismo resultado.
+
+### Pendiente
+
+- **R.** Aceptación visual de la persona usuaria en navegador y móvil reales.
+- Revisión de pares y PR coordinada (`CONTRIBUTING.md`); nada se ha confirmado ni publicado.
+- Si se publica, revisar que las capturas sigan reflejando el producto cuando cambie la UI del panel o del móvil.

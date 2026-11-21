@@ -2,6 +2,8 @@
 
 **UI-001 actualizada por instrucción del usuario el 16 de octubre de 2026.** Esta versión sustituye la paleta azul/esmeralda y el criterio de tema exclusivamente claro aprobados el 14 de octubre. Es la fuente maestra para marketing Web, panel profesional/administración y móvil. La composición pública se detalla en [apps/web/DESIGN.md](apps/web/DESIGN.md).
 
+**21 de noviembre de 2026, decisión del usuario:** las superficies públicas de la Web (landing `/`, `/acceso`, `/registro`, `/recuperar`, `/privacidad` y la página 404) reemplazan su mundo visual por la «señalética deportiva» descrita en [apps/web/DESIGN.md](apps/web/DESIGN.md). El panel profesional, la administración y la app móvil conservan este sistema sin cambios.
+
 ## Identidad de marca
 
 | Token | Color | Uso |
@@ -19,7 +21,7 @@
 background: linear-gradient(135deg, #3046EB 0%, #4037F7 48%, #6344DC 100%);
 ```
 
-El degradado identifica marca y énfasis comercial. La acción principal conserva su color sólido. Rosa y naranja son semánticos, nunca colores principales de CouchOne Fit.
+El degradado identifica marca y énfasis comercial. La acción principal conserva su color sólido. Rosa y naranja son semánticos, nunca colores principales de CouchOne Fit. Excepción (21-nov-2026): en las superficies públicas el rosa mexicano `#E5007D` es la acción y el naranja `#FF6A13` es color de módulo, según `public-signage`.
 
 ## Logotipo y piezas de marca
 
@@ -27,44 +29,25 @@ El isotipo C1 está vectorizado a partir del logo principal. Fuentes en `apps/we
 
 ## Temas por superficie
 
-Los seis conjuntos son exactos. Web ofrece el selector claro/oscuro/sistema en el menú de cuenta del panel y de administración (sin botón suelto en la cabecera) y el botón de sol/luna en marketing, acceso y registro. Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente; antes de entrar ofrece el botón de sol/luna y, ya dentro, el tema (sistema/claro/oscuro) se elige en Cuenta → Preferencias → Apariencia y se recuerda en el teléfono (decisión del usuario del 04-nov-2026, ver EP-06). Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
+Los conjuntos son exactos. Web ofrece el selector claro/oscuro/sistema en el menú de cuenta del panel y de administración (sin botón suelto en la cabecera); las superficies públicas son siempre claras (`apps/web/src/services/theme.ts`). Guarda la elección claro/oscuro en `localStorage` (`couchonefit-theme`) y la aplica entre páginas y recargas mediante `data-theme` en la raíz. Sin elección guardada sigue `prefers-color-scheme`, incluidos sus cambios; con almacenamiento bloqueado el botón funciona durante la página. Flutter sigue al dispositivo inicialmente; antes de entrar ofrece el botón de sol/luna y, ya dentro, el tema (sistema/claro/oscuro) se elige en Cuenta → Preferencias → Apariencia y se recuerda en el teléfono (decisión del usuario del 04-nov-2026, ver EP-06). Los tokens globales de marca/estado se comparten; las superficies mantienen tokens propios para evitar que la landing imponga su estilo al sistema interno.
 
-### marketing-light
+### public-signage
 
-```yaml
-marketing-light:
-  primary: "#4037F7"
-  primary-hover: "#3128D9"
-  secondary: "#6344DC"
-  canvas: "#F8F9FD"
-  surface: "#FFFFFF"
-  surface-secondary: "#F3F4FA"
-  surface-accent: "#F1F0FF"
-  text-primary: "#090918"
-  text-secondary: "#434771"
-  text-muted: "#6C74A1"
-  border: "#E3E5FC"
-  border-strong: "#D0D2FA"
-  primary-soft: "#EAE8FF"
-```
-
-### marketing-dark
+Sustituye a `marketing-light` y `marketing-dark` desde el 21-nov-2026. Tokens `--sg-*` en `apps/web/src/signage.css`; detalle en [apps/web/DESIGN.md](apps/web/DESIGN.md).
 
 ```yaml
-marketing-dark:
-  primary: "#6259FF"
-  primary-hover: "#756EFF"
-  secondary: "#8067F5"
-  canvas: "#050A1A"
-  surface: "#0C152C"
-  surface-secondary: "#121F43"
-  surface-accent: "#162467"
-  text-primary: "#EFF0F4"
-  text-secondary: "#BBBFD3"
-  text-muted: "#8F97AF"
-  border: "#21305B"
-  border-strong: "#293A70"
-  primary-soft: "#1A1D5A"
+public-signage:
+  paper: "#FFFFFF"
+  ink: "#000000"
+  ink-secondary: "#3D3D3D"
+  action: "#E5007D"        # rosa mexicano, blanco encima 4,5:1
+  action-hover: "#B80064"
+  cobalt: "#2335C9"        # Entrenamiento, campos de marca, enlaces
+  orange: "#FF6A13"        # Evaluación, texto negro encima
+  green: "#00A35C"         # Alimentación, texto negro encima
+  rule: "3px"
+  ring: "8px"
+  display: "Unbounded (autoalojada, public/fonts)"
 ```
 
 ### professional-light
@@ -251,7 +234,7 @@ Validar contraste por combinación y tamaño; los HEX por sí solos no certifica
 
 ## Alcance implementado y fuentes
 
-- Web: marca y estados en `apps/web/src/index.css`; marketing claro/oscuro en `apps/web/src/features/marketing/marketing.css`; acceso/registro en `apps/web/src/features/auth/registration.css`.
+- Web: marca y estados en `apps/web/src/index.css`; landing, acceso, registro, recuperación y privacidad en `apps/web/src/signage.css` (tokens `--sg-*` y re-skin de los `ws-auth-*`).
 - Panel y administración: estructura compartida `apps/web/src/layouts/WorkspaceLayout.tsx`, componentes en `apps/web/src/components/` (incluido `ui.tsx`: PageHeader, Card, Badge, Meter), tokens `--ws-*` y clases `ws-*` en `apps/web/src/workspace.css` y tokens globales en `apps/web/src/index.css`, sin dependencia visual del marketing.
 - Flutter: marca, estados y temas en `apps/mobile/lib/shared/theme/app_theme.dart`, conectados a `main.dart`. Los radios para componentes aún inexistentes son especificación, no prueba de pantallas implementadas. Componentes compartidos en `apps/mobile/lib/shared/widgets/` (`NoticeBanner`, `StatusView`, `SheetHeader`/`SheetOption`, `IconBadge`, `GradientActionButton`, `JourneySurface`, `GroupCard`, `SectionTitle`, `TonePill`, `DetailScaffold`) y en `features/training/screens/training_views.dart` (`ChoiceBar`, `CardTitle`, `StatTile`, `StatPanel`, `ScreenHeader`).
 - Las vistas conceptuales de marketing conservan su contenido de ejemplo. Las pantallas reales usan la API y conservan comprobación de sesión, redirección por rol, reintento y cierre de sesión.

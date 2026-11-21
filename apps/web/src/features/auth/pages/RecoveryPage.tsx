@@ -45,7 +45,7 @@ export default function RecoveryPage() {
   return (
     <AuthShell>
       <section className="space-y-5 text-(--ws-text-2)">
-        <h1 className="text-3xl font-bold tracking-tight text-(--ws-text)">
+        <h1 className="sg-display text-[1.85rem] font-bold leading-tight text-(--ws-text)">
           Recupera tu acceso
         </h1>
         <p className="text-sm leading-relaxed">

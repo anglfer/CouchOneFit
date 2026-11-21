@@ -2,17 +2,20 @@ import type { ReactElement } from 'react';
 import { Link } from './Link';
 import { LogoMark } from './LogoMark';
 
-export function Brand(): ReactElement {
+/** Marca de las superficies públicas (landing, acceso, registro, privacidad). */
+export function Brand({
+  tone = 'ink',
+}: {
+  tone?: 'ink' | 'white';
+}): ReactElement {
   return (
     <Link
-      className="inline-flex select-none items-center whitespace-nowrap gap-2.5 text-lg font-bold tracking-tight text-slate-900 no-underline focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-600"
+      className={`sg-display inline-flex select-none items-center gap-2.5 whitespace-nowrap text-[17px] font-bold no-underline ${tone === 'white' ? 'text-white' : 'text-(--sg-ink)'}`}
       to="/"
       aria-label="CouchOne Fit, inicio"
     >
-      <LogoMark size={36} />
-      <span>
-        CouchOne<span className="font-semibold text-indigo-600"> Fit</span>
-      </span>
+      <LogoMark size={38} variant={tone} />
+      <span>CouchOne Fit</span>
     </Link>
   );
 }

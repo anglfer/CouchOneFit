@@ -1,97 +1,69 @@
 import type { ReactElement } from 'react';
-import { Icon, type IconName } from '../../../components/Icon';
+import { PhoneShot, type PhoneScreen } from '../../../components/ProductShot';
 import { SectionHeading } from './SectionHeading';
 
-const audiences: {
-  icon: IconName;
-  label: string;
+const screens: {
+  screen: PhoneScreen;
   title: string;
-  surface: string;
-  items: string[];
+  text: string;
+  alt: string;
 }[] = [
   {
-    icon: 'monitor',
-    label: 'Para ti',
-    title: 'Un espacio para decidir',
-    surface: 'Web profesional, instalable como app',
-    items: [
-      'Clientes activos y capacidad',
-      'Check-ins recientes y pendientes',
-      'Progreso e historial continuo',
-    ],
+    screen: 'movil-inicio',
+    title: 'Su día',
+    text: 'La rutina y la alimentación de hoy, en cuanto abre la app.',
+    alt: 'Inicio de la app del cliente: semana con días entrenados, el entrenamiento de hoy, su check-in y la alimentación del día.',
   },
   {
-    icon: 'smartphone',
-    label: 'Para tu cliente',
-    title: 'Su día, más claro',
-    surface: 'Aplicación móvil',
-    items: [
-      'Entrenamiento y alimentación del día',
-      'Registro de check-in en segundos',
-      'Consulta de evolución habilitada',
-    ],
+    screen: 'movil-checkin',
+    title: 'Su check-in',
+    text: 'Peso, sueño, energía, estrés, hambre y cumplimiento en segundos.',
+    alt: 'Check-in diario en la app: peso corporal, horas de sueño y nivel de estrés.',
+  },
+  {
+    screen: 'movil-progreso',
+    title: 'Su progreso',
+    text: 'Su historial y lo que tú decidas compartir con él.',
+    alt: 'Progreso en la app: kilos levantados, entrenamientos, racha semanal y actividad de los últimos meses.',
   },
 ];
 
 export function ConnectedExperience(): ReactElement {
   return (
     <section
-      className="bg-slate-900 py-24 text-white"
-      aria-labelledby="connected-title"
+      className="bg-(--sg-orange) py-24 text-(--sg-ink) lg:py-32"
+      aria-labelledby="client-app-title"
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+      <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-8">
         <SectionHeading
-          id="connected-title"
-          eyebrow="Una experiencia conectada"
-          title="Tú ves el contexto. Tu cliente, el siguiente paso."
-          tone="dark"
+          id="client-app-title"
+          title="Una app para tus clientes."
+          className="[&_p]:text-(--sg-ink)"
         >
-          Un plan no cuenta toda la historia. El sueño, la energía, el estrés y
-          el cumplimiento diario ayudan a entender cómo va cada persona.
+          Tus clientes ven solo lo que les asignas y registran su día desde el
+          teléfono. Tú lo recibes en el panel.
         </SectionHeading>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {audiences.map((audience) => (
-            <article
-              key={audience.label}
-              className="rounded-2xl border border-slate-700 bg-slate-800/70 p-8"
-            >
-              <div className="mb-5 flex items-center gap-3">
-                <span
-                  className="grid size-11 place-items-center rounded-xl bg-indigo-500/20 text-indigo-300"
-                  aria-hidden="true"
-                >
-                  <Icon name={audience.icon} size={22} />
-                </span>
-                <div className="leading-tight">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
-                    {audience.label}
-                  </p>
-                  <p className="mt-0.5 text-sm text-slate-400">
-                    {audience.surface}
-                  </p>
-                </div>
-              </div>
-              <h3 className="text-2xl font-semibold tracking-tight">
-                {audience.title}
-              </h3>
-              <ul className="m-0 mt-5 flex list-none flex-col gap-3 p-0">
-                {audience.items.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-3 text-base text-slate-200"
-                  >
-                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-indigo-500/25 text-indigo-300">
-                      <Icon name="check" size={12} strokeWidth={2.5} />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
       </div>
+      <ul
+        className="m-0 mt-14 flex list-none snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-4 sm:px-8 lg:mx-auto lg:grid lg:max-w-[1360px] lg:grid-cols-3 lg:gap-12 lg:overflow-visible"
+        aria-label="Pantallas de la app del cliente"
+        tabIndex={0}
+      >
+        {screens.map((item) => (
+          <li
+            key={item.screen}
+            className="w-[72%] max-w-[300px] shrink-0 snap-center sm:w-[44%] lg:w-auto lg:max-w-none"
+          >
+            <PhoneShot
+              screen={item.screen}
+              alt={item.alt}
+              className="mx-auto max-w-[300px]"
+            />
+            <h3 className="sg-display mt-7 text-lg font-bold">{item.title}</h3>
+            <p className="mt-2 text-base leading-relaxed">{item.text}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

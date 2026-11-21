@@ -13,7 +13,7 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 | Módulo / Capa                        | Estado                      | Descripción técnica                                                                                                                                                                                   |
 | :----------------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Marketing público (`/`)**          | **Completado (v1)**         | Landing responsive, temática fija clara/blanca, narrativa guiada por `/docs`, showcase interactivo del producto (panel profesional + app cliente sincronizada) y diálogo de estado de acceso.         |
+| **Marketing público (`/`)**          | **Completado (v1)**         | Landing responsive siempre clara, mundo «señalética deportiva» (21-nov-2026) y capturas reales del panel y de la app móvil por módulo. |
 | **Enrutamiento base**                | **Funcional**               | `AppRoutes.tsx` incluye `/`, `/registro` y `/acceso` y guard de `/app/*`; rutas privadas desconocidas se resuelven después de comprobar sesión.                                                       |
 | **Autenticación profesional**        | **Implementada localmente** | Registro y login por API/PostgreSQL; cookies protegidas, renovación serializada, revocación y perfil propio. Ver contrato HU-002.                                                                     |
 | **Sistema interno / Dashboard**      | **Pendiente**               | HU-015/016/017 implementan localmente alta, cartera y edición de datos base con versión; recorrido HU-017 y revisión pendientes. Evaluaciones e integración completa del dashboard siguen pendientes. |
@@ -71,7 +71,7 @@ En producción cumple dos propósitos con límites arquitectónicos definidos:
 
 ### 4. Qué falta dentro del Módulo de Marketing (`features/marketing`)
 
-La versión actual de Marketing cubre completamente la narrativa de producto, la vista interactiva, la propuesta de valor y las preguntas frecuentes. Los elementos pendientes para futuras etapas son:
+La versión actual de Marketing cubre la narrativa de producto con capturas reales (`public/marketing/`, datos de demostración), la propuesta de valor, planes y preguntas frecuentes. Los elementos pendientes para futuras etapas son:
 
 - [x] **CTA de registro:** «Contáctanos» → `/registro`; «Contratar plan» → `/registro?plan=basic|pro|elite`. «Acceso profesional» enlaza a `/acceso`; `/app/*` verifica sesión en API.
 - [ ] **Páginas de términos legales y privacidad (`RNF12`, `RNF19`, `RS23`)**:
