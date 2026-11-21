@@ -9,10 +9,12 @@ class ClientBaseMeasurements extends StatelessWidget {
       required this.profile,
       required this.onRefresh,
       this.isRefreshing = false,
+      this.onOpenProgress,
       this.today});
   final ClientProfile profile;
   final Future<void> Function() onRefresh;
   final bool isRefreshing;
+  final VoidCallback? onOpenProgress;
 
   /// Injected for tests; defaults to now.
   final DateTime? today;
@@ -132,25 +134,35 @@ class ClientBaseMeasurements extends StatelessWidget {
             Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
-                    'Son tus medidas iniciales registradas por tu profesional, no tu progreso. La evolución de tus medidas todavía no está disponible; tu avance de entrenamiento está en Progreso.',
+                    'Son tus medidas iniciales registradas por tu profesional, no tu progreso. Tu peso diario y lo que comparta tu profesional están en Progreso.',
                     style: TextStyle(
                         fontSize: 12.5, color: colors.onSurfaceVariant))),
             Padding(
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                        key: const ValueKey('refresh_profile_button'),
-                        onPressed: isRefreshing ? null : onRefresh,
-                        icon: isRefreshing
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.refresh_rounded),
-                        label: Text(isRefreshing
-                            ? 'Actualizando expediente...'
-                            : 'Actualizar expediente')))),
+                child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                          key: const ValueKey('refresh_profile_button'),
+                          onPressed: isRefreshing ? null : onRefresh,
+                          icon: isRefreshing
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.refresh_rounded),
+                          label: Text(isRefreshing
+                              ? 'Actualizando expediente...'
+                              : 'Actualizar expediente')),
+                      if (onOpenProgress != null)
+                        TextButton.icon(
+                            key: const ValueKey('open_progress_button'),
+                            onPressed: onOpenProgress,
+                            icon: const Icon(Icons.insights_outlined),
+                            label: const Text('Ver mi progreso')),
+                    ])),
           ])),
     ]);
   }

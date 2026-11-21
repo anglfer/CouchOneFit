@@ -133,6 +133,6 @@ export function getHistory(pool: Pool, identity: SessionIdentity, query: unknown
 export function getActivity(pool: Pool, identity: SessionIdentity, clientId: string) {
   return repository.read(pool,identity,async c=>{await repository.scope(c,identity,clientId);return repository.activity(c,clientId)})
 }
-export function getClients(pool: Pool, identity: SessionIdentity) {
-  return repository.read(pool,identity,async c=>{await repository.scope(c,identity,null);return repository.trainingClients(c,identity)})
+export function getClients(pool: Pool, identity: SessionIdentity, now = new Date()) {
+  return repository.read(pool,identity,async c=>{await repository.scope(c,identity,null);return repository.trainingClients(c,identity,now)})
 }

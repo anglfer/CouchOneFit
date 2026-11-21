@@ -4,6 +4,7 @@ import { Badge, Card } from '../../../components/ui';
 import type { EvolutionSection } from '../../evaluations/types/evolution';
 import EvolutionSummary from '../../evaluations/components/EvolutionSummary';
 import EvaluationSummary from '../../evaluations/components/EvaluationSummary';
+import type { BodyWeightEntry } from '../../follow-up/types/followUp';
 
 export function SectionState({
   section,
@@ -102,6 +103,49 @@ function NutritionSectionCard({
   );
 }
 
+/** Latest daily weights from check-ins; the full history lives in Seguimiento. */
+function BodyWeightSummary({
+  entries,
+  clientId,
+}: {
+  entries: BodyWeightEntry[];
+  clientId: string;
+}) {
+  const label = (date: string) =>
+    new Date(`${date}T12:00:00Z`).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    });
+  return (
+    <div className="space-y-2 text-sm">
+      <p>
+        <span className="text-lg font-semibold tabular-nums">
+          {entries[0].weightKg} kg
+        </span>{' '}
+        <span className="text-(--ws-muted)">
+          · {label(entries[0].localDate)} · check-in del cliente
+        </span>
+      </p>
+      {entries.length > 1 && (
+        <p className="text-(--ws-muted) tabular-nums">
+          Anteriores:{' '}
+          {entries
+            .slice(1, 5)
+            .map((e) => `${e.weightKg} kg (${label(e.localDate)})`)
+            .join(' · ')}
+        </p>
+      )}
+      <Link
+        to={`/app/clientes/${clientId}/seguimiento`}
+        className="font-semibold underline"
+      >
+        Ver seguimiento
+      </Link>
+    </div>
+  );
+}
+
 /** Modules that other epics connect to the record (training has its own card). */
 export default function ClientRecordSections({
   sections,
@@ -132,7 +176,14 @@ export default function ClientRecordSections({
             <h3 className="text-sm font-semibold">
               Historial de peso corporal
             </h3>
-            <SectionState section={sections.bodyWeightHistory} />
+            {sections.bodyWeightHistory.status === 'available' ? (
+              <BodyWeightSummary
+                entries={sections.bodyWeightHistory.entries}
+                clientId={clientId}
+              />
+            ) : (
+              <SectionState section={sections.bodyWeightHistory} />
+            )}
           </div>
         </div>
       </Card>

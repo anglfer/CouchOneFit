@@ -11,6 +11,11 @@ import {
 } from '../../../components/ui';
 import { firstName, initials } from '../../../utils/personName';
 import {
+  fetchPortfolioSummary,
+  percentLabel,
+} from '../../follow-up/services/followUp';
+import type { PortfolioFollowUpSummary } from '../../follow-up/types/followUp';
+import {
   readTrainingClients,
   relativeDay,
   type TrainingClient,
@@ -64,16 +69,53 @@ export default function ProfessionalHome({
   const active = subscription?.status === 'active';
   const [clients, setClients] = useState<TrainingClient[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [summary, setSummary] = useState<PortfolioFollowUpSummary | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
+  const [checkInView, setCheckInView] = useState<'recent' | 'pending'>(
+    'recent'
+  );
+
   useEffect(() => {
     if (!active) return;
     let live = true;
     void readTrainingClients()
-      .then((list) => live && setClients(list))
-      .catch(() => live && setFailed(true));
+      .then((list) => {
+        if (live) {
+          setClients(list);
+          setFailed(false);
+        }
+      })
+      .catch(() => {
+        if (live) setFailed(true);
+      });
     return () => {
       live = false;
     };
-  }, [active]);
+  }, [active, attempt]);
+
+  useEffect(() => {
+    if (!active) return;
+    let live = true;
+    void fetchPortfolioSummary()
+      .then((next) => {
+        if (live) {
+          setSummary(next);
+          setSummaryFailed(false);
+        }
+      })
+      .catch(() => {
+        if (live) {
+          setSummary(null);
+          setSummaryFailed(true);
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [active, summaryAttempt]);
+
   const activeClients = clients?.filter((c) => c.status === 'active') ?? [];
   const needs = activeClients
     .map((c) => [c, attention(c)] as const)
@@ -87,6 +129,14 @@ export default function ProfessionalHome({
     .slice(0, 6);
   const trainedWeek = activeClients.filter((c) => c.sessionsLast7 > 0).length;
   const withoutRoutine = activeClients.filter((c) => !c.activeRoutine).length;
+  // DEC-008: pending = active client without today's check-in; no "reviewed" state exists.
+  const checkedToday = activeClients.filter((c) => c.checkInToday).length;
+  const recentCheckIns = activeClients
+    .filter((c) => c.checkInRecent)
+    .sort((a, b) =>
+      (b.lastCheckInAt ?? '').localeCompare(a.lastCheckInAt ?? '')
+    );
+  const pendingToday = activeClients.filter((c) => !c.checkInToday);
 
   return (
     <>
@@ -176,6 +226,23 @@ export default function ProfessionalHome({
                     Con al menos un registro en 7 días
                   </p>
                 </section>
+                <section className="ws-card" aria-labelledby="stat-checkin">
+                  <h2 id="stat-checkin" className="ws-stat-label">
+                    Check-in de hoy
+                  </h2>
+                  <p className="ws-stat-value">
+                    {checkedToday}
+                    <span className="text-base font-medium text-(--ws-muted)">
+                      {' '}
+                      de {activeClients.length}
+                    </span>
+                  </p>
+                  <p className="ws-stat-note">
+                    {activeClients.length - checkedToday === 0
+                      ? 'Nadie sin check-in hoy'
+                      : `${activeClients.length - checkedToday} sin check-in hoy`}
+                  </p>
+                </section>
                 <section className="ws-card" aria-labelledby="stat-routine">
                   <h2 id="stat-routine" className="ws-stat-label">
                     Sin rutina activa
@@ -185,6 +252,43 @@ export default function ProfessionalHome({
                     {withoutRoutine === 0
                       ? 'Todos tus clientes activos tienen rutina'
                       : 'Asígnales una desde su ficha'}
+                  </p>
+                </section>
+              </>
+            )}
+
+            {summary && (
+              <>
+                <section
+                  className="ws-card"
+                  aria-labelledby="stat-adherence-training"
+                >
+                  <h2 id="stat-adherence-training" className="ws-stat-label">
+                    Adherencia entrenamiento (7 d)
+                  </h2>
+                  <p className="ws-stat-value">
+                    {percentLabel(summary.adherence.training.observedPercent)}
+                  </p>
+                  <p className="ws-stat-note">
+                    {summary.adherence.training.applicableDays === 0
+                      ? 'Sin días con plan en 7 días'
+                      : `Cobertura ${percentLabel(summary.adherence.training.coveragePercent)}`}
+                  </p>
+                </section>
+                <section
+                  className="ws-card"
+                  aria-labelledby="stat-adherence-nutrition"
+                >
+                  <h2 id="stat-adherence-nutrition" className="ws-stat-label">
+                    Adherencia alimentación (7 d)
+                  </h2>
+                  <p className="ws-stat-value">
+                    {percentLabel(summary.adherence.nutrition.observedPercent)}
+                  </p>
+                  <p className="ws-stat-note">
+                    {summary.adherence.nutrition.applicableDays === 0
+                      ? 'Sin días con plan en 7 días'
+                      : `Cobertura ${percentLabel(summary.adherence.nutrition.coveragePercent)}`}
                   </p>
                 </section>
               </>
@@ -207,6 +311,26 @@ export default function ProfessionalHome({
               </p>
             </section>
           </div>
+
+          {active && summaryFailed && (
+            <div
+              role="alert"
+              className="ws-alert flex flex-wrap items-center justify-between gap-3"
+              data-tone="bad"
+            >
+              <span>No pudimos consultar los indicadores de adherencia.</span>
+              <button
+                type="button"
+                className="ws-btn"
+                onClick={() => {
+                  setSummaryFailed(false);
+                  setSummaryAttempt((n) => n + 1);
+                }}
+              >
+                Reintentar adherencia
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -219,9 +343,21 @@ export default function ProfessionalHome({
             labelId="home-attention"
           >
             {failed ? (
-              <p className="text-sm text-(--ws-muted)">
-                No pudimos consultar el estado de tus clientes.
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-(--ws-muted)">
+                  No pudimos consultar el estado de tus clientes.
+                </p>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={() => {
+                    setFailed(false);
+                    setAttempt((n) => n + 1);
+                  }}
+                >
+                  Reintentar
+                </button>
+              </div>
             ) : !clients ? (
               <div className="ws-skeleton h-24" />
             ) : needs.length === 0 ? (
@@ -251,15 +387,138 @@ export default function ProfessionalHome({
           </Card>
 
           <Card
+            title="Check-ins de tus clientes"
+            subtitle="Recientes en las últimas 24 h o pendientes de registrar hoy."
+            icon="clipboard"
+            labelId="home-checkins"
+          >
+            <div className="mb-3 space-y-2">
+              <div
+                className="ws-segmented"
+                role="group"
+                aria-label="Vista de check-ins"
+              >
+                <button
+                  type="button"
+                  className="ws-plain"
+                  aria-pressed={checkInView === 'recent'}
+                  onClick={() => setCheckInView('recent')}
+                >
+                  Recientes (≤ 24 h)
+                </button>
+                <button
+                  type="button"
+                  className="ws-plain"
+                  aria-pressed={checkInView === 'pending'}
+                  onClick={() => setCheckInView('pending')}
+                >
+                  Sin check-in hoy
+                </button>
+              </div>
+              {checkInView === 'pending' && (
+                <p className="text-xs text-(--ws-muted)">
+                  Sin check-in registrado en la fecha local actual del cliente;
+                  no indica revisión pendiente.
+                </p>
+              )}
+            </div>
+            {failed ? (
+              <div className="space-y-2">
+                <p className="text-sm text-(--ws-muted)">
+                  No pudimos consultar los check-ins.
+                </p>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={() => {
+                    setFailed(false);
+                    setAttempt((n) => n + 1);
+                  }}
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : !clients ? (
+              <div className="ws-skeleton h-24" />
+            ) : checkInView === 'recent' ? (
+              recentCheckIns.length === 0 ? (
+                <p className="text-sm text-(--ws-muted)">
+                  Sin check-ins en las últimas 24 horas.
+                </p>
+              ) : (
+                <ul className="home-list">
+                  {recentCheckIns.slice(0, 6).map((c) => (
+                    <li key={c.id}>
+                      <Link to={`/app/clientes/${c.id}/seguimiento`}>
+                        <span className="ws-avatar" aria-hidden="true">
+                          {initials(c.fullName)}
+                        </span>
+                        <span className="home-list-text">
+                          <strong>{c.fullName}</strong>
+                          <span>
+                            {c.checkInToday
+                              ? 'Registró su check-in de hoy'
+                              : `Último check-in ${relativeDay(c.lastCheckIn!)}`}
+                          </span>
+                        </span>
+                        <span className="home-list-cta">Ver →</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : pendingToday.length === 0 ? (
+              <p className="text-sm text-(--ws-muted)">
+                {activeClients.length === 0
+                  ? 'Aún no tienes clientes activos.'
+                  : 'Todos tus clientes activos registraron su check-in de hoy.'}
+              </p>
+            ) : (
+              <ul className="home-list">
+                {pendingToday.slice(0, 6).map((c) => (
+                  <li key={c.id}>
+                    <Link to={`/app/clientes/${c.id}/seguimiento`}>
+                      <span className="ws-avatar" aria-hidden="true">
+                        {initials(c.fullName)}
+                      </span>
+                      <span className="home-list-text">
+                        <strong>{c.fullName}</strong>
+                        <span>
+                          {c.lastCheckIn
+                            ? `Último check-in ${relativeDay(c.lastCheckIn)}`
+                            : 'Aún sin check-ins registrados'}
+                        </span>
+                      </span>
+                      <span className="home-list-cta">Ver →</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card
             title="Actividad reciente"
             subtitle="Últimos entrenamientos registrados desde el móvil."
             icon="chart"
             labelId="home-recent"
           >
             {failed ? (
-              <p className="text-sm text-(--ws-muted)">
-                No pudimos consultar la actividad.
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-(--ws-muted)">
+                  No pudimos consultar la actividad.
+                </p>
+                <button
+                  type="button"
+                  className="ws-btn"
+                  onClick={() => {
+                    setFailed(false);
+                    setAttempt((n) => n + 1);
+                  }}
+                >
+                  Reintentar
+                </button>
+              </div>
             ) : !clients ? (
               <div className="ws-skeleton h-24" />
             ) : recent.length === 0 ? (

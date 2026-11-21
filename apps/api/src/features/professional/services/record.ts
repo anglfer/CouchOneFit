@@ -7,6 +7,7 @@ import { getActivity, getContext } from '../../training/services/training.js';
 import { getActivePlanSummary } from '../../nutrition/services/nutrition.js';
 import { getEvaluations } from '../../evaluations/services/evaluation.js';
 import { getEvaluationHistory } from '../../evaluations/services/evolution.js';
+import { getBodyWeightHistory } from '../../follow-up/services/follow-up.js';
 
 export async function readProfessionalRecord(
   pool: Pool,
@@ -106,6 +107,20 @@ export async function readProfessionalRecord(
       throw error;
     progress = { status: 'error', code: 'QUERY_FAILED' };
   }
+  let bodyWeightHistory: ProfessionalRecord['sections']['bodyWeightHistory'];
+  try {
+    const entries = await getBodyWeightHistory(pool, identity, clientId);
+    bodyWeightHistory = entries.length
+      ? { status: 'available', entries }
+      : { status: 'empty' };
+  } catch (error) {
+    if (
+      error instanceof AuthError &&
+      [400, 401, 403, 404].includes(error.status)
+    )
+      throw error;
+    bodyWeightHistory = { status: 'error', code: 'QUERY_FAILED' };
+  }
   return {
     record: {
       profile: client,
@@ -114,7 +129,7 @@ export async function readProfessionalRecord(
         trainingPlan,
         evaluations,
         progress,
-        bodyWeightHistory: { status: 'not_integrated' },
+        bodyWeightHistory,
       },
     },
   };

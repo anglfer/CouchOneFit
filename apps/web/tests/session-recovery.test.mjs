@@ -495,6 +495,31 @@ beforeEach(async () => {
     if (url === '/api/me/subscription') return subscriptionResponder();
     // Portfolio rows add the training summary when it is available.
     if (url === '/api/training/clients') return json({ clients: [] });
+    if (url === '/api/follow-up/summary')
+      return json({
+        days: 7,
+        activeClients: 0,
+        adherence: {
+          training: {
+            applicableDays: 0,
+            recordedDays: 0,
+            completed: 0,
+            partial: 0,
+            notCompleted: 0,
+            observedPercent: null,
+            coveragePercent: null,
+          },
+          nutrition: {
+            applicableDays: 0,
+            recordedDays: 0,
+            completed: 0,
+            partial: 0,
+            notCompleted: 0,
+            observedPercent: null,
+            coveragePercent: null,
+          },
+        },
+      });
     if (
       url.startsWith('/api/clients?') &&
       (!options.method || options.method === 'GET')
@@ -1747,7 +1772,7 @@ test('HU-021 third record tab is the only evaluation entry and there is no globa
   ];
   assert.deepEqual(
     tabs.map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición', 'Seguimiento']
   );
   assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
   assert.equal(document.querySelector('form'), null);
@@ -2135,7 +2160,7 @@ test('HU-022 available progress contract is accepted by the existing record with
     [
       ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
     ].map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición', 'Seguimiento']
   );
   assert.equal(writes().length, 0);
 });

@@ -193,15 +193,9 @@ test('HU-019 composition reuses the real owned base profile and never fabricates
   assert.equal(progress.status, 'empty');
   assert.equal(progress.history.clientId, id);
   assert.deepEqual(progress.history.samples, []);
-  for (const [name, section] of Object.entries(otherSections))
-    assert.deepEqual(section, {
-      status:
-        name === 'trainingPlan' ||
-        name === 'evaluations' ||
-        name === 'nutritionPlan'
-          ? 'empty'
-          : 'not_integrated',
-    });
+  // Every integrated module reports a real empty state, never fabricated rows.
+  for (const section of Object.values(otherSections))
+    assert.deepEqual(section, { status: 'empty' });
   assert.equal(read.body.record.profile.id, id);
   assert.equal(read.body.record.profile.baseWeightKg, 70.2);
   assert.equal('createdAt' in read.body.record.profile, false);
@@ -220,7 +214,7 @@ test('HU-019 composition reuses the real owned base profile and never fabricates
   assert.equal(absent.body.record.profile.goal, null);
   assert.equal(absent.body.record.profile.baseWeightKg, null);
   assert.deepEqual(absent.body.record.sections.bodyWeightHistory, {
-    status: 'not_integrated',
+    status: 'empty',
   });
   await database.query('DELETE FROM private.clients WHERE id=$1', [nullable]);
 });

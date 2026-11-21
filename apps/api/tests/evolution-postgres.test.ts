@@ -451,7 +451,7 @@ describe(
       assert.equal(r.body.record.sections.progress.status, 'available')
       assert.equal(
         r.body.record.sections.bodyWeightHistory.status,
-        'not_integrated',
+        'empty',
       )
       r = await get(`/api/clients/${actors.clientB.client}/record`, 'proB')
       assert.equal(r.status, 200)

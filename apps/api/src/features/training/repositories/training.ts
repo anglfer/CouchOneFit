@@ -173,13 +173,22 @@ export async function listSessions(c: PoolClient, clientId: string, offset: numb
   return {sessions,nextOffset:rows.length>40?offset+40:null}
 }
 // shortcut: returns the whole portfolio (no paging); add a cursor if Élite portfolios grow past a few hundred.
-export async function trainingClients(c: PoolClient, identity: SessionIdentity) {
+export async function trainingClients(c: PoolClient, identity: SessionIdentity, now = new Date()) {
   const { rows } = await c.query(`SELECT c.id,c.full_name AS "fullName",c.status,
       (SELECT v.document->>'name' FROM private.training_active a JOIN private.training_versions v ON v.id=a.version_id WHERE a.client_id=c.id) AS "activeRoutine",
       EXISTS(SELECT 1 FROM private.training_plans tp JOIN private.training_versions v ON v.plan_id=tp.id WHERE tp.client_id=c.id AND NOT v.published) AS "hasDraft",
       (SELECT max(local_date)::text FROM private.training_sessions s WHERE s.client_id=c.id) AS "lastSession",
-      (SELECT count(*)::int FROM private.training_sessions s WHERE s.client_id=c.id AND s.local_date > (CURRENT_TIMESTAMP AT TIME ZONE c.time_zone)::date-7) AS "sessionsLast7"
+      (SELECT count(*)::int FROM private.training_sessions s WHERE s.client_id=c.id AND s.local_date > ($2::timestamptz AT TIME ZONE c.time_zone)::date-7) AS "sessionsLast7",
+      (SELECT max(local_date)::text FROM private.check_ins k WHERE k.client_id=c.id) AS "lastCheckIn",
+      (SELECT max(updated_at) FROM private.check_ins k WHERE k.client_id=c.id) AS "lastCheckInAt",
+      EXISTS(SELECT 1 FROM private.check_ins k WHERE k.client_id=c.id AND k.local_date=($2::timestamptz AT TIME ZONE c.time_zone)::date) AS "checkInToday",
+      EXISTS(SELECT 1 FROM private.check_ins k WHERE k.client_id=c.id AND k.updated_at > $2::timestamptz - interval '24 hours') AS "checkInRecent"
     FROM private.clients c JOIN private.professionals p ON p.id=c.professional_id
-    WHERE p.user_id=$1 ORDER BY c.status='active' DESC,c.full_name,c.id`,[identity.id])
-  return { clients: rows }
+    WHERE p.user_id=$1 ORDER BY c.status='active' DESC,c.full_name,c.id`,[identity.id, now])
+  return {
+    clients: rows.map((row) => ({
+      ...row,
+      lastCheckInAt: row.lastCheckInAt ? new Date(row.lastCheckInAt).toISOString() : null,
+    })),
+  }
 }

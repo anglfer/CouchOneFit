@@ -5,6 +5,7 @@ import type {
 import type { NutritionVersion } from '../../nutrition/types/nutrition.js';
 import type { EvolutionSection } from '../../evaluations/types/evolution.js';
 import type { Evaluation } from '../../evaluations/types/evaluation.js';
+import type { BodyWeightEntry } from '../../follow-up/types/follow-up.js';
 
 export interface ClientBaseRecord {
   id: string;
@@ -52,6 +53,8 @@ export interface ProfessionalRecord {
         };
     evaluations: EvaluationSection;
     progress: EvolutionSection;
-    bodyWeightHistory: RecordSection;
+    bodyWeightHistory:
+      | RecordSection
+      | { status: 'available'; entries: BodyWeightEntry[] };
   };
 }

@@ -6,6 +6,7 @@ export function localDate(now: Date, timeZone: string): string {
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 export const calendarDistance = (a: string, b: string) => Math.round((Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86400000)
+export const shiftDate = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86400000).toISOString().slice(0, 10)
 export function scheduledDay(plan: Prescription, date: string): TrainingDay | null {
   const elapsed = calendarDistance(date, plan.startDate)
   if (elapsed < 0) return null

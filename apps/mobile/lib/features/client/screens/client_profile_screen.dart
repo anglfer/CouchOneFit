@@ -28,6 +28,7 @@ class ClientProfileScreen extends StatelessWidget {
     this.isRefreshing = false,
     this.errorMessage,
     this.onCredentials,
+    this.onOpenProgress,
     this.settings,
   });
 
@@ -37,6 +38,7 @@ class ClientProfileScreen extends StatelessWidget {
   final bool isRefreshing;
   final String? errorMessage;
   final VoidCallback? onCredentials;
+  final VoidCallback? onOpenProgress;
 
   /// Device preferences; without it the Preferencias section is hidden.
   final SettingsController? settings;
@@ -107,7 +109,8 @@ class ClientProfileScreen extends StatelessWidget {
                   ClientBaseMeasurements(
                       profile: profile,
                       onRefresh: onRefresh,
-                      isRefreshing: isRefreshing),
+                      isRefreshing: isRefreshing,
+                      onOpenProgress: onOpenProgress),
                   if (settings != null) ...[
                     label('Preferencias'),
                     ValueListenableBuilder<AppSettings>(

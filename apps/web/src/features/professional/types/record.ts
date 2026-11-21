@@ -3,6 +3,7 @@ import type { TrainingVersion } from '../../training/types/training';
 import type { NutritionVersion } from '../../nutrition/types/nutrition';
 import type { EvolutionSection } from '../../evaluations/types/evolution';
 import type { EvaluationSection } from '../../evaluations/types/evaluation';
+import type { BodyWeightEntry } from '../../follow-up/types/followUp';
 
 // Availability only; module-specific data require their own integrated contract.
 export type RecordSection =
@@ -38,6 +39,7 @@ export interface ProfessionalRecord {
         };
     evaluations: EvaluationSection;
     progress: EvolutionSection | { status: 'not_integrated' };
-    bodyWeightHistory: RecordSection;
+    bodyWeightHistory:
+      RecordSection | { status: 'available'; entries: BodyWeightEntry[] };
   };
 }

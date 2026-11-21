@@ -2679,7 +2679,7 @@
         "description": "Página, no historial completo ni snapshot global. Orden (date, createdAt, id) ascendente. Cero/una medición por métrica no acreditan tendencia. hasMore informa continuación de esta consulta; la UI debe distinguir cobertura cargada y periodo total. Inserciones concurrentes/retroactivas requieren refresco: no se promete snapshot entre requests."
       },
       "EvolutionSection": {
-        "description": "Evolución real compuesta en el expediente profesional. empty/available incluyen history; error/QUERY_FAILED sin datos indica fallo recuperable. Denegaciones 401/403/404 abortan el expediente. bodyWeightHistory sigue separado y no integrado hasta su fuente correspondiente.",
+        "description": "Evolución real compuesta en el expediente profesional. empty/available incluyen history; error/QUERY_FAILED sin datos indica fallo recuperable. Denegaciones 401/403/404 abortan el expediente. bodyWeightHistory llega del check-in diario (HU-037), separado de las evaluaciones.",
         "oneOf": [
           {
             "type": "object",
@@ -4635,7 +4635,42 @@
                 "$ref": "#/components/schemas/EvolutionSection"
               },
               "bodyWeightHistory": {
-                "$ref": "#/components/schemas/RecordSection"
+                "description": "EP-07 / HU-037: últimos 10 pesos corporales registrados por el cliente en su check-in (available, más reciente primero) o empty/error. Contrato completo en docs/epicas/ep-07-seguimiento/README.md.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RecordSection"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["status", "entries"],
+                    "properties": {
+                      "status": {
+                        "const": "available"
+                      },
+                      "entries": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["checkInId", "localDate", "timeZone", "weightKg", "unit", "source", "revision", "recordedAt"],
+                          "properties": {
+                            "checkInId": { "type": "string", "format": "uuid" },
+                            "localDate": { "type": "string", "format": "date" },
+                            "timeZone": { "type": "string" },
+                            "weightKg": { "type": "number", "minimum": 30, "maximum": 300, "multipleOf": 0.1 },
+                            "unit": { "const": "kg" },
+                            "source": { "const": "check_in" },
+                            "revision": { "type": "integer", "minimum": 1 },
+                            "recordedAt": { "type": "string", "format": "date-time" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
               }
             }
           }

@@ -4,6 +4,7 @@ import { isVersion } from '../../training/services/training';
 import { isNutritionVersion } from '../../nutrition/services/nutrition';
 import { isEvolutionPage } from '../../evaluations/types/evolution';
 import { isEvaluation } from '../../evaluations/types/evaluation';
+import { isWeightEntry } from '../../follow-up/services/followUp';
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -70,6 +71,19 @@ export async function fetchProfessionalRecord(
         !section.evaluations.every((item) => isEvaluation(item, clientId))
       )
         throw new Error('Invalid evaluation section');
+      continue;
+    }
+    if (
+      key === 'bodyWeightHistory' &&
+      object(section) &&
+      section.status === 'available'
+    ) {
+      if (
+        !Array.isArray(section.entries) ||
+        section.entries.length === 0 ||
+        !section.entries.every(isWeightEntry)
+      )
+        throw new Error('Invalid body weight section');
       continue;
     }
     if (

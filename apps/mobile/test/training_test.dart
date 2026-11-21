@@ -124,6 +124,21 @@ Map<String, Object?> historyFixture() => {
       ],
       'nextOffset': null
     };
+Map<String, Object?> checkInFixture() => {
+      'clientId': 'client-a',
+      'today': '2026-11-04',
+      'timeZone': 'America/Mexico_City',
+      'canWrite': true,
+      'localDate': '2026-11-04',
+      'dates': [
+        {'localDate': '2026-11-04', 'recorded': false},
+        {'localDate': '2026-11-03', 'recorded': true},
+        {'localDate': '2026-11-02', 'recorded': false},
+      ],
+      'checkIn': null,
+      'nutrition': {'applicable': false, 'planName': null},
+      'training': null,
+    };
 JsonHttpHandler routed(Map<String, Object?> Function() context) =>
     (request) async => ApiHttpResponse(
         statusCode: 200,
@@ -131,7 +146,19 @@ JsonHttpHandler routed(Map<String, Object?> Function() context) =>
             ? historyFixture()
             : request.path.startsWith('/api/me/nutrition-plan')
                 ? const {'plan': null}
-                : context());
+                : request.path.startsWith('/api/me/check-ins/context')
+                    ? checkInFixture()
+                    : request.path.startsWith('/api/me/check-ins')
+                        ? const {'checkIns': [], 'nextOffset': null}
+                        : request.path.startsWith('/api/me/progress')
+                            ? const {
+                                'today': '2026-11-04',
+                                'visibility': {
+                                  'measurements': false,
+                                  'adherence': false
+                                }
+                              }
+                            : context());
 void main() {
   test('published boundary, cache isolation, expiry and UUID keys', () async {
     final raw = fixture();
@@ -321,7 +348,8 @@ void main() {
         if (width < 768) expect(find.text('Entrenar'), findsOneWidget);
         expect(find.text('Empezar entrenamiento'), findsOneWidget);
         expect(find.text('Recuperación muscular'), findsOneWidget);
-        expect(find.text('Check-in diario y peso'), findsOneWidget);
+        expect(find.text('Check-in de hoy'), findsOneWidget);
+        expect(find.text('Anteayer'), findsOneWidget);
         await tester.tap(find.text('Planes'));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);

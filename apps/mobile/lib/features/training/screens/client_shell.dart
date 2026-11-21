@@ -5,6 +5,11 @@ import '../../../shared/widgets/journey_surface.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../auth/models/session_models.dart';
+import '../../check_in/models/check_in.dart';
+import '../../check_in/screens/check_in_screen.dart';
+import '../../check_in/services/check_in_service.dart';
+import '../../check_in/widgets/check_in_card.dart';
+import '../../check_in/widgets/follow_up_progress.dart';
 import '../../client/models/client_profile.dart';
 import '../../nutrition/models/nutrition_plan.dart';
 import '../../nutrition/services/nutrition_service.dart';
@@ -22,15 +27,19 @@ class ClientShell extends StatefulWidget {
       {super.key,
       required this.profile,
       required this.service,
-      required this.account,
+      this.account = const SizedBox.shrink(),
+      this.accountBuilder,
       this.nutritionService,
+      this.checkInService,
       this.settings});
   final ClientProfile profile;
   final TrainingService service;
   final NutritionService? nutritionService;
+  final CheckInService? checkInService;
 
   /// Cuenta tab: profile, access and Configuración.
   final Widget account;
+  final Widget Function(VoidCallback onOpenProgress)? accountBuilder;
   final SettingsController? settings;
   @override
   State<ClientShell> createState() => _ClientShellState();
@@ -41,6 +50,8 @@ class _ClientShellState extends State<ClientShell> {
       widget.settings ?? SettingsController();
   late final NutritionService _nutritionService = widget.nutritionService ??
       NutritionService(apiClient: widget.service.apiClient);
+  late final CheckInService _checkInService = widget.checkInService ??
+      CheckInService(apiClient: widget.service.apiClient);
   int _selected = 0, _epoch = 0;
   bool _plansNutrition = false;
   TrainingContext? _data;
@@ -53,6 +64,10 @@ class _ClientShellState extends State<ClientShell> {
   DateTime? _nutritionCachedAt;
   String? _nutritionError;
   bool _nutritionLoading = true;
+
+  CheckInContext? _checkIn;
+  String? _checkInError;
+  bool _checkInLoading = true;
 
   // Live workout kept mounted while minimized, until it is finalized.
   Widget? _session;
@@ -119,6 +134,62 @@ class _ClientShellState extends State<ClientShell> {
     }
   }
 
+  /// Independent of the routine: a client without plans still checks in.
+  Future<void> _loadCheckIn() async {
+    final epoch = _epoch;
+    setState(() {
+      _checkInLoading = true;
+      _checkInError = null;
+    });
+    try {
+      final data = await _checkInService.context();
+      if (!mounted || epoch != _epoch) return;
+      if (data.clientId != widget.profile.id) {
+        throw const FormatException('Cuenta distinta');
+      }
+      setState(() => _checkIn = data);
+    } catch (error) {
+      if (!mounted || epoch != _epoch) return;
+      setState(() {
+        _checkIn = null;
+        _checkInError = error is AuthApiException
+            ? error.message
+            : 'No pudimos consultar tu check-in. Reintenta la consulta.';
+      });
+    } finally {
+      if (mounted && epoch == _epoch) setState(() => _checkInLoading = false);
+    }
+  }
+
+  Future<void> _openCheckIn(String date) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final current = _checkIn;
+      final data = current != null && current.localDate == date
+          ? current
+          : await _checkInService.context(date: date);
+      if (!mounted) return;
+      final saved = await Navigator.push<CheckIn>(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  CheckInScreen(service: _checkInService, initial: data)));
+      if (saved == null || !mounted) return;
+      // Inicio reflects the check-in only after the server confirmed it.
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Check-in guardado')));
+      _loadCheckIn();
+    } catch (error) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+            content: Text(error is AuthApiException
+                ? error.message
+                : 'No pudimos abrir el check-in. Revisa tu conexión.')));
+    }
+  }
+
   Future<void> _load() async {
     final epoch = ++_epoch;
     setState(() {
@@ -127,6 +198,7 @@ class _ClientShellState extends State<ClientShell> {
     });
     final history = _fetchHistory();
     final nutrition = _loadNutrition();
+    final checkIn = _loadCheckIn();
     try {
       final data = await widget.service.context();
       if (!mounted || epoch != _epoch) return;
@@ -156,6 +228,7 @@ class _ClientShellState extends State<ClientShell> {
       });
     } finally {
       await nutrition;
+      await checkIn;
       final loaded = await history;
       if (mounted && epoch == _epoch) {
         setState(() {
@@ -380,7 +453,9 @@ class _ClientShellState extends State<ClientShell> {
                       child: Column(children: [
                     Expanded(
                         child: _selected == 3
-                            ? widget.account
+                            ? (widget.accountBuilder?.call(
+                                    () => setState(() => _selected = 2)) ??
+                                widget.account)
                             : RefreshIndicator(
                                 onRefresh: _load,
                                 child: LayoutBuilder(
@@ -542,11 +617,14 @@ class _ClientShellState extends State<ClientShell> {
 
   Widget _content() {
     final data = _data, plan = data?.plan;
-    final today = data?.today ?? trainingIso(DateTime.now());
+    final serverToday = data?.today ?? _checkIn?.today;
+    final today = serverToday ?? trainingIso(DateTime.now());
     final header = switch (_selected) {
       0 => ScreenHeader(
           title: 'Hola, ${widget.profile.fullName.split(' ').first}',
-          subtitle: data == null ? 'Tu día' : capitalized(longDate(data.today)),
+          subtitle: serverToday == null
+              ? 'Tu día'
+              : capitalized(longDate(serverToday)),
           trailing: IconButton.filledTonal(
               tooltip: 'Configuración',
               onPressed: () => setState(() => _selected = 3),
@@ -576,10 +654,20 @@ class _ClientShellState extends State<ClientShell> {
             today: today,
             onRetry: _load,
             service: widget.service),
+        FollowUpProgress(key: ValueKey(_epoch), service: _checkInService),
       ]);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       header,
+      if (_selected == 0 && (_checkIn != null || _checkInError != null)) ...[
+        CheckInCard(
+            context_: _checkIn,
+            loading: _checkInLoading,
+            error: _checkInError,
+            onOpen: _openCheckIn,
+            onRetry: _loadCheckIn),
+        const SizedBox(height: 14),
+      ],
       if (_loading && data == null)
         const _LoadingCard()
       else ...[
@@ -607,12 +695,7 @@ class _ClientShellState extends State<ClientShell> {
               opening: _opening,
               onStart: _openSession,
               onShowDay: _showDay,
-              onOpenProgress: () => setState(() => _selected = 2),
-              nutritionPlan: _nutritionPlan,
-              onOpenNutrition: () => setState(() {
-                    _plansNutrition = true;
-                    _selected = 1;
-                  })),
+              onOpenProgress: () => setState(() => _selected = 2)),
         if (data != null && _selected == 1)
           PlansTab(
             plan: plan,
@@ -627,7 +710,95 @@ class _ClientShellState extends State<ClientShell> {
             onSectionChanged: (v) => setState(() => _plansNutrition = v),
           ),
       ],
+      if (_selected == 0) _homeNutritionCard(context),
     ]);
+  }
+
+  /// HU-035: independent nutrition summary on Inicio (works even if training fails).
+  Widget _homeNutritionCard(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    if (_nutritionError != null && _nutritionPlan == null) {
+      return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: NoticeBanner(
+              text: _nutritionError!,
+              tone: NoticeTone.error,
+              onRetry: _nutritionLoading ? null : _loadNutrition));
+    }
+    if (_nutritionLoading && _nutritionPlan == null) {
+      return const SizedBox.shrink();
+    }
+    final nutrition = _nutritionPlan;
+    void openNutrition() => setState(() {
+          _plansNutrition = true;
+          _selected = 1;
+        });
+    if (nutrition == null) {
+      return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CardTitle(
+                            icon: Icons.restaurant_outlined,
+                            title: 'Alimentación de hoy',
+                            action: 'Ver Planes',
+                            onAction: openNutrition),
+                        const SizedBox(height: 8),
+                        Text(
+                            'Sin plan alimenticio activo. Cuando tu profesional lo active aparecerá aquí.',
+                            style: TextStyle(color: colors.onSurfaceVariant)),
+                      ]))));
+    }
+    final parts = <String>[
+      trainingCount(nutrition.meals.length, 'comida', 'comidas'),
+      if (nutrition.caloriesTarget != null)
+        '${nutrition.caloriesTarget!.round()} kcal',
+      if (nutrition.proteinTargetG != null)
+        'P ${nutrition.proteinTargetG!.round()}g',
+      if (nutrition.carbsTargetG != null)
+        'C ${nutrition.carbsTargetG!.round()}g',
+      if (nutrition.fatTargetG != null) 'G ${nutrition.fatTargetG!.round()}g',
+    ];
+    return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CardTitle(
+                          icon: Icons.restaurant_outlined,
+                          title: 'Alimentación de hoy',
+                          action: 'Ver plan',
+                          onAction: openNutrition),
+                      const SizedBox(height: 8),
+                      Text(nutrition.name,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(parts.join(' · '),
+                          style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurfaceVariant,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ])),
+                      if (_nutritionCachedAt != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                            'Lectura guardada · ${_nutritionCachedAt!.toLocal().toString().substring(0, 16)}',
+                            style: TextStyle(
+                                fontSize: 12, color: colors.onSurfaceVariant)),
+                      ],
+                    ]))));
   }
 }
 

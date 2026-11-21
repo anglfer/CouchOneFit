@@ -344,6 +344,8 @@ class DatabaseDouble {
                 .slice(0, 20),
             )
           }
+          // HU-037 weights come from check-ins; this double has none.
+          if (sql.includes('FROM private.check_ins')) return result()
           throw Error('Unexpected SQL in isolated double')
         },
       }
@@ -559,7 +561,7 @@ test('HU-022 existing record composes available/empty/error without exposing den
   assert.equal(r.body.record.sections.trainingPlan.status, 'empty')
   assert.equal(
     r.body.record.sections.bodyWeightHistory.status,
-    'not_integrated',
+    'empty',
   )
   db.rows = []
   r = await get(db, path)

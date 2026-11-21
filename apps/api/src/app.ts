@@ -17,6 +17,7 @@ import { professionalRoutes } from './features/professional/routes/professional.
 import { trainingRoutes } from './features/training/routes/training.js';
 import { evaluationRoutes } from './features/evaluations/routes/evaluations.js';
 import { nutritionRoutes } from './features/nutrition/routes/nutrition.js';
+import { followUpRoutes } from './features/follow-up/routes/follow-up.js';
 
 export interface AppOptions {
   now?: () => Date;
@@ -28,6 +29,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
   app.disable('x-powered-by');
   app.use('/api', trainingRoutes(database, now));
   app.use('/api', nutritionRoutes(database, now));
+  app.use('/api', followUpRoutes(database, now));
   app.use(express.json({ limit: '16kb' }));
   app.use('/api/clients', evaluationRoutes(database, now));
   app.get('/api/health', (_req, res) => {

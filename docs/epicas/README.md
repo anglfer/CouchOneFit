@@ -39,3 +39,5 @@ EP-03 incorpora [Cartera y expediente](ep-03-cartera-y-expediente/README.md): [H
 EP-05 incorpora [Alimentación y prescripción nutricional](ep-05-alimentacion/README.md): HU-024 a HU-027 (constructor rico con catálogo y plantillas, motor sugeridor HU-025 derivado de `fitnextfy` con decisión del profesional, versionado e integración en expediente HU-026 y vista móvil rediseñada HU-027), además de la [validación local de acceso y pruebas](ep-05-alimentacion/hu-026/validacion-local.md).
 
 EP-06 incorpora [Entrenamiento](ep-06-entrenamiento/README.md): HU-028 a HU-031 (rutina, historial, activación móvil y registro por serie con RPE/RIR), con la decisión del usuario del 04-nov-2026 que amplía DEC-006.
+
+EP-07 incorpora [Seguimiento integrado](ep-07-seguimiento/README.md): HU-032 a HU-037 (check-in diario con peso corporal como única fuente, seguimiento y adherencia en Web, inicio profesional con check-ins, tarjeta del día en móvil e información compartida por el profesional), con el replanteamiento del 20-nov-2026 frente al backlog. HU-038 (fotos) sigue fuera de V2.

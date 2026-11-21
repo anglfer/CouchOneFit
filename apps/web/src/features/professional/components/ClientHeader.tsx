@@ -4,7 +4,8 @@ import { Link } from '../../../components/Link';
 import { initials } from '../../../utils/personName';
 import '../../training/training.css';
 
-export type ClientTab = 'summary' | 'training' | 'evaluation' | 'nutrition';
+export type ClientTab =
+  'summary' | 'training' | 'evaluation' | 'nutrition' | 'followUp';
 
 export default function ClientHeader({
   clientId,
@@ -25,7 +26,7 @@ export default function ClientHeader({
     ClientTab,
     string,
     string,
-    'home' | 'dumbbell' | 'clipboard' | 'bowl',
+    'home' | 'dumbbell' | 'clipboard' | 'bowl' | 'chart',
   ][] = [
     ['summary', 'Resumen', `/app/clientes/${clientId}`, 'home'],
     [
@@ -41,6 +42,12 @@ export default function ClientHeader({
       'clipboard',
     ],
     ['nutrition', 'Nutrición', `/app/clientes/${clientId}/nutricion`, 'bowl'],
+    [
+      'followUp',
+      'Seguimiento',
+      `/app/clientes/${clientId}/seguimiento`,
+      'chart',
+    ],
   ];
   return (
     <header className="client-hub-header">

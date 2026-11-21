@@ -50,6 +50,12 @@ Las secciones *Check-in diario*, *Alimentación*, *Peso corporal* y
 *Evaluaciones* aparecen como «Próximamente», sin datos de ejemplo; las
 implementan HU-032/037, HU-027, HU-022/036 y HU-021.
 
+> **20-nov-2026 (EP-07):** los «Próximamente» se retiraron porque check-in,
+> peso y lo compartido por el profesional ya existen. La lectura del historial
+> propio estaba limitada por RLS a los últimos 3 días; la migración
+> `202611200001_daily_check_ins.sql` lo corrige. Ver
+> [EP-07](../ep-07-seguimiento/README.md).
+
 ### Ampliación del mismo día (segunda revisión)
 
 Tras revisar el primer rediseño, la persona usuaria pidió una UI/UX completa

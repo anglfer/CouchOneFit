@@ -160,7 +160,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '32'
+      '33'
     );
     await databases[1].query(
       readFileSync(
@@ -278,7 +278,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '32'
+      '33'
     );
     assert.equal(
       (
@@ -406,7 +406,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(assessment,null);
     assert.deepEqual(originalColumns,previousEvaluation);
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 34);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 37);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

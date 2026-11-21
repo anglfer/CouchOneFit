@@ -80,6 +80,9 @@ export default function ProfessionalPage(): ReactElement {
     /^\/app\/clientes\/([^/]+)\/nutricion$/
   )?.[1];
   const isNutritionPage = !!nutritionClientId;
+  const followUpClientId = pathname.match(
+    /^\/app\/clientes\/([^/]+)\/seguimiento$/
+  )?.[1];
   const isTrainingPage =
     pathname === '/app/entrenamiento' ||
     pathname === '/app/entrenamiento/plantillas' ||
@@ -92,6 +95,7 @@ export default function ProfessionalPage(): ReactElement {
     selectedClientId ??
     trainingClientId ??
     nutritionClientId ??
+    followUpClientId ??
     evaluationClientId;
   const legacyEvaluationClientId = pathname.match(
     /^\/app\/evaluaciones\/([^/]+)(?:\/nueva)?$/
@@ -102,6 +106,7 @@ export default function ProfessionalPage(): ReactElement {
     isLegacyEvaluationsPage ||
     isEvaluationsPage ||
     isNutritionPage ||
+    !!followUpClientId ||
     isTrainingPage ||
     isHome ||
     isPendingPage ||
@@ -267,7 +272,10 @@ export default function ProfessionalPage(): ReactElement {
   }
 
   const pageTitle =
-    isEvaluationsPage || isLegacyEvaluationsPage || isNutritionPage
+    isEvaluationsPage ||
+    isLegacyEvaluationsPage ||
+    isNutritionPage ||
+    followUpClientId
       ? 'Clientes'
       : trainingClientId
         ? 'Clientes'
@@ -346,7 +354,8 @@ export default function ProfessionalPage(): ReactElement {
           ) : (isClientsPage ||
               isRecoveryPage ||
               isTrainingPage ||
-              isNutritionPage) &&
+              isNutritionPage ||
+              followUpClientId) &&
             subscription?.status !== 'active' ? (
             <section className="ws-card ws-empty" role="status">
               <h2 className="ws-card-title text-lg!">
@@ -378,9 +387,11 @@ export default function ProfessionalPage(): ReactElement {
                   ? 'evaluation'
                   : isNutritionPage
                     ? 'nutrition'
-                    : trainingClientId
-                      ? 'training'
-                      : 'summary'
+                    : followUpClientId
+                      ? 'followUp'
+                      : trainingClientId
+                        ? 'training'
+                        : 'summary'
               }
               capture={pathname.endsWith('/nueva')}
               sessionReady={!sessionUncertain && !isLeaving}

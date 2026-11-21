@@ -315,6 +315,11 @@ export interface TrainingClient {
   hasDraft: boolean;
   lastSession: string | null;
   sessionsLast7: number;
+  /** HU-034: latest check-in date, timestamp, today's check-in and one saved in the last 24 h. */
+  lastCheckIn: string | null;
+  lastCheckInAt: string | null;
+  checkInToday: boolean;
+  checkInRecent: boolean;
 }
 export async function readTrainingClients(): Promise<TrainingClient[]> {
   const value = await sessionRequest<unknown>('/api/training/clients');
@@ -330,7 +335,11 @@ export async function readTrainingClients(): Promise<TrainingClient[]> {
         (c.activeRoutine === null || typeof c.activeRoutine === 'string') &&
         typeof c.hasDraft === 'boolean' &&
         (c.lastSession === null || typeof c.lastSession === 'string') &&
-        typeof c.sessionsLast7 === 'number'
+        typeof c.sessionsLast7 === 'number' &&
+        (c.lastCheckIn === null || typeof c.lastCheckIn === 'string') &&
+        (c.lastCheckInAt === null || typeof c.lastCheckInAt === 'string') &&
+        typeof c.checkInToday === 'boolean' &&
+        typeof c.checkInRecent === 'boolean'
     )
   )
     throw new Error('No pudimos interpretar la lista de clientes.');

@@ -269,13 +269,14 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
           profile: activeProfile,
           service: widget.trainingService!,
           settings: _settings,
-          account: ClientProfileScreen(
+          accountBuilder: (onOpenProgress) => ClientProfileScreen(
               profile: activeProfile,
               onRefresh: _handleRefreshProfile,
               onLogout: _handleLogout,
               isRefreshing: _isRefreshing,
               errorMessage: _errorMessage,
               onCredentials: () => _openAccess(AccountAccessMode.credentials),
+              onOpenProgress: onOpenProgress,
               settings: _settings));
     }
 

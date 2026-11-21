@@ -58,9 +58,27 @@ void main() {
     expect(find.textContaining('Cadera'), findsNothing);
     expect(find.text('Fecha de nacimiento'), findsOneWidget);
     expect(find.text('15/06/1990'), findsOneWidget);
-    expect(find.textContaining('todavía no está disponible'), findsOneWidget);
+    expect(find.textContaining('en Progreso'), findsOneWidget);
+    expect(find.byKey(const ValueKey('open_progress_button')), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Guardar'), findsNothing);
+  });
+
+  testWidgets('HU-036 opens authorized progress from base record when wired',
+      (tester) async {
+    var opened = 0;
+    final profile = ClientProfile.fromJson(record);
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SingleChildScrollView(
+                child: ClientBaseMeasurements(
+                    profile: profile,
+                    onRefresh: () async {},
+                    onOpenProgress: () => opened++)))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('open_progress_button')));
+    await tester.pump();
+    expect(opened, 1);
   });
 
   test(

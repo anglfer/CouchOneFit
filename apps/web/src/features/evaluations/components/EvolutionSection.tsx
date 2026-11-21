@@ -88,7 +88,15 @@ export default function EvolutionSection({
         </h2>
         <p className="mt-1 text-sm text-(--ws-muted)">
           Consulta el porcentaje de grasa por fecha de evaluación. El peso de
-          esta vista corresponde a las evaluaciones del profesional.
+          esta vista corresponde a las evaluaciones del profesional. El peso
+          corporal diario del cliente (check-in) se consulta aparte en{' '}
+          <Link
+            to={`/app/clientes/${encodeURIComponent(clientId)}/seguimiento`}
+            className="font-semibold underline"
+          >
+            Seguimiento
+          </Link>
+          .
         </p>
       </header>
       <form

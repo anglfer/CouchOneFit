@@ -7,6 +7,7 @@ import RoutineWeek from '../../training/components/RoutineWeek';
 import ClientTraining from '../../training/pages/ClientTraining';
 import ClientNutrition from '../../nutrition/pages/ClientNutrition';
 import EvaluationsPage from '../../evaluations/pages/EvaluationsPage';
+import ClientFollowUp from '../../follow-up/pages/ClientFollowUp';
 import {
   count,
   relativeDay,
@@ -279,6 +280,8 @@ function ClientRecordContent({
                   recordRevision={result.attempt}
                   refresh={refresh}
                 />
+              ) : active === 'followUp' ? (
+                <ClientFollowUp clientId={clientId} />
               ) : active === 'nutrition' ? (
                 <div className="training-page">
                   <ClientNutrition

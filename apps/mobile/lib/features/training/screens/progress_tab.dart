@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
-import '../../../shared/widgets/coming_soon_card.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
@@ -60,21 +59,6 @@ class _ProgressTabState extends State<ProgressTab> {
         const StatusView(loading: true, title: 'Consultando tu historial…')
       else
         ..._content(context, h),
-      const SizedBox(height: 24),
-      const SectionTitle('Muy pronto'),
-      const SizedBox(height: 12),
-      const ComingSoonRow(cards: [
-        ComingSoonCard(
-            icon: Icons.monitor_weight_outlined,
-            title: 'Peso corporal',
-            description:
-                'Tu tendencia de peso con lo que registres en el check-in diario.'),
-        ComingSoonCard(
-            icon: Icons.straighten_outlined,
-            title: 'Medidas y evaluaciones',
-            description:
-                'Tu evolución de medidas cuando tu profesional registre evaluaciones.'),
-      ]),
     ]);
   }
 
