@@ -10,6 +10,8 @@ import type {
   NutritionPeriWorkout,
 } from '../types/nutrition';
 import {
+  COMMON_UNITS,
+  MEAL_CATEGORY_OPTIONS,
   MEAL_TEMPLATES,
   calculateFoodMacros,
   findCatalogMatch,
@@ -30,30 +32,6 @@ interface Props {
   disabled?: boolean;
   onOpenAssistant?: () => void;
 }
-
-const COMMON_UNITS = [
-  'g',
-  'ml',
-  'pza',
-  'taza',
-  'cda',
-  'cdta',
-  'scoop',
-  'rebanada',
-  'porción',
-];
-
-const MEAL_CATEGORY_OPTIONS: ReadonlyArray<[NutritionMealCategory, string]> = [
-  ['breakfast', 'Desayuno'],
-  ['morning_snack', 'Colación matutina'],
-  ['lunch', 'Comida principal'],
-  ['pre_workout', 'Pre-entreno'],
-  ['post_workout', 'Post-entreno'],
-  ['afternoon_snack', 'Merienda / Tarde'],
-  ['dinner', 'Cena'],
-  ['pre_bed', 'Colación nocturna'],
-  ['other', 'Otro tiempo'],
-];
 
 const QUICK_GUIDANCE_SNIPPETS: ReadonlyArray<[string, string]> = [
   [

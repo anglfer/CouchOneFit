@@ -4,9 +4,10 @@ import type {
   NutritionMealCategory,
 } from '../types/nutrition';
 import {
-  FOOD_CATALOG,
+  allFoods,
   createItemFromCatalogFood,
   type CatalogFood,
+  type FoodRestriction,
 } from './foodCatalog';
 
 type Macro = 'proteinG' | 'carbsG' | 'fatG';
@@ -105,8 +106,28 @@ const GLUTEN = [
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+// Restriction label fragment → the code a professional ticks on their own food.
+const RESTRICTION_CODES: [string, FoodRestriction][] = [
+  ['vegano', 'vegan'],
+  ['vegetariano', 'vegetarian'],
+  ['lacteo', 'dairy_free'],
+  ['pescado', 'fish_free'],
+  ['gluten', 'gluten_free'],
+];
+
 export function isBlocked(food: CatalogFood, restrictions: readonly string[]) {
   const r = restrictions.map(norm);
+  if (food.own) {
+    // Own foods are only as safe as the professional marked them; vegan covers the rest.
+    const fits = new Set<FoodRestriction>(food.own.suitableFor);
+    if (fits.has('vegan'))
+      ['vegetarian', 'dairy_free', 'fish_free'].forEach((c) =>
+        fits.add(c as FoodRestriction)
+      );
+    return RESTRICTION_CODES.some(
+      ([label, code]) => r.some((x) => x.includes(label)) && !fits.has(code)
+    );
+  }
   const dairy = food.group === 'Lácteos' || DAIRY_EXTRA.includes(food.id);
   if (r.some((x) => x.includes('vegano')))
     return (
@@ -125,19 +146,53 @@ export function isBlocked(food: CatalogFood, restrictions: readonly string[]) {
   );
 }
 
-const byId = (id: string) => FOOD_CATALOG.find((f) => f.id === id) ?? null;
+const byId = (id: string) => allFoods().find((f) => f.id === id) ?? null;
 
 // Share of the food's energy that comes from the macro.
 const share = (f: CatalogFood, m: Macro) =>
   f.calories > 0 ? (f[m] * (m === 'fatG' ? 9 : 4)) / f.calories : 0;
 
-function pick(id: string, macro: Macro, restrictions: readonly string[]) {
+const MACROS: Macro[] = ['proteinG', 'carbsG', 'fatG'];
+const dominant = (f: CatalogFood) =>
+  MACROS.reduce((best, m) => (share(f, m) > share(f, best) ? m : best));
+
+/**
+ * An own food the professional marked for this meal takes the slot of its main
+ * macro. Plain foods must match the slot's group (a vegetable never replaces
+ * rice); recipes are whole dishes and only need the main macro.
+ */
+function preferred(
+  base: CatalogFood,
+  macro: Macro,
+  category: NutritionMealCategory,
+  restrictions: readonly string[]
+) {
+  return allFoods().find(
+    (f) =>
+      f.own?.mealCategories.includes(category) &&
+      dominant(f) === macro &&
+      (f.own.kind === 'recipe' || f.group === base.group) &&
+      !isBlocked(f, restrictions)
+  );
+}
+
+function pick(
+  id: string,
+  macro: Macro,
+  restrictions: readonly string[],
+  category: NutritionMealCategory
+) {
   const base = byId(id);
   if (!base) return null;
+  const own = preferred(base, macro, category, restrictions);
+  if (own) return own;
   if (!isBlocked(base, restrictions)) return base;
-  const sameGroup = FOOD_CATALOG.filter(
-    (f) => f.group === base.group && f[macro] > 0 && !isBlocked(f, restrictions)
-  ).sort((a, b) => share(b, macro) - share(a, macro));
+  const sameGroup = allFoods()
+    .filter(
+      (f) =>
+        f.group === base.group && f[macro] > 0 && !isBlocked(f, restrictions)
+    )
+    .sort((a, b) => share(b, macro) - share(a, macro));
   return (
     sameGroup[0] ??
     FALLBACK[macro]
@@ -178,7 +233,8 @@ export function suggestMealItems(
     fatG: meal.targetFatG ?? 0,
   };
   if (target.proteinG + target.carbsG + target.fatG <= 0) return null;
-  const plate = PLATES[meal.category ?? 'other'] ?? PLATES.other;
+  const category = meal.category ?? 'other';
+  const plate = PLATES[category] ?? PLATES.other;
 
   const fixed = plate.extras
     .map(([id, qty]) => [byId(id), qty] as const)
@@ -188,7 +244,11 @@ export function suggestMealItems(
     );
   const slots = (['proteinG', 'carbsG', 'fatG'] as const)
     .filter((m) => plate[m] && target[m] > 0)
-    .map((m) => ({ macro: m, food: pick(plate[m]!, m, restrictions), qty: 0 }))
+    .map((m) => ({
+      macro: m,
+      food: pick(plate[m]!, m, restrictions, category),
+      qty: 0,
+    }))
     .filter(
       (s): s is { macro: Macro; food: CatalogFood; qty: number } =>
         !!s.food && perQty(s.food, s.macro) > 0

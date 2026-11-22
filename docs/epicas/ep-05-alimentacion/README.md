@@ -21,6 +21,34 @@
 - **Editor más claro.** Progreso por macro (`Proteína 30 / 29 g`) con color según cumplimiento, fila compacta por alimento (nota y sustituto plegados), etiquetas de columna solo en el primer alimento y `aria-label` en cada campo. Se corrigieron los botones de icono vacíos (faltaba `ws-plain`), las tarjetas de inicio comprimidas y el desbordamiento horizontal a 375 px.
 - **Móvil.** Se retiraron las fichas redundantes «Comidas/Alimentos» del resumen y se aligeró el texto de equivalentes.
 
+## Biblioteca de alimentos propios (`21-nov-2026`)
+
+Ampliación pedida por la persona usuaria, **sin HU asignada todavía en `PLAN_TRABAJO_V2.md`**. Es el equivalente de Plantillas de rutina para alimentación: un destino diario **Alimentos** (`/app/alimentos`) en la barra lateral del profesional.
+
+- **Qué guarda:** alimentos (`kind: food`, valores por 100 g/ml o por pieza, porción habitual, preparación, equivalencias) y recetas (`kind: recipe`, ingredientes tomados del catálogo, de la propia biblioteca o capturados a mano, y número de porciones). La API calcula los macros **por porción** de la receta; la Web muestra el mismo cálculo en vivo.
+- **Dónde se usa:** los alimentos propios se suman al catálogo base en el selector del editor de planes (filtro «Mis alimentos», etiqueta «Mi alimento» / «Mi receta»), en el recálculo de macros al cambiar cantidades y en el motor de comidas (`mealFiller.ts`). Un alimento marcado para un tiempo de comida ocupa en «Sugerir alimentos» el lugar del alimento base de su mismo grupo y macro principal; una receta ocupa el lugar de su macro principal. Con restricciones activas solo se usan los alimentos propios marcados como aptos (vegano implica vegetariano, sin lácteos y sin pescado).
+- **Catálogo base:** la página muestra también el catálogo curado (`foodCatalog.ts`) en solo lectura, con «Copiar a mis alimentos» para ajustarlo a una marca o preparación.
+- **Reglas:** el plan guarda una copia del alimento, así que editar o archivar no cambia planes guardados ni publicados. Archivar es baja lógica (`archived_at`) y libera el nombre. Nombre único por profesional entre alimentos activos (sin distinguir mayúsculas). Sin fotos: requieren almacenamiento de archivos y una revisión de privacidad que este cambio no incluye.
+- **BD:** migración `202611210001_professional_foods.sql` (tabla `private.professional_foods`, RLS `professional_foods_owner` con `private.nutrition_professional(owner_id)`, `UPDATE` por columnas sin `id`/`owner_id`/`created_at`). `identity_access.sql` actualizado igual.
+- **Contrato (profesional, cookie HttpOnly + `Origin` + `X-CSRF-Token` en escrituras):**
+  - `GET /api/nutrition/foods` → `{ foods: OwnFood[] }` (solo activos, por nombre). Cacheado para lectura sin conexión.
+  - `POST /api/nutrition/foods` → `201 OwnFood`. Acepta `Idempotency-Key`.
+  - `PATCH /api/nutrition/foods/:foodId` → `200 OwnFood` con `revision` vigente.
+  - `POST /api/nutrition/foods/:foodId/archive` → `200 { archived: true }` con `{ revision }`.
+  - Errores: `400 INVALID_NUTRITION` (campos, grupos, límites; en 100 g la suma P+C+G ≤ 100 y ≤ 900 kcal), `409 FOOD_NAME_TAKEN` (con `fields.name`), `409 FOOD_CONFLICT` (revisión vieja), `404 FOOD_NOT_FOUND` (ajeno, archivado o inexistente), `403 FOOD_LIBRARY_UNAVAILABLE` (sin suscripción vigente), `403 ROLE_FORBIDDEN` (cliente).
+- **Móvil:** sin cambios; recibe el plan con los datos copiados como hasta ahora.
+
+### Evidencia (`T` / `E`)
+
+- **T.** `npm --prefix apps/api run build`: exit 0. `tests/nutrition-foods.test.ts` (nuevo): 3/3, sobre BD temporal local creada desde `identity_access.sql` y rol `couchone_authentication`. Cubre receta calculada en servidor, validaciones, nombre duplicado, conflicto de revisión, otra cartera (`404` y RLS directa), cliente `403`, sin CSRF `403`, archivado y suscripción vencida.
+- **T.** `tests/migrations.test.ts`: aprobado con la nueva migración (instalación limpia, actualización con filas existentes y catálogo idéntico al esquema integrado; 34 migraciones, 38 tablas).
+- **T.** Suite API completa: 211/213. Fallan dos pruebas ajenas al cambio: `client-read-isolation.test.ts` exige el host literal `127.0.0.1` (pasa al usarlo) y «deactivating a professional revokes all their sessions…» (`session-lifecycle.test.ts`) falla igual en `HEAD` limpio (`7a26975`) sin este cambio.
+- **T.** Web: `build` exit 0, `oxlint` sin avisos, `npm test` 172/172 con `tests/food-library.test.mjs` (nuevo): búsqueda y reescalado de alimentos propios, preferencia por tiempo de comida y restricciones en «Sugerir alimentos», y página (lista, copiar del catálogo, guardar y archivar con confirmación). Prettier limpio en los archivos tocados.
+- **T.** Navegador integrado contra una API y una BD temporales locales (`localhost:5002`/`3002`, cuenta sintética): crear alimento por pieza con aviso de kcal según macros, receta con ingredientes del catálogo y propios, reescalado por cantidad, macros por porción iguales a los del servidor, catálogo base, 1280 px y 375 px sin desbordamiento horizontal, y barra inferior móvil con 4 destinos.
+- **T.** BD local de desarrollo (`CouchOneFit_dev`, 21-nov-2026): tenía aplicada la versión de `202611200001_daily_check_ins.sql` del commit `2c2bd72` (checksum coincidente). La única diferencia con la versión vigente era la restricción `check_ins_check` (un check-in con solo «No aplica» ya no cuenta como registro). Se comprobó que ninguno de los 284 check-ins existentes la incumplía; en una transacción se reemplazó la restricción con el mismo nombre y se actualizó el checksum. El migrador del proyecto aplicó después `202611210001_professional_foods.sql`, y una segunda pasada no encontró pendientes. Comparando con una BD limpia migrada, `CouchOneFit_dev` coincide en columnas, triggers, RLS, restricciones, índices, políticas, permisos de `couchone_authentication` y funciones.
+- **T.** Panel local real (`127.0.0.1:5000`, API en modo `watch` contra `CouchOneFit_dev`, cuenta QA): alimento «Tortilla de nopal» creado y marcado para Desayuno y Cena. En una versión nueva sin guardar del plan de un cliente, «Volver a sugerir» en Desayuno usó la tortilla propia en lugar de la avena base (4 pza = 140 kcal, P 6 g, C 26 g, G 1.6 g). El borrador se descartó y el plan activo quedó igual (V2).
+- **Pendiente.** Asignar HU en el plan. Aceptación humana (**R**) y revisión de pares.
+
 ## Contratos HTTP y esquema compatible
 
 No se añadió una nueva migración SQL porque `private.nutrition_versions.document` ya almacena `jsonb` (`CHECK (jsonb_typeof(document) = 'object')`). Todos los campos nuevos de documento, comida y alimento son opcionales/anulables y `normalizeDocument` en `apps/api/src/features/nutrition/repositories/nutrition.ts` los rellena con `null` al leer filas heredadas.

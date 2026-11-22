@@ -27,11 +27,13 @@ import ProfessionalHome from '../components/ProfessionalHome';
 import PendingOperations from '../components/PendingOperations';
 import { confirmLeaveWithPending } from '../../../services/offline/leave';
 import TrainingPage from '../../training/pages/TrainingPage';
+import FoodLibraryPage from '../../nutrition/pages/FoodLibraryPage';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/app/', label: 'Inicio', icon: 'home' },
   { href: '/app/clientes', label: 'Clientes', icon: 'users' },
   { href: '/app/entrenamiento', label: 'Rutinas', icon: 'layers' },
+  { href: '/app/alimentos', label: 'Alimentos', icon: 'bowl' },
 ];
 
 const accountMenu: WorkspaceNavItem[] = [
@@ -74,6 +76,7 @@ export default function ProfessionalPage(): ReactElement {
   const isSubscriptionPage = pathname === '/app/suscripcion';
   const isRecoveryPage = pathname === '/app/recuperacion';
   const isPendingPage = pathname === '/app/pendientes';
+  const isFoodLibraryPage = pathname === '/app/alimentos';
   const trainingClientId = pathname.match(
     /^\/app\/clientes\/([^/]+)\/entrenamiento$/
   )?.[1];
@@ -109,6 +112,7 @@ export default function ProfessionalPage(): ReactElement {
     isNutritionPage ||
     !!followUpClientId ||
     isTrainingPage ||
+    isFoodLibraryPage ||
     isHome ||
     isPendingPage ||
     isProfilePage ||
@@ -282,17 +286,19 @@ export default function ProfessionalPage(): ReactElement {
         ? 'Clientes'
         : isTrainingPage
           ? 'Rutinas'
-          : isPendingPage
-            ? 'Pendientes de enviar'
-            : isSubscriptionPage
-              ? 'Mi suscripción'
-              : isClientsPage
-                ? 'Clientes'
-                : isRecoveryPage
-                  ? 'Recuperación asistida'
-                  : isProfilePage
-                    ? 'Mi perfil'
-                    : 'Inicio';
+          : isFoodLibraryPage
+            ? 'Alimentos'
+            : isPendingPage
+              ? 'Pendientes de enviar'
+              : isSubscriptionPage
+                ? 'Mi suscripción'
+                : isClientsPage
+                  ? 'Clientes'
+                  : isRecoveryPage
+                    ? 'Recuperación asistida'
+                    : isProfilePage
+                      ? 'Mi perfil'
+                      : 'Inicio';
   const user = profile
     ? { name: profile.fullName, detail: `@${profile.username}` }
     : account
@@ -355,6 +361,7 @@ export default function ProfessionalPage(): ReactElement {
           ) : (isClientsPage ||
               isRecoveryPage ||
               isTrainingPage ||
+              isFoodLibraryPage ||
               isNutritionPage ||
               followUpClientId) &&
             subscription?.status !== 'active' ? (
@@ -400,6 +407,8 @@ export default function ProfessionalPage(): ReactElement {
             />
           ) : isTrainingPage ? (
             <TrainingPage />
+          ) : isFoodLibraryPage ? (
+            <FoodLibraryPage />
           ) : isClientsPage ? (
             <>
               <PageHeader

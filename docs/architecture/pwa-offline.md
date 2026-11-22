@@ -220,6 +220,7 @@ Atajos conocidos de la fase 2: no se puede **editar** un expediente creado sin c
 
 - **Service Worker acotado (`HU-040`):** `navigateFallbackAllowlist` limita el fallback SPA a `/app/*` y `/admin/*`, y `ensurePwaRegistered()` evita registrar el SW automáticamente en la landing pública `/`. Al actualizar la app con una nueva versión, `WorkspaceLayout` protege formularios abiertos con `canNavigate()` y avisa que los cambios pendientes en cola se conservan.
 - **EP-05 Nutrición:** lectura `/api/clients/:clientId/nutrition-plans` cacheada; `nutrition.save` y `nutrition.activate` con `Idempotency-Key` en API (`private.idempotency_keys`) y resolución de `409 NUTRITION_CONFLICT`; motor de sugerencias `HU-025` replicado en cliente puro (`utils/suggestionEngine.ts`) ante fallo de red.
+- **EP-05 Biblioteca de alimentos:** lectura `/api/nutrition/foods` cacheada (la biblioteca y el selector del editor siguen disponibles sin conexión con los datos guardados); crear, editar y archivar requieren conexión y no pasan por la bandeja de envíos.
 - **EP-07 Seguimiento e Inicio:** lecturas `/api/training/clients`, `/api/clients/:clientId/training-sessions`, `/api/follow-up/summary` y `/api/clients/:clientId/follow-up` cacheadas; `PATCH /api/clients/:clientId/visibility` encolable (`followup.visibility`) con resolución de `409 CHECK_IN_CONFLICT`.
 - **Móvil (`RNF24`):** `CheckInCache` guarda cifrado el historial propio de check-ins/peso (`30 días`, aislado por `clientId` y limpiado en logout/login/`401`/`403`) sin cachear jamás `GET /api/me/progress` (`DEC-009`).
 

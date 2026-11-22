@@ -3,6 +3,7 @@ import Modal from '../../training/components/Modal';
 import type { NutritionItem } from '../types/nutrition';
 import {
   FOOD_GROUPS,
+  allFoods,
   calculateFoodMacros,
   createItemFromCatalogFood,
   findFoods,
@@ -24,11 +25,15 @@ export default function FoodPickerModal({
   onClose,
 }: FoodPickerModalProps) {
   const [query, setQuery] = useState('');
-  const [group, setGroup] = useState<FoodGroup | ''>('');
+  const [group, setGroup] = useState<FoodGroup | '' | 'own'>('');
+  const hasOwn = allFoods().some((food) => food.own);
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
 
   const results = useMemo(
-    () => findFoods(query, group || undefined),
+    () =>
+      group === 'own'
+        ? findFoods(query).filter((food) => food.own)
+        : findFoods(query, group || undefined),
     [query, group]
   );
 
@@ -77,6 +82,16 @@ export default function FoodPickerModal({
           >
             Todos
           </button>
+          {hasOwn && (
+            <button
+              type="button"
+              className="ws-plain nutrition-group-pill"
+              aria-pressed={group === 'own'}
+              onClick={() => setGroup(group === 'own' ? '' : 'own')}
+            >
+              Mis alimentos
+            </button>
+          )}
           {FOOD_GROUPS.map((g) => (
             <button
               key={g}
@@ -119,7 +134,13 @@ export default function FoodPickerModal({
                 onClick={() => handleSelect(food)}
               >
                 <div className="nutrition-food-card-top">
-                  <span className="nutrition-food-group-tag">{food.group}</span>
+                  <span className="nutrition-food-group-tag">
+                    {food.own
+                      ? food.own.kind === 'recipe'
+                        ? 'Mi receta'
+                        : 'Mi alimento'
+                      : food.group}
+                  </span>
                   <span className="nutrition-food-portion">
                     {food.defaultQuantity} {food.defaultUnit}
                   </span>
@@ -129,9 +150,11 @@ export default function FoodPickerModal({
                   {macros.calories} kcal · P {macros.proteinG}g · C{' '}
                   {macros.carbsG}g · G {macros.fatG}g
                 </small>
-                <small className="nutrition-food-subs">
-                  Eq: {food.defaultSubstitutes}
-                </small>
+                {food.defaultSubstitutes && (
+                  <small className="nutrition-food-subs">
+                    Eq: {food.defaultSubstitutes}
+                  </small>
+                )}
                 <span className="nutrition-food-add-label">
                   {count > 0
                     ? `✓ Añadido${count > 1 ? ` ×${count}` : ''}`

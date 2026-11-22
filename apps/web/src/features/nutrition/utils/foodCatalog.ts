@@ -32,7 +32,61 @@ export interface CatalogFood {
   fatG: number;
   preparationHint: string;
   defaultSubstitutes: string;
+  /** Only foods from the professional's own library (EP-05) carry this. */
+  own?: {
+    kind: 'food' | 'recipe';
+    suitableFor: readonly FoodRestriction[];
+    mealCategories: readonly NutritionMealCategory[];
+  };
 }
+
+export const FOOD_RESTRICTIONS = [
+  ['vegan', 'Vegano'],
+  ['vegetarian', 'Vegetariano'],
+  ['dairy_free', 'Sin lácteos'],
+  ['fish_free', 'Sin pescado'],
+  ['gluten_free', 'Sin gluten'],
+] as const;
+export type FoodRestriction = (typeof FOOD_RESTRICTIONS)[number][0];
+
+export const COMMON_UNITS = [
+  'g',
+  'ml',
+  'pza',
+  'taza',
+  'cda',
+  'cdta',
+  'scoop',
+  'rebanada',
+  'porción',
+];
+
+export const MEAL_CATEGORY_OPTIONS: ReadonlyArray<
+  [NutritionMealCategory, string]
+> = [
+  ['breakfast', 'Desayuno'],
+  ['morning_snack', 'Colación matutina'],
+  ['lunch', 'Comida principal'],
+  ['pre_workout', 'Pre-entreno'],
+  ['post_workout', 'Post-entreno'],
+  ['afternoon_snack', 'Merienda / Tarde'],
+  ['dinner', 'Cena'],
+  ['pre_bed', 'Colación nocturna'],
+  ['other', 'Otro tiempo'],
+];
+
+let ownFoods: readonly CatalogFood[] = [];
+
+/** The professional's library joins the curated catalog wherever foods are searched or suggested. */
+export function setOwnFoods(list: readonly CatalogFood[]): void {
+  ownFoods = list;
+}
+
+// Own foods first: a professional's version of a food wins over the curated one.
+export const allFoods = (): readonly CatalogFood[] => [
+  ...ownFoods,
+  ...FOOD_CATALOG,
+];
 
 const f = (
   id: string,
@@ -1518,7 +1572,7 @@ export function normalizeCatalogText(raw: string): string {
 export function findFoods(query: string, group?: string): CatalogFood[] {
   const q = normalizeCatalogText(query);
   const g = group ? normalizeCatalogText(group) : '';
-  return FOOD_CATALOG.filter((food) => {
+  return allFoods().filter((food) => {
     if (g && normalizeCatalogText(food.group) !== g) return false;
     if (!q) return true;
     if (normalizeCatalogText(food.name).includes(q)) return true;
@@ -1568,7 +1622,7 @@ export function findCatalogMatch(
 ): CatalogFood | null {
   const normName = normalizeCatalogText(item.name);
   if (!normName) return null;
-  const exact = FOOD_CATALOG.find(
+  const exact = allFoods().find(
     (food) =>
       normalizeCatalogText(food.name) === normName &&
       normalizeCatalogText(food.defaultUnit) === normalizeCatalogText(item.unit)

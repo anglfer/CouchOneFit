@@ -24,6 +24,7 @@ import type {
   NutritionSuggestionResult,
   NutritionVersion,
 } from '../types/nutrition';
+import { readOwnFoods } from '../services/foodLibrary';
 import { suggestMealItems } from '../utils/mealFiller';
 import { validateNutritionDocument } from '../utils/validation';
 
@@ -191,6 +192,11 @@ export default function ClientNutrition({
   useOnSynced(() => {
     void load();
   });
+
+  // Own foods join the picker and suggestions; without them the base catalog still works.
+  useEffect(() => {
+    readOwnFoods().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let activeRequest = true;

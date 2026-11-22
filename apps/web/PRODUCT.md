@@ -22,7 +22,7 @@ El profesional prescribe y el cliente registra, sobre el mismo expediente: lo qu
 
 ## Operating Context
 
-- Profesional: panel web con navegación lateral (Inicio, Clientes, expediente con pestañas Resumen/Entrenamiento/Evaluación/Alimentación/Seguimiento, Rutinas, suscripción), instalable como app y con lectura sin conexión.
+- Profesional: panel web con navegación lateral (Inicio, Clientes, expediente con pestañas Resumen/Entrenamiento/Evaluación/Alimentación/Seguimiento, Rutinas, Alimentos —biblioteca propia de alimentos y recetas—, suscripción), instalable como app y con lectura sin conexión.
 - Cliente: app móvil con su día, rutina activa, plan de alimentación, check-in diario y progreso habilitado.
 - Flujo: expediente → código de invitación de un solo uso → el cliente crea credenciales → planes activos → check-ins y sesiones → evolución.
 
