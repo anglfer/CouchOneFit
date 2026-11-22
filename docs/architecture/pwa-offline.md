@@ -187,7 +187,8 @@ Evidencia (convención del repositorio: **T** prueba/herramienta, **R** reporte 
 
 - **T** `apps/web/tests/offline-read.test.mjs` (9 pruebas): cifrado, lista permitida, aislamiento y cambio de cuenta, caducidad, búsqueda local, cierre de sesión, servir solo ante fallo de red, marca de dato guardado. Suite web completa 47/47, `build` y `lint` limpios.
 - **T** Recorrido en navegador (Chrome integrado, API local de pruebas): con la API respondiendo, la caché se llena (6 entradas cifradas) y los expedientes se precargan; al hacer fallar toda llamada de red, Inicio, Cartera y Expediente se muestran desde lo guardado con el aviso y, al volver la conexión, el aviso desaparece.
-- **No verificado:** recarga completa sin conexión con el service worker activo (el modo desarrollo no lo registra; falta probar con `build` + `preview` y red real apagada), teléfonos reales, Safari/iPhone y la expiración real de 30 días en un dispositivo.
+- **T (21-nov):** recarga completa sin conexión con el service worker activo, con `build` + `preview` en Chrome, red emulada apagada y servidores apagados ([EP-08 validación §7](../epicas/ep-08-portal-y-pwa/validacion-local.md)).
+- **No verificado:** teléfonos reales, Safari/iPhone y la expiración real de 30 días en un dispositivo.
 
 Atajos conocidos de la fase 1: la búsqueda sin conexión usa la primera página guardada de la cartera (si había más páginas no las ve).
 
@@ -222,6 +223,7 @@ Atajos conocidos de la fase 2: no se puede **editar** un expediente creado sin c
 - **EP-05 Nutrición:** lectura `/api/clients/:clientId/nutrition-plans` cacheada; `nutrition.save` y `nutrition.activate` con `Idempotency-Key` en API (`private.idempotency_keys`) y resolución de `409 NUTRITION_CONFLICT`; motor de sugerencias `HU-025` replicado en cliente puro (`utils/suggestionEngine.ts`) ante fallo de red.
 - **EP-05 Biblioteca de alimentos:** lectura `/api/nutrition/foods` cacheada (la biblioteca y el selector del editor siguen disponibles sin conexión con los datos guardados); crear, editar y archivar requieren conexión y no pasan por la bandeja de envíos.
 - **EP-07 Seguimiento e Inicio:** lecturas `/api/training/clients`, `/api/clients/:clientId/training-sessions`, `/api/follow-up/summary` y `/api/clients/:clientId/follow-up` cacheadas; `PATCH /api/clients/:clientId/visibility` encolable (`followup.visibility`) con resolución de `409 CHECK_IN_CONFLICT`.
+- **Tras sincronizar** se releen el expediente (`/api/clients/:id/record`) y el `readEndpoint` de cada cambio aplicado, para que la siguiente edición sin conexión no parta de una `version`/`revision` vieja (falso conflicto). Las acciones de §2.2 usan `components/RequiresConnection.tsx`.
 - **Móvil (`RNF24`):** `CheckInCache` guarda cifrado el historial propio de check-ins/peso (`30 días`, aislado por `clientId` y limpiado en logout/login/`401`/`403`) sin cachear jamás `GET /api/me/progress` (`DEC-009`).
 
 ## 9. Referencias

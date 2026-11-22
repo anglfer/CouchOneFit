@@ -6,6 +6,7 @@ import {
   sessionMutation,
 } from '../../features/auth/services/session';
 import { isConnectionFailure } from './connection';
+import { rememberRead } from './readCache';
 import {
   getOperations,
   loadOutbox,
@@ -303,6 +304,7 @@ async function run(): Promise<void> {
   const task = async () => {
     await loadOutbox();
     let changed = false;
+    const stale = new Set<string>();
     for (const operation of getOperations().filter(
       (item) => item.state === 'pending'
     )) {
@@ -315,9 +317,21 @@ async function run(): Promise<void> {
       const latest = getOperations().find((item) => item.id === operation.id);
       if (!latest || latest.state !== 'pending') continue;
       const outcome = await attempt(latest);
-      if (outcome === 'applied') changed = true;
+      if (outcome === 'applied') {
+        changed = true;
+        if (latest.readEndpoint) stale.add(latest.readEndpoint);
+        if (latest.clientId)
+          stale.add(
+            `/api/clients/${encodeURIComponent(latest.clientId)}/record`
+          );
+      }
       if (outcome === 'offline' || outcome === 'stop') break;
     }
+    // Lo guardado conserva la versión previa: sin releerlo, la siguiente edición sin conexión daría un falso conflicto.
+    for (const endpoint of stale)
+      await freshRequest(endpoint)
+        .then((data) => rememberRead(endpoint, data))
+        .catch(() => undefined);
     if (changed) syncedListeners.forEach((listener) => listener());
   };
   // Una sola pestaña envía a la vez; la clave de idempotencia cubre el resto.

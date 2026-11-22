@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '../../../components/Icon';
 import { PageHeader } from '../../../components/ui';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 import { confirmDialog } from '../../../services/confirm';
 import OwnFoodEditor from '../components/OwnFoodEditor';
 import {
@@ -38,6 +40,7 @@ export default function FoodLibraryPage() {
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<FoodGroup | ''>('');
   const [editing, setEditing] = useState<Editing | null>(null);
+  const { isOnline } = usePwa();
 
   useEffect(() => {
     let live = true;
@@ -141,6 +144,7 @@ export default function FoodLibraryPage() {
       />
 
       <div className="space-y-4">
+        <RequiresConnection what="guardar o archivar alimentos propios" />
         {notice && (
           <p role="status" className="ws-alert" data-tone="ok">
             <Icon name="check" size={16} className="inline align-[-3px]" />{' '}
@@ -280,6 +284,7 @@ export default function FoodLibraryPage() {
                     <button
                       type="button"
                       className="ws-btn"
+                      disabled={!isOnline}
                       onClick={() => void archive(f)}
                     >
                       Archivar

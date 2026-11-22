@@ -195,6 +195,45 @@ test('sincroniza en orden, con la clave de cada cambio, y avisa a las pantallas'
   assert.equal(notified, 1);
 });
 
+test('tras enviar, se relee lo guardado: la siguiente edición sin conexión no da un falso conflicto', async () => {
+  const followUrl = '/api/clients/c1/follow-up?days=28';
+  const record = (version) => ({
+    record: { profile: { id: 'c1', version }, sections: {} },
+  });
+  const visibility = (revision) => ({
+    visibility: { measurements: true, adherence: false, revision },
+  });
+  await cache.rememberRead('/api/clients/c1/record', record(1));
+  await cache.rememberRead(followUrl, visibility(1));
+  handler = (url, options) =>
+    options.method === 'PATCH'
+      ? json({ client: { id: 'c1', version: 2 } })
+      : url === '/api/clients/c1/record'
+        ? json(record(2))
+        : url === followUrl
+          ? json(visibility(2))
+          : json({});
+  await outbox.enqueue({ ...editSpec(), id: crypto.randomUUID() });
+  await outbox.enqueue({
+    ...editSpec({
+      kind: 'followup.visibility',
+      endpoint: '/api/clients/c1/visibility',
+      body: { measurements: true, adherence: false, revision: 1 },
+      readEndpoint: followUrl,
+    }),
+    id: crypto.randomUUID(),
+  });
+  await sync.flushOutbox();
+  assert.equal(outbox.getOperations().length, 0);
+  const saved = await cache.recallRead('/api/clients/c1/record');
+  assert.equal(saved.data.record.profile.version, 2);
+  assert.equal((await cache.recallRead(followUrl)).data.visibility.revision, 2);
+  const recordReads = calls.filter(
+    (call) => call.url === '/api/clients/c1/record'
+  );
+  assert.equal(recordReads.length, 1, 'una sola relectura por expediente');
+});
+
 test('si se cae la red a la mitad: se detiene y no se pierde nada', async () => {
   const first = await outbox.enqueue({
     ...editSpec(),

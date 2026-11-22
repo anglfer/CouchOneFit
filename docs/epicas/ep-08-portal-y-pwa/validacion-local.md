@@ -178,3 +178,50 @@ Revisión de arquitectura de información del panel (`/app`) a petición de la p
 
 - Las capturas `public/marketing/panel-inicio.webp` y `panel-expediente.webp` muestran la cabecera anterior de Inicio y la pestaña «Nutrición»: recapturar con la cuenta demo (`apps/web/DESIGN.md`).
 - **R.** Aceptación de la persona usuaria y revisión de pares (`CONTRIBUTING.md`). Sin commit ni publicación.
+
+## 7. Prueba integral de la PWA sin conexión (`HU-040`, 21-nov-2026)
+
+Petición de la persona usuaria: probar que todo el sistema PWA funcione sin internet. Cierra el pendiente de §3 «`vite build` + `vite preview` con red apagada».
+
+### Método
+
+- Build de producción servido con `vite preview` en `127.0.0.1:5001` y una API temporal en `3001` (`CORS_ORIGIN` propio) contra la base local `CouchOneFit_dev`. No se tocaron los servidores de desarrollo `5000`/`3000`.
+- Chrome 157 sin ventana con perfil temporal, controlado por CDP. «Sin red» = `Network.emulateNetworkConditions({ offline: true })` en la página **y** en el service worker; además, una pasada con los servidores realmente apagados.
+- Cuenta profesional sintética creada en `/registro`, con plan Básico 10 activado por el checkout simulado (sin cobro real).
+- El navegador integrado de la app de escritorio no sirve para esto: rechaza registrar cualquier service worker («An unknown error occurred when fetching the script»), incluso con un script válido.
+
+### Resultado (T)
+
+| Caso | Resultado |
+| --- | --- |
+| Landing `/` | 0 service workers registrados (correcto, `HU-040`). |
+| Instalación | `Page.getInstallabilityErrors` sin errores; manifiesto sin errores; 3 iconos 200 `image/png`. Precache: 28 entradas, 20 archivos únicos (`includeAssets` duplica 8; inofensivo). |
+| Recarga completa sin red | Inicio, Clientes, ficha y sus 5 pestañas, Rutinas, Alimentos, Perfil, Suscripción y Pendientes cargan con el aviso «Sin conexión… datos guardados hace X». Un expediente nunca abierto muestra «No pudimos consultar el expediente…» con «Reintentar lectura». `/admin/` redirige a `/app/` para un profesional. |
+| Servidores apagados de verdad | Mismo resultado con `navigator.onLine === true`: el SW sirve la carcasa y la app cae a lo guardado. |
+| Escrituras sin red | Crear expediente, editar datos base, registrar evaluación, crear y activar rutina, y cambiar la visibilidad del seguimiento: 6 cambios «Por enviar»; sobreviven a una recarga sin red; se envían solos 2 s después de volver la conexión. |
+| Servidor tras sincronizar | Cada expediente existe una sola vez, peso base aplicado, 1 evaluación, rutina activa y visibilidad aplicada. |
+| Nueva versión del SW | Aviso «Hay una nueva versión… Tus cambios pendientes están guardados y se conservarán al actualizar»; «Actualizar» carga el bundle nuevo y la cola se conserva. |
+| Cerrar sesión con pendientes sin red | Diálogo «Tienes 1 cambio sin enviar. Si cierras sesión ahora se perderán»; «Seguir conectado» lo conserva y se envía al reconectar. |
+
+### Defectos encontrados y corregidos
+
+1. **Falso conflicto tras sincronizar.** Si la cola enviaba una edición con la pantalla del expediente cerrada (lo normal), la caché local conservaba la `version` anterior. La siguiente edición sin conexión salía con esa versión, el servidor respondía `409` y Pendientes mostraba «cambió en otro dispositivo» sin que nadie más lo tocara. No se perdían datos (solo se envían los campos cambiados). Afectaba igual a rutinas, alimentación y visibilidad (`revision`).
+   - Arreglo: `services/offline/sync.ts` relee y guarda, una vez por pasada, `/api/clients/:id/record` y el `readEndpoint` de cada cambio aplicado.
+   - Prueba: `offline-write.test.mjs` «tras enviar, se relee lo guardado…» (falla sin el arreglo).
+   - Navegador: tras el arreglo, una edición sin red del mismo expediente se envió sin conflicto (`version` 3 → 4).
+2. **Acciones que exigen conexión sin «Requiere conexión»** (`pwa-offline.md §2.2`). Estaban habilitadas sin red y fallaban con errores genéricos («No pudimos completar la solicitud»). Suscripción mostraba además «No pudimos cargar tu suscripción», «Ya cuentas con la mayor capacidad disponible» y «Aún no tienes operaciones», los tres falsos sin red.
+   - Arreglo: componente `components/RequiresConnection.tsx`. Sin red quedan deshabilitadas y con el texto: invitaciones (generar, reemplazar, revocar), baja/reactivación de cuenta, recuperación asistida, renovación, contratación y pagos, guardar y archivar alimentos propios (el borrador abierto se conserva), catálogo de planes y soporte de administración.
+   - Los mensajes falsos de Suscripción y Recuperación ya no aparecen sin red ni cuando la carga falla.
+   - Prueba: `food-library.test.mjs` «sin conexión, guardar y archivar… “Requiere conexión”». Navegador: los botones salen deshabilitados con el texto.
+
+### Comprobaciones
+
+- **T.** `npm --prefix apps/web test`: 174 de 174 aprobadas.
+- **T.** `oxlint`: exit 0. `npm --prefix apps/web run build`: exit 0. Prettier de los archivos tocados: aprobado. `git diff --check`: limpio.
+- Sin cambios en API, BD, móvil, dependencias ni lockfiles.
+
+### Pendiente
+
+- **R.** Teléfono real en modo avión (Android/Chrome e iPhone/Safari) y app instalada; dos equipos reales con la misma cuenta (aquí el segundo «equipo» fue otra pestaña del mismo perfil, que comparte la cola y por diseño bloquea la edición).
+- Quedan en `CouchOneFit_dev` la cuenta sintética `qa.pwa.*` y sus expedientes de prueba.
+- Sin commit ni publicación.

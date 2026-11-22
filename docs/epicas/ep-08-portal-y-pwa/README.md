@@ -52,6 +52,9 @@ Estado al 21-nov-2026: **implementado y validado localmente (T/E)** sobre el có
 - Invitaciones y códigos de un solo uso (`/api/clients/:id/invitations`).
 - Pagos simulados y cambios de suscripción (`/api/me/payments*`).
 - Baja de cuenta de cliente y acciones de administración (`/api/admin/support/*`, `/api/admin/plans`).
+- Guardar y archivar alimentos propios (`/api/nutrition/foods`); su lectura sí queda en caché.
+
+Sin red, estas acciones se ven deshabilitadas con el texto «Requiere conexión» (`components/RequiresConnection.tsx`).
 
 ## Evidencia
 

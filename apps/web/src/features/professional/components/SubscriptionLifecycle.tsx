@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 import { ApiError } from '../../../services/api';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 import type { CheckoutPlan, SubscriptionInfo } from '../types/subscription';
 
 // DEC-017: renewal, grace, cancel at period end and downgrade choosing clients to inactivate.
@@ -30,6 +32,9 @@ export default function SubscriptionLifecycle({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
+  const { isOnline } = usePwa();
+  // Cambiar la suscripción exige conexión (pwa-offline.md §2.2).
+  const locked = busy || !isOnline;
   const [target, setTarget] = useState(''),
     [clients, setClients] = useState<ActiveClient[]>([]),
     [chosen, setChosen] = useState<string[]>([]);
@@ -141,7 +146,7 @@ export default function SubscriptionLifecycle({
           <select
             className="border rounded p-1"
             value={subscription.renewalMethod ?? 'test_approved'}
-            disabled={busy}
+            disabled={locked}
             onChange={(event) =>
               void patch(
                 { renewalMethod: event.target.value },
@@ -158,7 +163,7 @@ export default function SubscriptionLifecycle({
         </label>
         <button
           className="underline"
-          disabled={busy}
+          disabled={locked}
           onClick={() =>
             void patch(
               { cancelAtPeriodEnd: !subscription.cancelAtPeriodEnd },
@@ -172,9 +177,10 @@ export default function SubscriptionLifecycle({
             ? 'Mantener mi plan'
             : 'Cancelar al final del periodo'}
         </button>
+        <RequiresConnection what="contratar, pagar, cambiar la renovación y consultar el historial de pagos" />
       </div>
       {lower.length > 0 && (
-        <fieldset className="space-y-2" disabled={busy}>
+        <fieldset className="space-y-2" disabled={locked}>
           <legend className="font-semibold">Bajar de plan</legend>
           <select
             aria-label="Plan al que bajar"

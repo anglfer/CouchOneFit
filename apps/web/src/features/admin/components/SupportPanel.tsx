@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { sessionMutation, sessionRequest } from '../../auth/services/session';
 import { ApiError } from '../../../services/api';
 import { Badge } from '../../../components/ui';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 
 /** API statuses are English codes; show them in Spanish with gender. */
 const statusLabel = (status: string, ending: 'o' | 'a') =>
@@ -47,6 +49,7 @@ const message = (error: unknown) =>
   error instanceof ApiError ? error.message : 'No pudimos completar la acción.';
 
 export default function SupportPanel() {
+  const { isOnline } = usePwa();
   const [search, setSearch] = useState(''),
     [clients, setClients] = useState<SupportClient[]>([]),
     [log, setLog] = useState<LogEntry[]>([]),
@@ -129,6 +132,7 @@ export default function SupportPanel() {
         Solo lectura. Cada consulta o restablecimiento queda registrado con tu
         usuario, la fecha y el motivo.
       </p>
+      <RequiresConnection what="cada consulta de soporte queda auditada" />
       <form
         className="flex flex-wrap gap-2"
         onSubmit={(event) => {
@@ -227,7 +231,7 @@ export default function SupportPanel() {
             type="button"
             className="ws-btn"
             data-variant="primary"
-            disabled={busy || reason.trim().length < 3}
+            disabled={busy || reason.trim().length < 3 || !isOnline}
             onClick={() => void view()}
           >
             Ver expediente (solo lectura)
@@ -247,7 +251,9 @@ export default function SupportPanel() {
               <button
                 type="button"
                 className="ws-btn"
-                disabled={busy || reason.trim().length < 3 || !password}
+                disabled={
+                  busy || reason.trim().length < 3 || !password || !isOnline
+                }
                 onClick={() => void reset()}
               >
                 Generar código de restablecimiento

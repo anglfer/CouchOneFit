@@ -5,6 +5,8 @@ import type { PlanSaaS } from '../types/admin';
 import { ApiError } from '../../../services/api';
 import { Badge, PageHeader } from '../../../components/ui';
 import { confirmDialog } from '../../../services/confirm';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 
 export default function PlanCatalog() {
   const [plans, setPlans] = useState<PlanSaaS[]>([]);
@@ -12,6 +14,7 @@ export default function PlanCatalog() {
   const [error, setError] = useState('');
 
   const [busy, setBusy] = useState(false);
+  const { isOnline } = usePwa();
   const [formOpen, setFormOpen] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export default function PlanCatalog() {
 
   return (
     <div className="space-y-6">
+      <RequiresConnection what="los cambios al catálogo afectan a todas las suscripciones" />
       <PageHeader
         title="Planes"
         lead="Precios y límites de clientes de cada plan SaaS."
@@ -241,7 +245,7 @@ export default function PlanCatalog() {
                 Cancelar
               </button>
               <button
-                disabled={busy}
+                disabled={busy || !isOnline}
                 type="submit"
                 className="ws-btn"
                 data-variant="primary"

@@ -7,6 +7,8 @@ import { sessionMutation, sessionRequest } from '../../auth/services/session';
 import { Icon } from '../../../components/Icon';
 import { Link } from '../../../components/Link';
 import { Badge } from '../../../components/ui';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 import { initials } from '../../../utils/personName';
 import {
   readTrainingClients,
@@ -90,6 +92,7 @@ export default function ClientAccessPanel({
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loadedKey, setLoadedKey] = useState('');
   const [busy, setBusy] = useState('');
+  const { isOnline } = usePwa();
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [form, setForm] = useState<ClientForm>(emptyClientForm);
@@ -843,7 +846,7 @@ export default function ClientAccessPanel({
                   {!record.userId && record.status === 'active' && (
                     <button
                       type="button"
-                      disabled={!!busy}
+                      disabled={!!busy || !isOnline}
                       onClick={() => void invitation(record)}
                       className="ws-btn"
                     >
@@ -857,13 +860,14 @@ export default function ClientAccessPanel({
                   {record.invitationExpiresAt && (
                     <button
                       type="button"
-                      disabled={!!busy}
+                      disabled={!!busy || !isOnline}
                       onClick={() => void invitation(record, true)}
                       className="ws-btn"
                     >
                       Revocar invitación
                     </button>
                   )}
+                  <RequiresConnection />
                 </div>
               )}
               {delivery?.clientId === record.id && (

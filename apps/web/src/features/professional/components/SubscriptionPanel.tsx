@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { sessionRequest, sessionMutation } from '../../auth/services/session';
 import { usePlanCatalog } from '../../../hooks/usePlanCatalog';
+import { usePwa } from '../../../hooks/usePwa';
 import { ApiError } from '../../../services/api';
 import type { SimulatedPayment, SubscriptionInfo } from '../types/subscription';
 import SubscriptionLifecycle from './SubscriptionLifecycle';
@@ -59,6 +60,7 @@ export default function SubscriptionPanel({
   const [history, setHistory] = useState<SimulatedPayment[]>([]);
   const [payment, setPayment] = useState<SimulatedPayment | null>(null),
     [instrument, setInstrument] = useState('test_approved');
+  const { isOnline } = usePwa();
   const [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState('');
@@ -336,7 +338,7 @@ export default function SubscriptionPanel({
         plans={plans}
         onChange={onSubscriptionChange}
       />
-      {(error || catalogError) && (
+      {isOnline && (error || catalogError) && (
         <div role="alert" className="ws-alert" data-tone="bad">
           <p>{error || catalogError}</p>
           <button
@@ -371,7 +373,7 @@ export default function SubscriptionPanel({
               </p>
               <button
                 type="button"
-                disabled={busy || open}
+                disabled={busy || open || !isOnline}
                 onClick={() => void start(plan)}
                 className="ws-btn w-full"
                 data-variant="primary"
@@ -386,7 +388,7 @@ export default function SubscriptionPanel({
           ))}
         </div>
       )}
-      {!loading && !eligible.length && (
+      {!loading && !catalogLoading && !catalogError && !eligible.length && (
         <p>Ya cuentas con la mayor capacidad disponible.</p>
       )}
       {payment && (
@@ -453,7 +455,7 @@ export default function SubscriptionPanel({
               </div>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || !isOnline}
                 onClick={() => void operate('confirm')}
                 className="ws-btn"
                 data-variant="primary"
@@ -476,7 +478,7 @@ export default function SubscriptionPanel({
           {open && (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !isOnline}
               onClick={() => void operate('cancel')}
               className="ws-btn ml-2"
             >
@@ -521,7 +523,10 @@ export default function SubscriptionPanel({
       <section className="space-y-3">
         <h2 className="ws-card-title text-lg!">Historial de pagos</h2>
         {!history.length ? (
-          <p className="ws-card ws-empty">Aún no tienes operaciones.</p>
+          // Sin historial cargado (sin red o con error) no se afirma que esté vacío.
+          !error && (
+            <p className="ws-card ws-empty">Aún no tienes operaciones.</p>
+          )
         ) : (
           <ul className="m-0 list-none space-y-2 p-0">
             {history.map((item) => (
@@ -537,7 +542,7 @@ export default function SubscriptionPanel({
                   </p>
                 </div>
                 <button
-                  disabled={busy}
+                  disabled={busy || !isOnline}
                   className="underline"
                   onClick={() => void resume(item)}
                 >

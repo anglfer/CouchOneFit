@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../../../components/Icon';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 import { ApiError } from '../../../services/api';
 import { confirmDialog } from '../../../services/confirm';
 import { guardNavigation } from '../../../utils/navigation';
@@ -50,6 +52,7 @@ export default function OwnFoodEditor({
 }) {
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const { isOnline } = usePwa();
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
   const [picking, setPicking] = useState(false);
@@ -179,11 +182,12 @@ export default function OwnFoodEditor({
         <button
           className="ws-btn"
           data-variant="primary"
-          disabled={busy || (!!food && !dirty)}
+          disabled={busy || (!!food && !dirty) || !isOnline}
         >
           {food ? 'Guardar cambios' : 'Guardar en mi biblioteca'}
         </button>
       </div>
+      <RequiresConnection what="tu borrador sigue aquí y podrás guardarlo al volver la conexión" />
 
       {error && (
         <div role="alert" className="ws-alert" data-tone="bad">

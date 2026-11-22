@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../../services/api';
 import { sessionMutationOnce } from '../../auth/services/session';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 
 type AccountStatus = 'active' | 'inactive';
 
@@ -25,6 +27,7 @@ export default function ClientAccountAction({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const { isOnline } = usePwa();
   const [error, setError] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -92,7 +95,7 @@ export default function ClientAccountAction({
     <>
       <button
         type="button"
-        disabled={disabled || pending || open}
+        disabled={disabled || pending || open || !isOnline}
         onClick={() => {
           setOpen(true);
           notify.current?.(true);
@@ -104,6 +107,7 @@ export default function ClientAccountAction({
           ? 'Dar de baja la cuenta'
           : 'Reactivar cuenta'}
       </button>
+      <RequiresConnection />
       {open && (
         <dialog
           ref={dialog}
@@ -138,7 +142,7 @@ export default function ClientAccountAction({
           </button>
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || !isOnline}
             onClick={() => void confirm()}
             className="mr-2 px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
           >

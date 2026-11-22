@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../../../services/api';
 import { sessionMutation, sessionRequest } from '../services/session';
+import RequiresConnection from '../../../components/RequiresConnection';
+import { usePwa } from '../../../hooks/usePwa';
 
 export default function RecoveryPanel() {
   const [accounts, setAccounts] = useState<
@@ -8,6 +10,7 @@ export default function RecoveryPanel() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const { isOnline } = usePwa();
   const [error, setError] = useState('');
   const [delivery, setDelivery] = useState<{
     code: string;
@@ -75,13 +78,16 @@ export default function RecoveryPanel() {
         persona. Saber su correo o usuario no es suficiente. La persona elegirá
         su contraseña en privado.
       </p>
+      <RequiresConnection />
       {loading ? (
         <p role="status">Consultando cuentas…</p>
       ) : accounts.length === 0 ? (
-        <p>No hay cuentas disponibles para que autorices su recuperación.</p>
+        isOnline && (
+          <p>No hay cuentas disponibles para que autorices su recuperación.</p>
+        )
       ) : (
         <form onSubmit={submit}>
-          <fieldset disabled={busy} className="space-y-4">
+          <fieldset disabled={busy || !isOnline} className="space-y-4">
             <legend className="sr-only">Autorizar recuperación</legend>
             <label className="block">
               Cuenta
@@ -121,7 +127,7 @@ export default function RecoveryPanel() {
           </fieldset>
         </form>
       )}
-      {error && (
+      {error && isOnline && (
         <div role="alert">
           <p>{error}</p>
           <button

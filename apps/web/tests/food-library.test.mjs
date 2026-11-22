@@ -60,10 +60,28 @@ before(async () => {
       configurable: true,
     });
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  // La página consulta el estado de conexión de la PWA (services/pwa.ts).
+  window.matchMedia = () => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  });
   createRoot = (await import('react-dom/client')).createRoot;
   vite = await createServer({
     configFile: false,
     server: { middlewareMode: true, hmr: false, watch: null },
+    plugins: [
+      {
+        name: 'test-service-worker',
+        resolveId(id) {
+          if (id === 'virtual:pwa-register') return '\0test-pwa';
+        },
+        load(id) {
+          if (id === '\0test-pwa')
+            return 'export const registerSW = () => () => {};';
+        },
+      },
+    ],
   });
   const load = (path) => vite.ssrLoadModule(path);
   catalog = await load('/src/features/nutrition/utils/foodCatalog.ts');
@@ -211,4 +229,20 @@ test('la página lista la biblioteca, copia del catálogo base y archiva con con
   const archive = requests.find(([, url]) => url.endsWith('/archive'));
   assert.equal(archive[1], `/api/nutrition/foods/${own().id}/archive`);
   assert.deepEqual(JSON.parse(archive[2]), { revision: 3 });
+});
+
+test('sin conexión, guardar y archivar alimentos propios se ven deshabilitados con «Requiere conexión»', async () => {
+  if (root) await act(async () => root.unmount());
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(React.createElement(Page)));
+  await settle();
+  await act(async () => window.dispatchEvent(new window.Event('offline')));
+  assert.match(
+    text(),
+    /Requiere conexión: guardar o archivar alimentos propios/
+  );
+  assert.equal(button('Archivar').disabled, true);
+  await act(async () => window.dispatchEvent(new window.Event('online')));
+  assert.doesNotMatch(text(), /Requiere conexión/);
+  assert.equal(button('Archivar').disabled, false);
 });
