@@ -79,39 +79,31 @@ export default function RegistrationPage(): ReactElement {
   }
 
   return (
-    <div className="ws-auth-shell px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mx-auto mb-6 flex w-full max-w-6xl items-center justify-between py-4">
+    <div className="ws-auth-shell mk-page mk-auth bg-brand-surface! px-4 py-5 sm:px-8">
+      <header className="mx-auto mb-6 flex w-full max-w-[1240px] items-center justify-between">
         <Brand />
-        <div>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-(--ws-muted) transition-colors hover:text-(--ws-primary-fg) sm:text-sm"
-          >
-            Volver al inicio <Icon name="arrow-up-right" size={14} />
-          </Link>
-        </div>
+        <Link
+          to="/"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-muted transition-colors hover:text-brand-primary"
+        >
+          <Icon name="arrow-right" size={16} className="rotate-180" />
+          Volver al inicio
+        </Link>
       </header>
-      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-10 lg:grid-cols-12">
-        <aside className="space-y-6 pt-4 lg:col-span-5">
-          <span className="ws-badge" data-tone="info">
-            Registro profesional
-          </span>
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-(--ws-text) sm:text-5xl">
-            Tu experiencia.
-            <span className="block text-(--ws-primary-fg)">
-              Un nuevo espacio.
-            </span>
+      <main className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-start gap-10 pb-10 lg:grid-cols-12 lg:gap-12">
+        <aside className="space-y-6 pt-4 lg:col-span-5 lg:pt-10">
+          <h1 className="font-display text-[clamp(2.2rem,1.4rem+2.4vw,3.4rem)] font-semibold leading-[1.05] tracking-[-0.03em] text-brand-ink">
+            Crea tu cuenta profesional.
           </h1>
-          <p className="text-base leading-relaxed text-(--ws-text-2)">
-            Prepara tu cuenta para organizar tus planes y acompañar el progreso
-            de tus clientes de forma conectada y profesional.
+          <p className="text-lg leading-relaxed text-brand-muted">
+            Prepara tu espacio para organizar tus planes y acompañar el progreso
+            de tus clientes, con tu panel en la web y su app en el teléfono.
           </p>
           <div className="ws-card space-y-2 p-6!">
-            <span className="text-xs font-semibold text-(--ws-primary-fg)">
-              {selectedPlan ? 'Plan seleccionado' : 'A tu ritmo'}
-            </span>
-            <h2 className="text-2xl font-bold text-(--ws-text)">
-              {selectedPlan?.name ?? 'Empieza por tu cuenta'}
+            <h2 className="text-2xl font-semibold text-brand-ink">
+              {selectedPlan
+                ? `Plan seleccionado: ${selectedPlan.name}`
+                : 'Empieza por tu cuenta'}
             </h2>
             <p className="text-sm font-medium text-(--ws-muted)">
               {selectedPlan
@@ -176,7 +168,7 @@ export default function RegistrationPage(): ReactElement {
             <>
               <h2
                 id="registration-title"
-                className="mb-2 text-2xl font-extrabold tracking-tight text-(--ws-text) sm:text-3xl"
+                className="mb-2 font-display text-[2.1rem] font-semibold leading-tight tracking-[-0.025em] text-brand-ink"
               >
                 Hagamos equipo.
               </h2>
@@ -330,9 +322,14 @@ export default function RegistrationPage(): ReactElement {
                       </button>
                     </p>
                   )}
-                  <details className="rounded-xl border border-(--ws-border) bg-(--ws-surface-2) p-4 text-sm text-(--ws-text-2)">
-                    <summary className="cursor-pointer font-semibold text-(--ws-text)">
+                  <details className="group rounded-xl border border-(--ws-border) bg-(--ws-surface-2) p-4 text-sm text-(--ws-text-2)">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold text-(--ws-text) [&::-webkit-details-marker]:hidden">
                       Sobre tu registro
+                      <Icon
+                        name="plus"
+                        size={18}
+                        className="shrink-0 text-brand-primary transition-transform duration-200 group-open:rotate-45 motion-reduce:transition-none"
+                      />
                     </summary>
                     <p className="mt-2 leading-relaxed">
                       {REGISTRATION_NOTICE}
@@ -362,7 +359,7 @@ export default function RegistrationPage(): ReactElement {
                     </p>
                   )}
                   <button
-                    className="ws-btn min-h-12 w-full text-base"
+                    className="mk-btn w-full"
                     data-variant="primary"
                     type="submit"
                   >

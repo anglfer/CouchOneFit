@@ -44,8 +44,8 @@ export default function RecoveryPage() {
   }
   return (
     <AuthShell>
-      <section className="space-y-5 text-(--ws-text-2)">
-        <h1 className="text-3xl font-bold tracking-tight text-(--ws-text)">
+      <section className="space-y-5 text-brand-muted">
+        <h1 className="font-display text-[2.1rem] font-semibold leading-tight tracking-[-0.025em] text-brand-ink">
           Recupera tu acceso
         </h1>
         <p className="text-sm leading-relaxed">
@@ -67,7 +67,7 @@ export default function RecoveryPage() {
           <form onSubmit={submit}>
             <fieldset disabled={busy} className="space-y-4">
               <legend className="sr-only">Establecer contraseña</legend>
-              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+              <label className="block space-y-2 text-sm font-semibold text-brand-ink">
                 Código de recuperación
                 <input
                   name="code"
@@ -79,7 +79,7 @@ export default function RecoveryPage() {
                   className="ws-auth-input"
                 />
               </label>
-              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+              <label className="block space-y-2 text-sm font-semibold text-brand-ink">
                 Nueva contraseña
                 <input
                   name="password"
@@ -91,12 +91,12 @@ export default function RecoveryPage() {
                 />
                 <span
                   id="password-rule"
-                  className="block text-xs font-normal text-(--ws-muted)"
+                  className="block text-sm font-normal text-[#5b6388]"
                 >
                   De 15 a 128 caracteres. Los espacios cuentan.
                 </span>
               </label>
-              <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
+              <label className="block space-y-2 text-sm font-semibold text-brand-ink">
                 Confirmar contraseña
                 <input
                   name="passwordConfirmation"
@@ -108,7 +108,7 @@ export default function RecoveryPage() {
               </label>
               <button
                 type="submit"
-                className="ws-btn min-h-12 w-full text-base"
+                className="mk-btn w-full"
                 data-variant="primary"
               >
                 {busy ? 'Guardando…' : 'Guardar nueva contraseña'}
@@ -123,7 +123,7 @@ export default function RecoveryPage() {
         )}
         <Link
           to="/acceso"
-          className="block text-sm font-semibold text-(--ws-primary-fg) hover:underline"
+          className="inline-flex min-h-11 items-center text-[15px] font-semibold text-brand-primary underline-offset-4 hover:underline"
         >
           Volver al acceso
         </Link>

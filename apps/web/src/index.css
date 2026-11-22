@@ -14,6 +14,11 @@
   --color-brand-ink: #090918;
   --color-brand-muted: #434771;
   --color-brand-muted-light: #6c74a1;
+  --color-brand-night: #050a1a;
+  --color-brand-night-2: #0c152c;
+  --font-display:
+    'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui,
+    sans-serif;
 }
 
 :root {
@@ -163,6 +168,155 @@ body {
   --info-soft: #e8edff;
   --highlight-soft: #ffe8f1;
 }
+/* ---------- Superficies públicas: landing y acceso ---------- */
+
+@layer components {
+  .mk-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 22px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .mk-btn[data-variant='primary'] {
+    background: #4037f7;
+    color: #ffffff;
+    box-shadow:
+      0 1px 2px rgb(9 9 24 / 0.14),
+      0 8px 18px -8px rgb(64 55 247 / 0.6);
+  }
+  .mk-btn[data-variant='primary']:hover {
+    background: #3128d9;
+  }
+  .mk-btn[data-variant='secondary'] {
+    border-color: #8a8fb3;
+    background: #ffffff;
+    color: #090918;
+  }
+  .mk-btn[data-variant='secondary']:hover {
+    border-color: #4037f7;
+    color: #3128d9;
+  }
+  .mk-btn[data-variant='inverse'] {
+    background: #ffffff;
+    color: #3128d9;
+  }
+  .mk-btn[data-variant='inverse']:hover {
+    background: #f1f0ff;
+  }
+  .mk-btn[data-variant='outline-inverse'] {
+    border-color: rgb(255 255 255 / 0.5);
+    color: #ffffff;
+  }
+  .mk-btn[data-variant='outline-inverse']:hover {
+    border-color: #ffffff;
+    background: rgb(255 255 255 / 0.1);
+  }
+  .mk-btn:disabled {
+    opacity: 0.6;
+  }
+}
+
+/* Campos de acceso: blancos, borde ≥3:1 y 16px (evita el zoom de iOS al enfocar). */
+.mk-auth .ws-auth-input {
+  min-height: 48px;
+  border-color: #8a8fb3;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 16px;
+}
+.mk-auth .ws-auth-input:hover:not(:disabled) {
+  border-color: #4037f7;
+}
+/* Una sola elevación: en público las tarjetas llevan borde, sin sombra. */
+.mk-auth .ws-auth-card,
+.mk-auth .ws-card {
+  box-shadow: none;
+}
+.mk-auth .ws-alert {
+  font-size: 15px;
+}
+
+.mk-page ::selection {
+  background: #dcd9ff;
+  color: #090918;
+}
+.mk-page .mk-on-color :focus-visible,
+.mk-page .mk-on-color:focus-visible {
+  outline-color: #ffffff;
+}
+.mk-browser {
+  overflow: hidden;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgb(9 9 24 / 0.1),
+    0 28px 56px -18px rgb(9 9 24 / 0.42);
+}
+.mk-browser-bar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid #e3e5fc;
+  background: #f3f4fa;
+}
+.mk-browser-dots {
+  display: flex;
+  gap: 6px;
+}
+.mk-browser-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d0d2fa;
+}
+.mk-browser-label {
+  flex: 1;
+  margin-right: 39px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5b6388;
+}
+/* Radios en % para que el bisel escale con el ancho del teléfono. */
+.mk-phone {
+  padding: 2.4%;
+  border-radius: 13% / 5.85%;
+  background: #15131f;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 32px 64px -20px rgb(9 9 24 / 0.6);
+}
+.mk-phone > div {
+  border-radius: 11% / 4.95%;
+}
+@media (max-width: 640px) {
+  .mk-browser-bar {
+    height: 26px;
+    padding: 0 10px;
+  }
+  .mk-browser-dots i {
+    width: 7px;
+    height: 7px;
+  }
+  .mk-browser-label {
+    font-size: 12px;
+  }
+}
+
 :root[data-theme='dark'] {
   color-scheme: dark;
   color: #eff0f4;

@@ -12,7 +12,7 @@ export type ResolvedTheme = 'light' | 'dark';
 
 const STORAGE_KEY = 'couchonefit-theme';
 const BROWSER_COLORS = {
-  marketing: '#4037f7',
+  marketing: '#ffffff',
   light: '#ffffff',
   dark: '#0c152c',
 } as const;

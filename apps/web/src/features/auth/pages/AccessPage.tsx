@@ -54,70 +54,84 @@ export default function AccessPage(): ReactElement {
   }
   return (
     <AuthShell>
-      <section>
-        <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold tracking-tight text-(--ws-text)">
-            Qué bueno verte de nuevo.
-          </h1>
-          <p className="text-base text-(--ws-muted)">
-            Entra con tu usuario o correo para acceder a tu espacio.
-          </p>
-        </div>
+      <section aria-labelledby="access-title">
+        <h1
+          id="access-title"
+          className="font-display text-[2.1rem] font-semibold leading-tight tracking-[-0.025em] text-brand-ink"
+        >
+          Inicia sesión
+        </h1>
+        <p className="mt-2 text-base leading-relaxed text-brand-muted">
+          Entra a tu espacio con tu usuario o correo.
+        </p>
 
         {params.get('motivo') === 'sesion' && (
-          <p role="status" className="ws-alert mb-4" data-tone="warn">
+          <p role="status" className="ws-alert mt-6" data-tone="warn">
             Tu sesión venció o ya no está disponible. Inicia sesión para
             continuar.
           </p>
         )}
         {params.get('motivo') === 'salida' && (
-          <p role="status" className="ws-alert mb-4" data-tone="ok">
+          <p role="status" className="ws-alert mt-6" data-tone="ok">
             Cerraste tu sesión correctamente.
           </p>
         )}
 
-        <form onSubmit={submit}>
-          <fieldset disabled={busy} className="space-y-4">
+        <form onSubmit={submit} className="mt-8">
+          <fieldset disabled={busy} className="space-y-5">
             <legend className="sr-only">Acceso a tu cuenta</legend>
-            <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
-              <span>Usuario o correo</span>
+            <div>
+              <label
+                htmlFor="access-identifier"
+                className="text-sm font-semibold text-brand-ink"
+              >
+                Usuario o correo
+              </label>
               <input
+                id="access-identifier"
                 name="identifier"
                 autoComplete="username"
                 maxLength={254}
                 required
                 autoCapitalize="none"
                 spellCheck={false}
-                className="ws-auth-input"
+                className="ws-auth-input mt-2"
               />
-            </label>
-            <label className="block space-y-1.5 text-sm font-semibold text-(--ws-text-2)">
-              <span>Contraseña</span>
-              <div className="relative">
+            </div>
+            <div>
+              <label
+                htmlFor="access-password"
+                className="text-sm font-semibold text-brand-ink"
+              >
+                Contraseña
+              </label>
+              <div className="relative mt-2">
                 <input
+                  id="access-password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  className="ws-auth-input pr-20!"
+                  className="ws-auth-input pr-24!"
                 />
                 <button
                   type="button"
                   aria-pressed={showPassword}
+                  aria-controls="access-password"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="ws-plain absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2.5 py-1 text-xs font-semibold text-(--ws-primary-fg) hover:bg-(--ws-selected)"
+                  className="absolute right-1.5 top-1/2 min-h-9 -translate-y-1/2 rounded-md px-3 text-sm font-semibold text-brand-primary hover:bg-[#f1f0ff]"
                 >
                   {showPassword ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
-            </label>
-            <div className="flex justify-end">
-              <Link
-                to="/recuperar"
-                className="text-sm font-semibold text-(--ws-primary-fg) hover:underline"
-              >
-                ¿Olvidaste tu contraseña o perdiste tu dispositivo?
-              </Link>
+              <div className="mt-2.5 flex justify-end">
+                <Link
+                  to="/recuperar"
+                  className="text-sm font-semibold text-brand-primary underline-offset-4 hover:underline"
+                >
+                  ¿Problemas para entrar?
+                </Link>
+              </div>
             </div>
             {error && (
               <p role="alert" className="ws-alert" data-tone="bad">
@@ -125,31 +139,23 @@ export default function AccessPage(): ReactElement {
               </p>
             )}
             <button
-              className="ws-btn min-h-12 w-full text-base"
+              className="mk-btn w-full"
               data-variant="primary"
               type="submit"
             >
               {busy ? 'Iniciando sesión…' : 'Iniciar sesión'}
             </button>
           </fieldset>
-          <p className="mt-6 text-center text-sm text-(--ws-muted)">
-            ¿Todavía no tienes cuenta?{' '}
-            <Link
-              to="/registro"
-              className="font-semibold text-(--ws-primary-fg) hover:underline"
-            >
-              Crear mi cuenta
-            </Link>
-          </p>
-          <p className="mt-2 text-center text-xs text-(--ws-muted)">
-            <Link
-              to="/privacidad"
-              className="font-medium text-(--ws-muted) hover:text-(--ws-primary-fg) hover:underline"
-            >
-              Privacidad y condiciones de uso
-            </Link>
-          </p>
         </form>
+        <p className="mt-8 border-t border-brand-border pt-6 text-[15px] text-brand-muted">
+          ¿Todavía no tienes cuenta?{' '}
+          <Link
+            to="/registro"
+            className="font-semibold text-brand-primary underline-offset-4 hover:underline"
+          >
+            Crear mi cuenta
+          </Link>
+        </p>
       </section>
     </AuthShell>
   );

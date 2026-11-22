@@ -3,6 +3,7 @@
 Registro de verificación del trabajo local correspondiente a [EP-08 — Portal, PWA con uso sin conexión y privacidad](README.md) (`21-nov-2026`).
 
 Convención del repositorio:
+
 - **T** = prueba o herramienta ejecutada.
 - **E** = inspección estática del código o salida generada.
 - **R** = aceptación o comprobación humana (no asumida ni sustituida por pruebas automáticas).
@@ -49,3 +50,105 @@ Convención del repositorio:
 - **Revisión independiente y coordinación de PR (`CONTRIBUTING.md`):**
   - Pendiente revisión de pares (incluyendo responsables originales: Omar para `HU-039`/`HU-041` y Franela Whaite para `HU-040`).
   - Existen cambios locales en archivos compartidos (`AppRoutes.tsx`, `WorkspaceLayout.tsx`, `vite.config.ts`, `pwa.ts`, `navigation.ts`, `ClientRecordView.tsx`, `PendingOperations.tsx`, `client_shell.dart`, `client_session_gate.dart`) que requieren revisión/PR coordinada antes de integrar o desplegar (`TT-016`/`TT-017` post-despliegue también pendiente).
+
+## 4. Rediseño del portal y del acceso (`HU-039`, 21-nov-2026, segunda versión)
+
+Petición de la persona usuaria: el acceso Web se veía poco profesional y la landing era muy básica; pidió capturas reales del sistema (panel y móvil) y libertad total sin consultas intermedias. Un intento previo del mismo día (estética de señalética/brutalista, rama `brutalista`) quedó descartado: la persona usuaria volvió a `main` y repitió la petición. Esta versión conserva la marca índigo del panel para que lo público y lo privado se sientan un mismo producto.
+
+### Alcance
+
+- **Landing (`features/marketing/*`):**
+  - Hero con titular llano y escaparate por pestañas (Inicio, Expediente, Entrenamiento, Seguimiento) que cambia la captura real del panel y del teléfono.
+  - Pasaje «dos lados»: lo que el cliente registra en la app ↔ lo que ve el profesional.
+  - Ficha del expediente: captura del plan de alimentación más una tabla de áreas.
+  - «Cómo funciona» en línea continua, planes desde `/api/plans` con barra de capacidad, preguntas frecuentes y cierre.
+  - Se eliminaron la demo simulada `ProductPreview.tsx`, `ProductFeatures.tsx`, `ConnectedExperience.tsx` y `SectionHeading.tsx` (sin otros consumidores).
+- **Acceso (`AuthShell`, `AccessPage`, `RecoveryPage`):**
+  - Formulario a la izquierda y, desde 1024px, panel de marca con la captura real del inicio del panel.
+  - Corregido el defecto que apilaba el panel de marca sobre el formulario en escritorio: `.ws-auth-shell` declaraba `display: flex` sin capa y anulaba `lg:grid`.
+  - Campos blancos de 48px con borde ≥3:1.
+  - Mismo flujo, validaciones y mensajes de sesión.
+- **Registro:** misma piel (cabecera, titular, botón y campos) sin cambios de lógica.
+- **Compartido:**
+  - `components/ProductShot.tsx`: marcos de navegador y teléfono, recortes por breakpoint.
+  - `index.css`: clases `mk-*`, `font-display` y colores `brand-night*`.
+  - `formatPlanPrice` sin centavos en precios enteros.
+  - `theme-color` público en blanco.
+  - Meta descripción actualizada.
+- **Capturas:**
+  - 9 WebP en `public/marketing/` (~700 KB) con su procedencia en `.webp.json`.
+  - Se tomaron del panel local y del emulador Android con datos sintéticos de `CouchOneFit_dev`: profesional «Valeria Montes», clienta «Mariana Ríos».
+  - Se reutilizaron del intento anterior porque panel y móvil no cambiaron.
+- **Documentos:** `apps/web/PRODUCT.md` (nuevo), `apps/web/DESIGN.md` (reescrito: describía un conmutador claro/oscuro y medidas que ya no existían), `apps/web/README.md` y este README de la épica.
+- **Sin cambios:** API, BD, contratos, móvil y panel interno. «Contáctanos» y «Elegir plan» conservan sus destinos (`/registro`, `/registro?plan=<id>`).
+
+### Evidencia
+
+- **T.** `npx prettier --check` sobre los archivos Web tocados: aprobado.
+- **T.** `npx oxlint`: exit 0.
+- **T.** `npm --prefix apps/web run build`: exit 0; precache del SW en 28 entradas (las capturas no se precachean). El aviso de chunk > 500 kB ya existía.
+- **T.** `npm --prefix apps/web test`: 163 de 163 aprobadas.
+- **T.** `git diff --check`: limpio.
+- **T.** Capturas por CDP (Chrome sin ventana) en `apps/web/.impeccable/review/`:
+  - `/` a 1440 y 390 px, página completa y primer pantallazo;
+  - `/acceso` a 1440 y 390 px;
+  - `/recuperar` y `/registro` a 1440 px.
+- **T.** Navegador integrado a 1440, 1024 y 375 px:
+  - sin desbordamiento horizontal;
+  - las pestañas del hero cambian con clic y con flechas, Inicio y Fin, con `aria-selected` y foco itinerante;
+  - el foco sobre la losa índigo es blanco.
+- **T.** Detector de Impeccable sobre landing, acceso, `ProductShot` e `index.css`: exit 0, sin hallazgos tras documentar la escala tipográfica y los colores en `DESIGN.md`.
+- **E.** Revisión final independiente de Impeccable: un agente sin contexto de la construcción revisó capturas y código.
+  - **Primera ronda (`fix`), 8 hallazgos materiales, todos corregidos:**
+    - capturas fuera del pliegue móvil;
+    - teléfono tangente al marco en escritorio;
+    - bordes de campos con 1,5:1;
+    - botón de recuperación distinto al de acceso;
+    - recortes que cortaban texto;
+    - aviso de datos de demostración solo en el pie;
+    - etiquetas en mayúsculas;
+    - `DESIGN.md` desactualizado.
+  - **Segunda ronda (verificación de los arreglos):** los 8 quedaron `resolved`. Señaló 2 regresiones y 3 detalles de `/registro`:
+    - el teléfono del hero casi tocaba el borde inferior de la losa;
+    - la captura del cierre cortaba cifras en el borde derecho;
+    - en `/registro`, un rótulo «A tu ritmo» sobre el título, borde y sombra a la vez en las tarjetas, y el marcador nativo ▶ en «Sobre tu registro».
+  - Esas 5 correcciones se verificaron en nuevas capturas (**E**, propia). El presupuesto de dos rondas sin supervisión ya se había agotado, así que no pasaron por una tercera revisión independiente.
+- **T.** `impeccable embed-prompt --scan public/marketing`: 9 imágenes, 0 sin procedencia.
+- **E.** Contraste:
+  - texto blanco sobre `#4037F7`: 6,8:1;
+  - pestañas inactivas en indigo-50 sobre la losa: más de 5:1;
+  - `#5B6388` sobre blanco: 5,9:1;
+  - borde de campos `#8A8FB3` sobre blanco: 3,15:1.
+
+### Pendiente
+
+- **R.** Aceptación visual de la persona usuaria en navegador y teléfono reales.
+- Revisión de pares y PR coordinada (`CONTRIBUTING.md`). No se ha hecho commit ni publicación.
+- Si cambia la UI del panel o del móvil, recapturar con la misma cuenta demo.
+
+## 5. Refinamiento comercial e interactivo del portal (`HU-039`, 21-nov-2026)
+
+### Alcance
+
+- **Nuevos archivos en `apps/web/src/features/marketing/`:**
+  - `marketing.css`: `scroll-padding-top`, header sticky con `@container scroll-state(stuck: top)`, barra de progreso con CSS Scroll-Driven Animations (`scroll(root block)`), trazo único de entrada para curvas de pista, `.mk-tablist` desplazable en una sola fila, `<dialog>` modal (`:modal`, `::backdrop`, `overscroll-behavior: contain`), transición progresiva en `details::details-content`, slider `.mk-range` y escena inmersiva única `.mk-hero-stage` para el Hero.
+  - `components/TrackBackdrop.tsx`: motivo gráfico de curvas de pista inspirado en `JourneySurface` de la app móvil.
+  - `components/ProductLightbox.tsx`: inspector modal sobre `<dialog>` nativo (`showModal()`, `closedby="any"` con respaldo de puntero para Safari) para ampliar capturas reales y alternar entre Panel web y App móvil.
+  - `utils/planRecommendation.ts`: lógica pura para sugerir plan según tamaño de cartera y estimar ocupación y costo aproximado por cliente.
+  - `tests/marketing-plans.test.mjs`: pruebas unitarias de recomendación/formato y recorrido interactivo completo de `MarketingPage` en `jsdom`.
+- **Archivos actualizados:** `MarketingNavigation.tsx` (progreso de lectura y sección activa con `IntersectionObserver`), `Hero.tsx` (un solo bloque inmersivo oscuro/índigo `.mk-hero-stage` con titular centrado «Un solo sistema para tu cartera. Una app real para cada cliente.», botones inversos, 5 módulos reales incluyendo **Alimentación**, puente de sincronización en vivo, enfoque interactivo panel/app y visor modal), `TwoSides.tsx` (3 escenas reales sincronizadas + simulador de visibilidad `DEC-009`), `RecordCoverage.tsx` (selector interactivo de las 4 áreas sobre la captura superior + comparativa de 4 momentos diarios frente a chats/hojas sueltas), `HowItWorks.tsx` (etiquetas de resultado por paso y franja de garantías operativas), `Plans.tsx` (selector interactivo de cartera de 1 a 60+ clientes y resaltado de plan sugerido desde `/api/plans`), `FrequentlyAskedQuestions.tsx` (acordeón fluido no exclusivo y 2 preguntas sobre PWA sin conexión y bajas lógicas), `MarketingPage.tsx` (`Closing` con panel + teléfono superpuesto y curvas de pista) y `apps/web/DESIGN.md`.
+- **Sin cambios:** contratos de `HU-039` (`/registro`, `/registro?plan=<id>`, `/acceso`, `/recuperar`, `/privacidad`), las 9 capturas reales en `public/marketing/*.webp`, `package.json`, lockfiles, `AppRoutes.tsx`, `AuthShell.tsx`, `Icon.tsx`, `ProductShot.tsx`, `theme.ts`, API y BD.
+
+### Evidencia (T / E)
+
+- **T.** `npx --prefix apps/web prettier --check` sobre los archivos Web tocados/creados y `apps/web/DESIGN.md`: **aprobado** (`All matched files use Prettier code style!`).
+- **T.** `npm --prefix apps/web run lint` (`oxlint`): **0 advertencias y 0 errores** en 147 archivos.
+- **T.** `npm --prefix apps/web run build` (`tsc -b && vite build`): **exit 0** (`✓ built in 958ms`; `dist/sw.js` generado con 28 entradas precacheadas, `1405.86 KiB`).
+- **T.** `npm --prefix apps/web test` (`node --test tests/*.test.mjs`): **167 de 167 aprobadas, 0 fallidas**, incluyendo 4 pruebas nuevas en `tests/marketing-plans.test.mjs` (recomendador de cartera, cálculo por cliente y recorrido completo en `jsdom`: titular unificado, 5 pestañas del hero + lightbox `<dialog>`, 3 escenas + simulador de visibilidad `DEC-009` en `TwoSides`, selector de áreas y comparativa en `RecordCoverage`, estimador de `Plans`, enlaces `HU-039` y 7 FAQs).
+- **T.** `git diff --check`: limpio.
+- **Bloqueado / No ejecutado en esta sesión:** inspección visual interactiva en Chrome real (el subagente `browser` falló al conectar por ausencia de `DevToolsActivePort` / no estar habilitado `chrome://inspect/#remote-debugging` en el equipo; `vite` dev server se inició temporalmente en `http://127.0.0.1:5001/` al estar ocupado el puerto `5000` y se detuvo después). A partir de la indicación de la persona usuaria se rediseñó el Hero en un único bloque inmersivo oscuro/índigo con titular comercial directo.
+
+### Pendiente
+
+- **T / R.** Inspección visual en navegador real (escritorio 1440px y móvil 390px) con API local de `/api/plans` activa y aceptación humana (**R**) por parte de la persona usuaria.
+- Revisión de pares y PR coordinada (`CONTRIBUTING.md`). No se ha hecho commit ni publicación.

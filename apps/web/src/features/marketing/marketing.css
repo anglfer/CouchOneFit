@@ -1,0 +1,274 @@
+/* Estilos dedicados de la landing pública (/). */
+
+:root:has(.mk-page) {
+  scroll-padding-top: 76px;
+}
+
+/* Header sticky consciente del desplazamiento (scroll-state query). */
+.mk-nav-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  container-type: scroll-state;
+  container-name: mk-header;
+}
+
+.mk-nav-inner {
+  border-bottom: 1px solid #e3e5fc;
+  background: rgb(255 255 255 / 0.96);
+  backdrop-filter: blur(8px);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+@container mk-header scroll-state(stuck: top) {
+  .mk-nav-inner {
+    border-bottom-color: #d0d2fa;
+    background: rgb(255 255 255 / 0.99);
+    box-shadow: 0 12px 30px -22px rgb(9 9 24 / 0.34);
+  }
+}
+
+/* Barra de progreso de lectura con CSS Scroll-Driven Animations. */
+.mk-scroll-progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--brand-primary);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    @keyframes mk-scroll-progress {
+      from {
+        transform: scaleX(0);
+      }
+      to {
+        transform: scaleX(1);
+      }
+    }
+
+    .mk-scroll-progress {
+      animation: mk-scroll-progress auto linear;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+/* Firma visual de curvas de pista (inspirada en JourneySurface del móvil). */
+.mk-track-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mk-track-draw {
+    from {
+      stroke-dashoffset: 1600;
+      opacity: 0;
+    }
+    to {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+
+  .mk-track-path {
+    stroke-dasharray: 1600;
+    stroke-dashoffset: 1600;
+    animation: mk-track-draw 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .mk-track-path-delay-1 {
+    animation-delay: 0.1s;
+  }
+
+  .mk-track-path-delay-2 {
+    animation-delay: 0.2s;
+  }
+}
+
+/* Lista de pestañas en una sola fila con desplazamiento suave y snap táctil. */
+.mk-tablist {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: inline proximity;
+  scroll-padding-inline: 12px;
+  scrollbar-width: none;
+}
+
+.mk-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.mk-tablist > [role='tab'] {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.mk-tablist > [role='tab'][aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 14px 4px;
+  border-block-end: 2px solid currentColor;
+}
+
+/* Acordeón nativo con transición fluida en ::details-content. */
+.mk-faq details::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+.mk-faq details:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mk-faq details::details-content {
+    transition: block-size, content-visibility, display;
+    transition-duration: 0.28s;
+    transition-timing-function: ease-in-out;
+    transition-behavior: allow-discrete;
+  }
+}
+
+/* Lightbox modal nativo <dialog>. */
+dialog.mk-lightbox {
+  margin: auto;
+  max-width: min(1120px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  width: 100%;
+  border: 1px solid #d0d2fa;
+  border-radius: 24px;
+  padding: 0;
+  background: #ffffff;
+  color: #090918;
+  box-shadow: 0 32px 80px -24px rgb(5 10 26 / 0.55);
+  overflow: hidden;
+}
+
+dialog.mk-lightbox[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.mk-lightbox:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.mk-lightbox::backdrop {
+  background: rgb(5 10 26 / 0.78);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mk-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  dialog.mk-lightbox[open] {
+    animation: mk-dialog-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* Control deslizante del recomendador de planes. */
+.mk-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mk-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #4037f7 0%,
+    #4037f7 var(--range-fill, 30%),
+    #e3e5fc var(--range-fill, 30%),
+    #e3e5fc 100%
+  );
+}
+
+.mk-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #4037f7;
+  box-shadow: 0 2px 8px rgb(9 9 24 / 0.25);
+  transition: transform 0.15s ease;
+}
+
+.mk-range::-webkit-slider-thumb:hover {
+  transform: scale(1.08);
+}
+
+.mk-range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #e3e5fc;
+}
+
+.mk-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #4037f7;
+}
+
+.mk-range::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #4037f7;
+  box-shadow: 0 2px 8px rgb(9 9 24 / 0.25);
+}
+
+.mk-range:focus-visible {
+  outline: 3px solid var(--primary-light);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* Escena inmersiva única del Hero (azul noche profundo + iluminación índigo). */
+.mk-hero-stage {
+  background:
+    radial-gradient(
+      ellipse 72% 48% at 50% -6%,
+      rgb(64 55 247 / 0.52),
+      rgb(48 70 235 / 0.2) 44%,
+      transparent 74%
+    ),
+    radial-gradient(
+      ellipse 65% 45% at 68% 95%,
+      rgb(99 68 220 / 0.36),
+      transparent 68%
+    ),
+    linear-gradient(180deg, #070b22 0%, #091032 54%, #0d1647 100%);
+  box-shadow: 0 28px 70px -30px rgb(5 10 26 / 0.45);
+}
