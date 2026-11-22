@@ -103,9 +103,12 @@ export default function ClientAccessPanel({
     clientId: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [search, setSearch] = useState('');
+  // Home links here with ?nuevo (open the form); a record links with ?buscar=<name>.
+  const [query] = useState(() => new URLSearchParams(window.location.search));
+  const initialSearch = (query.get('buscar') ?? '').trim().slice(0, 150);
+  const [search, setSearch] = useState(initialSearch);
   const [filters, setFilters] = useState({
-    search: '',
+    search: initialSearch,
     status: '',
     pageSize: 20,
   });
@@ -125,7 +128,9 @@ export default function ClientAccessPanel({
       onStatusChanged();
     }, [onStatusChanged])
   );
-  const [formToggled, setFormToggled] = useState<boolean | null>(null);
+  const [formToggled, setFormToggled] = useState<boolean | null>(
+    query.has('nuevo') || null
+  );
   const requestKey = JSON.stringify([attempt, filters, cursors]);
   const loading = loadedKey !== requestKey;
   useEffect(() => {

@@ -774,7 +774,7 @@ export default function AssessmentForm({
               to={`/app/clientes/${encodeURIComponent(clientId)}/nutricion`}
               className="ws-btn min-h-11"
             >
-              Ir a Nutrición
+              Ir a Alimentación
             </Link>
             <button
               type="button"

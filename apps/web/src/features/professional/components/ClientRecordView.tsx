@@ -193,9 +193,12 @@ function ClientRecordContent({
                     <Icon name="refresh" size={16} />
                     Actualizar expediente
                   </button>
-                  <Link to="/app/clientes" className="ws-btn">
+                  <Link
+                    to={`/app/clientes?buscar=${encodeURIComponent(record.fullName)}`}
+                    className="ws-btn"
+                  >
                     <Icon name="key" size={16} />
-                    Gestionar acceso en Clientes
+                    Gestionar acceso a la app
                   </Link>
                   <ClientStatusAction
                     sessionReady={sessionReady}

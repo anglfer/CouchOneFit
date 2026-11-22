@@ -73,9 +73,9 @@ export default function ProfessionalHome({
   const [summary, setSummary] = useState<PortfolioFollowUpSummary | null>(null);
   const [summaryFailed, setSummaryFailed] = useState(false);
   const [summaryAttempt, setSummaryAttempt] = useState(0);
-  const [checkInView, setCheckInView] = useState<'recent' | 'pending'>(
-    'recent'
-  );
+  const [chosenCheckInView, setCheckInView] = useState<
+    'recent' | 'pending' | null
+  >(null);
 
   useEffect(() => {
     if (!active) return;
@@ -137,6 +137,12 @@ export default function ProfessionalHome({
       (b.lastCheckInAt ?? '').localeCompare(a.lastCheckInAt ?? '')
     );
   const pendingToday = activeClients.filter((c) => !c.checkInToday);
+  // Until the professional picks a view, open the one that has people in it.
+  const checkInView =
+    chosenCheckInView ??
+    (recentCheckIns.length === 0 && pendingToday.length > 0
+      ? 'pending'
+      : 'recent');
 
   return (
     <>
@@ -144,16 +150,16 @@ export default function ProfessionalHome({
         title={`Hola, ${firstName(fullName)}.`}
         lead="Esto es lo que pasa hoy con tus clientes."
         actions={
-          <>
-            <Link to="/app/entrenamiento" className="ws-btn">
-              <Icon name="layers" size={18} />
-              Rutinas
+          active && (
+            <Link
+              to="/app/clientes?nuevo"
+              className="ws-btn"
+              data-variant="primary"
+            >
+              <Icon name="plus" size={18} />
+              Nuevo expediente
             </Link>
-            <Link to="/app/clientes" className="ws-btn" data-variant="primary">
-              <Icon name="users" size={18} />
-              Ir a clientes
-            </Link>
-          </>
+          )
         }
       />
 

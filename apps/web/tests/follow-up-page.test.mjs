@@ -486,3 +486,56 @@ test('ProfessionalHome ordena recientes por lastCheckInAt, muestra sin check-in 
     /Adherencia alimentación \(7 d\)—Sin días con plan en 7 días/
   );
 });
+
+test('ProfessionalHome abre «Sin check-in hoy» si no hay recientes y solo ofrece Nuevo expediente con plan activo', async () => {
+  handler = (url) =>
+    url === '/api/training/clients'
+      ? json({
+          clients: [
+            {
+              id: 'c-quiet',
+              fullName: 'Rosa Pendiente',
+              status: 'active',
+              activeRoutine: 'Fuerza',
+              hasDraft: false,
+              lastSession: null,
+              sessionsLast7: 0,
+              lastCheckIn: null,
+              lastCheckInAt: null,
+              checkInToday: false,
+              checkInRecent: false,
+            },
+          ],
+        })
+      : json({ error: { code: 'QUERY_FAILED', message: 'Error' } }, 500);
+  const subscription = {
+    status: 'active',
+    planName: 'Pro',
+    limit: 30,
+    isUnlimited: false,
+    used: 1,
+    remaining: 29,
+    excess: 0,
+    expiresAt: '2026-12-20T00:00:00.000Z',
+  };
+  const render = (sub) =>
+    act(async () =>
+      root.render(
+        React.createElement(Home, { fullName: 'Coach Test', subscription: sub })
+      )
+    );
+  await render(subscription);
+  await settle();
+  const pressed = document.querySelector(
+    '[aria-label="Vista de check-ins"] [aria-pressed="true"]'
+  );
+  assert.equal(pressed.textContent, 'Sin check-in hoy');
+  assert.match(text(), /Rosa PendienteAún sin check-ins registrados/);
+  assert.equal(
+    document.querySelector('a[href="/app/clientes?nuevo"]').textContent,
+    'Nuevo expediente'
+  );
+
+  await render({ ...subscription, status: 'expired' });
+  assert.equal(document.querySelector('a[href="/app/clientes?nuevo"]'), null);
+});

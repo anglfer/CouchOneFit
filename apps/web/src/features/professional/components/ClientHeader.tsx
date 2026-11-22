@@ -41,7 +41,12 @@ export default function ClientHeader({
       `/app/clientes/${clientId}/evaluacion`,
       'clipboard',
     ],
-    ['nutrition', 'Nutrición', `/app/clientes/${clientId}/nutricion`, 'bowl'],
+    [
+      'nutrition',
+      'Alimentación',
+      `/app/clientes/${clientId}/nutricion`,
+      'bowl',
+    ],
     [
       'followUp',
       'Seguimiento',

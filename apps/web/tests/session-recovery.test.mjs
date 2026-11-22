@@ -1767,7 +1767,7 @@ test('HU-021 third record tab is the only evaluation entry and there is no globa
   ];
   assert.deepEqual(
     tabs.map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición', 'Seguimiento']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Alimentación', 'Seguimiento']
   );
   assert.equal(document.querySelector('a[href="/app/evaluaciones"]'), null);
   assert.equal(document.querySelector('form'), null);
@@ -2155,7 +2155,7 @@ test('HU-022 available progress contract is accepted by the existing record with
     [
       ...document.querySelectorAll('nav[aria-label="Secciones del cliente"] a'),
     ].map((a) => a.textContent.trim()),
-    ['Resumen', 'Entrenamiento', 'Evaluación', 'Nutrición', 'Seguimiento']
+    ['Resumen', 'Entrenamiento', 'Evaluación', 'Alimentación', 'Seguimiento']
   );
   assert.equal(writes().length, 0);
 });
@@ -2284,4 +2284,25 @@ test('HU-022 Summary opens evolution inside the same client Evaluation tab and p
   await openEvaluationForm();
   assert.match(document.body.textContent, /Nueva evaluación antropométrica/);
   assert.equal(document.querySelector('#evolucion-antropometrica'), null);
+});
+
+test('Clientes opens prefiltered with ?buscar and with the creation form open with ?nuevo', async () => {
+  portfolioResponder = () => page([sampleClient('ana', 'Ana Torres')], true);
+  await act(async () => root.unmount());
+  window.history.replaceState(
+    {},
+    '',
+    '/app/clientes?buscar=Ana%20Torres&nuevo'
+  );
+  root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(React.createElement(ProfessionalPage)));
+  const search = new URL(
+    requests.filter((request) => request.url.startsWith('/api/clients?')).at(-1)
+      .url,
+    window.location.origin
+  ).searchParams.get('search');
+  assert.equal(search, 'Ana Torres');
+  assert.equal(field('Buscar por nombre').value, 'Ana Torres');
+  assert.match(document.body.textContent, /Ana Torres/);
+  assert.equal(document.querySelector('details.ws-disclosure').open, true);
 });

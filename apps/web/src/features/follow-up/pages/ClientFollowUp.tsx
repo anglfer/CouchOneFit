@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from '../../../components/Link';
 import { Badge, Card, Meter } from '../../../components/ui';
 import { useOnSynced, useOperations } from '../../../hooks/useOperations';
 import {
@@ -435,30 +434,22 @@ export default function ClientFollowUp({
   return (
     <div className="space-y-5">
       <div className="ws-card flex flex-wrap items-end justify-between gap-4 p-4!">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="ws-segmented" role="group" aria-label="Periodo">
-            {PERIODS.map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className="ws-plain"
-                aria-pressed={days === value}
-                onClick={() => {
-                  setRangeError('');
-                  setDays(value);
-                  setAppliedRange({ days: value });
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <Link
-            to={`/app/clientes/${clientId}/entrenamiento`}
-            className="ws-btn"
-          >
-            Ir a Entrenamiento
-          </Link>
+        <div className="ws-segmented" role="group" aria-label="Periodo">
+          {PERIODS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className="ws-plain"
+              aria-pressed={days === value}
+              onClick={() => {
+                setRangeError('');
+                setDays(value);
+                setAppliedRange({ days: value });
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <details className="rounded-lg border border-(--ws-border-subtle) bg-(--ws-surface-2) px-3 py-2">

@@ -152,3 +152,29 @@ Petición de la persona usuaria: el acceso Web se veía poco profesional y la la
 
 - **T / R.** Inspección visual en navegador real (escritorio 1440px y móvil 390px) con API local de `/api/plans` activa y aceptación humana (**R**) por parte de la persona usuaria.
 - Revisión de pares y PR coordinada (`CONTRIBUTING.md`). No se ha hecho commit ni publicación.
+
+## 6. Coherencia del panel profesional al entrar (21-nov-2026)
+
+Revisión de arquitectura de información del panel (`/app`) a petición de la persona usuaria: qué ve el profesional al entrar y si la selección de módulos es coherente. Se conserva el modelo centrado en el expediente (una ficha por cliente con sus pestañas; Rutinas como biblioteca de plantillas), porque es el contrato de EP-03 y la promesa del producto. El orden de pestañas Resumen → Entrenamiento → Evaluación no se cambia: es decisión aprobada en `HU-021` (`multimethod.md`).
+
+### Alcance
+
+- **Inicio** (`ProfessionalHome.tsx`): la cabecera ya no repite los destinos de la barra lateral («Rutinas», «Ir a clientes»); su única acción es **Nuevo expediente** (`/app/clientes?nuevo`) y solo aparece con suscripción activa. La tarjeta de check-ins abre en **Sin check-in hoy** cuando no hay recientes y sí hay pendientes; si la persona elige una vista, se respeta.
+- **Indicadores de Inicio** (`workspace.css`, `.ws-stats-home`): máximo tres por fila; los seis indicadores forman dos filas completas en lugar de 4 + 2 con hueco. En 1024 px siguen siendo tres; en móvil, uno.
+- **Ficha del cliente** (`ClientHeader.tsx`, `AssessmentForm.tsx`): la pestaña y el botón «Nutrición» pasan a **Alimentación**, el nombre que ya usan EP-05, la tarjeta del resumen, las insignias, Inicio y la app móvil. La ruta `/nutricion` no cambia.
+- **Más acciones de la ficha** (`ClientRecordView.tsx`): «Gestionar acceso en Clientes» pasa a **Gestionar acceso a la app** y abre la lista ya filtrada por ese cliente (`/app/clientes?buscar=<nombre>`), donde están el código de invitación y la revocación. Antes llevaba a la lista completa.
+- **Lista de clientes** (`ClientAccessPanel.tsx`): acepta `?buscar=` (búsqueda inicial, máximo 150 caracteres como el campo) y `?nuevo` (formulario de alta abierto).
+- **Seguimiento** (`ClientFollowUp.tsx`): se quitó el botón «Ir a Entrenamiento» de la barra de periodo; repetía la pestaña que está justo encima y se leía como un filtro.
+- **Sin cambios:** API, BD, contratos, rutas, móvil, dependencias y lockfiles.
+
+### Evidencia (T / E)
+
+- **T.** `npm --prefix apps/web run build`: exit 0. `oxlint`: exit 0. Prettier de los archivos tocados: aprobado. `git diff --check`: limpio.
+- **T.** `npm --prefix apps/web test`: **169 de 169 aprobadas**, con 2 pruebas nuevas: Inicio abre «Sin check-in hoy» sin recientes y solo ofrece «Nuevo expediente» con plan activo (`follow-up-page.test.mjs`); Clientes entra filtrado con `?buscar` y con el alta abierta con `?nuevo` (`session-recovery.test.mjs`). Las aserciones de pestañas se actualizaron a «Alimentación».
+- **T.** Navegador integrado contra la API y la base local (`127.0.0.1:5000`, cuenta QA ya abierta, solo lectura): Inicio a 1440, 1024 y 375 px sin desbordamiento; «Nuevo expediente» abre el alta; «Gestionar acceso a la app» abre la lista filtrada; pestaña «Alimentación» y barra de Seguimiento sin el botón repetido.
+- **T.** `impeccable detect` sobre los componentes tocados: sin hallazgos.
+
+### Pendiente
+
+- Las capturas `public/marketing/panel-inicio.webp` y `panel-expediente.webp` muestran la cabecera anterior de Inicio y la pestaña «Nutrición»: recapturar con la cuenta demo (`apps/web/DESIGN.md`).
+- **R.** Aceptación de la persona usuaria y revisión de pares (`CONTRIBUTING.md`). Sin commit ni publicación.
