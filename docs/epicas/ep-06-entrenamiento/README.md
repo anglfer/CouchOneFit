@@ -25,9 +25,9 @@ obligatorio, RIR pospuesto») y de HU-031 («sin RPE de ejecución»):
 | Descanso | `restSeconds` opcional 0–900 paso 5 por ejercicio | Temporizador local en móvil (no se guarda ni se mide en servidor) |
 
 Vacío/`null` significa «no prescrito / no informado», nunca cero. Siguen
-fuera de alcance: descansos medidos o guardados, notificaciones, series
-extra y registro offline. El temporizador de descanso local se incorporó por
-decisión del usuario (sección siguiente).
+fuera de alcance: descansos medidos o guardados, series extra y registro
+offline. El temporizador de descanso local y las notificaciones locales se
+incorporaron por decisión del usuario (secciones siguientes).
 
 ## Decisión del usuario — 04-nov-2026 (rediseño móvil y progreso)
 
@@ -124,6 +124,35 @@ referencia, con los colores de CouchOne y un modo oscuro más profundo y morado.
   peligro); buscador a todo el ancho; el desplegable de zona horaria usa el
   estilo `ws-disclosure`; fondos de modal con token. Sin cambios de contrato
   ni de comportamiento.
+
+## Decisión del usuario — 23-nov-2026 (notificaciones locales)
+
+En el chat, la persona usuaria pidió una notificación de entreno en curso
+«como Hevy» (contador, temporizador de descanso y botones para marcar la
+serie, sumar tiempo o saltar el descanso) y avisos poco antes de las comidas
+que fija el profesional. Prevalece sobre la exclusión de notificaciones de
+DEC-006/HU-031. Son **locales**: sin servidor, sin push y sin dependencias
+nuevas (canal nativo `couchonefit/notifications`).
+
+- **Entreno activo** (Android): notificación persistente con cronómetro de la
+  sesión, barra de progreso (series hechas/total), siguiente serie con la
+  carga sugerida y botones *✓ Serie N* y *Descanso*; durante el descanso,
+  cuenta regresiva y *+15 s · Saltar · ✓ Serie N* (en pausa, *Reanudar*). Los
+  botones actúan sobre la bitácora abierta, que es la fuente de verdad. En
+  Android 16+ se publica como Live Update (chip en la barra de estado). Al
+  terminar el descanso con la app en segundo plano llega el aviso «Descanso
+  terminado» con la siguiente serie; saltarlo no avisa. Se retira al
+  finalizar, descartar o cerrar sesión.
+- **Comidas** (EP-05): ver [EP-05](../ep-05-alimentacion/README.md#recordatorios-de-comidas-en-móvil-23-nov-2026).
+- **Preferencias** en Cuenta → Preferencias → Notificaciones (solo en el
+  teléfono): entreno activo on/off, comidas on/off y antelación (en la hora,
+  10, 15 o 30 min).
+- **iOS**: solo el aviso de fin de descanso y los de comida
+  (`UNUserNotificationCenter`); sin Live Activity. No verificado en macOS/iOS.
+- **Límite conocido**: sin el permiso «Alarmas y recordatorios» (Android 14+
+  lo niega por defecto) las alarmas son inexactas. El aviso de descanso sale
+  igualmente a tiempo mientras el proceso siga vivo; si Android lo congela,
+  puede retrasarse hasta ~1 min. Un servicio en primer plano lo evitaría.
 
 ## Catálogo de ejercicios
 

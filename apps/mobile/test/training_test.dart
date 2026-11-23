@@ -283,7 +283,10 @@ void main() {
           'restTimer': true,
           'defaultRestSeconds': 90,
           'loadStep': 2.5,
-          'haptics': true
+          'haptics': true,
+          'workoutNotification': true,
+          'mealReminders': true,
+          'mealReminderLeadMinutes': 15,
         });
     final first = SettingsController();
     await first.update(first.value.copyWith(restTimer: false, loadStep: 5));

@@ -15,6 +15,14 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
       if (call.method == 'delete') entries.remove(key);
       return call.method == 'read' ? entries[key] : null;
     });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('couchonefit/notifications'), (call) async {
+      if (call.method == 'requestPermission' || call.method == 'areEnabled') {
+        return true;
+      }
+      return null;
+    });
   });
   await testMain();
 }

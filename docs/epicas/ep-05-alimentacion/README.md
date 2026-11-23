@@ -56,6 +56,29 @@ Ampliación pedida por la persona usuaria, **sin HU asignada todavía en `PLAN_T
 - **T.** Panel local real (`127.0.0.1:5000`, API en modo `watch` contra `CouchOneFit_dev`, cuenta QA): alimento «Tortilla de nopal» creado y marcado para Desayuno y Cena. En una versión nueva sin guardar del plan de un cliente, «Volver a sugerir» en Desayuno usó la tortilla propia en lugar de la avena base (4 pza = 140 kcal, P 6 g, C 26 g, G 1.6 g). El borrador se descartó y el plan activo quedó igual (V2).
 - **Pendiente.** Asignar HU en el plan. Aceptación humana (**R**) y revisión de pares.
 
+## Recordatorios de comidas en móvil (`23-nov-2026`)
+
+Decisión del usuario en el chat: avisar al cliente «poquito antes» de cada
+comida con horario que fija el profesional. Solo móvil, sin cambios de API ni
+de BD; decisión común con la notificación de entreno en
+[EP-06](../ep-06-entrenamiento/README.md#decisión-del-usuario--23-nov-2026-notificaciones-locales).
+
+- **Origen:** `scheduleTime` de cada comida del plan activo (texto libre ≤ 40).
+  Se programan las horas de reloj (`08:00`, `1:30 p.m.`, `08:00 - 09:00`);
+  las relativas (`60 min pre`, `al despertar`) se omiten y el panel indica
+  cuántas quedaron sin hora fija. Máximo 12 comidas.
+- **Aviso diario** a la hora menos la antelación elegida (15 min por omisión):
+  «En 15 min: Comida principal (14:00)» con los dos primeros alimentos y las
+  kcal. Al tocarlo abre Planes → Alimentación.
+- **Sincronización:** se reprograman al cargar o refrescar el plan (también
+  desde la caché sin conexión) y al cambiar las preferencias; se cancelan si
+  el plan deja de ser accesible o se cierra la sesión. Android las conserva
+  tras reiniciar, cambiar la hora o actualizar la app.
+- **Puntualidad (Android 14+):** sin «Alarmas y recordatorios» Android puede
+  retrasarlas hasta una hora. Cuenta → Preferencias → Notificaciones muestra
+  un aviso con **Permitir**, que abre esa pantalla del sistema; al
+  concederlo, las alarmas se reprograman como exactas.
+
 ## Contratos HTTP y esquema compatible
 
 No se añadió una nueva migración SQL porque `private.nutrition_versions.document` ya almacena `jsonb` (`CHECK (jsonb_typeof(document) = 'object')`). Todos los campos nuevos de documento, comida y alimento son opcionales/anulables y `normalizeDocument` en `apps/api/src/features/nutrition/repositories/nutrition.ts` los rellena con `null` al leer filas heredadas.

@@ -8,6 +8,7 @@ import 'shared/services/api_client.dart';
 import 'shared/services/api_config.dart';
 import 'shared/theme/app_theme.dart';
 import 'features/training/services/training_service.dart';
+import 'features/notifications/services/notification_service.dart';
 import 'features/settings/models/app_settings.dart';
 import 'features/settings/services/settings_controller.dart';
 
@@ -24,12 +25,14 @@ class CouchOneFitApp extends StatefulWidget {
     this.apiClient,
     this.authService,
     this.profileService,
+    this.notificationService,
   });
 
   final SessionStorage? sessionStorage;
   final ApiClient? apiClient;
   final AuthService? authService;
   final ClientProfileService? profileService;
+  final NotificationService? notificationService;
 
   @override
   State<CouchOneFitApp> createState() => _CouchOneFitAppState();
@@ -42,6 +45,7 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
   late final AuthService _authService;
   late final ClientProfileService _profileService;
   late final TrainingService _trainingService;
+  late final NotificationService _notificationService;
 
   @override
   void initState() {
@@ -53,11 +57,13 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
     _trainingService = TrainingService(apiClient: _apiClient);
     _profileService =
         widget.profileService ?? ClientProfileService(apiClient: _apiClient);
+    _notificationService = widget.notificationService ?? NotificationService();
     _settings.load();
   }
 
   @override
   void dispose() {
+    if (widget.notificationService == null) _notificationService.dispose();
     _settings.dispose();
     super.dispose();
   }
@@ -84,6 +90,7 @@ class _CouchOneFitAppState extends State<CouchOneFitApp> {
                 profileService: _profileService,
                 trainingService: _trainingService,
                 settings: _settings,
+                notificationService: _notificationService,
                 onThemeChanged: (themeMode) =>
                     _settings.update(settings.copyWith(themeMode: themeMode)),
               ),

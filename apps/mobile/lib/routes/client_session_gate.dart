@@ -16,6 +16,7 @@ import '../features/client/screens/client_profile_screen.dart';
 import '../features/client/services/client_profile_service.dart';
 import '../features/check_in/services/check_in_service.dart';
 import '../features/nutrition/services/nutrition_service.dart';
+import '../features/notifications/services/notification_service.dart';
 
 class ClientSessionGate extends StatefulWidget {
   const ClientSessionGate({
@@ -25,6 +26,7 @@ class ClientSessionGate extends StatefulWidget {
     required this.profileService,
     this.trainingService,
     this.settings,
+    this.notificationService,
   });
 
   final ValueChanged<ThemeMode> onThemeChanged;
@@ -32,6 +34,7 @@ class ClientSessionGate extends StatefulWidget {
   final ClientProfileService profileService;
   final TrainingService? trainingService;
   final SettingsController? settings;
+  final NotificationService? notificationService;
 
   @override
   State<ClientSessionGate> createState() => _ClientSessionGateState();
@@ -61,6 +64,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
     await widget.trainingService?.cache.clear();
     await NutritionCache().clear();
     await CheckInCache().clear();
+    await widget.notificationService?.cancelAll();
     if (!mounted) return;
     if (result == 'activated') {
       await _restoreSession();
@@ -109,6 +113,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
         await widget.trainingService?.cache.clear();
         await NutritionCache().clear();
         await CheckInCache().clear();
+        await widget.notificationService?.cancelAll();
         if (!mounted || epoch != _epoch) return;
         setState(() {
           _hasSession = false;
@@ -140,6 +145,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
         await widget.trainingService?.cache.clear();
         await NutritionCache().clear();
         await CheckInCache().clear();
+        await widget.notificationService?.cancelAll();
       }
       final cached = TrainingService.disconnected(error)
           ? await widget.trainingService?.cache
@@ -196,6 +202,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       await widget.trainingService?.cache.clear();
       await NutritionCache().clear();
       await CheckInCache().clear();
+      await widget.notificationService?.cancelAll();
       final account = await widget.authService
           .login(identifier: identifier, password: password);
       if (!mounted) return;
@@ -240,6 +247,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
       await widget.trainingService?.cache.clear();
       await NutritionCache().clear();
       await CheckInCache().clear();
+      await widget.notificationService?.cancelAll();
       if (!mounted) return;
       setState(() {
         _profile = null;
@@ -275,6 +283,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
           profile: activeProfile,
           service: widget.trainingService!,
           settings: _settings,
+          notificationService: widget.notificationService,
           accountBuilder: (onOpenProgress) => ClientProfileScreen(
               profile: activeProfile,
               onRefresh: _handleRefreshProfile,
@@ -283,7 +292,8 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
               errorMessage: _errorMessage,
               onCredentials: () => _openAccess(AccountAccessMode.credentials),
               onOpenProgress: onOpenProgress,
-              settings: _settings));
+              settings: _settings,
+              notificationService: widget.notificationService));
     }
 
     return Scaffold(
@@ -417,6 +427,7 @@ class _ClientSessionGateState extends State<ClientSessionGate> {
                             onLogout: _handleLogout,
                             onCredentials: () =>
                                 _openAccess(AccountAccessMode.credentials),
+                            notificationService: widget.notificationService,
                           ),
           ),
         ),

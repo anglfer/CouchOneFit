@@ -148,3 +148,18 @@ Pendiente: recorrido con API real, finalizar una sesión en dispositivo (solo cu
   RLS está habilitado y `anon` carece de permiso de lectura.
 - **T** `GET /api/training/exercises` mediante la Web publicada devolvió 401
   sin sesión. Queda pendiente probar el selector con una cuenta profesional.
+
+## Notificaciones locales de entreno y comidas — 23-nov-2026
+
+- **R** La persona usuaria pidió en el chat una notificación de entreno en curso «como Hevy» (contador, descanso, marcar serie, sumar tiempo) y avisos poco antes de las comidas con horario del plan. Decisión en [README](README.md#decisión-del-usuario--23-nov-2026-notificaciones-locales).
+- **T** Dos defectos encontrados en el emulador y corregidos: (1) con la app en segundo plano no llegaba «Descanso terminado», porque el temporizador Dart detectaba el fin antes que la alarma inexacta y la cancelaba; ahora `showWorkoutNotification` publica el aviso cuando el descanso termina solo (no al saltarlo). (2) Sin el permiso de alarmas exactas, Android programaba las comidas con una ventana de hasta 1 h; el panel de Notificaciones ofrece abrir «Alarmas y recordatorios» y, al concederlo, se reprograman como exactas.
+- **E** En iOS, el canal `secure_session` rechazaba `cof_app_settings` (el mismo defecto corregido en Android el 08-nov), así que no se guardaban las preferencias; se admite la clave. Sin verificar en macOS/iOS.
+
+| Tipo | Comprobación | Resultado |
+| --- | --- | --- |
+| T | `dart format`, `flutter analyze` | Sin cambios de formato; 55 avisos `info` de deprecación de `material.dart`/`cupertino.dart` (Flutter 3.50), ninguno nuevo. |
+| T | `flutter test` | 108/110. Fallan 2 pruebas de `client_login_test.dart` que fallan igual en `HEAD` limpio (`2d0a6ad`) en un worktree temporal: dependen de la fecha y son ajenas a este cambio. `notifications_test.dart` 10/10 (nueva: aviso de alarmas exactas). |
+| T | APK debug con punto de entrada temporal no versionado (bitácora real, API simulada, datos sintéticos) en emulador Android API 37 | Notificación publicada como `PROMOTED_ONGOING` (Live Update): cronómetro, barra de progreso, «Press inclinado · Serie 1 de 3 (40 kg × 10 reps)», *✓ Serie 1* y *Descanso*. *✓ Serie 1* desde la notificación marca la serie y arranca el descanso (*+15 s · Saltar · ✓ Serie 2*); *+15 s* suma 15 s. En segundo plano, al terminar el descanso: aviso emergente «Descanso terminado» y chip «1/5» en la barra de estado. *Saltar* no genera aviso. Recordatorio de comida programado a 2 min: «Hora de comer: Colación (17:32)» con alimentos y kcal. |
+| T | APK debug normal con la sesión ya guardada en el emulador | Cuenta → Preferencias → Notificaciones muestra el aviso de alarmas exactas y «4 comidas con horario programado»; *Permitir* abre «Alarms & reminders»; al concederlo, las 4 alarmas pasan de `window=+1h` a `window=0 exactAllowReason=permission` y el aviso desaparece. |
+
+Pendiente: teléfono físico (OEM con ahorro de batería agresivo), comportamiento con el proceso congelado más de un descanso, recorrido con API real hasta finalizar, iOS, aceptación humana y revisión independiente.

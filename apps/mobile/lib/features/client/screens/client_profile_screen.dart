@@ -10,6 +10,8 @@ import '../../../shared/widgets/section_title.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../../shared/widgets/tone_pill.dart';
 import '../../auth/widgets/privacy_notice_sheet.dart';
+import '../../notifications/services/notification_service.dart';
+import '../../notifications/widgets/notification_settings_panel.dart';
 import '../../settings/models/app_settings.dart';
 import '../../settings/services/settings_controller.dart';
 import '../../settings/widgets/settings_panel.dart';
@@ -31,6 +33,7 @@ class ClientProfileScreen extends StatelessWidget {
     this.onCredentials,
     this.onOpenProgress,
     this.settings,
+    this.notificationService,
   });
 
   final ClientProfile profile;
@@ -43,6 +46,7 @@ class ClientProfileScreen extends StatelessWidget {
 
   /// Device preferences; without it the Preferencias section is hidden.
   final SettingsController? settings;
+  final NotificationService? notificationService;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +141,24 @@ class ClientProfileScreen extends StatelessWidget {
                                                   children: [
                                                     SettingsPanel(
                                                         controller: settings!)
+                                                  ])))),
+                              tile(
+                                  Icons.notifications_outlined,
+                                  colors.primary,
+                                  'Notificaciones',
+                                  notificationSettingsSummary(s),
+                                  () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                          builder: (_) => DetailScaffold(
+                                                  title: const Text(
+                                                      'Notificaciones'),
+                                                  children: [
+                                                    NotificationSettingsPanel(
+                                                      controller: settings!,
+                                                      notificationService:
+                                                          notificationService,
+                                                    )
                                                   ])))),
                             ])),
                   ],

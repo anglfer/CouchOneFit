@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -7,6 +8,8 @@ import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/sheet_parts.dart';
 import '../../auth/models/session_models.dart';
+import '../../notifications/models/notification_models.dart';
+import '../../notifications/services/notification_service.dart';
 import '../../settings/models/app_settings.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
@@ -50,6 +53,8 @@ class TrainingSessionScreen extends StatefulWidget {
       required this.service,
       this.history,
       this.settings = const AppSettings(),
+      this.settingsListenable,
+      this.notificationService,
       this.clock = DateTime.now,
       this.onShowProgress,
       this.onOpenCheckIn,
@@ -65,6 +70,8 @@ class TrainingSessionScreen extends StatefulWidget {
   /// Own log used for "last time", suggestions and records. Optional.
   final TrainingHistory? history;
   final AppSettings settings;
+  final ValueListenable<AppSettings>? settingsListenable;
+  final NotificationService? notificationService;
 
   /// Injected for tests; wall time keeps timers right after backgrounding.
   final DateTime Function() clock;
@@ -73,7 +80,8 @@ class TrainingSessionScreen extends StatefulWidget {
   State<TrainingSessionScreen> createState() => _TrainingSessionScreenState();
 }
 
-class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
+class _TrainingSessionScreenState extends State<TrainingSessionScreen>
+    with WidgetsBindingObserver {
   final _captures = <String, _Capture>{};
   final _rpeMode = <String, bool>{};
   final _scroll = ScrollController();
@@ -83,6 +91,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   late bool _finalized;
   late final DateTime _started = widget.clock();
   Timer? _ticker;
+  StreamSubscription<WorkoutNotificationAction>? _notifSub;
   final _exerciseKeys = <String, GlobalKey>{};
   // Demo media starts open while focusing one exercise, as thumbnails in
   // the list; the person's choice per exercise wins afterwards.
@@ -96,14 +105,36 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   bool _dirty = false, _busy = false, _conflict = false;
   String? _error, _notice, _retryPayload, _retryKey;
 
+  AppSettings get _settings =>
+      widget.settingsListenable?.value ?? widget.settings;
   TrainingHistory get _history => widget.history ?? TrainingHistory.empty();
   List<TrainingExercise> get _exercises => _context.day!.exercises;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initialize(widget.contextData);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    widget.settingsListenable?.addListener(_onSettingsChanged);
+    _notifSub = widget.notificationService?.workoutActions
+        .listen(_handleWorkoutNotificationAction);
+    if (!_finalized && _settings.workoutNotification) {
+      widget.notificationService?.requestPermission().then((granted) {
+        if (granted && mounted) _syncWorkoutNotification(force: true);
+      });
+    }
+    _syncWorkoutNotification();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.inactive) &&
+        !_finalized &&
+        _settings.workoutNotification) {
+      _syncWorkoutNotification(force: true);
+    }
   }
 
   void _initialize(TrainingContext context) {
@@ -131,7 +162,11 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
+    _notifSub?.cancel();
+    widget.settingsListenable?.removeListener(_onSettingsChanged);
+    widget.notificationService?.clearWorkout();
     for (final capture in _captures.values) {
       capture.dispose();
     }
@@ -139,64 +174,194 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     super.dispose();
   }
 
-  // ---- Timers -------------------------------------------------------------
+  // ---- Timers & Live Notification -----------------------------------------
 
   Duration? get _restLeft =>
       _restPaused ?? _restEnd?.difference(widget.clock());
+
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _syncWorkoutNotification();
+  }
+
+  ({int exerciseIndex, int setIndex})? _nextPendingSet() {
+    if (_exercises.isEmpty) return null;
+    final start = _activeExercise.clamp(0, _exercises.length - 1);
+    for (var offset = 0; offset < _exercises.length; offset++) {
+      final eIdx = (start + offset) % _exercises.length;
+      final e = _exercises[eIdx];
+      for (var sIdx = 0; sIdx < e.sets.length; sIdx++) {
+        if (_captures[e.sets[sIdx].id]!.state == null) {
+          return (exerciseIndex: eIdx, setIndex: sIdx);
+        }
+      }
+    }
+    return null;
+  }
+
+  String _nextSetSummary(TrainingExercise e, int setIndex) {
+    final c = _captures[e.sets[setIndex].id]!;
+    final (kgHint, repsHint) = _suggest(e, setIndex);
+    final repsText = c.reps.text.isEmpty ? repsHint : c.reps.text;
+    if (e.bodyweight) return '$repsText reps';
+    final kgText = c.load.text.isEmpty ? kgHint : c.load.text;
+    return kgText.isEmpty ? '$repsText reps' : '$kgText kg × $repsText reps';
+  }
+
+  void _syncWorkoutNotification({bool force = false}) {
+    final notif = widget.notificationService;
+    if (notif == null) return;
+    if (_finalized || !_settings.workoutNotification) {
+      notif.clearWorkout();
+      return;
+    }
+    final totalSets = _captures.length;
+    final completedSets = _captures.values.where((c) => c.state != null).length;
+    final next = _nextPendingSet();
+    final nextExercise = next == null ? null : _exercises[next.exerciseIndex];
+    final left = _restLeft;
+    final restActive = left != null;
+    final paused = _restPaused != null;
+    final clampedLeft =
+        left == null ? Duration.zero : (left.isNegative ? Duration.zero : left);
+    final restEndAtMs = restActive && !paused && _restEnd != null
+        ? _restEnd!.millisecondsSinceEpoch
+        : null;
+
+    notif.syncWorkout(
+      WorkoutNotificationState(
+        dayName: _context.day!.name,
+        startedAtMs: _started.millisecondsSinceEpoch,
+        completedSets: completedSets,
+        totalSets: totalSets,
+        exerciseName: nextExercise?.name,
+        nextSetNumber: next == null ? null : next.setIndex + 1,
+        exerciseTotalSets: nextExercise?.sets.length,
+        nextSetSummary:
+            next == null ? null : _nextSetSummary(nextExercise!, next.setIndex),
+        restActive: restActive,
+        restPaused: paused,
+        restEndAtMs: restEndAtMs,
+        restRemainingSec: clampedLeft.inSeconds,
+        haptics: _settings.haptics,
+      ),
+      force: force,
+    );
+  }
+
+  void _handleWorkoutNotificationAction(WorkoutNotificationAction action) {
+    if (!mounted) return;
+    switch (action) {
+      case WorkoutNotificationAction.completeSet:
+        if (_busy || _finalized) return;
+        final next = _nextPendingSet();
+        if (next == null) return;
+        _activeExercise = next.exerciseIndex;
+        _toggle(_exercises[next.exerciseIndex], next.setIndex);
+        break;
+      case WorkoutNotificationAction.restAdd15:
+        if (_restLeft != null) _shiftRest(15);
+        break;
+      case WorkoutNotificationAction.restSub15:
+        if (_restLeft != null) _shiftRest(-15);
+        break;
+      case WorkoutNotificationAction.restSkip:
+        if (_restLeft != null) _skipRest();
+        break;
+      case WorkoutNotificationAction.restTogglePause:
+        if (_restLeft != null) _pauseRest();
+        break;
+      case WorkoutNotificationAction.restStart:
+        if (_exercises.isEmpty || _finalized) return;
+        final e = _exercises[_activeExercise.clamp(0, _exercises.length - 1)];
+        final secs = (e.restSeconds ?? 0) > 0
+            ? e.restSeconds!
+            : _settings.defaultRestSeconds;
+        setState(() {
+          _restTotal = secs;
+          _restPaused = null;
+          _restEnd = widget.clock().add(Duration(seconds: secs));
+        });
+        _syncWorkoutNotification();
+        break;
+      case WorkoutNotificationAction.restFinished:
+        if (_restPaused == null && _restEnd != null) {
+          setState(() => _restEnd = null);
+          _syncWorkoutNotification();
+        }
+        break;
+      case WorkoutNotificationAction.openWorkout:
+        break;
+    }
+  }
 
   void _tick() {
     if (!mounted) return;
     final left = _restLeft;
     if (_restPaused == null && left != null && left <= Duration.zero) {
       _restEnd = null;
-      if (widget.settings.haptics) HapticFeedback.heavyImpact();
+      if (_settings.haptics) HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(
             content: Text('Descanso terminado. ¡A por la siguiente serie!')));
+      _syncWorkoutNotification();
     }
     setState(() {});
   }
 
   void _startRest(TrainingExercise e) {
-    if (!widget.settings.restTimer) return;
-    _restTotal = e.restSeconds ?? widget.settings.defaultRestSeconds;
+    if (!_settings.restTimer) return;
+    _restTotal = e.restSeconds ?? _settings.defaultRestSeconds;
     if (_restTotal == 0) return;
     _restPaused = null;
     _restEnd = widget.clock().add(Duration(seconds: _restTotal));
   }
 
-  void _shiftRest(int seconds) => setState(() {
-        final delta = Duration(seconds: seconds);
-        _restTotal = (_restTotal + seconds).clamp(1, 3600);
-        if (_restPaused != null) {
-          _restPaused = _restPaused! + delta;
-          if (_restPaused! <= Duration.zero) _restPaused = Duration.zero;
-        } else if (_restEnd != null) {
-          _restEnd = _restEnd!.add(delta);
-        }
-      });
+  void _shiftRest(int seconds) {
+    setState(() {
+      final delta = Duration(seconds: seconds);
+      _restTotal = (_restTotal + seconds).clamp(1, 3600);
+      if (_restPaused != null) {
+        _restPaused = _restPaused! + delta;
+        if (_restPaused! <= Duration.zero) _restPaused = Duration.zero;
+      } else if (_restEnd != null) {
+        _restEnd = _restEnd!.add(delta);
+      }
+    });
+    _syncWorkoutNotification();
+  }
 
-  void _pauseRest() => setState(() {
-        if (_restPaused != null) {
-          _restEnd = widget.clock().add(_restPaused!);
-          _restPaused = null;
-        } else {
-          _restPaused = _restLeft;
-        }
-      });
-
-  void _skipRest() => setState(() {
-        _restEnd = null;
+  void _pauseRest() {
+    setState(() {
+      if (_restPaused != null) {
+        _restEnd = widget.clock().add(_restPaused!);
         _restPaused = null;
-      });
+      } else {
+        _restPaused = _restLeft;
+      }
+    });
+    _syncWorkoutNotification();
+  }
+
+  void _skipRest() {
+    setState(() {
+      _restEnd = null;
+      _restPaused = null;
+    });
+    _syncWorkoutNotification();
+  }
 
   // ---- Capture ------------------------------------------------------------
 
-  void _touch(VoidCallback change) => setState(() {
-        change();
-        _dirty = true;
-      });
+  void _touch(VoidCallback change) {
+    setState(() {
+      change();
+      _dirty = true;
+    });
+    _syncWorkoutNotification();
+  }
 
   /// Focuses or scrolls the requested exercise into view.
   void _go(int index) {
@@ -204,9 +369,11 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     if (_focusMode && _exercises.length > 1) {
       setState(() => _activeExercise = safeIndex);
       if (_scroll.hasClients) _scroll.jumpTo(0);
+      _syncWorkoutNotification();
       return;
     }
     setState(() => _activeExercise = safeIndex);
+    _syncWorkoutNotification();
     final target = _exerciseKeys[_exercises[safeIndex].id]?.currentContext;
     if (target != null) {
       Scrollable.ensureVisible(target,
@@ -245,7 +412,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final last = _last(e);
     return last == null || e.bodyweight
         ? null
-        : loadAdvice(e.sets, last.$2.sets, widget.settings.loadStep);
+        : loadAdvice(e.sets, last.$2.sets, _settings.loadStep);
   }
 
   /// Working sets still unmarked: where a chosen load can go.
@@ -282,7 +449,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final kg = await showLoadPicker(context,
         exerciseName: e.name,
         initial: typed ?? advice?.toKg ?? lastKg ?? 20,
-        step: widget.settings.loadStep,
+        step: _settings.loadStep,
         openSets: open.length,
         recommended:
             advice?.kind == LoadAdviceKind.increase ? advice!.toKg : null,
@@ -495,7 +662,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
           final next = e.bodyweight
               ? null
               : loadAdvice(e.sets, [for (final s in e.sets) today[s.id]],
-                  widget.settings.loadStep);
+                  _settings.loadStep);
           _Capture? top;
           for (final c in _done(e)) {
             if (top == null ||
@@ -620,6 +787,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             : 'Avance guardado. Puedes continuar después.';
       });
       if (_finalized && !wasFinalized) {
+        widget.notificationService?.clearWorkout();
         final summary = MaterialPageRoute<void>(
             builder: (_) => SessionSummaryScreen(
                 dayName: _context.day!.name,
@@ -693,6 +861,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
           _error = null;
           _retryPayload = null;
         });
+        _syncWorkoutNotification();
       }
     } catch (error) {
       if (mounted) {
@@ -1292,7 +1461,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             constraints: const BoxConstraints(minWidth: 28, minHeight: 46),
             onPressed: enabled
                 ? () {
-                    if (widget.settings.haptics) {
+                    if (_settings.haptics) {
                       HapticFeedback.selectionClick();
                     }
                     _touch(() {
@@ -1342,7 +1511,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     final copyPrevious = previous == null || !editable
         ? null
         : () {
-            if (widget.settings.haptics) {
+            if (_settings.haptics) {
               HapticFeedback.selectionClick();
             }
             _touch(() {
@@ -1464,7 +1633,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       hint: kgHint.isEmpty ? 'kg' : kgHint,
                       label: 'kg de la serie ${index + 1}',
                       decimal: true,
-                      step: widget.settings.loadStep,
+                      step: _settings.loadStep,
                       enabled: editable,
                       capture: c)),
             ],
@@ -1517,7 +1686,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                         onPressed: _busy || skipped
                             ? null
                             : () {
-                                if (widget.settings.haptics) {
+                                if (_settings.haptics) {
                                   done
                                       ? HapticFeedback.lightImpact()
                                       : HapticFeedback.mediumImpact();

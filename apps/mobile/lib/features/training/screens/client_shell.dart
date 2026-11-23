@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/friendly_date.dart';
@@ -12,6 +13,8 @@ import '../../check_in/services/check_in_service.dart';
 import '../../check_in/widgets/check_in_card.dart';
 import '../../check_in/widgets/follow_up_progress.dart';
 import '../../client/models/client_profile.dart';
+import '../../notifications/models/notification_models.dart';
+import '../../notifications/services/notification_service.dart';
 import '../../nutrition/models/nutrition_plan.dart';
 import '../../nutrition/services/nutrition_service.dart';
 import '../../settings/services/settings_controller.dart';
@@ -32,7 +35,8 @@ class ClientShell extends StatefulWidget {
       this.accountBuilder,
       this.nutritionService,
       this.checkInService,
-      this.settings});
+      this.settings,
+      this.notificationService});
   final ClientProfile profile;
   final TrainingService service;
   final NutritionService? nutritionService;
@@ -42,6 +46,7 @@ class ClientShell extends StatefulWidget {
   final Widget account;
   final Widget Function(VoidCallback onOpenProgress)? accountBuilder;
   final SettingsController? settings;
+  final NotificationService? notificationService;
   @override
   State<ClientShell> createState() => _ClientShellState();
 }
@@ -75,17 +80,60 @@ class _ClientShellState extends State<ClientShell> {
   Widget? _session;
   String? _sessionName;
   bool _minimized = false;
+  StreamSubscription<String>? _navSub;
 
   @override
   void initState() {
     super.initState();
+    _settings.addListener(_onSettingsChanged);
+    _navSub = widget.notificationService?.navigationTargets
+        .listen(_handleNavigationTarget);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final pending =
+          await widget.notificationService?.consumePendingLaunchTarget();
+      if (pending != null && mounted) _handleNavigationTarget(pending);
+    });
     _load();
   }
 
   @override
   void dispose() {
+    _navSub?.cancel();
+    _settings.removeListener(_onSettingsChanged);
     if (widget.settings == null) _settings.dispose();
     super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (!mounted) return;
+    _syncMealReminders();
+  }
+
+  void _handleNavigationTarget(String target) {
+    if (!mounted) return;
+    if (target == 'workout' && _session != null) {
+      setState(() => _minimized = false);
+    } else if (target == 'nutrition') {
+      setState(() {
+        _selected = 1;
+        _plansNutrition = true;
+        if (_session != null) _minimized = true;
+      });
+    }
+  }
+
+  Future<void> _syncMealReminders() async {
+    final notif = widget.notificationService;
+    if (notif == null) return;
+    final settings = _settings.value;
+    if (settings.mealReminders &&
+        buildMealReminders(
+          _nutritionPlan,
+          leadMinutes: settings.mealReminderLeadMinutes,
+        ).isNotEmpty) {
+      await notif.requestPermission();
+    }
+    await notif.syncMealReminders(_nutritionPlan, settings);
   }
 
   // History is a complement: failing it never hides the routine.
@@ -112,9 +160,11 @@ class _ClientShellState extends State<ClientShell> {
         _nutritionPlan = fetched.plan;
         _nutritionCachedAt = null;
       });
+      await _syncMealReminders();
     } catch (error) {
       if (NutritionService.denied(error)) {
         await _nutritionService.cache.clear();
+        await widget.notificationService?.cancelMealReminders();
       }
       final cached = NutritionService.disconnected(error)
           ? await _nutritionService.cache.read(clientId: widget.profile.id)
@@ -129,6 +179,7 @@ class _ClientShellState extends State<ClientShell> {
                 ? error.message
                 : 'No pudimos consultar tu plan alimenticio. Reintenta la consulta.';
       });
+      if (cached != null) await _syncMealReminders();
     } finally {
       if (mounted && epoch == _epoch) {
         setState(() => _nutritionLoading = false);
@@ -290,6 +341,8 @@ class _ClientShellState extends State<ClientShell> {
             service: widget.service,
             history: _history,
             settings: _settings.value,
+            settingsListenable: _settings,
+            notificationService: widget.notificationService,
             onShowProgress: () => setState(() => _selected = 2),
             onOpenCheckIn: _checkIn?.checkIn == null && data.canWrite
                 ? () => _openCheckIn(data.today)
@@ -310,6 +363,7 @@ class _ClientShellState extends State<ClientShell> {
   }
 
   void _closeSession() {
+    widget.notificationService?.clearWorkout();
     if (!mounted) return;
     setState(() => _session = null);
     _load();
