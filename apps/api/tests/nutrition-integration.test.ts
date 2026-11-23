@@ -455,3 +455,79 @@ test('HU-040: escrituras nutricionales del profesional soportan Idempotency-Key 
   assert.equal(replayActivate.headers['idempotent-replayed'], 'true');
   assert.equal(replayActivate.body.activeRevision, 1);
 });
+
+test('HU-024/HU-027: receta prescrita conserva kind, ingredientes y pasos de hasta 2000 caracteres y rechaza ingredientes en alimento simple', async () => {
+  const recipeClient = await actor('client', pro);
+  await db.query('INSERT INTO private.client_evaluations(client_id,weight_kg) VALUES($1,72)', [recipeClient.clientId]);
+  const base = `/api/clients/${recipeClient.clientId}/nutrition-plans`;
+
+  const invalidFood = enrichedDocument('Alimento inválido con ingredientes', 72);
+  invalidFood.meals[0].items[0].kind = 'food';
+  invalidFood.meals[0].items[0].recipeIngredients = [{ name: 'Avena', quantity: 50, unit: 'g' }];
+  const rejected = await send('post', base, invalidFood, pro);
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.error.code, 'INVALID_NUTRITION');
+
+  const longSteps = `1. Mezcla la avena con las claras.\n2. ${'Cocina a fuego medio hasta dorar. '.repeat(35)}`.slice(0, 1500).trim();
+  const doc = enrichedDocument('Plan con receta e ingredientes', 72);
+  doc.meals[0].items = [
+    {
+      id: randomUUID(),
+      name: 'Claras de huevo',
+      quantity: 150,
+      unit: 'g',
+      instructions: null,
+      foodGroup: 'Proteínas',
+      substitutes: null,
+      calories: 78,
+      proteinG: 16.5,
+      carbsG: 1.1,
+      fatG: 0.3,
+    },
+    {
+      id: randomUUID(),
+      name: 'Hotcakes de avena',
+      quantity: 2,
+      unit: 'porción',
+      kind: 'recipe',
+      instructions: longSteps,
+      recipeIngredients: [
+        { name: 'Avena en hojuelas', quantity: 80, unit: 'g' },
+        { name: 'Claras de huevo', quantity: 200, unit: 'g' },
+      ],
+      foodGroup: 'Carbohidratos',
+      substitutes: 'Pan integral con huevo',
+      calories: 415,
+      proteinG: 35.6,
+      carbsG: 54.6,
+      fatG: 6,
+    },
+  ];
+
+  const created = await send('post', base, doc, pro);
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const v = created.body;
+  assert.equal(v.meals[0].items[0].kind, 'food');
+  assert.equal(v.meals[0].items[0].recipeIngredients, null);
+  assert.equal(v.meals[0].items[1].kind, 'recipe');
+  assert.equal(v.meals[0].items[1].instructions, longSteps);
+  assert.deepEqual(v.meals[0].items[1].recipeIngredients, [
+    { name: 'Avena en hojuelas', quantity: 80, unit: 'g' },
+    { name: 'Claras de huevo', quantity: 200, unit: 'g' },
+  ]);
+
+  const activated = await send(
+    'post',
+    `${base}/${v.planId}/versions/${v.id}/activate`,
+    { expectedActiveRevision: 0 },
+    pro,
+  );
+  assert.equal(activated.status, 200);
+
+  const mobile = await get('/api/me/nutrition-plan', recipeClient);
+  assert.equal(mobile.status, 200);
+  assert.equal(mobile.body.plan.meals[0].items[0].kind, 'food');
+  assert.equal(mobile.body.plan.meals[0].items[1].kind, 'recipe');
+  assert.equal(mobile.body.plan.meals[0].items[1].instructions, longSteps);
+  assert.equal(mobile.body.plan.meals[0].items[1].recipeIngredients.length, 2);
+});

@@ -5,6 +5,7 @@ import type {
   NutritionMealCategory,
 } from '../types/nutrition';
 import {
+  formatMealItemsCount,
   summarizeDocumentMacros,
   summarizeItemsMacros,
 } from '../utils/foodCatalog';
@@ -194,8 +195,7 @@ export default function NutritionView({ plan }: { plan: NutritionDocument }) {
                   </div>
                   <div className="nutrition-view-meal-right">
                     <small className="training-muted">
-                      {meal.items.length}{' '}
-                      {meal.items.length === 1 ? 'alimento' : 'alimentos'}
+                      {formatMealItemsCount(meal.items)}
                     </small>
                     {mealSummary.itemsWithMacros > 0 && (
                       <small className="nutrition-meal-kcal">
@@ -214,41 +214,88 @@ export default function NutritionView({ plan }: { plan: NutritionDocument }) {
 
                 {meal.items.length > 0 && (
                   <ul className="nutrition-view-items">
-                    {meal.items.map((item) => (
-                      <li key={item.id}>
-                        <div className="nutrition-view-item-body">
-                          <div className="nutrition-view-item-title">
-                            <strong>{item.name}</strong>
-                            {item.foodGroup && (
-                              <span className="nutrition-inline-group">
-                                {item.foodGroup}
+                    {meal.items.map((item) => {
+                      const isRecipe = item.kind === 'recipe';
+                      return (
+                        <li
+                          key={item.id}
+                          data-kind={isRecipe ? 'recipe' : 'food'}
+                        >
+                          <div className="nutrition-view-item-body">
+                            <div className="nutrition-view-item-title">
+                              <span
+                                className="nutrition-kind-badge"
+                                data-kind={isRecipe ? 'recipe' : 'food'}
+                              >
+                                {isRecipe && <Icon name="bowl" size={11} />}
+                                {isRecipe ? 'Receta' : 'Alimento'}
                               </span>
+                              <strong>{item.name}</strong>
+                              {item.foodGroup && (
+                                <span className="nutrition-inline-group">
+                                  {item.foodGroup}
+                                </span>
+                              )}
+                            </div>
+                            {isRecipe ? (
+                              <div className="nutrition-view-recipe-box">
+                                {item.recipeIngredients &&
+                                  item.recipeIngredients.length > 0 && (
+                                    <div className="nutrition-view-ingredients">
+                                      <small className="nutrition-view-recipe-label">
+                                        Ingredientes (
+                                        {formatQuantity(item.quantity)}{' '}
+                                        {item.unit})
+                                      </small>
+                                      <div className="nutrition-view-ingredient-list">
+                                        {item.recipeIngredients.map(
+                                          (ing, ingIdx) => (
+                                            <span
+                                              key={`${ing.name}-${ingIdx}`}
+                                              className="nutrition-view-ingredient-chip"
+                                            >
+                                              {formatQuantity(ing.quantity)}{' '}
+                                              {ing.unit} · {ing.name}
+                                            </span>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                {item.instructions && (
+                                  <p className="nutrition-view-recipe-steps">
+                                    <strong>Preparación:</strong>{' '}
+                                    {item.instructions}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              item.instructions && (
+                                <small className="training-muted">
+                                  {item.instructions}
+                                </small>
+                              )
+                            )}
+                            {item.substitutes && (
+                              <small className="nutrition-view-subs">
+                                <Icon name="swap" size={12} /> Equivalente:{' '}
+                                {item.substitutes}
+                              </small>
                             )}
                           </div>
-                          {item.instructions && (
-                            <small className="training-muted">
-                              {item.instructions}
-                            </small>
-                          )}
-                          {item.substitutes && (
-                            <small className="nutrition-view-subs">
-                              <Icon name="swap" size={12} /> Equivalente:{' '}
-                              {item.substitutes}
-                            </small>
-                          )}
-                        </div>
-                        <div className="nutrition-view-item-qty">
-                          <span className="nutrition-qty-pill">
-                            {formatQuantity(item.quantity)} {item.unit}
-                          </span>
-                          {item.calories != null && (
-                            <small className="nutrition-item-kcal">
-                              {Math.round(item.calories)} kcal
-                            </small>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                          <div className="nutrition-view-item-qty">
+                            <span className="nutrition-qty-pill">
+                              {formatQuantity(item.quantity)} {item.unit}
+                            </span>
+                            {item.calories != null && (
+                              <small className="nutrition-item-kcal">
+                                {Math.round(item.calories)} kcal
+                              </small>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </article>

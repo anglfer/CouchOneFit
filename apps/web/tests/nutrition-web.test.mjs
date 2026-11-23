@@ -261,3 +261,75 @@ test('el motor llena una comida cerca de su guía y respeta restricciones', () =
   );
   assert.equal(filler.suggestMealItems({ category: 'lunch' }), null);
 });
+
+test('validador, cloneNutritionDocument e isNutritionVersion soportan recetas con ingredientes y pasos de hasta 2000 caracteres', () => {
+  const longSteps =
+    `1. Licuar todo.\n2. ${'Cocinar a fuego bajo. '.repeat(60)}`.slice(0, 1500);
+  const meal = nutrition.emptyMeal('Desayuno');
+  meal.items = [
+    {
+      ...nutrition.emptyItem('recipe'),
+      name: 'Hotcakes de avena',
+      quantity: 1,
+      unit: 'porción',
+      instructions: longSteps,
+      recipeIngredients: [
+        { name: 'Avena', quantity: 40, unit: 'g' },
+        { name: 'Claras de huevo', quantity: 100, unit: 'g' },
+      ],
+    },
+  ];
+  const doc = { ...nutrition.emptyNutritionDocument(), meals: [meal] };
+  assert.equal(validate(doc).valid, true);
+
+  const cloned = nutrition.cloneNutritionDocument(doc);
+  assert.equal(cloned.meals[0].items[0].kind, 'recipe');
+  assert.deepEqual(cloned.meals[0].items[0].recipeIngredients, [
+    { name: 'Avena', quantity: 40, unit: 'g' },
+    { name: 'Claras de huevo', quantity: 100, unit: 'g' },
+  ]);
+
+  const invalidMeal = nutrition.emptyMeal('Comida');
+  invalidMeal.items = [
+    {
+      ...nutrition.emptyItem('recipe'),
+      name: 'Bowl',
+      quantity: 1,
+      unit: 'porción',
+      recipeIngredients: [{ name: '', quantity: 0, unit: 'g' }],
+    },
+  ];
+  const invalidRes = validate({
+    ...nutrition.emptyNutritionDocument(),
+    meals: [invalidMeal],
+  });
+  assert.equal(invalidRes.valid, false);
+  assert(
+    invalidRes.errors.meals[invalidMeal.id].items[invalidMeal.items[0].id]
+      .recipeIngredients
+  );
+
+  const recipeVersion = {
+    id: '11111111-1111-4111-8111-111111111111',
+    planId: '22222222-2222-4222-8222-222222222222',
+    clientId: '33333333-3333-4333-8333-333333333333',
+    number: 2,
+    revision: 1,
+    published: true,
+    createdAt: '2026-11-23T12:00:00.000Z',
+    name: 'Plan con recetas',
+    caloriesTarget: null,
+    proteinTargetG: null,
+    carbsTargetG: null,
+    fatTargetG: null,
+    meals: [
+      {
+        id: '44444444-4444-4444-8444-444444444444',
+        name: 'Desayuno',
+        instructions: null,
+        items: meal.items,
+      },
+    ],
+  };
+  assert.equal(nutrition.isNutritionVersion(recipeVersion), true);
+});

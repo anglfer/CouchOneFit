@@ -150,6 +150,8 @@ class _NutritionPlanViewState extends State<NutritionPlanView> {
                 meal: entry.value,
                 onOpenDetail: () =>
                     _openMealSheet(context, entry.key + 1, entry.value),
+                onOpenRecipe: (item) =>
+                    _openRecipeSheet(context, item, entry.value.name),
               ),
               const SizedBox(height: 12),
             ],
@@ -175,7 +177,7 @@ class _NutritionPlanViewState extends State<NutritionPlanView> {
                 '$index. ${meal.name}',
                 subtitle: [
                   if (meal.scheduleTime != null) meal.scheduleTime!,
-                  trainingCount(meal.items.length, 'alimento', 'alimentos'),
+                  meal.itemsSummaryLabel,
                   if (meal.macroSummaryLabel != null) meal.macroSummaryLabel!,
                 ].join(' · '),
               ),
@@ -197,10 +199,181 @@ class _NutritionPlanViewState extends State<NutritionPlanView> {
               ],
               GroupCard(
                 children: [
-                  for (final item in meal.items) _MealItemRow(item: item),
+                  for (final item in meal.items)
+                    _MealItemRow(
+                      item: item,
+                      onOpenRecipe: item.isRecipe
+                          ? () => _openRecipeSheet(sheet, item, meal.name)
+                          : null,
+                    ),
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openRecipeSheet(
+    BuildContext context,
+    NutritionItem item,
+    String mealName,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.88;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SheetHeader(
+                  item.name,
+                  subtitle: 'Receta · ${item.quantityLabel} · $mealName',
+                ),
+                if (item.calories != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: innerPanelDecoration(sheet, radius: 14),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        TonePill(
+                          '${item.calories!.round()} kcal',
+                          tone: colors.primary,
+                        ),
+                        if (item.proteinG != null)
+                          Text(
+                            'Proteína ${item.proteinG!.round()} g',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurface,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        if (item.carbsG != null)
+                          Text(
+                            'Carbos ${item.carbsG!.round()} g',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurface,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        if (item.fatG != null)
+                          Text(
+                            'Grasas ${item.fatG!.round()} g',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onSurface,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (item.recipeIngredients.isNotEmpty) ...[
+                  const SectionTitle('Qué necesitas'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Cantidades para ${item.quantityLabel}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  GroupCard(
+                    children: [
+                      for (final ing in item.recipeIngredients)
+                        _IngredientRow(ingredient: ing),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (item.hasPreparation) ...[
+                  const SectionTitle('Cómo prepararla'),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: innerPanelDecoration(sheet, radius: 14),
+                    child: Text(
+                      item.instructions!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: colors.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (item.substitutes != null &&
+                    item.substitutes!.isNotEmpty) ...[
+                  const SectionTitle('Equivalente o sustituto'),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: innerPanelDecoration(sheet, radius: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.swap_horiz_rounded,
+                          size: 18,
+                          color: statusInk(context, colors.secondary),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item.substitutes!,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              height: 1.4,
+                              color: colors.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (item.recipeIngredients.isEmpty && !item.hasPreparation)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: innerPanelDecoration(sheet, radius: 14),
+                    child: Text(
+                      'Porción prescrita: ${item.quantityLabel}. Sigue las indicaciones de $mealName.',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.4,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -693,11 +866,13 @@ class _MealCard extends StatelessWidget {
     required this.index,
     required this.meal,
     required this.onOpenDetail,
+    required this.onOpenRecipe,
   });
 
   final int index;
   final NutritionMeal meal;
   final VoidCallback onOpenDetail;
+  final ValueChanged<NutritionItem> onOpenRecipe;
 
   IconData _categoryIcon(String? category) => switch (category) {
         'breakfast' => Icons.wb_sunny_outlined,
@@ -758,8 +933,7 @@ class _MealCard extends StatelessWidget {
                               ),
                             ),
                           Text(
-                            trainingCount(
-                                meal.items.length, 'alimento', 'alimentos'),
+                            meal.itemsSummaryLabel,
                             style: TextStyle(
                               fontSize: 12.5,
                               color: colors.onSurfaceVariant,
@@ -802,16 +976,80 @@ class _MealCard extends StatelessWidget {
               ),
             ),
           ),
-        for (final item in meal.items) _MealItemRow(item: item),
+        for (final item in meal.items)
+          _MealItemRow(
+            item: item,
+            onOpenRecipe: item.isRecipe ? () => onOpenRecipe(item) : null,
+          ),
       ],
     );
   }
 }
 
+class _IngredientRow extends StatelessWidget {
+  const _IngredientRow({required this.ingredient});
+
+  final NutritionRecipeIngredient ingredient;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final pill = TonePill(ingredient.quantityLabel, tone: colors.primary);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrowScaled = constraints.maxWidth < 290 &&
+              MediaQuery.textScalerOf(context).scale(14) > 20;
+          if (narrowScaled) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ingredient.name,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: colors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                pill,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  ingredient.name,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints:
+                    BoxConstraints(maxWidth: constraints.maxWidth * 0.42),
+                child: pill,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MealItemRow extends StatelessWidget {
-  const _MealItemRow({required this.item});
+  const _MealItemRow({required this.item, this.onOpenRecipe});
 
   final NutritionItem item;
+  final VoidCallback? onOpenRecipe;
 
   Color _groupTint(String? group, ColorScheme colors) {
     final g = (group ?? '').toLowerCase();
@@ -829,52 +1067,183 @@ class _MealItemRow extends StatelessWidget {
     final dotColor = _groupTint(item.foodGroup, colors);
     final macros = item.macroSummaryLabel;
     final pill = TonePill(item.quantityLabel, tone: colors.primary);
+    final secondaryInk = statusInk(context, colors.secondary);
+    final ingredientPreview =
+        item.recipeIngredients.take(3).map((ing) => ing.name).join(', ');
+    final recipeMeta = [
+      if (item.recipeIngredients.isNotEmpty)
+        trainingCount(
+            item.recipeIngredients.length, 'ingrediente', 'ingredientes'),
+      if (item.hasPreparation) 'Con preparación',
+    ].join(' · ');
 
     final details = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
+        if (item.isRecipe) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                Icons.restaurant_menu_rounded,
+                size: 32,
+                tint: colors.secondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          item.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        TonePill('Receta', tone: colors.secondary),
+                      ],
+                    ),
+                    if (recipeMeta.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        recipeMeta,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (ingredientPreview.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
+              child: Text(
+                item.recipeIngredients.length > 3
+                    ? '$ingredientPreview…'
+                    : ingredientPreview,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.3,
+                  color: colors.onSurfaceVariant,
+                ),
               ),
             ),
-            Expanded(
+          ] else if (item.hasPreparation) ...[
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
               child: Text(
-                item.name,
+                item.instructions!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onSurface,
+                  fontSize: 13,
+                  height: 1.3,
+                  color: colors.onSurfaceVariant,
                 ),
               ),
             ),
           ],
-        ),
-        if (item.instructions != null && item.instructions!.isNotEmpty) ...[
-          const SizedBox(height: 3),
+          if (onOpenRecipe != null) ...[
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.only(left: 42),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Ver ingredientes y preparación',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: secondaryInk,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: secondaryInk,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ] else ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Text(
-              item.instructions!,
+              item.foodGroup != null && item.foodGroup!.isNotEmpty
+                  ? 'Alimento · ${item.foodGroup!}'
+                  : 'Alimento',
               style: TextStyle(
-                fontSize: 13,
-                height: 1.3,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 color: colors.onSurfaceVariant,
               ),
             ),
           ),
+          if (item.instructions != null && item.instructions!.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text(
+                item.instructions!,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.3,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ],
         if (item.substitutes != null && item.substitutes!.isNotEmpty) ...[
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.only(left: 16),
+            padding: EdgeInsets.only(left: item.isRecipe ? 42 : 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -902,7 +1271,7 @@ class _MealItemRow extends StatelessWidget {
         if (macros != null) ...[
           const SizedBox(height: 3),
           Padding(
-            padding: const EdgeInsets.only(left: 16),
+            padding: EdgeInsets.only(left: item.isRecipe ? 42 : 16),
             child: Text(
               macros,
               style: TextStyle(
@@ -916,7 +1285,7 @@ class _MealItemRow extends StatelessWidget {
       ],
     );
 
-    return Padding(
+    final rowContent = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -929,7 +1298,7 @@ class _MealItemRow extends StatelessWidget {
                 details,
                 const SizedBox(height: 8),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16),
+                  padding: EdgeInsets.only(left: item.isRecipe ? 42 : 16),
                   child: pill,
                 ),
               ],
@@ -950,5 +1319,18 @@ class _MealItemRow extends StatelessWidget {
         },
       ),
     );
+
+    if (item.isRecipe && onOpenRecipe != null) {
+      return Semantics(
+        button: true,
+        label:
+            'Receta ${item.name}, ${item.quantityLabel}. Toca para ver ingredientes y preparación',
+        child: InkWell(
+          onTap: onOpenRecipe,
+          child: rowContent,
+        ),
+      );
+    }
+    return rowContent;
   }
 }

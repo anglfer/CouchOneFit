@@ -25,6 +25,7 @@ import type {
   NutritionVersion,
 } from '../types/nutrition';
 import { readOwnFoods } from '../services/foodLibrary';
+import { formatMealItemsCount } from '../utils/foodCatalog';
 import { suggestMealItems } from '../utils/mealFiller';
 import { validateNutritionDocument } from '../utils/validation';
 
@@ -643,8 +644,7 @@ export default function ClientNutrition({
                         )}
                       </div>
                       <span className="ws-chip shrink-0">
-                        {meal.items.length}{' '}
-                        {meal.items.length === 1 ? 'alimento' : 'alimentos'}
+                        {formatMealItemsCount(meal.items)}
                       </span>
                     </li>
                   ))}

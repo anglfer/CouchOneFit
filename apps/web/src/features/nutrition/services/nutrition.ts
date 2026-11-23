@@ -12,6 +12,7 @@ import type {
   NutritionDayTargets,
   NutritionDocument,
   NutritionItem,
+  NutritionItemKind,
   NutritionMeal,
   NutritionMealCategory,
   NutritionPeriWorkout,
@@ -73,6 +74,20 @@ const isSuggestionMeta = (
     typeof v.generatedAt === 'string' &&
     typeof v.modifiedByProfessional === 'boolean');
 
+const isRecipeIngredient = (v: unknown): boolean =>
+  isRecord(v) &&
+  typeof v.name === 'string' &&
+  typeof v.quantity === 'number' &&
+  typeof v.unit === 'string';
+
+const isNullableRecipeIngredients = (v: unknown): boolean =>
+  v === undefined ||
+  v === null ||
+  (Array.isArray(v) && v.every(isRecipeIngredient));
+
+const isNullableItemKind = (v: unknown): boolean =>
+  v === undefined || v === null || v === 'food' || v === 'recipe';
+
 export function isNutritionVersion(v: unknown): v is NutritionVersion {
   return (
     isRecord(v) &&
@@ -116,6 +131,8 @@ export function isNutritionVersion(v: unknown): v is NutritionVersion {
             typeof i.quantity === 'number' &&
             typeof i.unit === 'string' &&
             isNullableString(i.instructions) &&
+            isNullableItemKind(i.kind) &&
+            isNullableRecipeIngredients(i.recipeIngredients) &&
             isNullableString(i.foodGroup) &&
             isNullableString(i.substitutes) &&
             isNullableNumber(i.calories) &&
@@ -403,13 +420,15 @@ export async function activateNutritionVersion(
   );
 }
 
-export function emptyItem(): NutritionItem {
+export function emptyItem(kind: NutritionItemKind = 'food'): NutritionItem {
   return {
     id: crypto.randomUUID(),
     name: '',
-    quantity: 0,
-    unit: 'g',
+    quantity: kind === 'recipe' ? 1 : 0,
+    unit: kind === 'recipe' ? 'porción' : 'g',
     instructions: null,
+    kind,
+    recipeIngredients: null,
     foodGroup: null,
     substitutes: null,
     calories: null,
@@ -490,6 +509,10 @@ export function cloneNutritionDocument(
         quantity: item.quantity,
         unit: item.unit,
         instructions: item.instructions ?? null,
+        kind: item.kind ?? 'food',
+        recipeIngredients: item.recipeIngredients
+          ? item.recipeIngredients.map((ing) => ({ ...ing }))
+          : null,
         foodGroup: item.foodGroup ?? null,
         substitutes: item.substitutes ?? null,
         calories: item.calories ?? null,

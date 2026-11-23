@@ -103,6 +103,8 @@ function normalizeDocument(document: NutritionDocument): NutritionDocument {
       items: meal.items.map((item) => ({
         ...item,
         instructions: item.instructions ?? null,
+        kind: item.kind ?? 'food',
+        recipeIngredients: item.recipeIngredients ?? null,
         foodGroup: item.foodGroup ?? null,
         substitutes: item.substitutes ?? null,
         calories: item.calories ?? null,

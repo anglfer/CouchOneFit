@@ -1,8 +1,10 @@
+import type { FoodIngredient } from '../types/foodLibrary';
 import type {
   NutritionDocument,
   NutritionItem,
   NutritionMeal,
   NutritionMealCategory,
+  NutritionRecipeIngredient,
 } from '../types/nutrition';
 
 export const FOOD_GROUPS = [
@@ -37,6 +39,8 @@ export interface CatalogFood {
     kind: 'food' | 'recipe';
     suitableFor: readonly FoodRestriction[];
     mealCategories: readonly NutritionMealCategory[];
+    servings: number | null;
+    ingredients: readonly FoodIngredient[] | null;
   };
 }
 
@@ -1596,20 +1600,76 @@ export function calculateFoodMacros(food: CatalogFood, quantity: number) {
   };
 }
 
+export function scaleRecipeIngredients(
+  food: CatalogFood,
+  quantity: number
+): NutritionRecipeIngredient[] | null {
+  if (
+    food.own?.kind !== 'recipe' ||
+    !food.own.ingredients?.length ||
+    !(food.own.servings && food.own.servings > 0) ||
+    !(quantity > 0)
+  ) {
+    return null;
+  }
+  const factor = quantity / food.own.servings;
+  return food.own.ingredients.map((ing) => ({
+    name: ing.name,
+    quantity: Math.max(0.1, round1(ing.quantity * factor)),
+    unit: ing.unit,
+  }));
+}
+
+export function scaleCustomRecipeIngredients(
+  ingredients: readonly NutritionRecipeIngredient[],
+  previousQuantity: number,
+  nextQuantity: number
+): NutritionRecipeIngredient[] {
+  if (!(previousQuantity > 0) || !(nextQuantity > 0)) {
+    return ingredients.map((ing) => ({ ...ing }));
+  }
+  const factor = nextQuantity / previousQuantity;
+  return ingredients.map((ing) => ({
+    ...ing,
+    quantity: Math.max(0.1, round1(ing.quantity * factor)),
+  }));
+}
+
+export function formatMealItemsCount(
+  items: readonly Pick<NutritionItem, 'kind'>[]
+): string {
+  let recipes = 0;
+  let foods = 0;
+  for (const item of items) {
+    if (item.kind === 'recipe') recipes += 1;
+    else foods += 1;
+  }
+  const parts: string[] = [];
+  if (recipes > 0)
+    parts.push(`${recipes} ${recipes === 1 ? 'receta' : 'recetas'}`);
+  if (foods > 0 || recipes === 0) {
+    parts.push(`${foods} ${foods === 1 ? 'alimento' : 'alimentos'}`);
+  }
+  return parts.join(' · ');
+}
+
 export function createItemFromCatalogFood(
   food: CatalogFood,
   quantity?: number
 ): NutritionItem {
   const qty = quantity ?? food.defaultQuantity;
   const macros = calculateFoodMacros(food, qty);
+  const kind = food.own?.kind ?? 'food';
   return {
     id: crypto.randomUUID(),
     name: food.name,
     quantity: qty,
     unit: food.defaultUnit,
-    instructions: food.preparationHint,
+    instructions: food.preparationHint || null,
+    kind,
+    recipeIngredients: scaleRecipeIngredients(food, qty),
     foodGroup: food.group,
-    substitutes: food.defaultSubstitutes,
+    substitutes: food.defaultSubstitutes || null,
     calories: macros.calories,
     proteinG: macros.proteinG,
     carbsG: macros.carbsG,

@@ -51,12 +51,22 @@ export interface NutritionSuggestionMeta {
   restrictions?: string[];
 }
 
+export type NutritionItemKind = 'food' | 'recipe';
+
+export interface NutritionRecipeIngredient {
+  name: string;
+  quantity: number;
+  unit: string;
+}
+
 export interface NutritionItem {
   id: string;
   name: string;
   quantity: number;
   unit: string;
   instructions: string | null;
+  kind?: NutritionItemKind | null;
+  recipeIngredients?: NutritionRecipeIngredient[] | null;
   foodGroup?: string | null;
   substitutes?: string | null;
   calories?: number | null;

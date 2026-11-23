@@ -64,6 +64,8 @@ export const toCatalogFood = (food: OwnFood): CatalogFood => ({
     kind: food.kind,
     suitableFor: food.suitableFor,
     mealCategories: food.mealCategories,
+    servings: food.servings,
+    ingredients: food.ingredients,
   },
 });
 

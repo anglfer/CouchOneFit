@@ -29,6 +29,7 @@ export interface NutritionFieldErrors {
           unit?: string;
           instructions?: string;
           substitutes?: string;
+          recipeIngredients?: string;
         }
       >;
     }
@@ -277,14 +278,47 @@ export function validateNutritionDocument(
         );
       }
 
-      if (item.instructions && item.instructions.length > 1000) {
+      if (item.instructions && item.instructions.length > 2000) {
         hasItemIssue = true;
         pushError(
-          `La nota de "${itemName || `Alimento #${itemIdx + 1}`}" supera 1000 caracteres.`,
+          `La nota o preparación de "${itemName || `Alimento #${itemIdx + 1}`}" supera 2000 caracteres.`,
           () => {
-            itemEntry.instructions = 'Máximo 1000 caracteres.';
+            itemEntry.instructions = 'Máximo 2000 caracteres.';
           }
         );
+      }
+
+      if (item.kind === 'recipe' && item.recipeIngredients?.length) {
+        if (item.recipeIngredients.length > 40) {
+          hasItemIssue = true;
+          pushError(
+            `La receta "${itemName || `Receta #${itemIdx + 1}`}" admite máximo 40 ingredientes.`,
+            () => {
+              itemEntry.recipeIngredients = 'Máximo 40 ingredientes.';
+            }
+          );
+        } else {
+          const invalidIngredient = item.recipeIngredients.some(
+            (ing) =>
+              !ing.name.trim() ||
+              ing.name.trim().length > 150 ||
+              !Number.isFinite(ing.quantity) ||
+              ing.quantity <= 0 ||
+              ing.quantity > 10000 ||
+              !ing.unit.trim() ||
+              ing.unit.trim().length > 50
+          );
+          if (invalidIngredient) {
+            hasItemIssue = true;
+            pushError(
+              `Revisa los ingredientes de "${itemName || `Receta #${itemIdx + 1}`}" en "${mealLabel}".`,
+              () => {
+                itemEntry.recipeIngredients =
+                  'Cada ingrediente necesita nombre, cantidad > 0 y unidad.';
+              }
+            );
+          }
+        }
       }
 
       if (item.substitutes && item.substitutes.length > 500) {

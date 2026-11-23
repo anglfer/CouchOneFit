@@ -7,12 +7,14 @@ import type {
   NutritionExperience,
   NutritionGoal,
   NutritionItem,
+  NutritionItemKind,
   NutritionMacroPreference,
   NutritionMeal,
   NutritionMealCategory,
   NutritionNeatLevel,
   NutritionPace,
   NutritionPeriWorkout,
+  NutritionRecipeIngredient,
   NutritionSex,
   NutritionSuggestionInput,
   NutritionSuggestionMeta,
@@ -119,6 +121,21 @@ const PREFERENCE_VALUES: readonly NutritionMacroPreference[] = [
   'higher_fat',
 ];
 const FORMULA_VALUES: readonly NutritionBmrFormula[] = ['mifflin', 'katch_mcardle'];
+const ITEM_KINDS: readonly NutritionItemKind[] = ['food', 'recipe'];
+
+function validateRecipeIngredients(value: unknown): NutritionRecipeIngredient[] | null {
+  if (value === undefined || value === null) return null;
+  const list = array(value, 40);
+  if (list.length === 0) return null;
+  return list.map((raw) => {
+    const ing = object(raw, ['name', 'quantity', 'unit']);
+    return {
+      name: text(ing.name, 150, true),
+      quantity: number(ing.quantity, 0.1, 10000, 0.1),
+      unit: text(ing.unit, 50, true),
+    };
+  });
+}
 
 function validateDayTargets(value: unknown): NutritionDayTargets | null {
   if (value === undefined || value === null) return null;
@@ -234,6 +251,8 @@ export function nutritionDocument(value: unknown): NutritionDocument {
         'quantity',
         'unit',
         'instructions',
+        'kind',
+        'recipeIngredients',
         'foodGroup',
         'substitutes',
         'calories',
@@ -241,12 +260,28 @@ export function nutritionDocument(value: unknown): NutritionDocument {
         'carbsG',
         'fatG',
       ]);
+      const kind: NutritionItemKind =
+        i.kind === undefined || i.kind === null ? 'food' : oneOf(i.kind, ITEM_KINDS, 'tipo de alimento');
+      let recipeIngredients: NutritionRecipeIngredient[] | null = null;
+      if (kind === 'food') {
+        if (
+          i.recipeIngredients !== undefined &&
+          i.recipeIngredients !== null &&
+          !(Array.isArray(i.recipeIngredients) && i.recipeIngredients.length === 0)
+        ) {
+          return invalid('Solo las recetas pueden incluir lista de ingredientes.');
+        }
+      } else {
+        recipeIngredients = validateRecipeIngredients(i.recipeIngredients);
+      }
       return {
         id: uniqueId(i.id),
         name: text(i.name, 150, true),
         quantity: number(i.quantity, 0, 10000, 0.1),
         unit: text(i.unit, 50, true),
-        instructions: optionalText(i.instructions, 1000),
+        instructions: optionalText(i.instructions, 2000),
+        kind,
+        recipeIngredients,
         foodGroup: optionalText(i.foodGroup, 60),
         substitutes: optionalText(i.substitutes, 500),
         calories: optional(i.calories, 0, 10000, 0.1),

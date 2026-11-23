@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Icon } from '../../../components/Icon';
 import Modal from '../../training/components/Modal';
 import type { NutritionItem } from '../types/nutrition';
 import {
@@ -13,29 +14,49 @@ import {
 
 interface FoodPickerModalProps {
   mealName: string;
+  allowRecipes?: boolean;
   onAddItem: (item: NutritionItem) => void;
   onAddManual: () => void;
+  onAddManualRecipe?: () => void;
   onClose: () => void;
 }
 
 export default function FoodPickerModal({
   mealName,
+  allowRecipes = true,
   onAddItem,
   onAddManual,
+  onAddManualRecipe,
   onClose,
 }: FoodPickerModalProps) {
   const [query, setQuery] = useState('');
-  const [group, setGroup] = useState<FoodGroup | '' | 'own'>('');
-  const hasOwn = allFoods().some((food) => food.own);
+  const [kindFilter, setKindFilter] = useState<'all' | 'food' | 'recipe'>(
+    'all'
+  );
+  const [group, setGroup] = useState<FoodGroup | '' | 'own_food'>('');
+  const availableFoods = allowRecipes
+    ? allFoods()
+    : allFoods().filter((food) => food.own?.kind !== 'recipe');
+  const recipeCount = allowRecipes
+    ? availableFoods.filter((food) => food.own?.kind === 'recipe').length
+    : 0;
+  const foodCount = availableFoods.length - recipeCount;
+  const ownFoodCount = availableFoods.filter(
+    (food) => food.own?.kind === 'food'
+  ).length;
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
 
-  const results = useMemo(
-    () =>
-      group === 'own'
-        ? findFoods(query).filter((food) => food.own)
-        : findFoods(query, group || undefined),
-    [query, group]
-  );
+  const results = findFoods(
+    query,
+    group && group !== 'own_food' ? group : undefined
+  ).filter((food) => {
+    const isRecipe = food.own?.kind === 'recipe';
+    if (!allowRecipes && isRecipe) return false;
+    if (kindFilter === 'food' && isRecipe) return false;
+    if (kindFilter === 'recipe' && !isRecipe) return false;
+    if (group === 'own_food') return food.own?.kind === 'food';
+    return true;
+  });
 
   const totalAdded = useMemo(
     () => Object.values(addedCounts).reduce((sum, count) => sum + count, 0),
@@ -53,19 +74,66 @@ export default function FoodPickerModal({
   return (
     <Modal
       wide
-      title={`Elegir alimentos para ${mealName || 'la comida'}`}
-      subtitle="Selecciona uno o varios alimentos de referencia con porciones, macros y equivalentes editables."
+      title={
+        allowRecipes
+          ? `Elegir alimentos o recetas para ${mealName || 'la comida'}`
+          : `Elegir ingredientes para ${mealName || 'la receta'}`
+      }
+      subtitle={
+        allowRecipes
+          ? 'Prescribe alimentos individuales o recetas completas. Las recetas llevan sus ingredientes y preparación a la app del cliente.'
+          : 'Selecciona alimentos individuales del catálogo o de tu biblioteca para armar la receta.'
+      }
       onClose={onClose}
     >
       <div className="nutrition-picker-controls">
+        {allowRecipes && (
+          <div className="nutrition-picker-kind-bar">
+            <div
+              className="ws-segmented m-0!"
+              role="group"
+              aria-label="Filtrar por tipo"
+            >
+              {(
+                [
+                  ['all', `Todos (${availableFoods.length})`],
+                  ['food', `Alimentos (${foodCount})`],
+                  ['recipe', `Recetas (${recipeCount})`],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="ws-plain"
+                  aria-pressed={kindFilter === value}
+                  onClick={() => {
+                    setKindFilter(value);
+                    if (value === 'recipe' && group === 'own_food') {
+                      setGroup('');
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <label className="nutrition-picker-search">
-          <span className="sr-only">Buscar alimento</span>
+          <span className="sr-only">
+            {allowRecipes ? 'Buscar alimento o receta' : 'Buscar ingrediente'}
+          </span>
           <input
             autoFocus
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar pollo, avena, elote, yogur, aguacate…"
+            placeholder={
+              allowRecipes
+                ? 'Buscar pollo, avena, hotcakes, elote, yogur…'
+                : 'Buscar pollo, avena, elote, yogur, aguacate…'
+            }
           />
         </label>
 
@@ -80,16 +148,16 @@ export default function FoodPickerModal({
             aria-pressed={group === ''}
             onClick={() => setGroup('')}
           >
-            Todos
+            Todos los grupos
           </button>
-          {hasOwn && (
+          {kindFilter !== 'recipe' && ownFoodCount > 0 && (
             <button
               type="button"
               className="ws-plain nutrition-group-pill"
-              aria-pressed={group === 'own'}
-              onClick={() => setGroup(group === 'own' ? '' : 'own')}
+              aria-pressed={group === 'own_food'}
+              onClick={() => setGroup(group === 'own_food' ? '' : 'own_food')}
             >
-              Mis alimentos
+              Mis alimentos ({ownFoodCount})
             </button>
           )}
           {FOOD_GROUPS.map((g) => (
@@ -107,45 +175,99 @@ export default function FoodPickerModal({
       </div>
 
       {results.length === 0 ? (
-        <div className="ws-empty nutrition-picker-empty">
-          <p>No encontramos coincidencias para esa búsqueda.</p>
-          <button
-            type="button"
-            className="ws-btn"
-            onClick={() => {
-              onAddManual();
-              onClose();
-            }}
-          >
-            Agregar alimento libre con ese nombre
-          </button>
-        </div>
+        kindFilter === 'recipe' && recipeCount === 0 && !query.trim() ? (
+          <div className="ws-empty nutrition-picker-empty">
+            <p>Aún no tienes recetas guardadas en tu biblioteca.</p>
+            <p className="text-xs text-(--ws-muted)">
+              Puedes agregar una receta libre solo para esta comida o crear
+              recetas reutilizables en la sección Alimentos.
+            </p>
+            {onAddManualRecipe && (
+              <button
+                type="button"
+                className="ws-btn"
+                data-variant="primary"
+                onClick={() => {
+                  onAddManualRecipe();
+                  onClose();
+                }}
+              >
+                <Icon name="bowl" size={14} /> Agregar receta libre a esta
+                comida
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="ws-empty nutrition-picker-empty">
+            <p>No encontramos coincidencias para esa búsqueda.</p>
+            <button
+              type="button"
+              className="ws-btn"
+              onClick={() => {
+                if (kindFilter === 'recipe' && onAddManualRecipe) {
+                  onAddManualRecipe();
+                } else {
+                  onAddManual();
+                }
+                onClose();
+              }}
+            >
+              {!allowRecipes
+                ? 'Agregar ingrediente manual'
+                : kindFilter === 'recipe' && onAddManualRecipe
+                  ? 'Agregar receta libre'
+                  : 'Agregar alimento libre con ese nombre'}
+            </button>
+          </div>
+        )
       ) : (
         <div className="nutrition-food-grid">
           {results.map((food) => {
             const macros = calculateFoodMacros(food, food.defaultQuantity);
             const count = addedCounts[food.id] ?? 0;
+            const isRecipe = food.own?.kind === 'recipe';
+            const ingredientCount = food.own?.ingredients?.length ?? 0;
+            const ingredientPreview = (food.own?.ingredients ?? [])
+              .slice(0, 3)
+              .map((ing) => ing.name)
+              .join(', ');
             return (
               <button
                 key={food.id}
                 type="button"
                 className="ws-plain nutrition-food-card"
+                data-kind={isRecipe ? 'recipe' : 'food'}
                 data-added={count > 0 || undefined}
                 onClick={() => handleSelect(food)}
               >
                 <div className="nutrition-food-card-top">
-                  <span className="nutrition-food-group-tag">
-                    {food.own
-                      ? food.own.kind === 'recipe'
-                        ? 'Mi receta'
-                        : 'Mi alimento'
-                      : food.group}
+                  <span
+                    className="nutrition-kind-badge"
+                    data-kind={isRecipe ? 'recipe' : 'food'}
+                  >
+                    {isRecipe && <Icon name="bowl" size={11} />}
+                    {isRecipe ? 'Receta' : 'Alimento'}
                   </span>
                   <span className="nutrition-food-portion">
                     {food.defaultQuantity} {food.defaultUnit}
                   </span>
                 </div>
                 <strong>{food.name}</strong>
+                <small className="nutrition-food-ingredients-preview">
+                  {isRecipe ? (
+                    <>
+                      {food.group}
+                      {ingredientCount > 0
+                        ? ` · ${ingredientCount} ${ingredientCount === 1 ? 'ingrediente' : 'ingredientes'}${ingredientPreview ? `: ${ingredientPreview}${ingredientCount > 3 ? '…' : ''}` : ''}`
+                        : ''}
+                      {food.preparationHint.trim() ? ' · Con preparación' : ''}
+                    </>
+                  ) : food.own ? (
+                    `Mi biblioteca · ${food.group}`
+                  ) : (
+                    food.group
+                  )}
+                </small>
                 <small className="nutrition-food-macros">
                   {macros.calories} kcal · P {macros.proteinG}g · C{' '}
                   {macros.carbsG}g · G {macros.fatG}g
@@ -167,16 +289,32 @@ export default function FoodPickerModal({
       )}
 
       <footer className="nutrition-picker-foot">
-        <button
-          type="button"
-          className="ws-btn"
-          onClick={() => {
-            onAddManual();
-            onClose();
-          }}
-        >
-          Agregar alimento libre
-        </button>
+        <div className="nutrition-picker-foot-actions">
+          <button
+            type="button"
+            className="ws-btn"
+            onClick={() => {
+              onAddManual();
+              onClose();
+            }}
+          >
+            {allowRecipes
+              ? 'Agregar alimento libre'
+              : 'Agregar ingrediente manual'}
+          </button>
+          {allowRecipes && onAddManualRecipe && (
+            <button
+              type="button"
+              className="ws-btn"
+              onClick={() => {
+                onAddManualRecipe();
+                onClose();
+              }}
+            >
+              <Icon name="bowl" size={14} /> Agregar receta libre
+            </button>
+          )}
+        </div>
         <button
           type="button"
           className="ws-btn"

@@ -163,6 +163,7 @@ export default function OwnFoodEditor({
           }}
         >
           <Icon name="arrow-right" size={16} className="rotate-180" /> Alimentos
+          y recetas
         </button>
         <div className="training-savebar-status">
           <strong>
@@ -219,6 +220,11 @@ export default function OwnFoodEditor({
             ))}
           </div>
         </div>
+        <p className="nutrition-kind-help">
+          {recipe
+            ? 'Receta: platillo con ingredientes y pasos de preparación. Al prescribirla en un plan, tu cliente verá los ingredientes ajustados a sus porciones y cómo prepararla en su app móvil.'
+            : 'Alimento: producto o ingrediente individual (por 100 g/ml o por pieza). Puedes prescribirlo directo en un plan o usarlo como ingrediente dentro de tus recetas.'}
+        </p>
         <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
           <label className="block">
             Nombre
@@ -247,7 +253,7 @@ export default function OwnFoodEditor({
             )}
           </label>
           <label className="block">
-            Grupo
+            {recipe ? 'Grupo principal' : 'Grupo'}
             <select
               className="block w-full"
               value={draft.group}
@@ -540,17 +546,20 @@ export default function OwnFoodEditor({
 
       <section className="ws-card space-y-4" aria-labelledby="food-notes">
         <h2 id="food-notes" className="ws-card-title">
-          Preparación y equivalencias
+          {recipe
+            ? 'Pasos de preparación y equivalencias'
+            : 'Preparación y equivalencias'}
         </h2>
         <label className="block">
-          {recipe ? 'Preparación' : 'Preparación o forma de consumo'}
+          {recipe ? 'Pasos de preparación' : 'Preparación o forma de consumo'}
           <textarea
             className="block w-full"
+            rows={recipe ? 4 : 2}
             maxLength={2000}
             value={draft.preparation}
             placeholder={
               recipe
-                ? 'Pasos, tiempo y método de cocción…'
+                ? '1. Mezcla la avena con las claras…\n2. Cocina a fuego medio 3 min por lado…'
                 : 'A la plancha, cocido, sin aceite…'
             }
             onChange={(e) => set({ preparation: e.target.value })}
@@ -567,7 +576,9 @@ export default function OwnFoodEditor({
           />
         </label>
         <p className="text-xs text-(--ws-muted)">
-          Se copian al plan junto con el alimento y el cliente las ve en su app.
+          {recipe
+            ? 'Al prescribir esta receta en un plan, el cliente verá estos pasos junto con sus ingredientes ajustados en su app móvil.'
+            : 'Se copian al plan junto con el alimento y el cliente las ve en su app.'}
         </p>
       </section>
 
@@ -638,6 +649,7 @@ export default function OwnFoodEditor({
       {picking && (
         <FoodPickerModal
           mealName="la receta"
+          allowRecipes={false}
           onAddItem={(item) =>
             addRow(
               row({

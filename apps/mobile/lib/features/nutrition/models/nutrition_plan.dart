@@ -87,6 +87,33 @@ class NutritionPeriWorkout {
   final String? notes;
 }
 
+class NutritionRecipeIngredient {
+  const NutritionRecipeIngredient({
+    required this.name,
+    required this.quantity,
+    required this.unit,
+  });
+
+  factory NutritionRecipeIngredient.fromJson(Map<String, dynamic> json) {
+    return NutritionRecipeIngredient(
+      name: nutritionText(json['name']),
+      quantity: nutritionNumber(json['quantity']),
+      unit: nutritionText(json['unit']),
+    );
+  }
+
+  final String name;
+  final num quantity;
+  final String unit;
+
+  String get quantityLabel {
+    final formatted = quantity % 1 == 0
+        ? quantity.toInt().toString()
+        : quantity.toStringAsFixed(1);
+    return '$formatted $unit';
+  }
+}
+
 class NutritionItem {
   const NutritionItem({
     required this.id,
@@ -94,6 +121,8 @@ class NutritionItem {
     required this.quantity,
     required this.unit,
     this.instructions,
+    this.kind = 'food',
+    this.recipeIngredients = const [],
     this.foodGroup,
     this.substitutes,
     this.calories,
@@ -103,12 +132,23 @@ class NutritionItem {
   });
 
   factory NutritionItem.fromJson(Map<String, dynamic> json) {
+    final rawKind = nutritionNullableText(json['kind']);
+    final kind = rawKind == 'recipe' ? 'recipe' : 'food';
+    final rawIngredients = json['recipeIngredients'];
+    final ingredients = rawIngredients == null
+        ? const <NutritionRecipeIngredient>[]
+        : [
+            for (final raw in nutritionList(rawIngredients))
+              NutritionRecipeIngredient.fromJson(nutritionObject(raw)),
+          ];
     return NutritionItem(
       id: nutritionText(json['id']),
       name: nutritionText(json['name']),
       quantity: nutritionNumber(json['quantity']),
       unit: nutritionText(json['unit']),
       instructions: nutritionNullableText(json['instructions']),
+      kind: kind,
+      recipeIngredients: ingredients,
       foodGroup: nutritionNullableText(json['foodGroup']),
       substitutes: nutritionNullableText(json['substitutes']),
       calories: nutritionNullableNumber(json['calories']),
@@ -123,12 +163,19 @@ class NutritionItem {
   final num quantity;
   final String unit;
   final String? instructions;
+  final String kind;
+  final List<NutritionRecipeIngredient> recipeIngredients;
   final String? foodGroup;
   final String? substitutes;
   final num? calories;
   final num? proteinG;
   final num? carbsG;
   final num? fatG;
+
+  bool get isRecipe => kind == 'recipe';
+
+  bool get hasPreparation =>
+      instructions != null && instructions!.trim().isNotEmpty;
 
   String get quantityLabel {
     final formatted = quantity % 1 == 0
@@ -192,6 +239,23 @@ class NutritionMeal {
   final List<NutritionItem> items;
 
   bool get hasItemMacros => items.any((i) => i.calories != null);
+
+  int get recipeCount => items.where((i) => i.isRecipe).length;
+
+  int get foodCount => items.where((i) => !i.isRecipe).length;
+
+  String get itemsSummaryLabel {
+    final recipes = recipeCount;
+    final foods = foodCount;
+    final parts = <String>[];
+    if (recipes > 0) {
+      parts.add('$recipes ${recipes == 1 ? 'receta' : 'recetas'}');
+    }
+    if (foods > 0 || recipes == 0) {
+      parts.add('$foods ${foods == 1 ? 'alimento' : 'alimentos'}');
+    }
+    return parts.join(' · ');
+  }
 
   int get computedCalories =>
       items.fold<int>(0, (sum, i) => sum + (i.calories?.round() ?? 0));

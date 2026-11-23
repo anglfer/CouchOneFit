@@ -15,7 +15,10 @@ import {
   MEAL_TEMPLATES,
   calculateFoodMacros,
   findCatalogMatch,
+  formatMealItemsCount,
   instantiateMealTemplate,
+  scaleCustomRecipeIngredients,
+  scaleRecipeIngredients,
   summarizeDocumentMacros,
   summarizeItemsMacros,
 } from '../utils/foodCatalog';
@@ -1035,8 +1038,7 @@ export default function NutritionEditor({
                       {meal.scheduleTime ? ` · ${meal.scheduleTime}` : ''}
                     </strong>
                     <span className="text-xs text-(--ws-muted) tabular-nums">
-                      {meal.items.length}{' '}
-                      {meal.items.length === 1 ? 'alimento' : 'alimentos'}
+                      {formatMealItemsCount(meal.items)}
                       {mealSummary.itemsWithMacros > 0
                         ? ` · ${mealSummary.calories} kcal · P ${Math.round(mealSummary.proteinG)}g · C ${Math.round(mealSummary.carbsG)}g · G ${Math.round(mealSummary.fatG)}g`
                         : ''}
@@ -1283,7 +1285,7 @@ export default function NutritionEditor({
                       disabled={disabled}
                       onClick={() => setPickerMealId(meal.id)}
                     >
-                      <Icon name="plus" size={14} /> Elegir del catálogo
+                      <Icon name="plus" size={14} /> Elegir alimento o receta
                     </button>
                     <button
                       type="button"
@@ -1292,18 +1294,31 @@ export default function NutritionEditor({
                       onClick={() =>
                         updateMeal(meal.id, (m) => ({
                           ...m,
-                          items: [...m.items, emptyItem()],
+                          items: [...m.items, emptyItem('food')],
                         }))
                       }
                     >
                       Alimento libre
+                    </button>
+                    <button
+                      type="button"
+                      className="ws-btn"
+                      disabled={disabled}
+                      onClick={() =>
+                        updateMeal(meal.id, (m) => ({
+                          ...m,
+                          items: [...m.items, emptyItem('recipe')],
+                        }))
+                      }
+                    >
+                      <Icon name="bowl" size={14} /> Receta libre
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="nutrition-items-list">
                   <div className="nutrition-items-head" aria-hidden="true">
-                    <span>Alimento</span>
+                    <span>Alimento o receta</span>
                     <span>Cantidad</span>
                     <span>Unidad</span>
                     <span />
@@ -1313,13 +1328,44 @@ export default function NutritionEditor({
                     const nameKey = `item:${item.id}:name`;
                     const qtyKey = `item:${item.id}:quantity`;
                     const unitKey = `item:${item.id}:unit`;
+                    const isRecipe = item.kind === 'recipe';
+                    const ingredientCount = item.recipeIngredients?.length ?? 0;
 
                     return (
-                      <div key={item.id} className="nutrition-item-card">
+                      <div
+                        key={item.id}
+                        className="nutrition-item-card"
+                        data-kind={isRecipe ? 'recipe' : 'food'}
+                      >
+                        <div className="nutrition-item-top">
+                          <span
+                            className="nutrition-kind-badge"
+                            data-kind={isRecipe ? 'recipe' : 'food'}
+                          >
+                            {isRecipe && <Icon name="bowl" size={12} />}
+                            {isRecipe ? 'Receta' : 'Alimento'}
+                          </span>
+                          {item.foodGroup && (
+                            <span className="nutrition-inline-group">
+                              {item.foodGroup}
+                            </span>
+                          )}
+                          {isRecipe && (
+                            <span className="nutrition-item-top-meta">
+                              {ingredientCount > 0
+                                ? `${ingredientCount} ${ingredientCount === 1 ? 'ingrediente' : 'ingredientes'}`
+                                : 'Sin ingredientes capturados'}
+                              {' · '}
+                              {item.instructions?.trim()
+                                ? 'Con preparación'
+                                : 'Sin pasos'}
+                            </span>
+                          )}
+                        </div>
                         <div className="nutrition-item-main">
                           <div className="nutrition-item-cell">
                             <label>
-                              Alimento *{' '}
+                              {isRecipe ? 'Receta *' : 'Alimento *'}{' '}
                               {item.foodGroup && (
                                 <span className="nutrition-inline-group">
                                   · {item.foodGroup}
@@ -1329,7 +1375,7 @@ export default function NutritionEditor({
                             <input
                               type="text"
                               maxLength={150}
-                              aria-label="Alimento"
+                              aria-label={isRecipe ? 'Receta' : 'Alimento'}
                               disabled={disabled}
                               value={item.name}
                               aria-invalid={
@@ -1349,7 +1395,11 @@ export default function NutritionEditor({
                                   name: e.target.value,
                                 }))
                               }
-                              placeholder="Ej. Pechuga de pollo"
+                              placeholder={
+                                isRecipe
+                                  ? 'Ej. Hotcakes de avena'
+                                  : 'Ej. Pechuga de pollo'
+                              }
                             />
                             {isShown(nameKey, itemErr?.name) && (
                               <span
@@ -1368,7 +1418,7 @@ export default function NutritionEditor({
                               min={0.1}
                               max={10000}
                               step={0.1}
-                              aria-label={`Cantidad de ${item.name || 'alimento'}`}
+                              aria-label={`Cantidad de ${item.name || (isRecipe ? 'receta' : 'alimento')}`}
                               disabled={disabled}
                               value={item.quantity === 0 ? '' : item.quantity}
                               aria-invalid={
@@ -1392,15 +1442,41 @@ export default function NutritionEditor({
                                 updateItem(meal.id, item.id, (i) => {
                                   const catalogMatch = findCatalogMatch(i);
                                   if (!catalogMatch) {
-                                    return { ...i, quantity: nextQty };
+                                    const nextIngredients =
+                                      i.kind === 'recipe' &&
+                                      i.recipeIngredients?.length &&
+                                      i.quantity > 0 &&
+                                      nextQty > 0
+                                        ? scaleCustomRecipeIngredients(
+                                            i.recipeIngredients,
+                                            i.quantity,
+                                            nextQty
+                                          )
+                                        : i.recipeIngredients;
+                                    return {
+                                      ...i,
+                                      quantity: nextQty,
+                                      recipeIngredients: nextIngredients,
+                                    };
                                   }
                                   const scaled = calculateFoodMacros(
                                     catalogMatch,
                                     nextQty
                                   );
+                                  const nextIngredients =
+                                    i.kind === 'recipe' &&
+                                    catalogMatch.own?.kind === 'recipe'
+                                      ? nextQty > 0
+                                        ? scaleRecipeIngredients(
+                                            catalogMatch,
+                                            nextQty
+                                          )
+                                        : i.recipeIngredients
+                                      : i.recipeIngredients;
                                   return {
                                     ...i,
                                     quantity: nextQty,
+                                    recipeIngredients: nextIngredients,
                                     calories:
                                       nextQty > 0 ? scaled.calories : null,
                                     proteinG:
@@ -1410,7 +1486,7 @@ export default function NutritionEditor({
                                   };
                                 });
                               }}
-                              placeholder="150"
+                              placeholder={isRecipe ? '1' : '150'}
                             />
                             {isShown(qtyKey, itemErr?.quantity) && (
                               <span
@@ -1427,7 +1503,7 @@ export default function NutritionEditor({
                             <input
                               type="text"
                               list="nutrition-common-units"
-                              aria-label={`Unidad de ${item.name || 'alimento'}`}
+                              aria-label={`Unidad de ${item.name || (isRecipe ? 'receta' : 'alimento')}`}
                               maxLength={50}
                               disabled={disabled}
                               value={item.unit}
@@ -1448,7 +1524,7 @@ export default function NutritionEditor({
                                   unit: e.target.value,
                                 }))
                               }
-                              placeholder="g, ml, pza"
+                              placeholder={isRecipe ? 'porción' : 'g, ml, pza'}
                             />
                             {isShown(unitKey, itemErr?.unit) && (
                               <span
@@ -1464,7 +1540,7 @@ export default function NutritionEditor({
                             <button
                               type="button"
                               className="ws-plain training-icon-btn"
-                              aria-label="Subir alimento"
+                              aria-label="Subir elemento"
                               title="Subir"
                               disabled={disabled || itemIndex === 0}
                               onClick={() =>
@@ -1479,7 +1555,7 @@ export default function NutritionEditor({
                             <button
                               type="button"
                               className="ws-plain training-icon-btn"
-                              aria-label="Bajar alimento"
+                              aria-label="Bajar elemento"
                               title="Bajar"
                               disabled={
                                 disabled || itemIndex === meal.items.length - 1
@@ -1497,8 +1573,16 @@ export default function NutritionEditor({
                               type="button"
                               className="ws-plain training-icon-btn"
                               data-danger
-                              aria-label="Eliminar alimento"
-                              title="Eliminar alimento"
+                              aria-label={
+                                isRecipe
+                                  ? 'Eliminar receta'
+                                  : 'Eliminar alimento'
+                              }
+                              title={
+                                isRecipe
+                                  ? 'Eliminar receta'
+                                  : 'Eliminar alimento'
+                              }
                               disabled={disabled}
                               onClick={() =>
                                 updateMeal(meal.id, (m) => ({
@@ -1519,55 +1603,310 @@ export default function NutritionEditor({
                             {item.calories != null
                               ? `${Math.round(item.calories)} kcal · P ${item.proteinG ?? 0} · C ${item.carbsG ?? 0} · G ${item.fatG ?? 0}`
                               : 'Sin macros de referencia'}
-                            {(item.instructions || item.substitutes) && (
+                            {isRecipe ? (
                               <span className="nutrition-item-more-hint">
-                                {[
-                                  item.instructions,
-                                  item.substitutes &&
-                                    `Sustituto: ${item.substitutes}`,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
+                                {ingredientCount > 0
+                                  ? `${ingredientCount} ${ingredientCount === 1 ? 'ingrediente' : 'ingredientes'} · Ver ingredientes y preparación`
+                                  : 'Agregar ingredientes y pasos de preparación'}
                               </span>
+                            ) : (
+                              (item.instructions || item.substitutes) && (
+                                <span className="nutrition-item-more-hint">
+                                  {[
+                                    item.instructions,
+                                    item.substitutes &&
+                                      `Sustituto: ${item.substitutes}`,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </span>
+                              )
                             )}
                           </summary>
-                          <div className="nutrition-item-extras">
-                            <div className="nutrition-item-cell">
-                              <label>Preparación o nota (opcional)</label>
-                              <input
-                                type="text"
-                                maxLength={1000}
-                                disabled={disabled}
-                                value={item.instructions ?? ''}
-                                onChange={(e) =>
-                                  updateItem(meal.id, item.id, (i) => ({
-                                    ...i,
-                                    instructions: e.target.value.trim()
-                                      ? e.target.value
-                                      : null,
-                                  }))
-                                }
-                                placeholder="En crudo, cocido, sin aceite..."
-                              />
+                          <div className="nutrition-item-more-body">
+                            <div className="nutrition-item-kind-row">
+                              <span className="nutrition-item-kind-label">
+                                Tipo:
+                              </span>
+                              <div
+                                className="ws-segmented m-0!"
+                                role="group"
+                                aria-label={`Tipo de ${item.name || 'elemento'}`}
+                              >
+                                <button
+                                  type="button"
+                                  className="ws-plain"
+                                  disabled={disabled}
+                                  aria-pressed={!isRecipe}
+                                  onClick={() =>
+                                    updateItem(meal.id, item.id, (i) => ({
+                                      ...i,
+                                      kind: 'food',
+                                      recipeIngredients: null,
+                                    }))
+                                  }
+                                >
+                                  Alimento
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ws-plain"
+                                  disabled={disabled}
+                                  aria-pressed={isRecipe}
+                                  onClick={() =>
+                                    updateItem(meal.id, item.id, (i) => ({
+                                      ...i,
+                                      kind: 'recipe',
+                                      recipeIngredients:
+                                        i.recipeIngredients ?? [],
+                                    }))
+                                  }
+                                >
+                                  Receta
+                                </button>
+                              </div>
+                              <span className="nutrition-item-kind-hint">
+                                {isRecipe
+                                  ? 'Lleva ingredientes y pasos al móvil.'
+                                  : 'Producto o ingrediente directo.'}
+                              </span>
                             </div>
 
-                            <div className="nutrition-item-cell">
-                              <label>Equivalente / sustituto (opcional)</label>
-                              <input
-                                type="text"
-                                maxLength={500}
-                                disabled={disabled}
-                                value={item.substitutes ?? ''}
-                                onChange={(e) =>
-                                  updateItem(meal.id, item.id, (i) => ({
-                                    ...i,
-                                    substitutes: e.target.value.trim()
-                                      ? e.target.value
-                                      : null,
-                                  }))
-                                }
-                                placeholder="Ej. Pavo, pescado blanco o tofu"
-                              />
+                            {isRecipe && (
+                              <div className="nutrition-recipe-ingredients-editor">
+                                <div className="nutrition-recipe-ingredients-head">
+                                  <strong>
+                                    Ingredientes para esta porción (
+                                    {item.quantity > 0 ? item.quantity : 1}{' '}
+                                    {item.unit || 'porción'})
+                                  </strong>
+                                  <button
+                                    type="button"
+                                    className="ws-btn"
+                                    disabled={disabled || ingredientCount >= 40}
+                                    onClick={() =>
+                                      updateItem(meal.id, item.id, (i) => ({
+                                        ...i,
+                                        recipeIngredients: [
+                                          ...(i.recipeIngredients ?? []),
+                                          { name: '', quantity: 50, unit: 'g' },
+                                        ],
+                                      }))
+                                    }
+                                  >
+                                    + Agregar ingrediente
+                                  </button>
+                                </div>
+                                {ingredientCount === 0 ? (
+                                  <p className="text-xs text-(--ws-muted)">
+                                    Agrega los ingredientes que necesita tu
+                                    cliente para preparar esta porción.
+                                  </p>
+                                ) : (
+                                  <div className="nutrition-recipe-ingredient-rows">
+                                    {(item.recipeIngredients ?? []).map(
+                                      (ing, ingIndex) => (
+                                        <div
+                                          key={`${item.id}-ing-${ingIndex}`}
+                                          className="nutrition-recipe-ingredient-row"
+                                        >
+                                          <input
+                                            type="text"
+                                            maxLength={150}
+                                            disabled={disabled}
+                                            aria-label={`Ingrediente ${ingIndex + 1} de ${item.name || 'receta'}`}
+                                            value={ing.name}
+                                            placeholder="Ej. Avena en hojuelas"
+                                            onChange={(e) =>
+                                              updateItem(
+                                                meal.id,
+                                                item.id,
+                                                (i) => ({
+                                                  ...i,
+                                                  recipeIngredients: (
+                                                    i.recipeIngredients ?? []
+                                                  ).map((entry, idx) =>
+                                                    idx === ingIndex
+                                                      ? {
+                                                          ...entry,
+                                                          name: e.target.value,
+                                                        }
+                                                      : entry
+                                                  ),
+                                                })
+                                              )
+                                            }
+                                          />
+                                          <input
+                                            type="number"
+                                            min={0.1}
+                                            max={10000}
+                                            step={0.1}
+                                            disabled={disabled}
+                                            aria-label={`Cantidad del ingrediente ${ing.name || ingIndex + 1}`}
+                                            value={
+                                              ing.quantity === 0
+                                                ? ''
+                                                : ing.quantity
+                                            }
+                                            onChange={(e) => {
+                                              const parsed = Number(
+                                                e.target.value
+                                              );
+                                              updateItem(
+                                                meal.id,
+                                                item.id,
+                                                (i) => ({
+                                                  ...i,
+                                                  recipeIngredients: (
+                                                    i.recipeIngredients ?? []
+                                                  ).map((entry, idx) =>
+                                                    idx === ingIndex
+                                                      ? {
+                                                          ...entry,
+                                                          quantity:
+                                                            Number.isFinite(
+                                                              parsed
+                                                            )
+                                                              ? parsed
+                                                              : 0,
+                                                        }
+                                                      : entry
+                                                  ),
+                                                })
+                                              );
+                                            }}
+                                          />
+                                          <input
+                                            type="text"
+                                            list="nutrition-common-units"
+                                            maxLength={50}
+                                            disabled={disabled}
+                                            aria-label={`Unidad del ingrediente ${ing.name || ingIndex + 1}`}
+                                            value={ing.unit}
+                                            onChange={(e) =>
+                                              updateItem(
+                                                meal.id,
+                                                item.id,
+                                                (i) => ({
+                                                  ...i,
+                                                  recipeIngredients: (
+                                                    i.recipeIngredients ?? []
+                                                  ).map((entry, idx) =>
+                                                    idx === ingIndex
+                                                      ? {
+                                                          ...entry,
+                                                          unit: e.target.value,
+                                                        }
+                                                      : entry
+                                                  ),
+                                                })
+                                              )
+                                            }
+                                          />
+                                          <button
+                                            type="button"
+                                            className="ws-plain training-icon-btn"
+                                            data-danger
+                                            disabled={disabled}
+                                            aria-label={`Quitar ingrediente ${ing.name || ingIndex + 1}`}
+                                            onClick={() =>
+                                              updateItem(
+                                                meal.id,
+                                                item.id,
+                                                (i) => ({
+                                                  ...i,
+                                                  recipeIngredients: (
+                                                    i.recipeIngredients ?? []
+                                                  ).filter(
+                                                    (_, idx) => idx !== ingIndex
+                                                  ),
+                                                })
+                                              )
+                                            }
+                                          >
+                                            <Icon name="trash" size={14} />
+                                          </button>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                )}
+                                <small className="text-xs text-(--ws-muted)">
+                                  Tu cliente verá exactamente estas cantidades
+                                  en su app móvil.
+                                </small>
+                                {itemErr?.recipeIngredients &&
+                                  showAllErrors && (
+                                    <span className="nutrition-field-error">
+                                      Error: {itemErr.recipeIngredients}
+                                    </span>
+                                  )}
+                              </div>
+                            )}
+
+                            <div className="nutrition-item-extras">
+                              <div className="nutrition-item-cell">
+                                <label>
+                                  {isRecipe
+                                    ? 'Pasos de preparación (opcional)'
+                                    : 'Preparación o nota (opcional)'}
+                                </label>
+                                {isRecipe ? (
+                                  <textarea
+                                    rows={3}
+                                    maxLength={2000}
+                                    disabled={disabled}
+                                    value={item.instructions ?? ''}
+                                    onChange={(e) =>
+                                      updateItem(meal.id, item.id, (i) => ({
+                                        ...i,
+                                        instructions: e.target.value.trim()
+                                          ? e.target.value
+                                          : null,
+                                      }))
+                                    }
+                                    placeholder="1. Mezcla los ingredientes…&#10;2. Cocina a fuego medio…"
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    maxLength={2000}
+                                    disabled={disabled}
+                                    value={item.instructions ?? ''}
+                                    onChange={(e) =>
+                                      updateItem(meal.id, item.id, (i) => ({
+                                        ...i,
+                                        instructions: e.target.value.trim()
+                                          ? e.target.value
+                                          : null,
+                                      }))
+                                    }
+                                    placeholder="En crudo, cocido, sin aceite..."
+                                  />
+                                )}
+                              </div>
+
+                              <div className="nutrition-item-cell">
+                                <label>
+                                  Equivalente / sustituto (opcional)
+                                </label>
+                                <input
+                                  type="text"
+                                  maxLength={500}
+                                  disabled={disabled}
+                                  value={item.substitutes ?? ''}
+                                  onChange={(e) =>
+                                    updateItem(meal.id, item.id, (i) => ({
+                                      ...i,
+                                      substitutes: e.target.value.trim()
+                                        ? e.target.value
+                                        : null,
+                                    }))
+                                  }
+                                  placeholder="Ej. Pavo, pescado blanco o tofu"
+                                />
+                              </div>
                             </div>
                           </div>
                         </details>
@@ -1597,7 +1936,7 @@ export default function NutritionEditor({
                     disabled={disabled}
                     onClick={() => setPickerMealId(meal.id)}
                   >
-                    <Icon name="plus" size={14} /> Elegir del catálogo
+                    <Icon name="plus" size={14} /> Elegir alimento o receta
                   </button>
                   <button
                     type="button"
@@ -1606,11 +1945,24 @@ export default function NutritionEditor({
                     onClick={() =>
                       updateMeal(meal.id, (m) => ({
                         ...m,
-                        items: [...m.items, emptyItem()],
+                        items: [...m.items, emptyItem('food')],
                       }))
                     }
                   >
                     + Alimento libre
+                  </button>
+                  <button
+                    type="button"
+                    className="ws-btn"
+                    disabled={disabled}
+                    onClick={() =>
+                      updateMeal(meal.id, (m) => ({
+                        ...m,
+                        items: [...m.items, emptyItem('recipe')],
+                      }))
+                    }
+                  >
+                    + Receta libre
                   </button>
                 </div>
               )}
@@ -1641,7 +1993,13 @@ export default function NutritionEditor({
           onAddManual={() =>
             updateMeal(pickerMeal.id, (m) => ({
               ...m,
-              items: [...m.items, emptyItem()],
+              items: [...m.items, emptyItem('food')],
+            }))
+          }
+          onAddManualRecipe={() =>
+            updateMeal(pickerMeal.id, (m) => ({
+              ...m,
+              items: [...m.items, emptyItem('recipe')],
             }))
           }
           onClose={() => setPickerMealId(null)}

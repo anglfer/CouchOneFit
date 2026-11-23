@@ -30,13 +30,13 @@ const reference = (f: { basis: string; defaultUnit: string }): string =>
     ? `100 ${f.defaultUnit === 'ml' ? 'ml' : 'g'}`
     : `1 ${f.defaultUnit}`;
 
-/** Alimentos: the professional's own foods and recipes, next to the curated base catalog. */
+/** Alimentos y recetas: biblioteca propia del profesional junto al catálogo base. */
 export default function FoodLibraryPage() {
   const [foods, setFoods] = useState<OwnFood[] | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
-  const [view, setView] = useState<'own' | 'catalog'>('own');
+  const [view, setView] = useState<'own' | 'recipes' | 'catalog'>('own');
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<FoodGroup | ''>('');
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -65,10 +65,14 @@ export default function FoodLibraryPage() {
   const matches = (name: string, foodGroup: string) =>
     (!group || foodGroup === group) &&
     normalizeCatalogText(name).includes(normalizeCatalogText(query));
-  const ownRows = (foods ?? []).filter((f) => matches(f.name, f.group));
+  const ownFoodItems = (foods ?? []).filter((f) => f.kind === 'food');
+  const ownRecipeItems = (foods ?? []).filter((f) => f.kind === 'recipe');
+  const ownRows = ownFoodItems.filter((f) => matches(f.name, f.group));
+  const recipeRows = ownRecipeItems.filter((f) => matches(f.name, f.group));
   const catalogRows = FOOD_CATALOG.filter((f) => matches(f.name, f.group));
 
   async function archive(food: OwnFood) {
+    const label = food.kind === 'recipe' ? 'receta' : 'alimento';
     if (
       !(await confirmDialog({
         title: `¿Archivar «${food.name}»?`,
@@ -87,7 +91,7 @@ export default function FoodLibraryPage() {
       setError(
         failure instanceof Error && failure.message
           ? failure.message
-          : 'No pudimos archivar el alimento.'
+          : `No pudimos archivar ${label === 'receta' ? 'la receta' : 'el alimento'}.`
       );
     }
   }
@@ -102,9 +106,9 @@ export default function FoodLibraryPage() {
         onSaved={(saved) => {
           setEditing(null);
           setNotice(
-            `Guardaste «${saved.name}». Ya aparece en el editor de planes.`
+            `Guardaste «${saved.name}» (${saved.kind === 'recipe' ? 'receta' : 'alimento'}). Ya aparece en el editor de planes.`
           );
-          setView('own');
+          setView(saved.kind === 'recipe' ? 'recipes' : 'own');
           setAttempt((n) => n + 1);
         }}
       />
@@ -115,11 +119,31 @@ export default function FoodLibraryPage() {
     setEditing({ food, draft });
   };
 
+  const renderActions = (f: OwnFood) => (
+    <>
+      <button
+        type="button"
+        className="ws-btn"
+        onClick={() => start(draftFromOwn(f), f)}
+      >
+        Editar
+      </button>
+      <button
+        type="button"
+        className="ws-btn"
+        disabled={!isOnline}
+        onClick={() => void archive(f)}
+      >
+        Archivar
+      </button>
+    </>
+  );
+
   return (
     <>
       <PageHeader
-        title="Alimentos"
-        lead="Tus alimentos y recetas con sus macros. Aparecen en el editor de planes junto al catálogo base, y «Sugerir alimentos» los usa en los tiempos de comida que elijas."
+        title="Alimentos y recetas"
+        lead="Separa tus productos o ingredientes individuales de tus recetas completas con ingredientes y pasos de preparación para el móvil del cliente."
         actions={
           <>
             <button
@@ -183,7 +207,15 @@ export default function FoodLibraryPage() {
               aria-pressed={view === 'own'}
               onClick={() => setView('own')}
             >
-              Mis alimentos{foods ? ` (${foods.length})` : ''}
+              Mis alimentos{foods ? ` (${ownFoodItems.length})` : ''}
+            </button>
+            <button
+              type="button"
+              className="ws-plain"
+              aria-pressed={view === 'recipes'}
+              onClick={() => setView('recipes')}
+            >
+              Mis recetas{foods ? ` (${ownRecipeItems.length})` : ''}
             </button>
             <button
               type="button"
@@ -200,7 +232,11 @@ export default function FoodLibraryPage() {
               type="search"
               className="block w-full"
               value={query}
-              placeholder="Nombre del alimento"
+              placeholder={
+                view === 'recipes'
+                  ? 'Nombre de la receta'
+                  : 'Nombre del alimento'
+              }
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
@@ -226,15 +262,14 @@ export default function FoodLibraryPage() {
                 <span className="sr-only">Cargando alimentos…</span>
               </div>
             )
-          ) : foods.length === 0 ? (
+          ) : ownFoodItems.length === 0 ? (
             <section className="ws-card ws-empty">
               <h2 className="ws-card-title text-lg!">
                 Aún no tienes alimentos propios
               </h2>
               <p>
-                Registra las marcas, preparaciones y recetas que usas con tus
-                clientes. Puedes empezar desde cero o copiar uno del catálogo
-                base para ajustarlo.
+                Registra productos, marcas o ingredientes individuales para
+                prescribirlos directo o usarlos al armar tus recetas.
               </p>
               <div className="training-actions justify-center">
                 <button
@@ -255,44 +290,100 @@ export default function FoodLibraryPage() {
               </div>
             </section>
           ) : (
-            <FoodTable
-              rows={ownRows.map((f) => ({
-                key: f.id,
-                name: f.name,
-                group: f.group,
-                detail: [
-                  f.kind === 'recipe'
-                    ? `Receta · rinde ${f.servings} ${f.servings === 1 ? 'porción' : 'porciones'}`
-                    : '',
-                  f.mealCategories.length
+            <>
+              <p className="text-sm text-(--ws-muted)">
+                Productos o ingredientes individuales. Se prescriben directo en
+                un plan o sirven como base dentro de tus recetas.
+              </p>
+              <FoodTable
+                nameHeader="Alimento"
+                referenceHeader="Valores por"
+                emptyMessage="Ningún alimento coincide con la búsqueda o el grupo elegido."
+                rows={ownRows.map((f) => ({
+                  key: f.id,
+                  name: f.name,
+                  kind: 'food',
+                  group: f.group,
+                  detail: f.mealCategories.length
                     ? `Preferido en ${f.mealCategories.map((c) => mealLabel[c]).join(', ')}`
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' · '),
-                reference: reference(f),
-                macros: f,
-                actions: (
-                  <>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      onClick={() => start(draftFromOwn(f), f)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="ws-btn"
-                      disabled={!isOnline}
-                      onClick={() => void archive(f)}
-                    >
-                      Archivar
-                    </button>
-                  </>
-                ),
-              }))}
-            />
+                    : (f.preparation ?? ''),
+                  reference: reference(f),
+                  macros: f,
+                  actions: renderActions(f),
+                }))}
+              />
+            </>
+          )
+        ) : view === 'recipes' ? (
+          foods === null ? (
+            !error && (
+              <div className="ws-skeleton h-40" role="status" aria-busy="true">
+                <span className="sr-only">Cargando recetas…</span>
+              </div>
+            )
+          ) : ownRecipeItems.length === 0 ? (
+            <section className="ws-card ws-empty">
+              <h2 className="ws-card-title text-lg!">
+                Aún no tienes recetas registradas
+              </h2>
+              <p>
+                Crea platillos con su lista de ingredientes y pasos de
+                preparación. Al prescribir una receta, el cliente verá qué
+                necesita y cómo prepararla en su app móvil.
+              </p>
+              <div className="training-actions justify-center">
+                <button
+                  type="button"
+                  className="ws-btn"
+                  data-variant="primary"
+                  onClick={() => start(emptyDraft('recipe'))}
+                >
+                  Nueva receta
+                </button>
+              </div>
+            </section>
+          ) : (
+            <>
+              <p className="text-sm text-(--ws-muted)">
+                Platillos con ingredientes y preparación. Al prescribirlos, tu
+                cliente verá qué necesita y cómo prepararlos en su app.
+              </p>
+              <FoodTable
+                nameHeader="Receta"
+                referenceHeader="Por porción"
+                emptyMessage="Ninguna receta coincide con la búsqueda o el grupo elegido."
+                rows={recipeRows.map((f) => {
+                  const ingredientNames = (f.ingredients ?? [])
+                    .slice(0, 3)
+                    .map((ing) => ing.name)
+                    .join(', ');
+                  const ingredientCount = f.ingredients?.length ?? 0;
+                  return {
+                    key: f.id,
+                    name: f.name,
+                    kind: 'recipe',
+                    group: f.group,
+                    detail: [
+                      `Rinde ${f.servings ?? 1} ${(f.servings ?? 1) === 1 ? 'porción' : 'porciones'}`,
+                      ingredientCount
+                        ? `${ingredientCount} ${ingredientCount === 1 ? 'ingrediente' : 'ingredientes'}${ingredientNames ? ` (${ingredientNames}${ingredientCount > 3 ? '…' : ''})` : ''}`
+                        : '',
+                      f.preparation?.trim()
+                        ? 'Con preparación'
+                        : 'Sin pasos de preparación',
+                      f.mealCategories.length
+                        ? `Preferido en ${f.mealCategories.map((c) => mealLabel[c]).join(', ')}`
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · '),
+                    reference: reference(f),
+                    macros: f,
+                    actions: renderActions(f),
+                  };
+                })}
+              />
+            </>
           )
         ) : (
           <>
@@ -301,9 +392,13 @@ export default function FoodLibraryPage() {
               preparación, cópialo a tus alimentos.
             </p>
             <FoodTable
+              nameHeader="Alimento"
+              referenceHeader="Valores por"
+              emptyMessage="Ningún alimento coincide con la búsqueda o el grupo elegido."
               rows={catalogRows.map((f) => ({
                 key: f.id,
                 name: f.name,
+                kind: 'food',
                 group: f.group,
                 detail: f.preparationHint,
                 reference: reference(f),
@@ -329,6 +424,7 @@ export default function FoodLibraryPage() {
 interface TableRow {
   key: string;
   name: string;
+  kind: 'food' | 'recipe';
   group: string;
   detail: string;
   reference: string;
@@ -336,21 +432,28 @@ interface TableRow {
   actions: ReactNode;
 }
 
-function FoodTable({ rows }: { rows: TableRow[] }) {
+function FoodTable({
+  rows,
+  nameHeader,
+  referenceHeader,
+  emptyMessage,
+}: {
+  rows: TableRow[];
+  nameHeader: string;
+  referenceHeader: string;
+  emptyMessage: string;
+}) {
   if (rows.length === 0)
-    return (
-      <p className="ws-card ws-empty">
-        Ningún alimento coincide con la búsqueda o el grupo elegido.
-      </p>
-    );
+    return <p className="ws-card ws-empty">{emptyMessage}</p>;
   return (
     <div className="ws-card relative overflow-x-auto p-0!">
       <table className="text-sm">
         <thead>
           <tr className="whitespace-nowrap">
-            <th scope="col">Alimento</th>
+            <th scope="col">{nameHeader}</th>
+            <th scope="col">Tipo</th>
             <th scope="col">Grupo</th>
-            <th scope="col">Valores por</th>
+            <th scope="col">{referenceHeader}</th>
             <th scope="col" className="text-right!">
               kcal
             </th>
@@ -378,6 +481,12 @@ function FoodTable({ rows }: { rows: TableRow[] }) {
                     {r.detail}
                   </span>
                 )}
+              </td>
+              <td className="whitespace-nowrap">
+                <span className="nutrition-kind-badge" data-kind={r.kind}>
+                  {r.kind === 'recipe' && <Icon name="bowl" size={12} />}
+                  {r.kind === 'recipe' ? 'Receta' : 'Alimento'}
+                </span>
               </td>
               <td className="whitespace-nowrap text-(--ws-text-2)">
                 {r.group}

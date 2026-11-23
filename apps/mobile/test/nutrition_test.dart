@@ -80,6 +80,25 @@ Map<String, Object?> enrichedNutritionJson() => {
               'carbsG': 40.6,
               'fatG': 3.9,
             },
+            {
+              'id': '66666666-6666-4666-8666-666666666666',
+              'name': 'Hotcakes de avena y claras',
+              'quantity': 1,
+              'unit': 'porción',
+              'kind': 'recipe',
+              'instructions':
+                  '1. Licua la avena con las claras.\n2. Cocina a fuego medio 3 min por lado.',
+              'recipeIngredients': [
+                {'name': 'Avena en hojuelas', 'quantity': 40, 'unit': 'g'},
+                {'name': 'Claras de huevo', 'quantity': 100, 'unit': 'g'},
+              ],
+              'foodGroup': 'Carbohidratos',
+              'substitutes': 'Pan integral con huevo',
+              'calories': 208,
+              'proteinG': 17.8,
+              'carbsG': 27.3,
+              'fatG': 3,
+            },
           ],
         },
       ],
@@ -126,15 +145,59 @@ void main() {
     expect(legacy.hasRestDayTargets, isFalse);
     expect(legacy.hasPeriWorkout, isFalse);
     expect(legacy.meals.single.items.single.quantityLabel, '3 pza');
+    expect(legacy.meals.single.items.single.isRecipe, isFalse);
+    expect(legacy.meals.single.itemsSummaryLabel, '1 alimento');
 
     final enriched = NutritionPlan.fromJson(enrichedNutritionJson());
     expect(enriched.hasMacros, isTrue);
     expect(enriched.hasRestDayTargets, isTrue);
     expect(enriched.hasPeriWorkout, isTrue);
     expect(enriched.hydrationLabel, '2.5 L');
-    expect(enriched.meals.single.computedCalories, 392);
+    expect(enriched.meals.single.computedCalories, 600);
+    expect(enriched.meals.single.itemsSummaryLabel, '1 receta · 2 alimentos');
+    expect(enriched.meals.single.items.last.isRecipe, isTrue);
+    expect(enriched.meals.single.items.last.recipeIngredients.length, 2);
+    expect(
+        enriched.meals.single.items.last.recipeIngredients.first.quantityLabel,
+        '40 g');
     expect(enriched.meals.single.items.first.substitutes,
         'Pavo, pescado blanco o tofu firme');
+  });
+
+  testWidgets(
+      'NutritionPlanView diferencia recetas y abre hoja de ingredientes y pasos',
+      (tester) async {
+    final plan = NutritionPlan.fromJson(enrichedNutritionJson());
+    await tester.pumpWidget(host(
+      NutritionPlanView(
+        plan: plan,
+        loading: false,
+        onRetry: () {},
+      ),
+      Brightness.light,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Receta'), findsOneWidget);
+    expect(find.text('Alimento · Proteínas'), findsOneWidget);
+    expect(find.textContaining('2 ingredientes · Con preparación'),
+        findsOneWidget);
+    expect(find.text('Ver ingredientes y preparación'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Hotcakes de avena y claras'));
+    await tester.tap(find.text('Hotcakes de avena y claras'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Qué necesitas'), findsOneWidget);
+    expect(find.text('Cantidades para 1 porción'), findsOneWidget);
+    expect(find.text('40 g'), findsOneWidget);
+    expect(find.text('100 g'), findsOneWidget);
+    expect(find.text('Cómo prepararla'), findsOneWidget);
+    expect(find.textContaining('1. Licua la avena con las claras.'),
+        findsOneWidget);
+
+    await tester.tap(find.byTooltip('Cerrar'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -219,6 +282,11 @@ void main() {
           ),
           theme,
         ));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Hotcakes de avena y claras'));
+        await tester.tap(find.text('Hotcakes de avena y claras'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Cerrar'));
         await tester.pumpAndSettle();
         final error = tester.takeException();
         expect(error, isNull,
