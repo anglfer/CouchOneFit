@@ -5,6 +5,8 @@ import {
   sessionRequest,
 } from '../../auth/services/session';
 import { submitWrite } from '../../../services/offline/writes';
+import { isConnectionFailure } from '../../../services/offline/connection';
+import { fetchProfessionalRecord } from '../services/record';
 import type { ClientBaseRecord } from '../types/portfolio';
 
 export default function ClientStatusAction({
@@ -74,7 +76,13 @@ export default function ClientStatusAction({
     setError('');
     notify.current?.(true);
     try {
-      const result = await sessionRequest<{ client: ClientBaseRecord }>(url);
+      const result = await sessionRequest<{ client: ClientBaseRecord }>(
+        url
+      ).catch(async (failure: unknown) => {
+        // Sin red: la ficha guardada trae el mismo estado y versión; el servidor detecta el conflicto.
+        if (!isConnectionFailure(failure)) throw failure;
+        return { client: (await fetchProfessionalRecord(clientId)).profile };
+      });
       if (mounted.current) {
         setSnapshot(result.client);
         if (!snapshot) setDesired(status === 'active' ? 'inactive' : 'active');

@@ -225,3 +225,37 @@ Petición de la persona usuaria: probar que todo el sistema PWA funcione sin int
 - **R.** Teléfono real en modo avión (Android/Chrome e iPhone/Safari) y app instalada; dos equipos reales con la misma cuenta (aquí el segundo «equipo» fue otra pestaña del mismo perfil, que comparte la cola y por diseño bloquea la edición).
 - Quedan en `CouchOneFit_dev` la cuenta sintética `qa.pwa.*` y sus expedientes de prueba.
 - Sin commit ni publicación.
+
+## 8. Módulos restantes sin conexión (`HU-040`, 23-nov-2026)
+
+Continuación de §7 a petición de la persona usuaria: probar en el navegador los módulos que solo tenían pruebas automáticas o ninguna. Mismo método (build + `vite preview` en `5001`, API temporal en `3001`, Chrome sin ventana por CDP, red cortada en página y service worker).
+
+### Resultado (T)
+
+| Módulo | Resultado |
+| --- | --- |
+| Alimentación (EP-05) | El asistente calcula sin red con el motor local y da lo mismo que el servidor (2074 kcal, 130 g de proteína). «Guardar y activar» deja 2 cambios en cola que sobreviven a la recarga. Tras el arreglo 1: 1 plan publicado y activo en el servidor. |
+| Activar/inactivar expediente (EP-03) | Tras el arreglo 2: inactivar sin red → cola → `inactive` v2; reactivar sin red → `active` v3, sin conflicto. |
+| Plantillas de Rutinas (EP-06) | El catálogo de ejercicios carga sin red; la plantilla queda en cola, sobrevive a la recarga y llega como borrador. |
+| Administración | Base desechable `cof_e2e_pwa_admin` con admin sintético (borrada al terminar; no se ejecutó `db:seed:admin`). Inicio, Profesionales, Planes, Mi cuenta y Recuperación cargan sin red. Guardar planes, buscar en Soporte y recuperación quedan deshabilitados con «Requiere conexión». |
+
+### Defectos encontrados y corregidos
+
+1. **Un corte a mitad de envío duplicaba o daba un falso conflicto.** Visto en Alimentación al reconectar y navegar enseguida: el plan quedó en «Conflicto» aunque el servidor ya lo había creado. El middleware `Idempotency-Key` liberaba la clave cuando el cliente colgaba (`res.on('close')`), pero el handler seguía y guardaba. El reintento con la misma clave volvía a ejecutar: un expediente o una evaluación se duplicaban; un plan chocaba con «Ya existe un borrador». Entrenamiento y Seguimiento no se veían afectados: guardan la clave en la misma transacción (`mutate`).
+   - Arreglo: la clave ya no se libera al colgar el cliente. Un reclamo sin terminar sigue caducando a los 2 min.
+   - Prueba: `apps/api/tests/idempotency.test.ts` «si el cliente corta la conexión a mitad…». Reproduce el corte con un candado sobre `private.clients`; fallaba (201 sin `Idempotent-Replayed`) y ahora pasa.
+2. **Inactivar o reactivar un expediente sin red fallaba** con «No pudimos consultar el estado actual», aunque `§2.1` lo declara encolable. La acción releía `/api/clients/:id`, que nunca se guarda.
+   - Arreglo: `ClientStatusAction` toma, solo ante fallo de conexión, la ficha guardada (`/record`) con su `version`. El servidor sigue detectando conflictos.
+   - Prueba: `apps/web/tests/client-status-offline.test.mjs` (falla sin el arreglo).
+3. **El aviso de administración prometía «registrar» sin red**, pero administración es solo lectura (`§2.2`). Ahora dice «Solo puedes consultar lo que ya cargaste». En Soporte, «Buscar» queda deshabilitado y el error genérico ya no aparece sin red.
+
+### Comprobaciones
+
+- **T.** API: `npm run build` exit 0. Suite completa con `TEST_DATABASE_URL` en `127.0.0.1`: 251 de 252. El único fallo es el preexistente de `session-lifecycle.test.ts` («deactivating a professional…», §1).
+- **T.** Web: 175 de 175. `tsc -b`, `oxlint`, Prettier y `build`: limpios.
+- Sin cambios en BD, móvil, dependencias ni lockfiles.
+
+### Pendiente
+
+- **R.** Teléfonos reales, Safari/iPhone y dos equipos con la misma cuenta.
+- Quedan en `CouchOneFit_dev` la cuenta `qa.pwa.*` y sus datos de prueba (expedientes, evaluaciones, planes, plantilla).

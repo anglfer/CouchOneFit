@@ -427,10 +427,16 @@ export default function WorkspaceLayout({
               >
                 <Icon name="wifi-off" size={16} className="mt-0.5 shrink-0" />
                 <span>
-                  Sin conexión. Puedes seguir consultando y registrando
+                  {/* Sin bandeja de envíos (administración) solo se consulta: pwa-offline.md §2.2. */}
+                  Sin conexión.{' '}
+                  {pendingHref
+                    ? 'Puedes seguir consultando y registrando'
+                    : 'Solo puedes consultar lo que ya cargaste'}
                   {staleSince !== null &&
                     ` (datos guardados ${timeAgo(staleSince)})`}
-                  ; los cambios se enviarán al volver la conexión.
+                  {pendingHref
+                    ? '; los cambios se enviarán al volver la conexión.'
+                    : '.'}
                 </span>
               </p>
             )}

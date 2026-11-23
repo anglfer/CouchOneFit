@@ -197,7 +197,7 @@ Atajos conocidos de la fase 1: la búsqueda sin conexión usa la primera página
 | Pieza | Dónde |
 | ----- | ----- |
 | Migración `private.idempotency_keys` (RLS por cuenta, retención 35 días) y esquema integrado | `docs/database/migrations/202611030001_idempotency_keys.sql`, `schemas/identity_access.sql` |
-| Middleware `Idempotency-Key`: reclamo, respuesta guardada antes de contestar, 422 si se reutiliza con otro cuerpo, 409 si sigue en curso, reclamo abandonado a los 2 min, solo se conservan 2xx | `apps/api/src/features/idempotency/` |
+| Middleware `Idempotency-Key`: reclamo, respuesta guardada antes de contestar, 422 si se reutiliza con otro cuerpo, 409 si sigue en curso, reclamo abandonado a los 2 min, solo se conservan 2xx; si el cliente corta la conexión a mitad, la clave no se libera (el reintento repite la respuesta en vez de volver a escribir) | `apps/api/src/features/idempotency/` |
 | Aplicado a crear, editar y cambiar de estado un expediente (no a invitaciones, cuentas ni pagos) | `apps/api/src/features/saas/routes/clients.ts` |
 | Bandeja de salida cifrada por cuenta, con caducidad de 30 días; el `id` del cambio es su clave de idempotencia | `apps/web/src/services/offline/outbox.ts` |
 | Escritura «primero en línea»: se envía de inmediato y, si no hay conexión, queda en cola con **la misma clave** | `services/offline/writes.ts` |

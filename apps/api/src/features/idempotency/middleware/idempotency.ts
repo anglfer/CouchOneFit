@@ -74,12 +74,8 @@ export function idempotent(pool: Pool): RequestHandler {
         saving.then(finish, finish)
         return res
       }
-      res.on('close', () => {
-        if (!settled) {
-          settled = true
-          void releaseKey(pool, owner, key.toLowerCase()).catch(() => undefined)
-        }
-      })
+      // Si el cliente cuelga a mitad, el handler sigue y puede guardar: la clave no se
+      // libera aquí, o el reintento duplicaría. Un reclamo sin terminar caduca a los 2 min.
       next()
     } catch (error) {
       next(error)

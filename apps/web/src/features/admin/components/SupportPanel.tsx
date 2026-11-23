@@ -148,7 +148,12 @@ export default function SupportPanel() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Nombre o usuario"
         />
-        <button className="ws-btn" data-variant="primary" type="submit">
+        <button
+          className="ws-btn"
+          data-variant="primary"
+          type="submit"
+          disabled={!isOnline}
+        >
           Buscar
         </button>
       </form>
@@ -302,7 +307,7 @@ export default function SupportPanel() {
           )}
         </div>
       )}
-      {error && (
+      {error && isOnline && (
         <p role="alert" className="ws-alert" data-tone="bad">
           {error}
         </p>

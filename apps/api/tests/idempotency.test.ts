@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { randomBytes, randomUUID } from 'node:crypto'
+import http from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { before, after, test } from 'node:test'
 import { Pool } from 'pg'
 import request from 'supertest'
@@ -157,6 +159,58 @@ test('un fallo no consume la clave: el reintento se evalúa de nuevo', async () 
   )
   const fixed = await send('post', '/api/clients', { ...input(), heightCm: 170 }, pro, key)
   assert.equal(fixed.status, 201)
+})
+
+test('si el cliente corta la conexión a mitad, lo que se guardó conserva la clave y el reintento no duplica', async () => {
+  const pro = await professional()
+  const key = randomUUID()
+  const csrf = await request(app).get('/api/auth/csrf')
+  const server = app.listen(0)
+  const { port } = server.address() as AddressInfo
+  const saved = () =>
+    db.query(
+      'SELECT status_code FROM private.idempotency_keys WHERE owner_id=$1 AND key=$2',
+      [pro.id, key]
+    )
+  const wait = async (done: () => Promise<boolean>) => {
+    for (let i = 0; i < 100 && !(await done()); i++)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  // El candado detiene la creación después de reclamar la clave, como una red lenta.
+  const lock = await db.connect()
+  await lock.query('BEGIN')
+  await lock.query('LOCK TABLE private.clients IN EXCLUSIVE MODE')
+  const body = JSON.stringify(input('Cortado a mitad'))
+  const call = http.request({
+    port,
+    method: 'POST',
+    path: '/api/clients',
+    headers: {
+      Origin: 'http://localhost:5000',
+      Cookie: [
+        `cof_access=${pro.token}`,
+        ...(csrf.headers['set-cookie'] as string[]).map((c) => c.split(';')[0]),
+      ].join('; '),
+      'X-CSRF-Token': csrf.body.csrfToken,
+      'Idempotency-Key': key,
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+    },
+  })
+  call.on('error', () => undefined)
+  call.end(body)
+  await wait(async () => (await saved()).rowCount === 1)
+  call.destroy()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  await lock.query('COMMIT')
+  lock.release()
+  await wait(async () => (await saved()).rows[0]?.status_code === 201)
+  server.close()
+
+  const retry = await send('post', '/api/clients', input('Cortado a mitad'), pro, key)
+  assert.equal(retry.status, 201)
+  assert.equal(retry.headers['idempotent-replayed'], 'true')
+  assert.equal(await count(pro), 1)
 })
 
 test('dos profesionales con la misma clave no se mezclan', async () => {
