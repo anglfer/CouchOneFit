@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/animations/reveal_in.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/adaptive_columns.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
@@ -89,7 +90,7 @@ class ClientProfileScreen extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 96),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+              constraints: const BoxConstraints(maxWidth: 1040),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -102,115 +103,118 @@ class ClientProfileScreen extends StatelessWidget {
                         text: errorMessage!,
                         tone: NoticeTone.error,
                         margin: const EdgeInsets.only(bottom: 16)),
-                  RevealIn(child: ClientProfileCard(profile: profile)),
-                  Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 24, 2, 10),
-                      child: SectionTitle('Mi expediente',
-                          trailing: Semantics(
-                              label:
-                                  'Expediente ${profile.status == 'active' ? 'activo' : 'inactivo'}',
-                              excludeSemantics: true,
-                              child: TonePill(
-                                  profile.status == 'active'
-                                      ? 'Activo'
-                                      : 'Inactivo',
-                                  tone: profile.status == 'active'
-                                      ? BrandColors.success
-                                      : colors.onSurfaceVariant)))),
-                  ClientBaseMeasurements(
-                      profile: profile,
-                      onRefresh: onRefresh,
-                      isRefreshing: isRefreshing,
-                      onOpenProgress: onOpenProgress),
-                  if (settings != null) ...[
-                    label('Preferencias'),
-                    ValueListenableBuilder<AppSettings>(
-                        valueListenable: settings!,
-                        builder: (context, s, _) => group([
-                              tile(
-                                  themeLabels[s.themeMode]!.$2,
-                                  colors.secondary,
-                                  'Apariencia',
-                                  themeLabels[s.themeMode]!.$1,
-                                  () => _pickTheme(context, s)),
-                              tile(
-                                  Icons.timer_outlined,
-                                  BrandColors.success,
-                                  'Entrenamiento',
-                                  trainingSettingsSummary(s),
-                                  () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                          builder: (_) => DetailScaffold(
-                                                  title: const Text(
-                                                      'Entrenamiento'),
-                                                  children: [
-                                                    SettingsPanel(
-                                                        controller: settings!)
-                                                  ])))),
-                              tile(
-                                  Icons.notifications_outlined,
-                                  colors.primary,
-                                  'Notificaciones',
-                                  notificationSettingsSummary(s),
-                                  () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                          builder: (_) => DetailScaffold(
-                                                  title: const Text(
-                                                      'Notificaciones'),
-                                                  children: [
-                                                    NotificationSettingsPanel(
-                                                      controller: settings!,
-                                                      notificationService:
-                                                          notificationService,
-                                                    )
-                                                  ])))),
-                            ])),
-                  ],
-                  label('Cuenta y seguridad'),
-                  group([
-                    tile(
-                        Icons.lock_outline_rounded,
-                        colors.secondary,
-                        'Cambiar mis credenciales',
-                        'Usuario y contraseña con los que entras',
-                        onCredentials),
-                  ]),
-                  label('Acerca de'),
-                  group([
-                    tile(
-                        Icons.handshake_outlined,
-                        BrandColors.warning,
-                        'Tu profesional',
-                        'Diseña y ajusta tu rutina; tú registras lo que haces.',
-                        null),
-                    tile(
-                        Icons.dataset_outlined,
-                        colors.onSurfaceVariant,
-                        'Animaciones de ejercicios',
-                        '© Gym visual · gymvisual.com',
-                        null),
-                    tile(
-                        Icons.privacy_tip_outlined,
-                        colors.secondary,
-                        'Privacidad y condiciones',
-                        'Versión $registrationNoticeVersion · Aviso informativo',
-                        () => showPrivacyNoticeSheet(context)),
-                  ]),
-                  const SizedBox(height: 16),
-                  group([
-                    ListTile(
-                        key: const ValueKey('logout_button'),
-                        enabled: !isRefreshing,
-                        onTap: onLogout,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        leading:
-                            IconBadge(Icons.logout_rounded, tint: colors.error),
-                        title: Text('Cerrar sesión',
-                            style: TextStyle(
-                                color: statusInk(context, colors.error)))),
+                  AdaptiveColumns(spacing: 0, primary: [
+                    RevealIn(child: ClientProfileCard(profile: profile)),
+                    Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 24, 2, 10),
+                        child: SectionTitle('Mi expediente',
+                            trailing: Semantics(
+                                label:
+                                    'Expediente ${profile.status == 'active' ? 'activo' : 'inactivo'}',
+                                excludeSemantics: true,
+                                child: TonePill(
+                                    profile.status == 'active'
+                                        ? 'Activo'
+                                        : 'Inactivo',
+                                    tone: profile.status == 'active'
+                                        ? BrandColors.success
+                                        : colors.onSurfaceVariant)))),
+                    ClientBaseMeasurements(
+                        profile: profile,
+                        onRefresh: onRefresh,
+                        isRefreshing: isRefreshing,
+                        onOpenProgress: onOpenProgress),
+                  ], secondary: [
+                    if (settings != null) ...[
+                      label('Preferencias'),
+                      ValueListenableBuilder<AppSettings>(
+                          valueListenable: settings!,
+                          builder: (context, s, _) => group([
+                                tile(
+                                    themeLabels[s.themeMode]!.$2,
+                                    colors.secondary,
+                                    'Apariencia',
+                                    themeLabels[s.themeMode]!.$1,
+                                    () => _pickTheme(context, s)),
+                                tile(
+                                    Icons.timer_outlined,
+                                    BrandColors.success,
+                                    'Entrenamiento',
+                                    trainingSettingsSummary(s),
+                                    () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                            builder: (_) => DetailScaffold(
+                                                    title: const Text(
+                                                        'Entrenamiento'),
+                                                    children: [
+                                                      SettingsPanel(
+                                                          controller: settings!)
+                                                    ])))),
+                                tile(
+                                    Icons.notifications_outlined,
+                                    colors.primary,
+                                    'Notificaciones',
+                                    notificationSettingsSummary(s),
+                                    () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                            builder: (_) => DetailScaffold(
+                                                    title: const Text(
+                                                        'Notificaciones'),
+                                                    children: [
+                                                      NotificationSettingsPanel(
+                                                        controller: settings!,
+                                                        notificationService:
+                                                            notificationService,
+                                                      )
+                                                    ])))),
+                              ])),
+                    ],
+                    label('Cuenta y seguridad'),
+                    group([
+                      tile(
+                          Icons.lock_outline_rounded,
+                          colors.secondary,
+                          'Cambiar mis credenciales',
+                          'Usuario y contraseña con los que entras',
+                          onCredentials),
+                    ]),
+                    label('Acerca de'),
+                    group([
+                      tile(
+                          Icons.handshake_outlined,
+                          BrandColors.warning,
+                          'Tu profesional',
+                          'Diseña y ajusta tu rutina; tú registras lo que haces.',
+                          null),
+                      tile(
+                          Icons.dataset_outlined,
+                          colors.onSurfaceVariant,
+                          'Animaciones de ejercicios',
+                          '© Gym visual · gymvisual.com',
+                          null),
+                      tile(
+                          Icons.privacy_tip_outlined,
+                          colors.secondary,
+                          'Privacidad y condiciones',
+                          'Versión $registrationNoticeVersion · Aviso informativo',
+                          () => showPrivacyNoticeSheet(context)),
+                    ]),
+                    const SizedBox(height: 16),
+                    group([
+                      ListTile(
+                          key: const ValueKey('logout_button'),
+                          enabled: !isRefreshing,
+                          onTap: onLogout,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          leading: IconBadge(Icons.logout_rounded,
+                              tint: colors.error),
+                          title: Text('Cerrar sesión',
+                              style: TextStyle(
+                                  color: statusInk(context, colors.error)))),
+                    ]),
                   ]),
                 ],
               ),

@@ -402,14 +402,6 @@ ThemeData mobileTheme(Brightness brightness) {
             borderRadius: BorderRadius.circular(8)),
         textStyle:
             font.copyWith(color: dark ? text : Colors.white, fontSize: 12)),
-    navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: navigation,
-        indicatorColor: selected,
-        selectedIconTheme: IconThemeData(color: navigationActive),
-        unselectedIconTheme: IconThemeData(color: navigationInactive),
-        selectedLabelTextStyle:
-            font.copyWith(color: navigationActive, fontWeight: FontWeight.w800),
-        unselectedLabelTextStyle: font.copyWith(color: textSecondary)),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: navigation,
       surfaceTintColor: Colors.transparent,

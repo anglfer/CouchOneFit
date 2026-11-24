@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/adaptive_columns.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
@@ -51,20 +52,22 @@ class _HomeTabState extends State<HomeTab> {
         ? const <GroupRecovery>[]
         : recovery(history!, data.today);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (plan != null) ...[
-        _weekCard(context, plan),
-        if (widget.dailySlot != null) ...[
-          const SizedBox(height: 14),
-          widget.dailySlot!,
-        ],
-        const SizedBox(height: 14),
-        _weekStats(context, plan),
-        ..._missed(context, plan),
-        if (recoveries.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _recoveryCard(context, recoveries),
-        ],
-      ] else ...[
+      if (plan != null)
+        AdaptiveColumns(primary: [
+          _weekCard(context, plan)
+        ], secondary: [
+          if (widget.dailySlot != null) ...[
+            widget.dailySlot!,
+            const SizedBox(height: 14),
+          ],
+          _weekStats(context, plan),
+          ..._missed(context, plan),
+          if (recoveries.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _recoveryCard(context, recoveries),
+          ],
+        ])
+      else ...[
         const StatusView(
             icon: Icons.event_note_outlined,
             title: 'Todavía no tienes una rutina asignada',

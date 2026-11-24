@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/adaptive_columns.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
@@ -91,36 +92,39 @@ class _ProgressTabState extends State<ProgressTab> {
         (_ProgressSection.lifts, 'Ejercicios'),
       ], selected: _section, onChanged: (v) => setState(() => _section = v)),
       const SizedBox(height: 14),
-      if (showOverview) ...[
-        StatPanel(
-            lead: StatTile(
-                icon: Icons.emoji_events_outlined,
-                label: 'Levantado en total',
-                large: true,
-                value: '${trainingThousands(stats.volume)} kg'),
-            tiles: [
-              StatTile(
-                  icon: Icons.fitness_center,
-                  label: 'Entrenamientos',
-                  value: '${stats.total}'),
-              StatTile(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Este mes',
-                  value: '${stats.thisMonth}'),
-              StatTile(
-                  icon: Icons.local_fire_department_outlined,
-                  label: 'Racha semanal',
-                  value: trainingCount(stats.weekStreak, 'semana', 'semanas'),
-                  highlight: stats.weekStreak > 1),
-              StatTile(
-                  icon: Icons.repeat,
-                  label: 'Series hechas',
-                  value: trainingThousands(
-                      h.sessions.fold(0, (t, s) => t + sessionPerformed(s)))),
-            ]),
-        const SizedBox(height: 12),
-        _activity(context, h),
-      ],
+      if (showOverview)
+        AdaptiveColumns(spacing: 12, primary: [
+          StatPanel(
+              lead: StatTile(
+                  icon: Icons.emoji_events_outlined,
+                  label: 'Levantado en total',
+                  large: true,
+                  value: '${trainingThousands(stats.volume)} kg'),
+              tiles: [
+                StatTile(
+                    icon: Icons.fitness_center,
+                    label: 'Entrenamientos',
+                    value: '${stats.total}'),
+                StatTile(
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Este mes',
+                    value: '${stats.thisMonth}'),
+                StatTile(
+                    icon: Icons.local_fire_department_outlined,
+                    label: 'Racha semanal',
+                    value: trainingCount(stats.weekStreak, 'semana', 'semanas'),
+                    highlight: stats.weekStreak > 1),
+                StatTile(
+                    icon: Icons.repeat,
+                    label: 'Series hechas',
+                    value: trainingThousands(
+                        h.sessions.fold(0, (t, s) => t + sessionPerformed(s)))),
+              ]),
+          const SizedBox(height: 12),
+          _activity(context, h),
+        ], secondary: [
+          _analysisCard(context, h, exercises)
+        ]),
       if (_section == _ProgressSection.body) ...[
         widget.overviewFooter ??
             const NoticeBanner(
@@ -128,10 +132,8 @@ class _ProgressTabState extends State<ProgressTab> {
                 text:
                     'Tu seguimiento corporal y evaluaciones compartidas aparecerán aquí.'),
       ],
-      if (showOverview || _section == _ProgressSection.muscles) ...[
-        if (showOverview) const SizedBox(height: 12),
+      if (_section == _ProgressSection.muscles)
         _analysisCard(context, h, exercises),
-      ],
       if (exercises.isNotEmpty &&
           (showOverview || _section == _ProgressSection.lifts)) ...[
         SizedBox(height: showOverview ? 24 : 4),

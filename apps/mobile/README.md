@@ -23,6 +23,20 @@ La preferencia de movimiento reducido del teléfono desactiva entradas, el traza
 de las tarjetas y rebotes. Las pruebas cubren anchos de 320, 390 y 768 unidades,
 texto ampliado, ambos temas, presión/cancelación y actualización por gesto.
 
+**Tablets y ventanas grandes (24-nov-2026):** el diseño depende del ancho
+disponible, no del tipo de dispositivo ni de la orientación. La barra inferior
+del teléfono (Inicio · Planes · Entrenar · Progreso · Cuenta) se conserva en
+cualquier tamaño, centrada y con máximo 560 unidades; ya no existe riel lateral.
+Inicio, Planes, Progreso y Cuenta usan hasta 1040 unidades (antes 560). Con al menos 820 unidades útiles,
+`AdaptiveColumns` (`lib/shared/widgets/`) divide Inicio, el resumen de Progreso
+y Cuenta en dos columnas; con menos espacio apila el contenido en el mismo orden
+y con el mismo espaciado que en el teléfono. Las pantallas de detalle,
+el check-in y la sesión activa conservan su columna de lectura de 520–560
+unidades centrada. En la tablet de presentación (11", ~800×1280 unidades) la
+vista vertical es la del teléfono a lo ancho y la horizontal usa dos columnas.
+La prueba de regresión está en `test/training_test.dart` (390×844, 800×1280 y
+1280×800).
+
 ## Arquitectura
 
 Sigue una arquitectura modular por funcionalidad (_Feature-Based + Component-Based_) según la especificación oficial en `docs/architecture/README.md`.

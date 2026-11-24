@@ -28,6 +28,9 @@ import 'progress_tab.dart';
 import 'training_views.dart';
 import 'training_session_screen.dart';
 
+/// On tablets the bottom bar keeps phone spacing, centered under the content.
+const _barMaxWidth = 560.0;
+
 class ClientShell extends StatefulWidget {
   const ClientShell(
       {super.key,
@@ -394,9 +397,10 @@ class _ClientShellState extends State<ClientShell> {
   }
 
   /// "Now playing" strip for the minimized workout, clear of the center button.
-  Widget _activeBar(bool wide) {
-    return Padding(
-        padding: EdgeInsets.fromLTRB(12, 8, 12, wide ? 8 : 34),
+  Widget _activeBar() {
+    return Container(
+        constraints: const BoxConstraints(maxWidth: _barMaxWidth),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 34),
         child: JourneySurface(
             radius: 18,
             child: Material(
@@ -533,7 +537,6 @@ class _ClientShellState extends State<ClientShell> {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 768;
     const items = [
       (Icons.home_outlined, Icons.home, 'Inicio'),
       (Icons.calendar_month_outlined, Icons.calendar_month, 'Planes'),
@@ -544,68 +547,45 @@ class _ClientShellState extends State<ClientShell> {
     final open = session != null && !_minimized;
     final bar = session != null && _minimized;
     final shell = Scaffold(
-        floatingActionButton: wide ? null : _trainButton(),
+        // Same bottom bar on phones and tablets in any orientation.
+        floatingActionButton: _trainButton(),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         body: DecoratedBox(
             decoration: brandGlow(context),
             child: SafeArea(
-                bottom: wide,
-                child: Row(children: [
-                  if (wide)
-                    NavigationRail(
-                        labelType: NavigationRailLabelType.all,
-                        selectedIndex: _selected,
-                        leading: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: FloatingActionButton(
-                                tooltip: 'Entrenar',
-                                elevation: 0,
-                                onPressed: _opening ? null : _start,
-                                child: const Icon(Icons.play_arrow_rounded))),
-                        onDestinationSelected: (index) =>
-                            setState(() => _selected = index),
-                        destinations: [
-                          for (final (icon, selected, label) in items)
-                            NavigationRailDestination(
-                                icon: Icon(icon),
-                                selectedIcon: Icon(selected),
-                                label: Text(label))
-                        ]),
+                bottom: false,
+                child: Column(children: [
                   Expanded(
-                      child: Column(children: [
-                    Expanded(
-                        child: _selected == 3
-                            ? (widget.accountBuilder?.call(
-                                    () => setState(() => _selected = 2)) ??
-                                widget.account)
-                            : RefreshIndicator(
-                                onRefresh: _load,
-                                child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                  final gutter =
-                                      constraints.maxWidth < 360 ? 16.0 : 20.0;
-                                  // Each tab keeps its own scroll; switching
-                                  // starts at the top instead of mid-page.
-                                  return ListView(
-                                      key: PageStorageKey(
-                                          'client-tab-$_selected'),
-                                      padding: EdgeInsets.fromLTRB(
-                                          gutter, 16, gutter, 116),
-                                      physics:
-                                          const AlwaysScrollableScrollPhysics(),
-                                      children: [
-                                        Center(
-                                            child: ConstrainedBox(
-                                                constraints:
-                                                    const BoxConstraints(
-                                                        maxWidth: 560),
-                                                child: _content()))
-                                      ]);
-                                }))),
-                    if (bar) _activeBar(wide),
-                  ])),
+                      child: _selected == 3
+                          ? (widget.accountBuilder
+                                  ?.call(() => setState(() => _selected = 2)) ??
+                              widget.account)
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                final gutter =
+                                    constraints.maxWidth < 360 ? 16.0 : 20.0;
+                                // Each tab keeps its own scroll; switching
+                                // starts at the top instead of mid-page.
+                                return ListView(
+                                    key:
+                                        PageStorageKey('client-tab-$_selected'),
+                                    padding: EdgeInsets.fromLTRB(
+                                        gutter, 16, gutter, 116),
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    children: [
+                                      Center(
+                                          child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                  maxWidth: 1040),
+                                              child: _content()))
+                                    ]);
+                              }))),
+                  if (bar) _activeBar(),
                 ]))),
-        bottomNavigationBar: wide ? null : _bottomBar(items));
+        bottomNavigationBar: _bottomBar(items));
     // Back minimizes the open workout instead of closing it.
     return PopScope(
         canPop: !open,
@@ -756,25 +736,31 @@ class _ClientShellState extends State<ClientShell> {
                         color: Theme.of(context).colorScheme.outlineVariant))),
             child: SafeArea(
                 top: false,
-                child:
-                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  item(0),
-                  item(1),
-                  // Announced by the button above it.
-                  Expanded(
-                      child: ExcludeSemantics(
-                          child: InkWell(
-                              onTap: _opening ? null : _start,
-                              child: Padding(
-                                  padding:
-                                      const EdgeInsets.only(top: 37, bottom: 8),
-                                  child: Center(
-                                      heightFactor: 1,
-                                      child: label(
-                                          'Entrenar', tone(true), true)))))),
-                  item(2),
-                  item(3),
-                ]))));
+                child: Center(
+                    heightFactor: 1,
+                    child: ConstrainedBox(
+                        constraints:
+                            const BoxConstraints(maxWidth: _barMaxWidth),
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              item(0),
+                              item(1),
+                              // Announced by the button above it.
+                              Expanded(
+                                  child: ExcludeSemantics(
+                                      child: InkWell(
+                                          onTap: _opening ? null : _start,
+                                          child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 37, bottom: 8),
+                                              child: Center(
+                                                  heightFactor: 1,
+                                                  child: label('Entrenar',
+                                                      tone(true), true)))))),
+                              item(2),
+                              item(3),
+                            ]))))));
   }
 
   String _initials() {

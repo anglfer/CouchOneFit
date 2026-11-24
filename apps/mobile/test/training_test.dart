@@ -325,6 +325,46 @@ void main() {
     expect(find.text('Fuerza y equilibrio'), findsOneWidget);
     handle.dispose();
   });
+  // Phone, then an 11" tablet in portrait and landscape.
+  for (final size in [
+    const Size(390, 844),
+    const Size(800, 1280),
+    const Size(1280, 800)
+  ]) {
+    testWidgets('bottom bar always; two columns only with room at $size',
+        (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(host(
+          ClientShell(
+              profile: profile,
+              service: TrainingService(apiClient: api(routed(fixture))),
+              account: const Text('Expediente existente')),
+          Brightness.light));
+      await tester.pumpAndSettle();
+      final wide = size.width >= 1000;
+      // Left column holds the workout; the right one starts at the top.
+      void sideBySide(String left, String right) {
+        final a = tester.getRect(find.text(left)),
+            b = tester.getRect(find.text(right));
+        expect(b.left > a.right && b.top < a.top, wide,
+            reason: '$left | $right');
+      }
+
+      sideBySide('Empezar entrenamiento', 'Check-in de hoy');
+      expect(find.byType(NavigationRail), findsNothing);
+      final inicio = tester.getRect(find.text('Inicio'));
+      expect(inicio.bottom, greaterThan(size.height - 40));
+      // The bar keeps phone spacing: centered and at most 560 wide.
+      expect(inicio.left, greaterThanOrEqualTo((size.width - 560) / 2));
+      expect(tester.getCenter(find.text('Entrenar')).dx, size.width / 2);
+      await tester.tap(find.text('Progreso'));
+      await tester.pumpAndSettle();
+      sideBySide('Actividad · últimos 4 meses', 'Balance');
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final width in [320.0, 390.0, 768.0]) {
     for (final theme in Brightness.values) {
       testWidgets('navigation and plans at $width $theme enlarged text',
@@ -347,9 +387,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.text('Hola, Sofía'), findsOneWidget);
-        expect(
-            find.byType(NavigationRail), findsNWidgets(width >= 768 ? 1 : 0));
-        if (width < 768) expect(find.text('Entrenar'), findsOneWidget);
+        // Tablets keep the phone's bottom bar, never a side rail.
+        expect(find.byType(NavigationRail), findsNothing);
+        expect(find.text('Entrenar'), findsOneWidget);
         expect(find.text('Empezar entrenamiento'), findsOneWidget);
         expect(find.text('Recuperación muscular'), findsOneWidget);
         expect(find.text('Check-in de hoy'), findsOneWidget);
