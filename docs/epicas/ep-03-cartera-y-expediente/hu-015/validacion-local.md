@@ -79,4 +79,10 @@ El recorrido humano está descrito en [prueba-web-manual.md](prueba-web-manual.m
 - **E** Tope de 120 años en `validateClientBaseFields`, en el editor Web, en `min`/`max` del selector del alta y en `private.validate_client_birth_date()` (`202611240001_client_maximum_age.sql`, instantánea actualizada). Solo aplica al crear o al cambiar la fecha: una fila anterior con fecha más antigua sigue siendo editable.
 - **T** Prueba SQL nueva en `saas.test.ts` (rechazo al insertar, límite exacto aceptado, fila antigua editable y cambio de fecha rechazado); `migrations.test.ts` espera 35 migraciones. API completa 256/256.
 - **T** Navegador: alta con 1850 y cambio a 1851 devuelven el error en el campo `birthDate`; editar el nombre del expediente antiguo de 1850 responde 200; el selector va de hoy −120 a hoy −16 años.
-- Pendiente: aplicar la migración en `CouchOneFit_dev` y en Supabase (custodio).
+- Sigue pendiente la aplicación en `CouchOneFit_dev`.
+
+### Aplicación en Supabase — 24-nov-2026
+
+- **T** Las 34 migraciones anteriores coincidieron con el repositorio. El conector aplicó `202611240001_client_maximum_age.sql` a producción de CouchOneFit a las 09:38 (Ciudad de México). Registró el SHA-256 `1dd7141990c918078b701acad75788ff58ba2b29167d4eec2e008aabafad3a04` en `migrations.history` en la misma transacción que el cambio de la función. Supabase registró la versión `20261124153829`.
+- **T** Se respaldó la definición anterior de `private.validate_client_birth_date()` y se verificó su restauración con una tabla temporal de `CouchOneFit_test`. La prueba aceptó los límites de 16 y 120 años, rechazó fechas fuera de rango y permitió editar un expediente anterior conservando su fecha.
+- **T** Después de aplicar la migración, PostgreSQL confirmó las 35 entradas del historial del repositorio y el trigger activo con la definición esperada. La API publicada respondió `200` en `/api/health` y `/api/plans`.
