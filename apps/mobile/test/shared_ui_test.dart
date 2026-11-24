@@ -2,6 +2,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:couchonefit_mobile/features/training/screens/training_views.dart';
 import 'package:couchonefit_mobile/shared/theme/app_theme.dart';
+import 'package:couchonefit_mobile/shared/widgets/detail_scaffold.dart';
 import 'package:couchonefit_mobile/shared/widgets/gradient_widgets.dart';
 import 'package:couchonefit_mobile/shared/widgets/notice_banner.dart';
 import 'package:couchonefit_mobile/shared/widgets/sheet_parts.dart';
@@ -174,5 +175,76 @@ void main() {
         label: 'Empezar', inverse: true, onPressed: null)));
     await tester.pumpAndSettle();
     expect(fill(), const Color(0x33FFFFFF));
+  });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('ChoiceBar(subtle: true) preserves semantics in $brightness',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      final picked = <String>[];
+      await tester.pumpWidget(MaterialApp(
+          theme: mobileTheme(brightness),
+          home: Scaffold(
+              body: SizedBox(
+                  width: 360,
+                  child: ChoiceBar<String>(
+                      subtle: true,
+                      options: const [('a', 'Series'), ('b', 'Volumen')],
+                      selected: 'a',
+                      onChanged: picked.add)))));
+      await tester.tap(find.text('Volumen'));
+      expect(picked, ['b']);
+      final data = tester
+          .getSemantics(find.bySemanticsLabel('Series'))
+          .getSemanticsData();
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.flagsCollection.isSelected, Tristate.isTrue);
+      handle.dispose();
+    });
+  }
+
+  testWidgets('StatTile(progress:) renders progress bar at 320px and 1.8x text',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.8;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    await tester.pumpWidget(host(const StatPanel(tiles: [
+      StatTile(
+          icon: Icons.event_available_outlined,
+          label: 'Esta semana',
+          value: '3 de 5',
+          progress: 0.6),
+      StatTile(
+          icon: Icons.local_fire_department_outlined,
+          label: 'Racha semanal',
+          value: '2 semanas'),
+    ])));
+    await tester.pumpAndSettle();
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('DetailScaffold updates app bar divider cleanly on scroll',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        theme: mobileTheme(Brightness.light),
+        home: DetailScaffold(title: const Text('Detalle'), children: [
+          for (var i = 0; i < 30; i++)
+            Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text('Elemento $i')),
+        ])));
+    expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+        0);
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+        1);
+    expect(tester.takeException(), isNull);
   });
 }

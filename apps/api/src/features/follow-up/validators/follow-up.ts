@@ -13,9 +13,17 @@ export function object(value: unknown, keys: string[]): Record<string, unknown> 
   return record;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function uuid(value: unknown): string {
-  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))
-    return invalid('Identificador inválido.');
+  if (typeof value !== 'string' || !UUID.test(value)) return invalid('Identificador inválido.');
+  return value.toLowerCase();
+}
+
+// The header is a client-integration error, not a bad record identifier.
+export function idempotencyKey(value: unknown): string {
+  if (typeof value !== 'string' || !UUID.test(value))
+    return invalid('Falta la clave de idempotencia (Idempotency-Key) o no es válida.');
   return value.toLowerCase();
 }
 
@@ -63,7 +71,7 @@ export function checkIn(body: unknown): { id: string; localDate: string; revisio
   if (text && text.length > 500) return invalid('El comentario admite hasta 500 caracteres.');
   const values: CheckInValues = {
     bodyWeightKg: optional(input.bodyWeightKg, 30, 300, 0.1, 'El peso corporal (kg)'),
-    sleepHours: optional(input.sleepHours, 0, 24, 0.5, 'Las horas de sueño'),
+    sleepHours: optional(input.sleepHours, 0, 24, 0.5, 'El sueño (horas)'),
     stress: optional(input.stress, 1, 5, 1, 'El estrés'),
     energy: optional(input.energy, 1, 5, 1, 'La energía'),
     hunger: optional(input.hunger, 1, 5, 1, 'El hambre'),

@@ -89,55 +89,76 @@ class _HomeTabState extends State<HomeTab> {
     };
     final awayFromToday = _week != 0 || selected != data.today;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        IconButton(
-            tooltip: 'Semana anterior',
-            onPressed: _week <= -12 ? null : () => setState(() => _week--),
-            icon: const Icon(Icons.chevron_left)),
-        Expanded(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: colors.onSurface)),
-          if (awayFromToday)
-            TextButton(
-                style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 32),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(
-                        fontSize: 12.5, fontWeight: FontWeight.w700)),
-                onPressed: () => setState(() {
-                      _week = 0;
-                      _selected = data.today;
-                    }),
-                child: const Text('Volver a hoy')),
-        ])),
-        IconButton(
-            tooltip: 'Semana siguiente',
-            onPressed: _week >= 4 ? null : () => setState(() => _week++),
-            icon: const Icon(Icons.chevron_right)),
-      ]),
-      const SizedBox(height: 4),
-      Row(children: [
-        for (var i = 0; i < 7; i++)
-          Expanded(
-              child:
-                  _weekCell(context, plan, shiftDate(monday, i), i, selected)),
-      ]),
+      Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(children: [
+                      IconButton(
+                          tooltip: 'Semana anterior',
+                          onPressed: _week <= -12
+                              ? null
+                              : () => setState(() => _week--),
+                          icon: const Icon(Icons.chevron_left)),
+                      Expanded(
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text(title,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: colors.onSurface)),
+                        if (awayFromToday)
+                          TextButton(
+                              style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 32),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700)),
+                              onPressed: () => setState(() {
+                                    _week = 0;
+                                    _selected = data.today;
+                                  }),
+                              child: const Text('Volver a hoy')),
+                      ])),
+                      IconButton(
+                          tooltip: 'Semana siguiente',
+                          onPressed:
+                              _week >= 4 ? null : () => setState(() => _week++),
+                          icon: const Icon(Icons.chevron_right)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      for (var i = 0; i < 7; i++)
+                        Expanded(
+                            child: _weekCell(context, plan,
+                                shiftDate(monday, i), i, selected)),
+                    ]),
+                    if (plan.days.where((d) => d.kind == 'training').length >
+                        1) ...[
+                      const SizedBox(height: 8),
+                      Divider(height: 1, color: colors.outlineVariant),
+                      const SizedBox(height: 4),
+                      Center(
+                          child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact),
+                              onPressed: () => _pickPlanDay(context, plan),
+                              icon: const Icon(Icons.swap_horiz_rounded,
+                                  size: 18),
+                              label: const Text('Ver otro día de tu rutina'))),
+                    ],
+                  ]))),
       const SizedBox(height: 14),
       _dayPanel(context, plan, selected),
-      if (plan.days.where((d) => d.kind == 'training').length > 1) ...[
-        const SizedBox(height: 6),
-        Center(
-            child: TextButton.icon(
-                onPressed: () => _pickPlanDay(context, plan),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: const Text('Ver otro día de tu rutina'))),
-      ],
     ]);
   }
 
@@ -221,7 +242,12 @@ class _HomeTabState extends State<HomeTab> {
                             curve: Curves.easeOutCubic,
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                                color: chosen ? actionFill(context) : null,
+                                color: chosen
+                                    ? actionFill(context)
+                                    : day?.kind == 'training'
+                                        ? colors.surfaceContainerHighest
+                                            .withValues(alpha: 0.65)
+                                        : null,
                                 borderRadius: BorderRadius.circular(14),
                                 border: current && !chosen
                                     ? Border.all(
@@ -303,11 +329,16 @@ class _HomeTabState extends State<HomeTab> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                      Text(
-                          '$label · ${day?.kind == 'rest' ? 'Día de descanso' : 'Sin entrenamiento'}',
-                          style: const TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
+                      Row(children: [
+                        Expanded(
+                            child: Text(
+                                '$label · ${day?.kind == 'rest' ? 'Día de descanso' : 'Sin entrenamiento'}',
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800))),
+                        if (day?.kind == 'rest') const TonePill('Descanso'),
+                      ]),
+                      const SizedBox(height: 3),
                       Text(
                           day?.kind == 'rest'
                               ? 'Recuperar también es parte del plan.'
@@ -317,7 +348,22 @@ class _HomeTabState extends State<HomeTab> {
                     ])),
               ])));
     }
-    const soft = Color(0xE6FFFFFF);
+    Widget heroChip(IconData icon, String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+            color: const Color(0x22FFFFFF),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0x28FFFFFF))),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 13.5, color: const Color(0xE6FFFFFF)),
+          const SizedBox(width: 5),
+          Flexible(
+              child: Text(text,
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white))),
+        ]));
     return JourneySurface(
         child: Padding(
             padding: const EdgeInsets.all(20),
@@ -336,9 +382,26 @@ class _HomeTabState extends State<HomeTab> {
                                 fontSize: 12.5, fontWeight: FontWeight.w700))),
                     const Spacer(),
                     if (session?.status == 'finalized')
-                      const Icon(Icons.check_circle,
-                          color: BrandColors.success,
-                          semanticLabel: 'Registrado'),
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0x281FCC92),
+                              borderRadius: BorderRadius.circular(99),
+                              border:
+                                  Border.all(color: const Color(0x551FCC92))),
+                          child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle,
+                                    size: 14, color: BrandColors.success),
+                                SizedBox(width: 5),
+                                Text('Registrado',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white)),
+                              ])),
                   ]),
                   const SizedBox(height: 14),
                   Text(day!.name,
@@ -347,19 +410,18 @@ class _HomeTabState extends State<HomeTab> {
                           height: 1.1,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.6)),
-                  const SizedBox(height: 6),
-                  Text(
-                      '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}',
-                      style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: soft)),
-                  if (groups.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(groups.take(4).join(' · '),
-                        style: const TextStyle(
-                            fontSize: 13.5, height: 1.35, color: soft)),
-                  ],
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    heroChip(
+                        Icons.fitness_center_rounded,
+                        trainingCount(
+                            day.exercises.length, 'ejercicio', 'ejercicios')),
+                    heroChip(Icons.repeat_rounded,
+                        trainingCount(day.setCount, 'serie', 'series')),
+                    if (groups.isNotEmpty)
+                      heroChip(Icons.accessibility_new_rounded,
+                          groups.take(3).join(' · ')),
+                  ]),
                   const SizedBox(height: 18),
                   if (loggable)
                     GradientActionButton(
@@ -418,6 +480,9 @@ class _HomeTabState extends State<HomeTab> {
               : done > planned
                   ? trainingCount(done, 'entreno', 'entrenos')
                   : '$done de $planned',
+          progress: done != null && planned > 0
+              ? (done / planned).clamp(0.0, 1.0)
+              : null,
           highlight: done != null && planned > 0 && done >= planned),
       StatTile(
           icon: Icons.local_fire_department_outlined,
@@ -429,13 +494,19 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _recoveryCard(BuildContext context, List<GroupRecovery> items) {
+    final colors = Theme.of(context).colorScheme;
     final average =
         (items.fold<double>(0, (sum, r) => sum + r.ratio) / items.length * 100)
             .round();
+    final avgTone = average >= 90
+        ? BrandColors.success
+        : average >= 50
+            ? BrandColors.warning
+            : BrandColors.highlight;
     return Card(
         margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-            borderRadius: BorderRadius.circular(18),
             onTap: widget.onOpenProgress,
             child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
@@ -448,13 +519,36 @@ class _HomeTabState extends State<HomeTab> {
                           action: 'Ver progreso',
                           onAction: widget.onOpenProgress),
                       const SizedBox(height: 10),
-                      Wrap(spacing: 8, runSpacing: 6, children: [
-                        TonePill('General · $average %',
-                            tone: average >= 90
-                                ? BrandColors.success
+                      Row(children: [
+                        Expanded(
+                            child: Text('General · $average %',
+                                style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w800,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures()
+                                    ]))),
+                        Text(
+                            average >= 90
+                                ? 'Óptima'
                                 : average >= 50
-                                    ? BrandColors.warning
-                                    : BrandColors.highlight),
+                                    ? 'En curso'
+                                    : 'Cargada',
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: statusInk(context, avgTone))),
+                      ]),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                              minHeight: 6,
+                              value: (average / 100).clamp(0.0, 1.0),
+                              color: avgTone,
+                              backgroundColor: colors.surfaceContainerHighest)),
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
                         for (final r in items.take(3))
                           TonePill('${r.group} · ${(r.ratio * 100).round()} %',
                               tone: r.ratio >= 1

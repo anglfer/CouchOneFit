@@ -24,18 +24,29 @@ class StatusView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final content = ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (loading)
             SizedBox.square(
-                dimension: 72,
-                child: Stack(fit: StackFit.expand, children: [
-                  const CircularProgressIndicator(
-                      strokeWidth: 3, strokeCap: StrokeCap.round),
-                  Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Image.asset('assets/brand/logomark.png',
+                dimension: 76,
+                child: Stack(alignment: Alignment.center, children: [
+                  const SizedBox.expand(
+                      child: CircularProgressIndicator(
+                          strokeWidth: 3, strokeCap: StrokeCap.round)),
+                  Container(
+                      width: 48,
+                      height: 48,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colors.surface,
+                          border: Border.all(color: colors.outlineVariant)),
+                      child: Image.asset(
+                          dark
+                              ? 'assets/brand/logomark_white.png'
+                              : 'assets/brand/logomark.png',
                           excludeFromSemantics: true)),
                 ]))
           else

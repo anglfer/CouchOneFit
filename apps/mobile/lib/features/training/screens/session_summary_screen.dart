@@ -5,6 +5,8 @@ import '../../../shared/widgets/detail_scaffold.dart';
 import '../../../shared/widgets/gradient_widgets.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/icon_badge.dart';
+import '../../../shared/widgets/journey_surface.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../models/training.dart';
 import '../models/training_progress.dart';
 import '../widgets/muscle_map.dart';
@@ -54,34 +56,74 @@ class SessionSummaryScreen extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final records = exercises.where((e) => e.record).length;
     return DetailScaffold(children: [
-      RevealIn(
-          beginScale: .8,
-          child: Center(
-              child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: BrandColors.success,
-                      boxShadow: [
-                        BoxShadow(
-                            color: BrandColors.success.withValues(alpha: .35),
-                            blurRadius: 32,
-                            offset: const Offset(0, 10))
-                      ]),
-                  child: const Icon(Icons.check_rounded,
-                      size: 44, color: BrandColors.onSuccess)))),
-      const SizedBox(height: 18),
-      Semantics(
-          header: true,
-          child: Text('¡Entrenamiento completado!',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 28, height: 1.12, fontWeight: FontWeight.w800))),
-      const SizedBox(height: 6),
-      Text('$dayName · ${capitalized(longDate(date))}',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: colors.onSurfaceVariant)),
-      const SizedBox(height: 22),
+      JourneySurface(
+          radius: 24,
+          child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RevealIn(
+                        beginScale: .8,
+                        child: Center(
+                            child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: BrandColors.success,
+                                    boxShadow: [
+                                      BoxShadow(
+                                          color: BrandColors.success
+                                              .withValues(alpha: .38),
+                                          blurRadius: 28,
+                                          offset: const Offset(0, 8))
+                                    ]),
+                                child: const Icon(Icons.check_rounded,
+                                    size: 40, color: BrandColors.onSuccess)))),
+                    const SizedBox(height: 16),
+                    Semantics(
+                        header: true,
+                        child: Text('¡Entrenamiento completado!',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(
+                                    fontSize: 27,
+                                    height: 1.12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white))),
+                    const SizedBox(height: 6),
+                    Text('$dayName · ${capitalized(longDate(date))}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Color(0xE6FFFFFF))),
+                    if (records > 0) ...[
+                      const SizedBox(height: 12),
+                      Center(
+                          child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                  color: const Color(0x28F59E0B),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(
+                                      color: const Color(0x66F59E0B))),
+                              child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.emoji_events_rounded,
+                                        size: 15, color: BrandColors.warning),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                        '¡${trainingCount(records, 'récord personal', 'récords personales')}!',
+                                        style: const TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white)),
+                                  ]))),
+                    ],
+                  ]))),
+      const SizedBox(height: 16),
       StatPanel(tiles: [
         StatTile(
             icon: Icons.timer_outlined,
@@ -168,12 +210,10 @@ class SessionSummaryScreen extends StatelessWidget {
                   ]),
               trailing: e.change == null
                   ? null
-                  : Text(e.change!,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: e.change!.startsWith('+')
-                              ? statusInk(context, BrandColors.success)
-                              : colors.onSurfaceVariant))),
+                  : TonePill(e.change!,
+                      tone: e.change!.startsWith('+')
+                          ? BrandColors.success
+                          : colors.onSurfaceVariant)),
       ]),
       const SizedBox(height: 28),
       GradientActionButton(

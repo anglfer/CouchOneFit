@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
+import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
 import '../models/client_profile.dart';
 
@@ -65,15 +67,25 @@ class ClientBaseMeasurements extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Row(children: [
-                      Icon(Icons.flag_rounded, size: 18),
-                      SizedBox(width: 6),
-                      Text('Objetivo',
-                          style: TextStyle(
-                              color: Color(0xE6FFFFFF),
-                              fontWeight: FontWeight.w700)),
-                    ]),
-                    const SizedBox(height: 8),
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: const Color(0x28FFFFFF),
+                                borderRadius: BorderRadius.circular(99)),
+                            child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.flag_rounded, size: 15),
+                                  SizedBox(width: 6),
+                                  Text('Objetivo',
+                                      style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700)),
+                                ]))),
+                    const SizedBox(height: 10),
                     Text(
                         goal != null && goal.isNotEmpty
                             ? profile.goal!
@@ -98,15 +110,15 @@ class ClientBaseMeasurements extends StatelessWidget {
             for (final (index, (label, value, extra, icon))
                 in values.indexed) ...[
               if (index > 0)
-                Divider(height: 1, indent: 52, color: colors.outlineVariant),
+                Divider(height: 1, indent: 68, color: colors.outlineVariant),
               Semantics(
                   label: '$label: $value${extra == null ? '' : ', $extra'}',
                   child: ExcludeSemantics(
                       child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                              horizontal: 16, vertical: 11),
                           child: Row(children: [
-                            Icon(icon, size: 20, color: colors.secondary),
+                            IconBadge(icon, size: 36, tint: colors.secondary),
                             const SizedBox(width: 16),
                             Expanded(
                                 child: Text(label,
@@ -121,7 +133,10 @@ class ClientBaseMeasurements extends StatelessWidget {
                                       textAlign: TextAlign.end,
                                       style: const TextStyle(
                                           fontSize: 15,
-                                          fontWeight: FontWeight.w800)),
+                                          fontWeight: FontWeight.w800,
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures()
+                                          ])),
                                   if (extra != null)
                                     Text(extra,
                                         style: TextStyle(
@@ -131,12 +146,24 @@ class ClientBaseMeasurements extends StatelessWidget {
                           ])))),
             ],
             Divider(height: 1, color: colors.outlineVariant),
-            Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                    'Son tus medidas iniciales registradas por tu profesional, no tu progreso. Tu peso diario y lo que comparta tu profesional están en Progreso.',
-                    style: TextStyle(
-                        fontSize: 12.5, color: colors.onSurfaceVariant))),
+            Container(
+                margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                padding: const EdgeInsets.all(12),
+                decoration: innerPanelDecoration(context, radius: 12),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          size: 17, color: colors.secondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              'Son tus medidas iniciales registradas por tu profesional, no tu progreso. Tu peso diario y lo que comparta tu profesional están en Progreso.',
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.35,
+                                  color: colors.onSurfaceVariant))),
+                    ])),
             Padding(
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 child: Wrap(

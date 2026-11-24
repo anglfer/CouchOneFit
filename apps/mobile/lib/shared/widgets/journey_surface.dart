@@ -11,43 +11,73 @@ class JourneySurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-            gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-              Color(0xFF120B2B),
-              Color(0xFF2A1A5E),
-              Color(0xFF5A34C8)
-            ],
-                stops: [
-              0,
-              0.60,
-              1
-            ])),
-        child: Stack(
-          children: [
-            Positioned.fill(
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: dark
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x22120B2B),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                ),
+              ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                Color(0xFF120B2B),
+                Color(0xFF2A1A5E),
+                Color(0xFF5A34C8)
+              ],
+                  stops: [
+                0,
+                0.60,
+                1
+              ])),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                  child: ExcludeSemantics(
+                      child: IgnorePointer(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: reduced ? 1 : 0, end: 1),
+                  duration: reduced
+                      ? Duration.zero
+                      : const Duration(milliseconds: 1400),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) =>
+                      CustomPaint(painter: _JourneyPainter(value)),
+                ),
+              ))),
+              IconTheme.merge(
+                  data: const IconThemeData(color: Colors.white),
+                  child: DefaultTextStyle.merge(
+                      style: const TextStyle(color: Colors.white),
+                      child: child)),
+              Positioned.fill(
                 child: ExcludeSemantics(
-                    child: IgnorePointer(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: reduced ? 1 : 0, end: 1),
-                duration: reduced
-                    ? Duration.zero
-                    : const Duration(milliseconds: 1400),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, _) =>
-                    CustomPaint(painter: _JourneyPainter(value)),
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(radius),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ))),
-            IconTheme.merge(
-                data: const IconThemeData(color: Colors.white),
-                child: DefaultTextStyle.merge(
-                    style: const TextStyle(color: Colors.white), child: child)),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -72,3 +72,11 @@ Comprobaciones finales después de corregir las fixtures y aserciones:
 Se ejecutó `npm --prefix apps/web run format:check` tanto en el checkout de referencia como en el actual. Referencia: 60 archivos; rama actual: 59. Al analizar el contenido con LF, 57 avisos actuales desaparecen; los otros dos corresponden a `apps/web/README.md` y `src/features/admin/pages/AdminPage.tsx`, también mal formateados en `origin/main`. `core.autocrlf=true` y Prettier exige `endOfLine=lf`. El formulario modificado de HU-015 pasa Prettier. No se reformatearon archivos ajenos para ocultar esta deuda previa.
 
 El recorrido humano está descrito en [prueba-web-manual.md](prueba-web-manual.md), con comandos locales, acceso sintético de contraseña introducida mediante entrada oculta, casos concretos y limpieza limitada a su fixture. No se volvió a controlar Chrome. La exposición de lectura de clientes TT-010 se corrigió y probó según la actualización inicial de este documento; conserva pendientes la revisión independiente y su alcance transversal restante. No se cierra D0 ni se publica la rama.
+
+## Edad máxima del cliente — 24-nov-2026
+
+- **T** Prueba exploratoria (Web local `localhost:5000`, BD `CouchOneFit_dev`, cuentas sintéticas): `POST /api/clients` aceptaba una fecha de nacimiento de 1850 (176 años).
+- **E** Tope de 120 años en `validateClientBaseFields`, en el editor Web, en `min`/`max` del selector del alta y en `private.validate_client_birth_date()` (`202611240001_client_maximum_age.sql`, instantánea actualizada). Solo aplica al crear o al cambiar la fecha: una fila anterior con fecha más antigua sigue siendo editable.
+- **T** Prueba SQL nueva en `saas.test.ts` (rechazo al insertar, límite exacto aceptado, fila antigua editable y cambio de fecha rechazado); `migrations.test.ts` espera 35 migraciones. API completa 256/256.
+- **T** Navegador: alta con 1850 y cambio a 1851 devuelven el error en el campo `birthDate`; editar el nombre del expediente antiguo de 1850 responde 200; el selector va de hoy −120 a hoy −16 años.
+- Pendiente: aplicar la migración en `CouchOneFit_dev` y en Supabase (custodio).

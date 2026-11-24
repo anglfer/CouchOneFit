@@ -1,6 +1,8 @@
 # HU-015 — Crear el cliente y su expediente inicial
 
 > **Implementado por DEC-017 (30-oct-2026):** la edad mínima pasó de 18 a **16 años** en API, trigger SQL (`202610300002_client_minimum_age.sql`), formulario y editor. Donde este documento diga «18 años» o «adulto», léase 16; el texto se conserva como historia. Las personas de 16 y 17 años son menores: el aviso de privacidad y el consentimiento (DEC-015) siguen sin definirse para ellas.
+>
+> **Edad máxima (24-nov-2026):** también se rechaza una fecha de nacimiento de más de **120 años** (API, editor, selector del alta y trigger `202611240001_client_maximum_age.sql`). Solo aplica al crear o al cambiar la fecha: un expediente anterior con una fecha más antigua sigue siendo editable.
 
 ## Alcance implementado
 

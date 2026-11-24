@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/group_card.dart';
 import '../../../shared/widgets/status_view.dart';
 import '../../../shared/widgets/tone_pill.dart';
@@ -106,17 +107,24 @@ class _PlansTabState extends State<PlansTab> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          TonePill(plan.scheduleLabel, tone: colors.primary),
+                          Text('Desde ${shortDate(plan.startDate)}',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.onSurfaceVariant)),
+                        ]),
+                    const SizedBox(height: 10),
                     Text(plan.name,
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall
                             ?.copyWith(fontSize: 22, height: 1.15)),
-                    const SizedBox(height: 4),
-                    Text(
-                        '${plan.scheduleLabel} · desde ${shortDate(plan.startDate)}',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: colors.onSurfaceVariant)),
                     const SizedBox(height: 12),
                     Wrap(spacing: 8, runSpacing: 8, children: [
                       TrainingChip(
@@ -151,6 +159,7 @@ class _PlansTabState extends State<PlansTab> {
   Widget _dayRow(BuildContext context, TrainingPlan plan, int index,
       TrainingDay day, bool today) {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final rest = day.kind == 'rest';
     final label = plan.schedule == 'weekly' && index < 7
         ? _weekdayShort[index]
@@ -158,6 +167,16 @@ class _PlansTabState extends State<PlansTab> {
             ? shortDate(day.date!)
             : 'D${index + 1}';
     final groups = rest ? const <String>[] : dayGroups(day);
+    final badgeBg = today
+        ? actionFill(context)
+        : rest
+            ? colors.surfaceContainerHighest
+            : colors.secondary.withValues(alpha: dark ? 0.16 : 0.10);
+    final badgeFg = today
+        ? Colors.white
+        : rest
+            ? colors.onSurfaceVariant
+            : statusInk(context, colors.secondary);
     return Material(
         color: today ? colors.primaryContainer : Colors.transparent,
         child: InkWell(
@@ -170,17 +189,24 @@ class _PlansTabState extends State<PlansTab> {
                                 BorderSide(color: colors.primary, width: 3.5)))
                     : null,
                 padding: EdgeInsets.symmetric(
-                    horizontal: 14, vertical: rest && !today ? 10 : 13),
+                    horizontal: 14, vertical: rest && !today ? 11 : 13),
                 child: Row(children: [
-                  SizedBox(
-                      width: 44,
-                      child: Text(label,
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: today
-                                  ? colors.onSurface
-                                  : colors.onSurfaceVariant))),
+                  ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(minWidth: 42, minHeight: 40),
+                      child: Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Text(label,
+                              style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: badgeFg)))),
+                  const SizedBox(width: 12),
                   Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,6 +226,8 @@ class _PlansTabState extends State<PlansTab> {
                                 : [
                                     trainingCount(day.exercises.length,
                                         'ejercicio', 'ejercicios'),
+                                    trainingCount(
+                                        day.setCount, 'serie', 'series'),
                                     if (groups.isNotEmpty)
                                       groups.take(3).join(', '),
                                   ].join(' · '),

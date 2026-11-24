@@ -9,6 +9,6 @@ export function clientRoutes(pool: Pool, now?: () => Date): Router {
     res.set('Cache-Control', 'no-store');
     next();
   }, requireClient(pool, now));
-  router.get('/profile', clientProfileController(pool));
+  router.get('/profile', clientProfileController(pool, now));
   return router;
 }

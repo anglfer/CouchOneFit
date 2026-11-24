@@ -24,6 +24,8 @@ function password(body: Record<string, unknown>): string {
   const value = text(body, 'password')
   if ([...value].length < 15 || [...value].length > 128)
     return invalidInput('La contraseña debe tener entre 15 y 128 caracteres.')
+  if (!value.trim())
+    return invalidInput('La contraseña no puede estar formada solo por espacios.')
   if (value !== text(body, 'passwordConfirmation'))
     return invalidInput('Las contraseñas no coinciden.')
   return value

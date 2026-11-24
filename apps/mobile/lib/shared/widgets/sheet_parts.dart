@@ -71,8 +71,8 @@ class SheetOption extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
                     color: selected
-                        ? colors.primary.withValues(alpha: .6)
-                        : colors.outline,
+                        ? colors.primary.withValues(alpha: .65)
+                        : colors.outlineVariant,
                     width: selected ? 1.5 : 1)),
             clipBehavior: Clip.antiAlias,
             child: ListTile(

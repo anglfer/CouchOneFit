@@ -46,7 +46,7 @@ class WelcomeScreen extends StatelessWidget {
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         const BrandHeader(onBrand: true),
-                                        const SizedBox(height: 40),
+                                        const SizedBox(height: 28),
                                         Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -71,23 +71,42 @@ class WelcomeScreen extends StatelessWidget {
                                                       height: 1.5,
                                                       color:
                                                           Color(0xFFE4DEFF))),
-                                              const SizedBox(height: 18),
-                                              const Row(children: [
-                                                Icon(Icons.folder_open_rounded,
-                                                    size: 16,
-                                                    color: Color(0xFFD0C8FF)),
-                                                SizedBox(width: 8),
-                                                Expanded(
-                                                    child: Text(
-                                                        'Tu expediente, siempre contigo',
-                                                        style: TextStyle(
-                                                            color: Color(
-                                                                0xFFD0C8FF),
-                                                            fontSize: 13,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            height: 1.4))),
-                                              ]),
+                                              const SizedBox(height: 20),
+                                              Container(
+                                                  padding:
+                                                      const EdgeInsets.all(14),
+                                                  decoration: BoxDecoration(
+                                                      color: const Color(
+                                                          0x18FFFFFF),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              16),
+                                                      border: Border.all(
+                                                          color: const Color(
+                                                              0x26FFFFFF))),
+                                                  child: const Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .stretch,
+                                                      children: [
+                                                        _WelcomeFeatureRow(
+                                                            icon: Icons
+                                                                .fitness_center_rounded,
+                                                            text:
+                                                                'Rutina guiada serie a serie'),
+                                                        SizedBox(height: 10),
+                                                        _WelcomeFeatureRow(
+                                                            icon: Icons
+                                                                .restaurant_menu_rounded,
+                                                            text:
+                                                                'Plan alimenticio y recetas'),
+                                                        SizedBox(height: 10),
+                                                        _WelcomeFeatureRow(
+                                                            icon: Icons
+                                                                .insights_rounded,
+                                                            text:
+                                                                'Check-in diario y progreso'),
+                                                      ])),
                                             ]),
                                       ])))))),
               const SizedBox(height: 16),
@@ -121,4 +140,29 @@ class WelcomeScreen extends StatelessWidget {
       );
     });
   }
+}
+
+class _WelcomeFeatureRow extends StatelessWidget {
+  const _WelcomeFeatureRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+                color: const Color(0x22FFFFFF),
+                borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 16, color: const Color(0xFFEAE6FF))),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: Color(0xFFEAE6FF),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3))),
+      ]);
 }

@@ -23,8 +23,9 @@ const clientFields = [
   'hipCm'
 ]
 
-// DEC-017: minimum client age. Mirrored by private.validate_client_birth_date().
+// DEC-017: client age bounds. Mirrored by private.validate_client_birth_date().
 const MINIMUM_CLIENT_AGE = 16
+const MAXIMUM_CLIENT_AGE = 120
 const dateAtUtcMidnight = (value: string) => new Date(`${value}T00:00:00.000Z`)
 
 function validDate(value: string) {
@@ -104,7 +105,8 @@ function requiredMeasurement(
 export function validateClientBaseFields(
   input: unknown,
   now = new Date(),
-  allowMissingBase = false
+  allowMissingBase = false,
+  storedBirthDate: unknown = null
 ) {
   const body = payload(input, clientFields)
   const fields: Record<string, string> = {}
@@ -148,8 +150,16 @@ export function validateClientBaseFields(
     const today = dateAtUtcMidnight(
       `${part('year')}-${part('month')}-${part('day')}`
     )
+    const oldestDate = new Date(today)
+    oldestDate.setUTCFullYear(today.getUTCFullYear() - MAXIMUM_CLIENT_AGE)
     if (adultDate > today)
       fields.birthDate = `El cliente debe tener al menos ${MINIMUM_CLIENT_AGE} años.`
+    // An unchanged stored date stays valid, as in the SQL trigger.
+    else if (
+      birthDate !== storedBirthDate &&
+      dateAtUtcMidnight(birthDate) < oldestDate
+    )
+      fields.birthDate = `Revisa la fecha: el cliente no puede tener más de ${MAXIMUM_CLIENT_AGE} años.`
   }
 
   const heightCm = missingBase

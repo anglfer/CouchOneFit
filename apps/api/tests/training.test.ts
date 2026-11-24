@@ -179,3 +179,14 @@ test('templates remain independent; historical dates, corrections, catalog and S
  assert.equal(rowSearch.status,200);
  assert.ok(rowSearch.body.exercises.some((e:{id:string})=>e.id==='qa-row'));
 });
+test('a rest-only week saves as a draft but cannot be activated for the client',async()=>{
+ const base=`/api/clients/${clientB.clientId}/training-plans`,id=randomUUID(),versionId=randomUUID()
+ const rest={...input(),days:input().days.map(d=>({...d,kind:'rest',exercises:[]}))}
+ const draft=await send('post',base,{id,versionId,prescription:rest},other);assert.equal(draft.status,200,JSON.stringify(draft.body))
+ const refused=await send('post',`${base}/${id}/versions/${versionId}/activate`,{revision:1,activeRevision:0},other)
+ assert.deepEqual([refused.status,refused.body.error.code],[400,'INVALID_TRAINING'])
+ assert.equal((await get('/api/me/training-plan',clientB)).body.plan,null)
+ const trained=input().days.map((d,i)=>i?{...d,kind:'rest',exercises:[]}:d)
+ const edited=await send('patch',`${base}/${id}/versions/${versionId}`,{revision:1,prescription:{...rest,days:trained}},other);assert.equal(edited.status,200,JSON.stringify(edited.body))
+ const activated=await send('post',`${base}/${id}/versions/${versionId}/activate`,{revision:2,activeRevision:0},other);assert.equal(activated.status,200,JSON.stringify(activated.body))
+});

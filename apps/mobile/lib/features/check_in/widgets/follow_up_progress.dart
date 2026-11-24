@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/friendly_date.dart';
+import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/section_title.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../../training/models/training.dart';
 import '../../training/screens/training_views.dart';
 import '../models/check_in.dart';
@@ -10,9 +13,11 @@ import '../services/check_in_service.dart';
 /// Progreso: own body weight & check-ins (always visible, cached encrypted for
 /// offline reading per RNF24) and what the professional shares (HU-036, never cached).
 class FollowUpProgress extends StatefulWidget {
-  const FollowUpProgress({super.key, required this.service, this.clientId});
+  const FollowUpProgress(
+      {super.key, required this.service, this.clientId, this.topSpacing = 0});
   final CheckInService service;
   final String? clientId;
+  final double topSpacing;
   @override
   State<FollowUpProgress> createState() => _FollowUpProgressState();
 }
@@ -67,7 +72,7 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
   Widget build(BuildContext context) {
     final bothFailed = _historyError != null && _sharedError != null;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const SizedBox(height: 24),
+      if (widget.topSpacing > 0) SizedBox(height: widget.topSpacing),
       if (bothFailed)
         NoticeBanner(
             text:
@@ -136,12 +141,17 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
                         Text(
                             '${trainingDecimal(weights.last.bodyWeightKg!)} kg',
                             style: const TextStyle(
-                                fontSize: 26, fontWeight: FontWeight.w800)),
-                        Text(
-                            weights.length > 1
-                                ? '${_signed(weights.last.bodyWeightKg! - weights.first.bodyWeightKg!)} kg desde el ${shortDate(weights.first.localDate)}'
-                                : 'Registrado el ${shortDate(weights.last.localDate)}',
-                            style: TextStyle(color: colors.onSurfaceVariant)),
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: [FontFeature.tabularFigures()])),
+                        const SizedBox(height: 6),
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: TonePill(
+                                weights.length > 1
+                                    ? '${_signed(weights.last.bodyWeightKg! - weights.first.bodyWeightKg!)} kg desde el ${shortDate(weights.first.localDate)}'
+                                    : 'Registrado el ${shortDate(weights.last.localDate)}',
+                                tone: colors.secondary)),
                         if (weights.length > 1) ...[
                           const SizedBox(height: 12),
                           TrendChart(
@@ -207,13 +217,23 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
                   color: colors.onSurfaceVariant)),
       ]),
       if (details.isNotEmpty) ...[
-        const SizedBox(height: 2),
-        Text(details.join(' · '),
-            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final d in details) TrainingChip(d),
+        ]),
       ],
       if (item.comment != null && item.comment!.isNotEmpty) ...[
-        const SizedBox(height: 2),
-        Text(item.comment!, style: const TextStyle(fontSize: 13)),
+        const SizedBox(height: 8),
+        Container(
+            padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+            decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withValues(alpha: 0.65),
+                border:
+                    Border(left: BorderSide(color: colors.secondary, width: 3)),
+                borderRadius: BorderRadius.circular(8)),
+            child: Text(item.comment!,
+                style: TextStyle(
+                    fontSize: 13, height: 1.35, color: colors.onSurface))),
       ],
     ]);
   }
@@ -238,9 +258,20 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
     final colors = Theme.of(context).colorScheme;
     if (!shared.measurementsShared && !shared.adherenceShared) {
       return [
-        Text(
-            'Tu profesional aún no comparte tus medidas ni tu adherencia. Cuando lo haga, aparecerán aquí.',
-            style: TextStyle(color: colors.onSurfaceVariant)),
+        Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(children: [
+                  IconBadge(Icons.lock_outline_rounded,
+                      size: 40, tint: colors.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Text(
+                          'Tu profesional aún no comparte tus medidas ni tu adherencia. Cuando lo haga, aparecerán aquí.',
+                          style: TextStyle(
+                              height: 1.4, color: colors.onSurfaceVariant))),
+                ]))),
       ];
     }
     String pct(int? v) => v == null ? '—' : '$v %';
@@ -295,14 +326,25 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
               label: 'Alimentación (4 sem.)',
               value: pct(shared.nutrition!.observedPercent)),
         ]),
-        const SizedBox(height: 8),
-        Text(
-            '${_coverageText('Entrenamiento', shared.training!)} · ${_coverageText('Alimentación', shared.nutrition!)}',
-            style: TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant)),
-        const SizedBox(height: 4),
-        Text(
-            'Solo cuentan los días con plan; descansos y días sin registro no te restan.',
-            style: TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant)),
+        const SizedBox(height: 10),
+        Container(
+            padding: const EdgeInsets.all(12),
+            decoration: innerPanelDecoration(context, radius: 14),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                      '${_coverageText('Entrenamiento', shared.training!)} · ${_coverageText('Alimentación', shared.nutrition!)}',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.onSurface)),
+                  const SizedBox(height: 4),
+                  Text(
+                      'Solo cuentan los días con plan; descansos y días sin registro no te restan.',
+                      style: TextStyle(
+                          fontSize: 12.5, color: colors.onSurfaceVariant)),
+                ])),
         if (!shared.measurementsShared) ...[
           const SizedBox(height: 8),
           Text('Tus medidas de evaluación siguen privadas.',
@@ -401,9 +443,7 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
         Expanded(
             child: Text(capitalized(shortDate(item.date)),
                 style: const TextStyle(fontWeight: FontWeight.w700))),
-        if (method.isNotEmpty)
-          Text(method,
-              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+        if (method.isNotEmpty) TonePill(method, tone: colors.secondary),
       ]),
       const SizedBox(height: 4),
       for (final (label, value, unit) in [
@@ -418,7 +458,9 @@ class _FollowUpProgressState extends State<FollowUpProgress> {
               child: Row(children: [
                 Expanded(child: Text(label)),
                 Text('${trainingDecimal(value)} $unit',
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: [FontFeature.tabularFigures()])),
               ])),
     ]);
   }

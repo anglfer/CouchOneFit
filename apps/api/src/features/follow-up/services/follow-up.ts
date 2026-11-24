@@ -69,7 +69,7 @@ export function getCheckInContext(pool: Pool, identity: SessionIdentity, query: 
 
 export async function saveCheckIn(pool: Pool, identity: SessionIdentity, key: unknown, body: unknown, now: Date) {
   const input = validate.checkIn(body);
-  return mutate(pool, identity, validate.uuid(key), 'check-in', body, now, async (c) => {
+  return mutate(pool, identity, validate.idempotencyKey(key), 'check-in', body, now, async (c) => {
     const s = await repository.scope(c, identity, null, true);
     const [previous] = await repository.between(c, s.clientId, input.localDate, input.localDate);
     // The window follows the zone snapshot of an existing check-in, like a training session.
@@ -268,7 +268,7 @@ export function getBodyWeightHistory(pool: Pool, identity: SessionIdentity, clie
 
 export async function changeVisibility(pool: Pool, identity: SessionIdentity, clientId: string, key: unknown, body: unknown, now: Date) {
   const input = validate.visibility(body);
-  return mutate(pool, identity, validate.uuid(key), `visibility:${clientId}`, body, now, async (c) => {
+  return mutate(pool, identity, validate.idempotencyKey(key), `visibility:${clientId}`, body, now, async (c) => {
     const s = await repository.scope(c, identity, clientId, true);
     return { visibility: await repository.setVisibility(c, identity, s.clientId, input, input.revision, now) };
   });

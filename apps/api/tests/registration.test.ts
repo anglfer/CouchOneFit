@@ -4,6 +4,7 @@ import request from 'supertest'
 import { Pool } from 'pg'
 import { verify } from 'argon2'
 import { createApp } from '../src/app.js'
+import { validateActivation } from '../src/features/auth/validators/lifecycle.js'
 
 const databaseUrl = process.env.TEST_DATABASE_URL
 if (!databaseUrl)
@@ -208,6 +209,32 @@ test('malformed JSON, foreign origins, and unknown fields return safe errors', a
         .send({ ...payload(), subscription: 'active' })
     ).status,
     400,
+  )
+})
+
+test('a password made only of spaces is rejected; spaced passphrases stay valid', async () => {
+  const blank = ' '.repeat(15)
+  const response = await request(app)
+    .post('/api/auth/professionals')
+    .send({ ...payload(), password: blank, passwordConfirmation: blank })
+  assert.equal(response.status, 400)
+  assert.equal(
+    response.body.error.message,
+    'La contraseña no puede estar formada solo por espacios.',
+  )
+  assert.throws(
+    () =>
+      validateActivation({
+        username: 'cliente.espacios',
+        email: 'cliente.espacios@example.com',
+        emailConfirmation: 'cliente.espacios@example.com',
+        password: blank,
+        passwordConfirmation: blank,
+        code: 'x'.repeat(43),
+        noticeVersion: '2026-10-15.1',
+        acceptsNotice: true,
+      }),
+    /solo por espacios/,
   )
 })
 

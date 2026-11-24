@@ -159,3 +159,9 @@ Se corrigieron exclusivamente OpenAPI y la evidencia HU-021. OAS-01–06 resuelt
 PG **39/39**, smoke **15/15**, restauración/migración local y visual **R 7/7** se conservan como evidencia anterior, **no repetida**. No se abrió conexión SQL. Sin cambios funcionales, instalaciones, migraciones ni roles. Codebase Memory no disponible: inspección estática.
 
 **Estado:** propuesta de dos commits locales preparada; **pendiente autorización expresa antes de staging/commit**. Después habrá una segunda autorización separada de push. Antes del push confirmar con supervisor rama/automatizaciones Render y previews Vercel (rewrite API productiva), coordinación shared y excepción de nombre; no basta que no haya workflows versionados. D0 independiente pendiente antes de merge. No hubo commit/push/PR ni despliegue.
+
+## Fecha futura junto al campo — 24-nov-2026
+
+- **T** Prueba exploratoria: el selector permitía elegir una fecha futura y el rechazo del servidor («Fecha efectiva inválida o futura.») aparecía solo al pie del formulario.
+- **E** `AssessmentForm` fija `max` en la fecha local de hoy, valida la fecha futura antes de enviar y muestra `errors.effectiveDate` (también el del servidor) bajo el campo, con `aria-invalid`, `aria-describedby` y foco.
+- **T** Navegador: con 01/01/2030 el formulario no envía y muestra «La fecha de la medición no puede ser futura.» bajo el campo; Web build, lint, pruebas y Prettier de los archivos tocados en verde.

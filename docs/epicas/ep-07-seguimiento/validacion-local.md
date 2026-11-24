@@ -59,3 +59,10 @@ Para facilitar la coordinación del equipo antes de pasar los cambios a una rama
 2. **Migración en nube**: `202611200001_daily_check_ins.sql` está aplicada solo en `CouchOneFit_test`; aplicarla en Supabase corresponde únicamente al custodio.
 3. **Pruebas heredadas**: persisten 1 fallo previo en API (`session-lifecycle.test.ts:232`) y 2 fallos previos en móvil (`client_login_test.dart`, buscador `"Mi expediente"`). Se dejaron sin modificar por quedar fuera del alcance de EP-07, pero conviene revisarlos antes del cierre del sprint.
 4. **Aceptación humana (R) e integración física**: falta recorrido visual profesional/cliente autenticado en navegador (3000/5000) y en dispositivo Android físico con API local de pruebas.
+
+## Mensajes del check-in — 24-nov-2026
+
+- **T** Prueba exploratoria contra la API local: sin `Idempotency-Key` el check-in respondía «Identificador inválido.» y el error de sueño decía «Las horas de sueño debe estar…».
+- **E** `idempotencyKey()` en los validadores de seguimiento y entrenamiento responde «Falta la clave de idempotencia (Idempotency-Key) o no es válida.»; la etiqueta pasa a «El sueño (horas)». Los clientes que ya envían la clave no cambian.
+- **T** Navegador: una escritura de entrenamiento sin clave o con clave mal formada devuelve el mensaje nuevo; API completa 256/256.
+- **T** Los fallos heredados del punto 3 de «Riesgos y pendientes» (`session-lifecycle.test.ts:232` y las 2 pruebas de `client_login_test.dart`) dependían de la fecha y se corrigieron: API 256/256 y `flutter test` 120/120.

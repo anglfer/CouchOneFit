@@ -10,6 +10,7 @@ import GoalField from './GoalField';
 
 // DEC-017: keep in sync with the API validator and the SQL trigger.
 const MINIMUM_CLIENT_AGE = 16;
+const MAXIMUM_CLIENT_AGE = 120;
 const fields = [
   ['fullName', 'Nombre completo', 'text'],
   ['birthDate', 'Fecha de nacimiento', 'date'],
@@ -79,11 +80,19 @@ function validateDraft(draft: Record<Field, string>, base: ClientBaseRecord) {
         day: '2-digit',
       }).formatToParts(new Date());
       const part = (type: string) => parts.find((p) => p.type === type)!.value;
-      if (
-        date >
-        new Date(`${part('year')}-${part('month')}-${part('day')}T00:00:00Z`)
-      )
+      const today = new Date(
+        `${part('year')}-${part('month')}-${part('day')}T00:00:00Z`
+      );
+      const oldest = new Date(today);
+      oldest.setUTCFullYear(today.getUTCFullYear() - MAXIMUM_CLIENT_AGE);
+      if (date > today)
         errors.birthDate = `El cliente debe tener al menos ${MINIMUM_CLIENT_AGE} años.`;
+      // An unchanged stored date stays valid, as in the API and SQL trigger.
+      else if (
+        draft.birthDate !== base.birthDate &&
+        new Date(`${draft.birthDate}T00:00:00Z`) < oldest
+      )
+        errors.birthDate = `Revisa la fecha: el cliente no puede tener más de ${MAXIMUM_CLIENT_AGE} años.`;
     }
   }
   return errors;

@@ -218,73 +218,102 @@ class _CheckInScreenState extends State<CheckInScreen> {
                                 icon: Icons.check_rounded,
                                 onPressed: enabled ? _save : null)))))),
         children: [
-          Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TonePill(existing == null ? 'Pendiente' : 'Registrado',
-                    tone: existing == null
-                        ? BrandColors.warning
-                        : BrandColors.success,
-                    icon: existing == null
-                        ? Icons.schedule_rounded
-                        : Icons.check_circle_outline_rounded),
-                if (existing != null && existing.revision > 1)
-                  Text('Corregido · rev. ${existing.revision}',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: colors.onSurfaceVariant)),
-              ]),
-          const SizedBox(height: 8),
-          Text(capitalized(longDate(_ctx.localDate)),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(
-              existing == null
-                  ? 'Cuéntale a tu profesional cómo vas. Todo es opcional; guarda lo que tengas.'
-                  : 'Ya registraste este día. Puedes corregirlo hasta dos días después.',
-              style: TextStyle(color: colors.onSurfaceVariant)),
-          const SizedBox(height: 14),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final (date, recorded) in _ctx.dates)
-              Semantics(
-                  label:
-                      '${relativeDayLabel(date, _ctx.today)}, ${recorded ? 'registrado' : 'pendiente'}',
-                  selected: date == _ctx.localDate,
-                  button: true,
-                  excludeSemantics: true,
-                  onTap: _saving ? null : () => _open(date),
-                  child: ChoiceChip(
-                      label: Text(relativeDayLabel(date, _ctx.today)),
-                      avatar: Icon(
-                          recorded
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          size: 18),
-                      selected: date == _ctx.localDate,
-                      onSelected: _saving ? null : (_) => _open(date))),
-          ]),
-          if (label != null || _ctx.nutritionApplicable) ...[
-            const SizedBox(height: 12),
-            if (label != null)
-              _InfoRow(icon: Icons.fitness_center, text: label),
-            if (_ctx.nutritionApplicable)
-              _InfoRow(
-                  icon: Icons.restaurant_outlined,
-                  text: _ctx.nutritionPlanName ?? 'Plan alimenticio vigente'),
-          ],
+          Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              TonePill(
+                                  existing == null ? 'Pendiente' : 'Registrado',
+                                  tone: existing == null
+                                      ? BrandColors.warning
+                                      : BrandColors.success,
+                                  icon: existing == null
+                                      ? Icons.schedule_rounded
+                                      : Icons.check_circle_outline_rounded),
+                              if (existing != null && existing.revision > 1)
+                                Text('Corregido · rev. ${existing.revision}',
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.onSurfaceVariant)),
+                            ]),
+                        const SizedBox(height: 10),
+                        Text(capitalized(longDate(_ctx.localDate)),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(
+                            existing == null
+                                ? 'Cuéntale a tu profesional cómo vas. Todo es opcional; guarda lo que tengas.'
+                                : 'Ya registraste este día. Puedes corregirlo hasta dos días después.',
+                            style: TextStyle(
+                                fontSize: 13.5,
+                                height: 1.4,
+                                color: colors.onSurfaceVariant)),
+                        const SizedBox(height: 14),
+                        Wrap(spacing: 8, runSpacing: 8, children: [
+                          for (final (date, recorded) in _ctx.dates)
+                            Semantics(
+                                label:
+                                    '${relativeDayLabel(date, _ctx.today)}, ${recorded ? 'registrado' : 'pendiente'}',
+                                selected: date == _ctx.localDate,
+                                button: true,
+                                excludeSemantics: true,
+                                onTap: _saving ? null : () => _open(date),
+                                child: ChoiceChip(
+                                    label: Text(
+                                        relativeDayLabel(date, _ctx.today)),
+                                    avatar: Icon(
+                                        recorded
+                                            ? Icons.check_circle
+                                            : Icons.radio_button_unchecked,
+                                        size: 18),
+                                    selected: date == _ctx.localDate,
+                                    onSelected:
+                                        _saving ? null : (_) => _open(date))),
+                        ]),
+                        if (label != null || _ctx.nutritionApplicable) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration:
+                                  innerPanelDecoration(context, radius: 12),
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (label != null)
+                                      _InfoRow(
+                                          icon: Icons.fitness_center,
+                                          text: label),
+                                    if (_ctx.nutritionApplicable)
+                                      _InfoRow(
+                                          icon: Icons.restaurant_outlined,
+                                          text: _ctx.nutritionPlanName ??
+                                              'Plan alimenticio vigente'),
+                                  ])),
+                        ],
+                      ]))),
           if (!_ctx.canWrite)
             const NoticeBanner(
                 icon: Icons.pause_circle_outline_rounded,
                 text:
                     'Puedes consultar tu check-in, pero el registro está pausado por ahora.'),
-          if (_loading) const LinearProgressIndicator(),
-          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator()),
           _Section(
               title: 'Peso corporal',
               icon: Icons.monitor_weight_outlined,
@@ -292,6 +321,10 @@ class _CheckInScreenState extends State<CheckInScreen> {
                 TextField(
                     controller: _weight,
                     enabled: enabled,
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()]),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
@@ -316,7 +349,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
                     value: _sleep,
                     enabled: enabled,
                     onChanged: (v) => setState(() => _sleep = v)),
-                const SizedBox(height: 14),
+                Divider(height: 24, color: colors.outlineVariant),
                 _ScaleField(
                     label: 'Estrés',
                     value: _stress,
@@ -334,6 +367,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
                             ? BrandColors.warning
                             : BrandColors.error,
                     onChanged: (v) => setState(() => _stress = v)),
+                Divider(height: 20, color: colors.outlineVariant),
                 _ScaleField(
                     label: 'Energía',
                     value: _energy,
@@ -351,6 +385,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
                             ? colors.primary
                             : BrandColors.warning,
                     onChanged: (v) => setState(() => _energy = v)),
+                Divider(height: 20, color: colors.outlineVariant),
                 _ScaleField(
                     label: 'Hambre',
                     value: _hunger,
@@ -436,10 +471,19 @@ class _SummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final items = <(String, String)>[
-      ('Peso', weightText.isEmpty ? '—' : '$weightText kg'),
-      ('Sueño', sleepHours == null ? '—' : '${trainingDecimal(sleepHours!)} h'),
+    final items = <(IconData, String, String)>[
       (
+        Icons.monitor_weight_outlined,
+        'Peso',
+        weightText.isEmpty ? '—' : '$weightText kg'
+      ),
+      (
+        Icons.bedtime_outlined,
+        'Sueño',
+        sleepHours == null ? '—' : '${trainingDecimal(sleepHours!)} h'
+      ),
+      (
+        nutrition != null ? Icons.restaurant_outlined : Icons.bolt_outlined,
         nutrition != null ? 'Plan' : 'Bienestar',
         nutrition != null ? complianceLabels[nutrition]! : '$scalesFilled/3'
       ),
@@ -447,9 +491,9 @@ class _SummaryStrip extends StatelessWidget {
     return DecoratedBox(
         decoration: innerPanelDecoration(context, radius: 14),
         child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(children: [
-              for (final (index, (title, value)) in items.indexed)
+              for (final (index, (icon, title, value)) in items.indexed)
                 Expanded(
                     child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -460,13 +504,22 @@ class _SummaryStrip extends StatelessWidget {
                                     left: BorderSide(
                                         color: colors.outlineVariant))),
                         child: Column(children: [
-                          Text(title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: colors.onSurfaceVariant)),
-                          const SizedBox(height: 2),
+                          Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(icon,
+                                    size: 13, color: colors.onSurfaceVariant),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                    child: Text(title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: colors.onSurfaceVariant))),
+                              ]),
+                          const SizedBox(height: 3),
                           Text(value,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -544,58 +597,67 @@ class _SleepField extends StatelessWidget {
               onPressed: () => onChanged(null),
               icon: const Icon(Icons.close_rounded, size: 18)),
       ]),
-      const SizedBox(height: 6),
-      Wrap(
-          spacing: 10,
-          runSpacing: 6,
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(v == null ? 'Sin dato' : 'Descanso registrado',
-                style: TextStyle(
-                    color: v == null ? colors.onSurfaceVariant : colors.primary,
-                    fontWeight: FontWeight.w600)),
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton.outlined(
-                  tooltip: 'Restar media hora de sueño',
-                  onPressed: enabled && v != null && v > 0
-                      ? () => onChanged(v - 0.5)
-                      : null,
-                  icon: const Icon(Icons.remove)),
-              ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 58),
-                  child: Semantics(
-                      container: true,
-                      label: v == null
-                          ? 'Sin dato de sueño'
-                          : '${trainingDecimal(v)} horas de sueño',
-                      excludeSemantics: true,
-                      child: Text(v == null ? '—' : '${trainingDecimal(v)} h',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: colors.primary,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ])))),
-              IconButton.outlined(
-                  tooltip: 'Sumar media hora de sueño',
-                  onPressed: enabled && (v ?? 0) < 24
-                      ? () => onChanged(v == null ? 7 : v + 0.5)
-                      : null,
-                  icon: const Icon(Icons.add)),
-            ]),
-          ]),
       const SizedBox(height: 8),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final hours in _quick)
-          ChoiceChip(
-              label: Text('${trainingDecimal(hours)} h'),
-              selected: v == hours,
-              onSelected:
-                  enabled ? (on) => onChanged(on ? hours : null) : null),
-      ]),
+      Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: innerPanelDecoration(context, radius: 14),
+          child: Row(children: [
+            IconButton.outlined(
+                tooltip: 'Restar media hora de sueño',
+                onPressed: enabled && v != null && v > 0
+                    ? () {
+                        HapticFeedback.selectionClick();
+                        onChanged(v - 0.5);
+                      }
+                    : null,
+                icon: const Icon(Icons.remove)),
+            Expanded(
+                child: Semantics(
+                    container: true,
+                    label: v == null
+                        ? 'Sin dato de sueño'
+                        : '${trainingDecimal(v)} horas de sueño',
+                    excludeSemantics: true,
+                    child: Text(v == null ? '—' : '${trainingDecimal(v)} h',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: v == null
+                                ? colors.onSurfaceVariant
+                                : colors.primary,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ])))),
+            IconButton.outlined(
+                tooltip: 'Sumar media hora de sueño',
+                onPressed: enabled && (v ?? 0) < 24
+                    ? () {
+                        HapticFeedback.selectionClick();
+                        onChanged(v == null ? 7 : v + 0.5);
+                      }
+                    : null,
+                icon: const Icon(Icons.add)),
+          ])),
+      const SizedBox(height: 10),
+      SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          child: Row(children: [
+            for (final (idx, hours) in _quick.indexed)
+              Padding(
+                  padding:
+                      EdgeInsets.only(right: idx < _quick.length - 1 ? 6 : 0),
+                  child: ChoiceChip(
+                      label: Text('${trainingDecimal(hours)} h'),
+                      selected: v == hours,
+                      onSelected: enabled
+                          ? (on) {
+                              HapticFeedback.selectionClick();
+                              onChanged(on ? hours : null);
+                            }
+                          : null)),
+          ])),
     ]);
   }
 }
@@ -659,7 +721,7 @@ class _ScaleField extends StatelessWidget {
                                       : null,
                                   child: TextButton(
                                       style: TextButton.styleFrom(
-                                          minimumSize: const Size(0, 42),
+                                          minimumSize: const Size(0, 46),
                                           padding: EdgeInsets.zero,
                                           shape: RoundedRectangleBorder(
                                               borderRadius:
@@ -671,7 +733,10 @@ class _ScaleField extends StatelessWidget {
                                               ? Colors.white
                                               : colors.onSurface),
                                       onPressed: enabled
-                                          ? () => onChanged(v == n ? null : n)
+                                          ? () {
+                                              HapticFeedback.selectionClick();
+                                              onChanged(v == n ? null : n);
+                                            }
                                           : null,
                                       child: Text('$n',
                                           style: const TextStyle(

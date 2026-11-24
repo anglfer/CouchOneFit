@@ -360,6 +360,31 @@ test('SQL enforces the 16-year minimum age without rejecting adults', async () =
   await insert("CURRENT_DATE - INTERVAL '17 years'")
 })
 
+test('SQL caps new and changed birth dates at 120 years but keeps older rows editable', async () => {
+  const pro = await account()
+  const insert = (birth: string) =>
+    db.query(
+      `INSERT INTO private.clients(professional_id,full_name,birth_date,height_cm,base_weight_kg)
+       VALUES($1,'Edad maxima',(${birth})::date,170,70) RETURNING id`,
+      [pro.professionalId]
+    )
+  await assert.rejects(insert("CURRENT_DATE - INTERVAL '120 years' - INTERVAL '1 day'"), { code: '23514' })
+  await insert("CURRENT_DATE - INTERVAL '120 years'")
+  // A row stored before the cap (simulated with the trigger off) stays editable.
+  await db.query('ALTER TABLE private.clients DISABLE TRIGGER validate_client_birth_date')
+  let legacy: string
+  try {
+    legacy = (await insert("DATE '1850-01-01'")).rows[0].id
+  } finally {
+    await db.query('ALTER TABLE private.clients ENABLE TRIGGER validate_client_birth_date')
+  }
+  await db.query("UPDATE private.clients SET full_name='Legado', birth_date=birth_date WHERE id=$1", [legacy])
+  await assert.rejects(
+    db.query("UPDATE private.clients SET birth_date=DATE '1851-01-01' WHERE id=$1", [legacy]),
+    { code: '23514' }
+  )
+})
+
 test('SQL rejects excessive base-measure precision instead of rounding it', async () => {
   const pro = await account()
   await assert.rejects(

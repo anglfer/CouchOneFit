@@ -47,6 +47,8 @@ export function validateRegistration(input: unknown): Registration {
     return invalid('Los correos no coinciden.')
   if ([...password].length < 15 || [...password].length > 128)
     return invalid('La contraseña debe tener entre 15 y 128 caracteres.')
+  if (!password.trim())
+    return invalid('La contraseña no puede estar formada solo por espacios.')
   if (password !== text('passwordConfirmation'))
     return invalid('Las contraseñas no coinciden.')
   if (

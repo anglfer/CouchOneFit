@@ -992,13 +992,32 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                                     _exercise(_exercises[i], i),
                                 Padding(
                                     padding:
-                                        const EdgeInsets.fromLTRB(4, 4, 4, 0),
-                                    child: Text(
-                                        'Toca la palomita al terminar cada serie; un campo vacío usa la sugerencia. Toca la marca anterior para copiarla y el número de serie para más opciones.',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            height: 1.35,
-                                            color: colors.onSurfaceVariant))),
+                                        const EdgeInsets.fromLTRB(2, 6, 2, 0),
+                                    child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
+                                        decoration: innerPanelDecoration(
+                                            context,
+                                            radius: 12),
+                                        child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(
+                                                  Icons
+                                                      .tips_and_updates_outlined,
+                                                  size: 16,
+                                                  color: colors.secondary),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                  child: Text(
+                                                      'Toca la palomita al terminar cada serie; un campo vacío usa la sugerencia. Toca la marca anterior para copiarla y el número de serie para más opciones.',
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          height: 1.35,
+                                                          color: colors
+                                                              .onSurfaceVariant))),
+                                            ]))),
                               ])))
                 ])),
             bottomNavigationBar: _restLeft != null
@@ -1034,8 +1053,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                       fontWeight: FontWeight.w800,
                       fontFeatures: [FontFeature.tabularFigures()]))),
         ]));
-    return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+    return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: innerPanelDecoration(context, radius: 14),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           ClipRRect(
@@ -1047,28 +1068,31 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                       : const Duration(milliseconds: 320),
                   curve: Curves.easeOutCubic,
                   builder: (context, value, _) => LinearProgressIndicator(
-                      minHeight: 5,
+                      minHeight: 6,
                       value: value,
                       color: BrandColors.success,
-                      backgroundColor: colors.surfaceContainerHighest))),
-          const SizedBox(height: 8),
-          Row(children: [
+                      backgroundColor: colors.surface))),
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+              child: Row(children: [
             if (isToday)
               stat('Duración', clockLabel(widget.clock().difference(_started)))
             else
               stat('Fecha', shortDate(_context.localDate)),
+            VerticalDivider(width: 16, color: colors.outlineVariant),
             stat('Volumen', '${trainingThousands(_volume)} kg'),
+            VerticalDivider(width: 16, color: colors.outlineVariant),
             Semantics(
                 label:
                     '$marked de ${trainingCount(total, 'serie registrada', 'series registradas')}',
                 child: ExcludeSemantics(
                     child: SizedBox(
-                        width: 82,
+                        width: 68,
                         child: Row(children: [
                           stat('Series', '$marked/$total',
                               key: const ValueKey('sets-marked')),
                         ])))),
-          ]),
+          ])),
         ]));
   }
 
@@ -1123,6 +1147,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
             : partial
                 ? colors.secondary
                 : colors.outline;
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
     return Semantics(
         button: true,
         selected: active && singleFocus,
@@ -1135,7 +1160,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                 onTap: () => _go(index),
                 child: Padding(
                     padding: const EdgeInsets.all(2),
-                    child: Container(
+                    child: AnimatedContainer(
+                        duration: disableAnim
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
                         width: 36,
                         height: 36,
                         alignment: Alignment.center,
@@ -1149,15 +1177,20 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                             border: Border.all(
                                 color: ringColor,
                                 width: active || complete ? 2 : 1.2)),
-                        child: Text('${index + 1}',
-                            style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: complete
-                                    ? statusInk(context, BrandColors.success)
-                                    : active
-                                        ? colors.onPrimaryContainer
-                                        : colors.onSurfaceVariant)))))));
+                        child: complete && !active
+                            ? Icon(Icons.check_rounded,
+                                size: 17,
+                                color: statusInk(context, BrandColors.success))
+                            : Text('${index + 1}',
+                                style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: complete
+                                        ? statusInk(
+                                            context, BrandColors.success)
+                                        : active
+                                            ? colors.onPrimaryContainer
+                                            : colors.onSurfaceVariant)))))));
   }
 
   Widget _exercise(TrainingExercise exercise, int exerciseIndex) {
@@ -1417,74 +1450,30 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
           color: Theme.of(context).colorScheme.onSurfaceVariant));
 
   Widget _stepper(
-      {required Key key,
-      required TextEditingController controller,
-      required String hint,
-      required String label,
-      required bool decimal,
-      required double step,
-      required bool enabled,
-      required _Capture capture}) {
-    final colors = Theme.of(context).colorScheme;
-    final field = Semantics(
-        label: label,
-        child: TextField(
-            key: key,
-            controller: controller,
-            enabled: enabled,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                fontFeatures: [FontFeature.tabularFigures()]),
-            decoration: InputDecoration(
-                isDense: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                hintText: hint,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10)),
-            keyboardType: TextInputType.numberWithOptions(decimal: decimal),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(
-                  RegExp(decimal ? r'[0-9.,]' : r'[0-9]'))
-            ],
-            onChanged: (_) => _touch(() => capture.error = null)));
-    Widget button(IconData icon, String tip, double delta) => SizedBox(
-        width: 28,
-        height: 46,
-        child: IconButton(
-            tooltip: '$tip $label',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 46),
-            onPressed: enabled
-                ? () {
-                    if (_settings.haptics) {
-                      HapticFeedback.selectionClick();
-                    }
-                    _touch(() {
-                      _step(controller, hint, delta, decimal: decimal);
-                      capture.error = null;
-                    });
-                  }
-                : null,
-            icon: Icon(icon, size: 16, color: colors.onSurfaceVariant)));
-    return Container(
-        decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12)),
-        child: LayoutBuilder(
-            builder: (context, c) => c.maxWidth < 80 ||
-                    MediaQuery.textScalerOf(context).scale(14) > 19.5
-                ? field
-                : Row(children: [
-                    button(Icons.remove_rounded, 'Restar a', -step),
-                    Expanded(child: field),
-                    button(Icons.add_rounded, 'Sumar a', step),
-                  ])));
-  }
+          {required Key key,
+          required TextEditingController controller,
+          required String hint,
+          required String label,
+          required bool decimal,
+          required double step,
+          required bool enabled,
+          required _Capture capture}) =>
+      _StepperField(
+          fieldKey: key,
+          controller: controller,
+          hint: hint,
+          label: label,
+          decimal: decimal,
+          enabled: enabled,
+          onChanged: () => _touch(() => capture.error = null),
+          onStep: (delta) {
+            if (_settings.haptics) HapticFeedback.selectionClick();
+            _touch(() {
+              _step(controller, hint, delta, decimal: decimal);
+              capture.error = null;
+            });
+          },
+          step: step);
 
   /// "50×10", "10 reps" or "—" for the same set last time.
   String _previousLabel(TrainingExercise e, SetResult? s) => s == null
@@ -1529,28 +1518,43 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
             ? 'Sin dato anterior'
             : 'Anterior ${_previousLabel(e, previous)}. Toca para copiar',
         child: ExcludeSemantics(
-            child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: copyPrevious,
-                child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.history_rounded,
-                          size: 13, color: colors.onSurfaceVariant),
-                      const SizedBox(width: 3),
-                      Flexible(
-                          child: Text(_previousLabel(e, previous),
-                              key: ValueKey('previous-${prescribed.id}'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: previous != null
-                                      ? colors.secondary
-                                      : colors.onSurfaceVariant))),
-                    ])))));
+            child: Material(
+                color: previous != null
+                    ? colors.surfaceContainerHighest
+                    : Colors.transparent,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: previous != null
+                        ? BorderSide(color: colors.outlineVariant)
+                        : BorderSide.none),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                    onTap: copyPrevious,
+                    child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.history_rounded,
+                              size: 13,
+                              color: previous != null
+                                  ? colors.secondary
+                                  : colors.onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Flexible(
+                              child: Text(_previousLabel(e, previous),
+                                  key: ValueKey('previous-${prescribed.id}'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      color: previous != null
+                                          ? colors.secondary
+                                          : colors.onSurfaceVariant))),
+                        ]))))));
 
     Widget effortTrigger({required bool inline}) => Semantics(
         button: true,
@@ -1586,7 +1590,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                                     color: effort != null ? colors.onPrimaryContainer : colors.onSurfaceVariant)))))
                 : TextButton(key: ValueKey('effort-${prescribed.id}'), style: TextButton.styleFrom(minimumSize: const Size(56, 36), padding: const EdgeInsets.symmetric(horizontal: 8), foregroundColor: effort == null ? colors.onSurfaceVariant : colors.primary), onPressed: editable ? () => _pickEffort(e, c) : null, child: Text('${rpe ? 'RPE' : 'RIR'} ${effort ?? '—'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))));
 
-    return Container(
+    return AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(top: 6),
         padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
         decoration: BoxDecoration(
@@ -1598,103 +1605,110 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                     : Colors.transparent,
             border: c.error != null
                 ? Border.all(color: colors.error, width: 1.4)
-                : null),
+                : done
+                    ? Border.all(
+                        color: BrandColors.success
+                            .withValues(alpha: dark ? .35 : .30))
+                    : null),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            SizedBox(
-                width: 34,
-                child: Center(
-                    child: Semantics(
-                        button: true,
-                        label:
-                            'Opciones de la serie ${index + 1}, ${prescribed.kindLabel}',
-                        onTap: _busy ? null : () => _setMenu(e, index),
-                        child: ExcludeSemantics(
-                            child: InkWell(
-                                key: ValueKey('set-menu-${prescribed.id}'),
-                                customBorder: const CircleBorder(),
-                                onTap: _busy ? null : () => _setMenu(e, index),
-                                child: Padding(
-                                    padding: const EdgeInsets.all(3),
-                                    child: SetBadge(
-                                        kind: prescribed.kind,
-                                        done: done,
-                                        text: skipped
-                                            ? '—'
-                                            : e.badgeFor(index)))))))),
-            if (!e.bodyweight) ...[
-              const SizedBox(width: 6),
-              Expanded(
-                  flex: 5,
-                  child: _stepper(
-                      key: ValueKey('kg-${prescribed.id}'),
-                      controller: c.load,
-                      hint: kgHint.isEmpty ? 'kg' : kgHint,
-                      label: 'kg de la serie ${index + 1}',
-                      decimal: true,
-                      step: _settings.loadStep,
-                      enabled: editable,
-                      capture: c)),
-            ],
-            const SizedBox(width: 6),
-            Expanded(
-                flex: 4,
-                child: _stepper(
-                    key: ValueKey('reps-${prescribed.id}'),
-                    controller: c.reps,
-                    hint: repsHint,
-                    label: 'reps de la serie ${index + 1}',
-                    decimal: false,
-                    step: 1,
-                    enabled: editable,
-                    capture: c)),
-            if (!compactMode) ...[
-              const SizedBox(width: 6),
-              effortTrigger(inline: true),
-            ],
-            const SizedBox(width: 6),
-            // Key on the state so marking a set pops once.
-            TweenAnimationBuilder<double>(
-                key: ValueKey('check-pop-$done'),
-                tween: Tween(begin: done ? .82 : 1, end: 1),
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 260),
-                curve: Curves.easeOutBack,
-                builder: (context, scale, child) =>
-                    Transform.scale(scale: scale, child: child),
-                child: SizedBox(
-                    width: 46,
-                    height: 46,
-                    child: IconButton(
-                        key: ValueKey('check-${prescribed.id}'),
-                        tooltip: done
-                            ? 'Desmarcar serie ${index + 1}'
-                            : 'Marcar serie ${index + 1} como hecha',
-                        style: IconButton.styleFrom(
-                            minimumSize: const Size(46, 46),
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            backgroundColor: done
-                                ? BrandColors.success
-                                : colors.surfaceContainerHighest,
-                            foregroundColor: done
-                                ? BrandColors.onSuccess
-                                : colors.onSurfaceVariant),
-                        onPressed: _busy || skipped
-                            ? null
-                            : () {
-                                if (_settings.haptics) {
-                                  done
-                                      ? HapticFeedback.lightImpact()
-                                      : HapticFeedback.mediumImpact();
-                                }
-                                _toggle(e, index);
-                              },
-                        icon: const Icon(Icons.check_rounded, size: 22)))),
-          ]),
+          Opacity(
+              opacity: skipped ? 0.55 : 1,
+              child: Row(children: [
+                SizedBox(
+                    width: 34,
+                    child: Center(
+                        child: Semantics(
+                            button: true,
+                            label:
+                                'Opciones de la serie ${index + 1}, ${prescribed.kindLabel}',
+                            onTap: _busy ? null : () => _setMenu(e, index),
+                            child: ExcludeSemantics(
+                                child: InkWell(
+                                    key: ValueKey('set-menu-${prescribed.id}'),
+                                    customBorder: const CircleBorder(),
+                                    onTap:
+                                        _busy ? null : () => _setMenu(e, index),
+                                    child: Padding(
+                                        padding: const EdgeInsets.all(3),
+                                        child: SetBadge(
+                                            kind: prescribed.kind,
+                                            done: done,
+                                            text: skipped
+                                                ? '—'
+                                                : e.badgeFor(index)))))))),
+                if (!e.bodyweight) ...[
+                  const SizedBox(width: 6),
+                  Expanded(
+                      flex: 5,
+                      child: _stepper(
+                          key: ValueKey('kg-${prescribed.id}'),
+                          controller: c.load,
+                          hint: kgHint.isEmpty ? 'kg' : kgHint,
+                          label: 'kg de la serie ${index + 1}',
+                          decimal: true,
+                          step: _settings.loadStep,
+                          enabled: editable,
+                          capture: c)),
+                ],
+                const SizedBox(width: 6),
+                Expanded(
+                    flex: 4,
+                    child: _stepper(
+                        key: ValueKey('reps-${prescribed.id}'),
+                        controller: c.reps,
+                        hint: repsHint,
+                        label: 'reps de la serie ${index + 1}',
+                        decimal: false,
+                        step: 1,
+                        enabled: editable,
+                        capture: c)),
+                if (!compactMode) ...[
+                  const SizedBox(width: 6),
+                  effortTrigger(inline: true),
+                ],
+                const SizedBox(width: 6),
+                // Key on the state so marking a set pops once.
+                TweenAnimationBuilder<double>(
+                    key: ValueKey('check-pop-$done'),
+                    tween: Tween(begin: done ? .82 : 1, end: 1),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 260),
+                    curve: Curves.easeOutBack,
+                    builder: (context, scale, child) =>
+                        Transform.scale(scale: scale, child: child),
+                    child: SizedBox(
+                        width: 46,
+                        height: 46,
+                        child: IconButton(
+                            key: ValueKey('check-${prescribed.id}'),
+                            tooltip: done
+                                ? 'Desmarcar serie ${index + 1}'
+                                : 'Marcar serie ${index + 1} como hecha',
+                            style: IconButton.styleFrom(
+                                minimumSize: const Size(46, 46),
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                backgroundColor: done
+                                    ? BrandColors.success
+                                    : colors.surfaceContainerHighest,
+                                foregroundColor: done
+                                    ? BrandColors.onSuccess
+                                    : colors.onSurfaceVariant),
+                            onPressed: _busy || skipped
+                                ? null
+                                : () {
+                                    if (_settings.haptics) {
+                                      done
+                                          ? HapticFeedback.lightImpact()
+                                          : HapticFeedback.mediumImpact();
+                                    }
+                                    _toggle(e, index);
+                                  },
+                            icon: const Icon(Icons.check_rounded, size: 22)))),
+              ])),
           const SizedBox(height: 4),
           Padding(
               padding: EdgeInsets.only(left: compactMode ? 4 : 38, right: 2),
@@ -1946,6 +1960,14 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                  minHeight: 4,
+                  value: ratio,
+                  color: paused ? colors.onSurfaceVariant : colors.primary,
+                  backgroundColor: colors.surfaceContainerHighest)),
+          const SizedBox(height: 10),
           Row(children: [
             Expanded(
                 child: Semantics(
@@ -2013,5 +2035,131 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                 icon: Icon(paused ? Icons.play_arrow : Icons.pause)),
           ]),
         ]));
+  }
+}
+
+class _StepperField extends StatefulWidget {
+  const _StepperField({
+    required this.fieldKey,
+    required this.controller,
+    required this.hint,
+    required this.label,
+    required this.decimal,
+    required this.step,
+    required this.enabled,
+    required this.onChanged,
+    required this.onStep,
+  });
+
+  final Key fieldKey;
+  final TextEditingController controller;
+  final String hint;
+  final String label;
+  final bool decimal;
+  final double step;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final ValueChanged<double> onStep;
+
+  @override
+  State<_StepperField> createState() => _StepperFieldState();
+}
+
+class _StepperFieldState extends State<_StepperField> {
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focus
+      ..removeListener(_onFocusChange)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final focused = _focus.hasFocus;
+    final field = Semantics(
+      label: widget.label,
+      child: TextField(
+        key: widget.fieldKey,
+        focusNode: _focus,
+        controller: widget.controller,
+        enabled: widget.enabled,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: false,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          hintText: widget.hint,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        keyboardType: TextInputType.numberWithOptions(decimal: widget.decimal),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(
+            RegExp(widget.decimal ? r'[0-9.,]' : r'[0-9]'),
+          ),
+        ],
+        onChanged: (_) => widget.onChanged(),
+      ),
+    );
+    Widget button(IconData icon, String tip, double delta, double width) =>
+        SizedBox(
+          width: width,
+          height: 46,
+          child: IconButton(
+            tooltip: '$tip ${widget.label}',
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: width, minHeight: 46),
+            onPressed: widget.enabled ? () => widget.onStep(delta) : null,
+            icon: Icon(icon, size: 16, color: colors.onSurfaceVariant),
+          ),
+        );
+    return AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 140),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: focused ? colors.primary : Colors.transparent,
+          width: focused ? 1.6 : 1,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          if (c.maxWidth < 80 ||
+              MediaQuery.textScalerOf(context).scale(14) > 19.5) {
+            return field;
+          }
+          final btnWidth = c.maxWidth >= 96 ? 32.0 : 28.0;
+          return Row(children: [
+            button(Icons.remove_rounded, 'Restar a', -widget.step, btnWidth),
+            Expanded(child: field),
+            button(Icons.add_rounded, 'Sumar a', widget.step, btnWidth),
+          ]);
+        },
+      ),
+    );
   }
 }

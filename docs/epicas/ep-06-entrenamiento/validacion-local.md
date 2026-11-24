@@ -163,3 +163,13 @@ Pendiente: recorrido con API real, finalizar una sesión en dispositivo (solo cu
 | T | APK debug normal con la sesión ya guardada en el emulador | Cuenta → Preferencias → Notificaciones muestra el aviso de alarmas exactas y «4 comidas con horario programado»; *Permitir* abre «Alarms & reminders»; al concederlo, las 4 alarmas pasan de `window=+1h` a `window=0 exactAllowReason=permission` y el aviso desaparece. |
 
 Pendiente: teléfono físico (OEM con ahorro de batería agresivo), comportamiento con el proceso congelado más de un descanso, recorrido con API real hasta finalizar, iOS, aceptación humana y revisión independiente.
+
+## Rutina solo de descansos no se activa — 24-nov-2026
+
+- **T** Prueba exploratoria en Web local (`localhost:5000`, BD `CouchOneFit_dev`, cuentas sintéticas): «Empezar desde cero» → «Guardar y activar» sin tocar los días activaba una semana de 7 descansos con 0 ejercicios y el cliente la recibía como rutina activa. Contradice HU-028 («Días de descanso no se confunden con rutina vacía»).
+- **E** `activatePlan` (`apps/api/src/features/training/services/training.ts`) rechaza ahora con `400 INVALID_TRAINING` una versión sin días `training`. Borradores y plantillas siguen admitiendo solo descansos mientras se editan.
+- **T** Nueva prueba `a rest-only week saves as a draft but cannot be activated for the client` (`apps/api/tests/training.test.ts`): falla sin la regla (rojo) y pasa con ella; `training.test.ts` 4/4.
+- **T** Navegador integrado: la misma acción muestra «Agrega al menos un día de entrenamiento antes de activar la rutina.», conserva el borrador y el cliente sigue «Sin rutina».
+- **E** No se limpian rutinas vacías ya activas en bases existentes; la regla solo impide activaciones nuevas.
+- **E** Las escrituras de entrenamiento sin `Idempotency-Key` válida responden ahora «Falta la clave de idempotencia (Idempotency-Key) o no es válida.» en lugar de «Identificador inválido.».
+- **T** Las 2 pruebas de `client_login_test.dart` citadas arriba (dependientes de la fecha) usan ahora el reloj fijo inyectado, igual que el resto del archivo; `flutter test` 120/120.

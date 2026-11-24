@@ -43,7 +43,11 @@ class _NutritionPlanViewState extends State<NutritionPlanView> {
     if (widget.loading && current == null) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 28),
-        child: Center(child: CircularProgressIndicator()),
+        child: StatusView(
+          loading: true,
+          title: 'Consultando tu plan…',
+          message: 'Preparamos tus comidas y objetivos diarios.',
+        ),
       );
     }
 
@@ -793,11 +797,12 @@ class _PeriWorkoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    Widget row(String title, String detail, IconData icon) => Padding(
+    Widget row(String title, String detail, IconData icon, Color tint) =>
+        Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              IconBadge(icon, size: 36, tint: colors.primary),
+              IconBadge(icon, size: 36, tint: tint),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -832,17 +837,20 @@ class _PeriWorkoutCard extends StatelessWidget {
           'Pre-entreno',
           '${peri.preProteinG.round()}g proteína · ${peri.preCarbsG.round()}g carbos · ${peri.preFatG.round()}g grasas',
           Icons.bolt_outlined,
+          BrandColors.warning,
         ),
         if (peri.intraCarbsG > 0)
           row(
             'Intra-entreno',
             '${peri.intraCarbsG.round()}g carbos líquidos durante la sesión',
             Icons.water_drop_outlined,
+            const Color(0xFF0EA5E9),
           ),
         row(
           'Post-entreno',
           '${peri.postProteinG.round()}g proteína · ${peri.postCarbsG.round()}g carbos · ${peri.postFatG.round()}g grasas',
           Icons.fitness_center_outlined,
+          BrandColors.success,
         ),
         if (peri.notes != null && peri.notes!.isNotEmpty)
           Padding(
@@ -886,10 +894,20 @@ class _MealCard extends StatelessWidget {
         _ => Icons.restaurant_menu_outlined,
       };
 
+  Color _categoryTint(String? category, ColorScheme colors) =>
+      switch (category) {
+        'breakfast' => BrandColors.warning,
+        'morning_snack' || 'afternoon_snack' => BrandColors.success,
+        'lunch' => const Color(0xFF0EA5E9),
+        'pre_workout' || 'post_workout' => colors.primary,
+        _ => colors.secondary,
+      };
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final macroLabel = meal.macroSummaryLabel;
+    final categoryTint = _categoryTint(meal.category, colors);
     return GroupCard(
       children: [
         InkWell(
@@ -901,7 +919,7 @@ class _MealCard extends StatelessWidget {
               children: [
                 IconBadge(
                   _categoryIcon(meal.category),
-                  filled: true,
+                  tint: categoryTint,
                   size: 40,
                 ),
                 const SizedBox(width: 12),
@@ -917,19 +935,43 @@ class _MealCard extends StatelessWidget {
                           color: colors.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Wrap(
                         spacing: 8,
-                        runSpacing: 2,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           if (meal.scheduleTime != null &&
                               meal.scheduleTime!.isNotEmpty)
-                            Text(
-                              meal.scheduleTime!,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: colors.secondary,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colors.secondary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 12.5,
+                                    color: statusInk(context, colors.secondary),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    meal.scheduleTime!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      color:
+                                          statusInk(context, colors.secondary),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           Text(
@@ -1321,13 +1363,17 @@ class _MealItemRow extends StatelessWidget {
     );
 
     if (item.isRecipe && onOpenRecipe != null) {
+      final dark = Theme.of(context).brightness == Brightness.dark;
       return Semantics(
         button: true,
         label:
             'Receta ${item.name}, ${item.quantityLabel}. Toca para ver ingredientes y preparación',
-        child: InkWell(
-          onTap: onOpenRecipe,
-          child: rowContent,
+        child: Ink(
+          color: colors.secondary.withValues(alpha: dark ? 0.07 : 0.045),
+          child: InkWell(
+            onTap: onOpenRecipe,
+            child: rowContent,
+          ),
         ),
       );
     }

@@ -35,6 +35,7 @@ class NoticeBanner extends StatelessWidget {
     };
     final background =
         (dark ? BrandColors.statusDark : BrandColors.statusLight)[tone.name]!;
+    final ink = statusInk(context, accent);
     return Semantics(
         liveRegion: true,
         child: Container(
@@ -52,14 +53,14 @@ class NoticeBanner extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: accent.withValues(alpha: dark ? .22 : .16),
                       shape: BoxShape.circle),
-                  child: Icon(icon ?? fallbackIcon, size: 17, color: accent)),
+                  child: Icon(icon ?? fallbackIcon, size: 17, color: ink)),
               const SizedBox(width: 12),
               Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Padding(
-                        padding: const EdgeInsets.only(top: 5),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(text,
                             style: TextStyle(
                                 color: colors.onSurface,
@@ -68,14 +69,18 @@ class NoticeBanner extends StatelessWidget {
                                 height: 1.4))),
                     if (onRetry != null)
                       Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.only(top: 6),
                           child: TextButton.icon(
                               onPressed: onRetry,
                               style: TextButton.styleFrom(
                                   foregroundColor: colors.onSurface,
                                   backgroundColor:
                                       accent.withValues(alpha: dark ? .2 : .14),
-                                  minimumSize: const Size(48, 40),
+                                  minimumSize: const Size(48, 44),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
                                   visualDensity: VisualDensity.compact),
                               icon: const Icon(Icons.refresh_rounded, size: 18),
                               label: Text(retryLabel))),

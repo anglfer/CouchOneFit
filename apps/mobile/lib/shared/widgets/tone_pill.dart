@@ -12,12 +12,14 @@ class TonePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final base = tone ?? colors.secondary;
     final ink = statusInk(context, base);
     return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
             color: base.withValues(alpha: .15),
+            border: Border.all(color: base.withValues(alpha: dark ? .30 : .22)),
             borderRadius: BorderRadius.circular(99)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[
@@ -29,6 +31,7 @@ class TonePill extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                       color: ink))),
         ]));
   }

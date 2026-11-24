@@ -38,12 +38,18 @@ class MuscleMap extends StatelessWidget {
                   idle: Color.lerp(panel, colors.onSurface, dark ? .2 : .2)!,
                   gap: panel)),
           const SizedBox(height: 8),
-          Text(front ? 'Frente' : 'Espalda',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: .4,
-                  color: colors.onSurfaceVariant)),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: colors.outlineVariant)),
+              child: Text(front ? 'Frente' : 'Espalda',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .4,
+                      color: colors.onSurfaceVariant))),
         ]);
     return Semantics(
         image: true,
@@ -108,19 +114,38 @@ class RecoveryBody extends StatelessWidget {
               : 'Figura muscular. Recuperación de lo entrenado $overall %. ${items.map((r) => '${r.group} ${(r.ratio * 100).round()} %').join(', ')}'),
       if (overall != null) ...[
         const SizedBox(height: 12),
-        Center(
-            child: Text.rich(
-                TextSpan(children: [
-                  TextSpan(
-                      text: '$overall %',
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface)),
-                  const TextSpan(text: '  recuperación de lo entrenado'),
-                ]),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceVariant))),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: innerPanelDecoration(context, radius: 14),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                      child: Text.rich(
+                          TextSpan(children: [
+                            TextSpan(
+                                text: '$overall %',
+                                style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
+                                    color: colors.onSurface)),
+                            const TextSpan(
+                                text: '  recuperación de lo entrenado'),
+                          ]),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colors.onSurfaceVariant))),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                          minHeight: 6,
+                          value: (overall / 100).clamp(0.0, 1.0),
+                          color: recoveryColor(overall / 100),
+                          backgroundColor: colors.surface)),
+                ])),
       ],
       const SizedBox(height: 8),
       Wrap(

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../shared/animations/tactile_bounce.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/utils/friendly_date.dart';
 import '../../../shared/widgets/icon_badge.dart';
 import '../../../shared/widgets/journey_surface.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../../shared/widgets/sheet_parts.dart';
+import '../../../shared/widgets/tone_pill.dart';
 import '../../auth/models/session_models.dart';
 import '../../check_in/models/check_in.dart';
 import '../../check_in/screens/check_in_screen.dart';
@@ -401,8 +403,22 @@ class _ClientShellState extends State<ClientShell> {
                 type: MaterialType.transparency,
                 child: ListTile(
                     contentPadding: const EdgeInsets.fromLTRB(14, 2, 6, 2),
-                    leading: const Icon(Icons.fitness_center,
-                        color: Colors.white, size: 22),
+                    leading: Stack(clipBehavior: Clip.none, children: [
+                      const Icon(Icons.fitness_center,
+                          color: Colors.white, size: 22),
+                      Positioned(
+                          right: -3,
+                          top: -3,
+                          child: Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                  color: BrandColors.success,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFF1A103D),
+                                      width: 1.5)))),
+                    ]),
                     title: const Text('Entrenamiento en curso',
                         style: TextStyle(
                             color: Colors.white, fontWeight: FontWeight.w800)),
@@ -411,11 +427,24 @@ class _ClientShellState extends State<ClientShell> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Color(0xE6FFFFFF))),
                     onTap: () => setState(() => _minimized = false),
-                    trailing: IconButton(
-                        tooltip: 'Descartar entrenamiento',
-                        color: Colors.white,
-                        onPressed: _discardSession,
-                        icon: const Icon(Icons.close_rounded))))));
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: const Color(0x28FFFFFF),
+                              borderRadius: BorderRadius.circular(99)),
+                          child: const Text('Volver',
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white))),
+                      IconButton(
+                          tooltip: 'Descartar entrenamiento',
+                          color: Colors.white,
+                          onPressed: _discardSession,
+                          icon: const Icon(Icons.close_rounded)),
+                    ])))));
   }
 
   /// Center button: today's workout directly, otherwise the recent days.
@@ -561,7 +590,7 @@ class _ClientShellState extends State<ClientShell> {
                                       key: PageStorageKey(
                                           'client-tab-$_selected'),
                                       padding: EdgeInsets.fromLTRB(
-                                          gutter, 16, gutter, 96),
+                                          gutter, 16, gutter, 116),
                                       physics:
                                           const AlwaysScrollableScrollPhysics(),
                                       children: [
@@ -593,41 +622,69 @@ class _ClientShellState extends State<ClientShell> {
   Widget _trainButton() {
     final colors = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = Theme.of(context).navigationBarTheme.backgroundColor;
+    final hasLiveSession = _session != null;
     return Semantics(
         button: true,
         label: 'Entrenar',
         onTap: _opening ? null : _start,
         child: ExcludeSemantics(
-            child: Container(
-                width: 64,
-                height: 64,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Theme.of(context).navigationBarTheme.backgroundColor,
-                    boxShadow: [
-                      BoxShadow(
-                          color:
-                              colors.primary.withValues(alpha: dark ? .4 : .28),
-                          blurRadius: 20,
-                          offset: const Offset(0, 6))
-                    ]),
-                child: Material(
-                    color: actionFill(context),
-                    shape: const CircleBorder(),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                        onTap: _opening ? null : _start,
-                        child: _opening
-                            ? const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2.4, color: Colors.white))
-                            : const Icon(Icons.play_arrow_rounded,
-                                color: Colors.white, size: 32))))));
+            child: TactileBounce(
+                enabled: !_opening,
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                      width: 64,
+                      height: 64,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: navBg,
+                          boxShadow: [
+                            BoxShadow(
+                                color: colors.primary
+                                    .withValues(alpha: dark ? .4 : .28),
+                                blurRadius: 20,
+                                offset: const Offset(0, 6))
+                          ]),
+                      child: DecoratedBox(
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  width: 1)),
+                          child: Material(
+                              color: actionFill(context),
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                  onTap: _opening ? null : _start,
+                                  child: _opening
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(16),
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2.4,
+                                              color: Colors.white))
+                                      : const Icon(Icons.play_arrow_rounded,
+                                          color: Colors.white, size: 32))))),
+                  if (hasLiveSession)
+                    Positioned(
+                        right: 2,
+                        top: 2,
+                        child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                                color: BrandColors.success,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: navBg ?? colors.surface,
+                                    width: 2)))),
+                ]))));
   }
 
   Widget _bottomBar(List<(IconData, IconData, String)> items) {
+    final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final navigation = Theme.of(context).navigationBarTheme;
     final disableAnim = MediaQuery.disableAnimationsOf(context);
     Color tone(bool selected) => navigation.iconTheme!
@@ -662,16 +719,28 @@ class _ClientShellState extends State<ClientShell> {
                                     ? Duration.zero
                                     : const Duration(milliseconds: 200),
                                 curve: Curves.easeOutCubic,
-                                width: selected ? 28 : 0,
+                                width: selected ? 26 : 0,
                                 height: 3,
                                 decoration: BoxDecoration(
                                     color: color,
-                                    borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(3)))),
-                            const SizedBox(height: 7),
-                            Icon(selected ? selectedIcon : icon,
-                                size: 24, color: color),
-                            const SizedBox(height: 3),
+                                    borderRadius: BorderRadius.circular(99))),
+                            const SizedBox(height: 5),
+                            AnimatedContainer(
+                                duration: disableAnim
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 180),
+                                width: 44,
+                                height: 28,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                    color: selected
+                                        ? colors.primary.withValues(
+                                            alpha: dark ? 0.16 : 0.10)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(99)),
+                                child: Icon(selected ? selectedIcon : icon,
+                                    size: 22, color: color)),
+                            const SizedBox(height: 2),
                             label(text, color, selected),
                           ]))))));
     }
@@ -708,7 +777,16 @@ class _ClientShellState extends State<ClientShell> {
                 ]))));
   }
 
+  String _initials() {
+    final parts = widget.profile.fullName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return 'C';
+    return (parts.first.characters.first +
+            (parts.length > 1 ? parts.last.characters.first : ''))
+        .toUpperCase();
+  }
+
   Widget _content() {
+    final colors = Theme.of(context).colorScheme;
     final data = _data, plan = data?.plan;
     final serverToday = data?.today ?? _checkIn?.today;
     final today = serverToday ?? trainingIso(DateTime.now());
@@ -718,10 +796,25 @@ class _ClientShellState extends State<ClientShell> {
           subtitle: serverToday == null
               ? 'Tu día'
               : capitalized(longDate(serverToday)),
-          trailing: IconButton.filledTonal(
+          trailing: IconButton(
               tooltip: 'Configuración',
+              padding: EdgeInsets.zero,
               onPressed: () => setState(() => _selected = 3),
-              icon: const Icon(Icons.settings_outlined))),
+              icon: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colors.primaryContainer,
+                      border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.45),
+                          width: 1.5)),
+                  child: Text(_initials(),
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: colors.onPrimaryContainer))))),
       1 => const ScreenHeader(
           title: 'Planes', subtitle: 'Lo que te asignó tu profesional'),
       _ => ScreenHeader(
@@ -867,67 +960,103 @@ class _ClientShellState extends State<ClientShell> {
           padding: const EdgeInsets.only(top: 12),
           child: Card(
               margin: EdgeInsets.zero,
-              child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        CardTitle(
-                            icon: Icons.restaurant_outlined,
-                            title: 'Alimentación de hoy',
-                            action: 'Ver Planes',
-                            onAction: openNutrition),
-                        const SizedBox(height: 8),
-                        Text(
-                            'Sin plan alimenticio activo. Cuando tu profesional lo active aparecerá aquí.',
-                            style: TextStyle(color: colors.onSurfaceVariant)),
-                      ]))));
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                  onTap: openNutrition,
+                  child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CardTitle(
+                                icon: Icons.restaurant_outlined,
+                                title: 'Alimentación de hoy',
+                                action: 'Ver Planes',
+                                onAction: openNutrition),
+                            const SizedBox(height: 8),
+                            Text(
+                                'Sin plan alimenticio activo. Cuando tu profesional lo active aparecerá aquí.',
+                                style:
+                                    TextStyle(color: colors.onSurfaceVariant)),
+                          ])))));
     }
-    final parts = <String>[
-      trainingCount(nutrition.meals.length, 'comida', 'comidas'),
+    final pKcal = ((nutrition.proteinTargetG ?? 0) * 4).round();
+    final cKcal = ((nutrition.carbsTargetG ?? 0) * 4).round();
+    final fKcal = ((nutrition.fatTargetG ?? 0) * 9).round();
+    final macroTotal = pKcal + cKcal + fKcal;
+    final chips = <Widget>[
+      TrainingChip(trainingCount(nutrition.meals.length, 'comida', 'comidas'),
+          icon: Icons.restaurant_menu_outlined),
       if (nutrition.caloriesTarget != null)
-        '${nutrition.caloriesTarget!.round()} kcal',
+        TonePill('${nutrition.caloriesTarget!.round()} kcal',
+            tone: colors.primary),
       if (nutrition.proteinTargetG != null)
-        'P ${nutrition.proteinTargetG!.round()}g',
+        TrainingChip('P ${nutrition.proteinTargetG!.round()}g'),
       if (nutrition.carbsTargetG != null)
-        'C ${nutrition.carbsTargetG!.round()}g',
-      if (nutrition.fatTargetG != null) 'G ${nutrition.fatTargetG!.round()}g',
+        TrainingChip('C ${nutrition.carbsTargetG!.round()}g'),
+      if (nutrition.fatTargetG != null)
+        TrainingChip('G ${nutrition.fatTargetG!.round()}g'),
     ];
     return Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Card(
             margin: EdgeInsets.zero,
-            child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      CardTitle(
-                          icon: Icons.restaurant_outlined,
-                          title: 'Alimentación de hoy',
-                          action: 'Ver plan',
-                          onAction: openNutrition),
-                      const SizedBox(height: 8),
-                      Text(nutrition.name,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 4),
-                      Text(parts.join(' · '),
-                          style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: colors.onSurfaceVariant,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ])),
-                      if (_nutritionCachedAt != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                            'Lectura guardada · ${friendlySavedAt(_nutritionCachedAt!)}',
-                            style: TextStyle(
-                                fontSize: 12, color: colors.onSurfaceVariant)),
-                      ],
-                    ]))));
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+                onTap: openNutrition,
+                child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          CardTitle(
+                              icon: Icons.restaurant_outlined,
+                              title: 'Alimentación de hoy',
+                              action: 'Ver plan',
+                              onAction: openNutrition),
+                          const SizedBox(height: 8),
+                          Text(nutrition.name,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w800)),
+                          if (macroTotal > 0) ...[
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: SizedBox(
+                                    height: 6,
+                                    child: Row(children: [
+                                      if (pKcal > 0)
+                                        Expanded(
+                                            flex: pKcal,
+                                            child: ColoredBox(
+                                                color: colors.primary)),
+                                      if (cKcal > 0)
+                                        Expanded(
+                                            flex: cKcal,
+                                            child: const ColoredBox(
+                                                color: Color(0xFF0EA5E9))),
+                                      if (fKcal > 0)
+                                        Expanded(
+                                            flex: fKcal,
+                                            child: const ColoredBox(
+                                                color: BrandColors.warning)),
+                                    ]))),
+                          ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: chips),
+                          if (_nutritionCachedAt != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                                'Lectura guardada · ${friendlySavedAt(_nutritionCachedAt!)}',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: colors.onSurfaceVariant)),
+                          ],
+                        ])))));
   }
 }
 
@@ -942,40 +1071,54 @@ class _LoadingCard extends StatelessWidget {
     return Semantics(
         label: 'Cargando tu rutina',
         child: ExcludeSemantics(
-            child: Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(children: [
-                            for (var i = 0; i < 7; i++)
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+              Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(children: [
+                              for (var i = 0; i < 7; i++)
+                                Expanded(
+                                    child: Center(
+                                        child: Container(
+                                            width: 34,
+                                            height: 44,
+                                            decoration: BoxDecoration(
+                                                color: block,
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        12))))),
+                            ]),
+                            const SizedBox(height: 14),
+                            Container(
+                                height: 112,
+                                decoration: innerPanelDecoration(context)),
+                            const SizedBox(height: 14),
+                            Row(children: [
+                              const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
+                              const SizedBox(width: 10),
                               Expanded(
-                                  child: Center(
-                                      child: Container(
-                                          width: 34,
-                                          height: 34,
-                                          decoration: BoxDecoration(
-                                              color: block,
-                                              shape: BoxShape.circle)))),
-                          ]),
-                          const SizedBox(height: 16),
-                          Container(
-                              height: 96,
-                              decoration: innerPanelDecoration(context)),
-                          const SizedBox(height: 14),
-                          Row(children: [
-                            const SizedBox.square(
-                                dimension: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                                child: Text('Cargando tu rutina…',
-                                    style: TextStyle(
-                                        color: colors.onSurfaceVariant))),
-                          ]),
-                        ])))));
+                                  child: Text('Cargando tu rutina…',
+                                      style: TextStyle(
+                                          color: colors.onSurfaceVariant))),
+                            ]),
+                          ]))),
+              const SizedBox(height: 14),
+              Container(
+                  height: 76,
+                  decoration: innerPanelDecoration(context, radius: 18)),
+              const SizedBox(height: 12),
+              Container(
+                  height: 88,
+                  decoration: innerPanelDecoration(context, radius: 18)),
+            ])));
   }
 }

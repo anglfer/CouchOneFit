@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/detail_scaffold.dart';
@@ -202,7 +203,7 @@ class ExerciseTile extends StatelessWidget {
     return InkWell(
         onTap: onTap,
         child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(children: [
               ExerciseAnimation(
                   images: exercise.images, label: exercise.name, size: 60),
@@ -216,7 +217,7 @@ class ExerciseTile extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             fontSize: 15.5,
                             height: 1.25)),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                         [
                           exercise.summary,
@@ -227,9 +228,11 @@ class ExerciseTile extends StatelessWidget {
                             fontSize: 13,
                             height: 1.35)),
                   ])),
-              if (onTap != null)
+              if (onTap != null) ...[
+                const SizedBox(width: 6),
                 Icon(Icons.chevron_right_rounded,
                     color: colors.onSurfaceVariant),
+              ],
             ])));
   }
 }
@@ -277,6 +280,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
                   color: exercise.images.isEmpty
                       ? colors.surfaceContainerHighest
                       : Colors.white,
+                  border: Border.all(color: colors.outlineVariant),
                   borderRadius: BorderRadius.circular(24)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Center(
@@ -353,24 +357,55 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
           ]),
           if (exercise.instructions.isNotEmpty)
             _DetailSection('Indicaciones de tu profesional', [
-              Text(exercise.instructions, style: const TextStyle(height: 1.45)),
+              Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: colors.primaryContainer.withValues(alpha: .55),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: colors.primary.withValues(alpha: .25))),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.campaign_outlined,
+                            size: 18, color: colors.secondary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: Text(exercise.instructions,
+                                style: TextStyle(
+                                    height: 1.45,
+                                    color: colors.onPrimaryContainer))),
+                      ])),
             ]),
           if (exercise.guidance.isNotEmpty) ...[
             _DetailSection('Técnica paso a paso', [
-              for (final entry in exercise.guidance.asMap().entries)
-                Padding(
-                    padding: EdgeInsets.only(top: entry.key == 0 ? 0 : 12),
-                    child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _StepNumber(entry.key + 1),
-                          const SizedBox(width: 12),
-                          Expanded(
-                              child: Padding(
-                                  padding: const EdgeInsets.only(top: 3),
-                                  child: Text(entry.value,
-                                      style: const TextStyle(height: 1.45)))),
-                        ])),
+              Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final entry
+                                in exercise.guidance.asMap().entries)
+                              Padding(
+                                  padding: EdgeInsets.only(
+                                      top: entry.key == 0 ? 0 : 12),
+                                  child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _StepNumber(entry.key + 1),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                            child: Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 3),
+                                                child: Text(entry.value,
+                                                    style: const TextStyle(
+                                                        height: 1.45)))),
+                                      ])),
+                          ]))),
             ]),
             const SizedBox(height: 16),
             Text('Animaciones de ejercicios: © Gym visual · gymvisual.com',
@@ -413,39 +448,50 @@ class TrainingDayScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     if (day.kind == 'rest') {
-      return Scaffold(
-          appBar: AppBar(title: Text(day.name)),
-          body: const SafeArea(
-              child: StatusView(
-                  icon: Icons.bedtime_outlined,
-                  title: 'Día de descanso',
-                  message:
-                      'Día de descanso programado. No hay series por registrar: recuperar también es parte del plan.')));
+      return DetailScaffold(title: Text(day.name), children: const [
+        Padding(
+            padding: EdgeInsets.only(top: 32),
+            child: StatusView(
+                icon: Icons.bedtime_outlined,
+                title: 'Día de descanso',
+                message:
+                    'Día de descanso programado. No hay series por registrar: recuperar también es parte del plan.'))
+      ]);
     }
     final groups = dayGroups(day);
     return DetailScaffold(title: Text(day.name), maxWidth: 520, children: [
-      Text(
-          '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}',
-          style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: colors.onSurfaceVariant)),
-      if (groups.isNotEmpty) ...[
-        const SizedBox(height: 12),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final g in groups)
-            TrainingChip(g, icon: Icons.accessibility_new),
-        ]),
-      ],
-      if (onStart != null) ...[
-        const SizedBox(height: 16),
-        GradientActionButton(
-            label: startLabel,
-            icon: Icons.play_arrow_rounded,
-            onPressed: onStart),
-      ],
-      const SizedBox(height: 20),
-      GroupCard(indent: 86, children: [
+      Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                        '${trainingCount(day.exercises.length, 'ejercicio', 'ejercicios')} · ${trainingCount(day.setCount, 'serie', 'series')}',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: colors.onSurface)),
+                    if (groups.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        for (final g in groups)
+                          TrainingChip(g, icon: Icons.accessibility_new),
+                      ]),
+                    ],
+                    if (onStart != null) ...[
+                      const SizedBox(height: 16),
+                      GradientActionButton(
+                          label: startLabel,
+                          icon: Icons.play_arrow_rounded,
+                          onPressed: onStart),
+                    ],
+                  ]))),
+      const SizedBox(height: 18),
+      const SectionTitle('Ejercicios'),
+      const SizedBox(height: 10),
+      GroupCard(indent: 88, children: [
         for (final entry in day.exercises.asMap().entries)
           ExerciseTile(
               exercise: entry.value,
@@ -503,10 +549,12 @@ class StatTile extends StatelessWidget {
       required this.label,
       required this.value,
       this.highlight = false,
-      this.large = false});
+      this.large = false,
+      this.progress});
   final IconData icon;
   final String label, value;
   final bool highlight, large;
+  final double? progress;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -550,6 +598,17 @@ class StatTile extends StatelessWidget {
                                     FontFeature.tabularFigures()
                                   ],
                                   color: highlight ? tone : colors.onSurface))),
+                      if (progress != null) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                                minHeight: 4,
+                                value: progress!.clamp(0.0, 1.0),
+                                color: highlight ? tone : colors.primary,
+                                backgroundColor:
+                                    colors.surfaceContainerHighest)),
+                      ],
                     ]))));
   }
 }
@@ -614,7 +673,7 @@ class TrendChart extends StatelessWidget {
         child: CustomPaint(
             size: Size.infinite,
             painter: _TrendPainter(values, colors.primary, colors.outline,
-                colors.onSurfaceVariant, axis)));
+                colors.onSurfaceVariant, colors.surface, axis)));
     return Semantics(
         image: true,
         label: label,
@@ -646,9 +705,10 @@ class TrendChart extends StatelessWidget {
 }
 
 class _TrendPainter extends CustomPainter {
-  _TrendPainter(this.values, this.line, this.grid, this.text, this.axis);
+  _TrendPainter(
+      this.values, this.line, this.grid, this.text, this.surface, this.axis);
   final List<double> values;
-  final Color line, grid, text;
+  final Color line, grid, text, surface;
   final bool axis;
   @override
   void paint(Canvas canvas, Size size) {
@@ -656,17 +716,20 @@ class _TrendPainter extends CustomPainter {
     final lo = values.reduce((a, b) => a < b ? a : b);
     final hi = values.reduce((a, b) => a > b ? a : b);
     final span = hi - lo == 0 ? 1 : hi - lo;
-    final left = axis ? 38.0 : 4.0, top = 7.0, bottom = size.height - 7;
-    final width = (size.width - left - 6).clamp(1.0, double.infinity);
+    final left = axis ? 40.0 : 4.0, top = 8.0, bottom = size.height - 8;
+    final width = (size.width - left - 8).clamp(1.0, double.infinity);
     Offset at(int i) => Offset(
         left +
             (values.length == 1 ? width / 2 : width * i / (values.length - 1)),
         bottom - (values[i] - lo) / span * (bottom - top));
     if (axis) {
       final guide = Paint()
-        ..color = grid.withValues(alpha: 0.65)
+        ..color = grid.withValues(alpha: 0.45)
         ..strokeWidth = 1;
-      for (final (y, v) in [(top, hi), (bottom, lo)]) {
+      final guides = hi == lo
+          ? [(top, hi), (bottom, lo)]
+          : [(top, hi), ((top + bottom) / 2, (hi + lo) / 2), (bottom, lo)];
+      for (final (y, v) in guides) {
         canvas.drawLine(Offset(left, y), Offset(size.width, y), guide);
         (TextPainter(
                 text: TextSpan(
@@ -674,19 +737,50 @@ class _TrendPainter extends CustomPainter {
                     style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                         color: text)),
                 textDirection: TextDirection.ltr)
-              ..layout(maxWidth: left - 4))
+              ..layout(maxWidth: left - 6))
             .paint(canvas, Offset(0, y - 7));
       }
     }
-    final path = Path()..moveTo(at(0).dx, at(0).dy);
-    for (var i = 1; i < values.length; i++) {
-      path.lineTo(at(i).dx, at(i).dy);
+    final pts = [for (var i = 0; i < values.length; i++) at(i)];
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    if (pts.length == 2) {
+      path.lineTo(pts[1].dx, pts[1].dy);
+    } else if (pts.length > 2) {
+      // Fritsch-Carlson monotone tangents keep smooth curves inside [lo, hi].
+      final n = pts.length;
+      final d = <double>[
+        for (var k = 0; k < n - 1; k++)
+          (pts[k + 1].dy - pts[k].dy) /
+              ((pts[k + 1].dx - pts[k].dx).abs() < 1e-6
+                  ? 1.0
+                  : pts[k + 1].dx - pts[k].dx),
+      ];
+      final m = List<double>.filled(n, 0);
+      m[0] = d[0];
+      m[n - 1] = d[n - 2];
+      for (var i = 1; i < n - 1; i++) {
+        if (d[i - 1] * d[i] > 0) {
+          m[i] = 2 * d[i - 1] * d[i] / (d[i - 1] + d[i]);
+        }
+      }
+      for (var i = 0; i < n - 1; i++) {
+        final dx = (pts[i + 1].dx - pts[i].dx) / 3;
+        path.cubicTo(
+          pts[i].dx + dx,
+          pts[i].dy + m[i] * dx,
+          pts[i + 1].dx - dx,
+          pts[i + 1].dy - m[i + 1] * dx,
+          pts[i + 1].dx,
+          pts[i + 1].dy,
+        );
+      }
     }
     final area = Path.from(path)
-      ..lineTo(at(values.length - 1).dx, bottom)
-      ..lineTo(at(0).dx, bottom)
+      ..lineTo(pts.last.dx, bottom)
+      ..lineTo(pts.first.dx, bottom)
       ..close();
     canvas.drawPath(
         area,
@@ -695,7 +789,7 @@ class _TrendPainter extends CustomPainter {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                line.withValues(alpha: .32),
+                line.withValues(alpha: .28),
                 line.withValues(alpha: 0)
               ]).createShader(Rect.fromLTRB(0, top, size.width, bottom)));
     canvas.drawPath(
@@ -706,20 +800,31 @@ class _TrendPainter extends CustomPainter {
           ..strokeWidth = 2.6
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round);
-    if (values.length <= 12) {
-      for (var i = 0; i < values.length - 1; i++) {
-        canvas.drawCircle(
-            at(i), 2.5, Paint()..color = line.withValues(alpha: 0.75));
+    if (pts.length <= 12) {
+      final dotFill = Paint()..color = surface;
+      final dotStroke = Paint()
+        ..color = line
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      for (var i = 0; i < pts.length - 1; i++) {
+        canvas.drawCircle(pts[i], 3.0, dotFill);
+        canvas.drawCircle(pts[i], 3.0, dotStroke);
       }
     }
-    final end = at(values.length - 1);
-    canvas.drawCircle(end, 6, Paint()..color = line.withValues(alpha: 0.28));
-    canvas.drawCircle(end, 3.8, Paint()..color = line);
+    final end = pts.last;
+    canvas.drawCircle(end, 6.5, Paint()..color = line.withValues(alpha: 0.25));
+    canvas.drawCircle(end, 4, Paint()..color = line);
+    canvas.drawCircle(end, 1.6, Paint()..color = surface);
   }
 
   @override
   bool shouldRepaint(_TrendPainter old) =>
-      old.values != values || old.line != line;
+      old.axis != axis ||
+      old.line != line ||
+      old.grid != grid ||
+      old.text != text ||
+      old.surface != surface ||
+      !listEquals(old.values, values);
 }
 
 /// Single choice: a pill track when the labels fit in one row, swipeable
@@ -730,7 +835,8 @@ class ChoiceBar<T> extends StatelessWidget {
       required this.options,
       required this.selected,
       required this.onChanged,
-      this.icons});
+      this.icons,
+      this.subtle = false});
   final List<(T, String)> options;
   final T selected;
   final ValueChanged<T>? onChanged;
@@ -738,15 +844,19 @@ class ChoiceBar<T> extends StatelessWidget {
   /// Optional icon per option, track layout only.
   final List<IconData>? icons;
 
+  /// Neutral elevated surface pill for secondary switches inside cards.
+  final bool subtle;
+
   Widget _segment(BuildContext context, int index) {
     final colors = Theme.of(context).colorScheme;
+    final light = Theme.of(context).brightness == Brightness.light;
     final (value, label) = options[index];
     final on = value == selected;
     final enabled = onChanged != null;
     final tone = !enabled
         ? Theme.of(context).hintColor
         : on
-            ? Colors.white
+            ? (subtle ? colors.onSurface : Colors.white)
             : colors.onSurfaceVariant;
     return Semantics(
         button: true,
@@ -771,13 +881,25 @@ class ChoiceBar<T> extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                         color: on
-                            ? enabled
-                                ? actionFill(context)
-                                : colors.surface
+                            ? subtle
+                                ? colors.surface
+                                : enabled
+                                    ? actionFill(context)
+                                    : colors.surface
                             : null,
                         borderRadius: BorderRadius.circular(11),
-                        border: on && !enabled
-                            ? Border.all(color: colors.outline)
+                        border: on && (subtle || !enabled)
+                            ? Border.all(
+                                color: colors.outline
+                                    .withValues(alpha: enabled ? 0.85 : 0.6))
+                            : null,
+                        boxShadow: on && subtle && enabled && light
+                            ? [
+                                BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2))
+                              ]
                             : null),
                     child: FittedBox(
                         fit: BoxFit.scaleDown,

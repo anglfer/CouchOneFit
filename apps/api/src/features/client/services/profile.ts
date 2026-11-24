@@ -3,10 +3,10 @@ import type { SessionIdentity } from '../../auth/types/session.js'
 import { AuthError } from '../../auth/types/errors.js'
 import { clientProfile, clientRecord } from '../repositories/profile.js'
 
-export async function readClientRecord(pool: Pool, identity: SessionIdentity, query: unknown) {
+export async function readClientRecord(pool: Pool, identity: SessionIdentity, query: unknown, now?: Date) {
   if (query && typeof query === 'object' && Object.keys(query).length)
     throw new AuthError(400, 'INVALID_INPUT', 'Esta consulta no acepta identificadores ni filtros.')
-  const record = await clientRecord(pool, identity)
+  const record = await clientRecord(pool, identity, now)
   if (!record) throw new AuthError(401, 'SESSION_REQUIRED', 'Tu sesión venció. Inicia sesión de nuevo.')
   return record
 }
@@ -14,8 +14,9 @@ export async function readClientRecord(pool: Pool, identity: SessionIdentity, qu
 export async function readClientProfile(
   pool: Pool,
   identity: SessionIdentity,
+  now?: Date,
 ) {
-  const profile = await clientProfile(pool, identity)
+  const profile = await clientProfile(pool, identity, false, now)
   if (!profile)
     throw new AuthError(
       401,

@@ -10,8 +10,14 @@ export function object(value: unknown, keys: string[]): Record<string, unknown> 
   if (Object.keys(record).some(key => !keys.includes(key))) return invalid('El formulario contiene campos no permitidos.')
   return record
 }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 export function uuid(value: unknown): string {
-  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return invalid('Identificador inválido.')
+  if (typeof value !== 'string' || !UUID.test(value)) return invalid('Identificador inválido.')
+  return value.toLowerCase()
+}
+// The header is a client-integration error, not a bad record identifier.
+export function idempotencyKey(value: unknown): string {
+  if (typeof value !== 'string' || !UUID.test(value)) return invalid('Falta la clave de idempotencia (Idempotency-Key) o no es válida.')
   return value.toLowerCase()
 }
 export function text(value: unknown, maximum = 500, required = false): string {

@@ -57,7 +57,8 @@ export function mergedClientEdit(
   const validated = validateClientBaseFields(
     merged,
     now,
-    legacy && !touchesCore
+    legacy && !touchesCore,
+    current.birthDate
   )
   // Validation may normalize supplied text; omitted values remain byte-for-byte unchanged.
   return Object.fromEntries(

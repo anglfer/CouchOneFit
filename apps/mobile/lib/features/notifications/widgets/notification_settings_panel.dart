@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/notice_banner.dart';
 import '../../settings/models/app_settings.dart';
 import '../../settings/services/settings_controller.dart';
@@ -164,8 +165,9 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
                     await _ensurePermissionOnEnable(v);
                   },
                 ),
+                Divider(height: 1, color: colors.outlineVariant),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -199,16 +201,38 @@ class _NotificationSettingsPanelState extends State<NotificationSettingsPanel>
                                 ? 'Las comidas actuales tienen horarios relativos (ej. "60 min pre"), sin hora fija para programar alarma.'
                                 : 'Cuando tu profesional asigne horarios fijos a tus comidas, aparecerán aquí.'
                             : '${trainingCount(meals.length, 'comida con horario programado', 'comidas con horario programado')} en tu plan activo.${skipped > 0 ? ' ($skipped sin hora fija)' : ''}';
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                          child: Text(
-                            text,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.35,
-                              color: colors.onSurfaceVariant,
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Divider(height: 1, color: colors.outlineVariant),
+                            Container(
+                              margin: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                              padding: const EdgeInsets.all(12),
+                              decoration:
+                                  innerPanelDecoration(context, radius: 12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.alarm_outlined,
+                                    size: 17,
+                                    color: colors.secondary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      text,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        height: 1.35,
+                                        color: colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                          ],
                         );
                       },
                     ),

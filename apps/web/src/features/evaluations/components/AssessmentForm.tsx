@@ -22,9 +22,10 @@ import {
 } from '../types/assessment';
 import CompositionResults from './CompositionResults';
 import AnatomicalGuide from './AnatomicalGuide';
+const localToday = () => new Date().toLocaleDateString('en-CA');
 /** Completed years at the measurement date (local today when empty). */
 function ageOn(birthDate: string | null, date: string): number | null {
-  const day = date || new Date().toLocaleDateString('en-CA');
+  const day = date || localToday();
   if (!birthDate || birthDate > day) return null;
   const years = Number(day.slice(0, 4)) - Number(birthDate.slice(0, 4));
   return day.slice(5) < birthDate.slice(5) ? years - 1 : years;
@@ -172,6 +173,8 @@ export default function AssessmentForm({
     setPhase('validating');
     setErrors({});
     const validation: Record<string, string> = {};
+    if (date && date > localToday())
+      validation.effectiveDate = 'La fecha de la medición no puede ser futura.';
     for (const key of requiredSkinfolds) {
       if (!(key in measurements))
         validation[key] = 'Este pliegue es obligatorio para la estimación.';
@@ -351,15 +354,28 @@ export default function AssessmentForm({
         <label>
           Fecha de la medición (opcional)
           <input
+            id="assessment-effectiveDate"
             className="ws-input block w-full min-h-11"
             type="date"
+            max={localToday()}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={locked}
+            aria-invalid={!!errors.effectiveDate}
+            aria-describedby={
+              errors.effectiveDate
+                ? 'assessment-error-effectiveDate'
+                : undefined
+            }
           />
           <span className="text-xs text-(--ws-muted)">
             Déjala vacía si mediste hoy.
           </span>
+          {errors.effectiveDate && (
+            <span id="assessment-error-effectiveDate" role="alert">
+              {errors.effectiveDate}
+            </span>
+          )}
         </label>
         {method === 'pliegues' && (
           <label>

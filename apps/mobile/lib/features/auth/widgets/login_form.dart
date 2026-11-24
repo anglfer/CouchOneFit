@@ -82,6 +82,11 @@ class _LoginFormState extends State<LoginForm> {
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autocorrect: false,
+            onChanged: (_) {
+              if (_validationError != null) {
+                setState(() => _validationError = null);
+              }
+            },
             decoration: const InputDecoration(
               labelText: 'Usuario o correo',
               hintText: 'ejemplo@correo.com',
@@ -99,6 +104,11 @@ class _LoginFormState extends State<LoginForm> {
             enableSuggestions: false,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _handleSubmit(),
+            onChanged: (_) {
+              if (_validationError != null) {
+                setState(() => _validationError = null);
+              }
+            },
             decoration: InputDecoration(
               labelText: 'Contraseña',
               prefixIcon: const Icon(Icons.lock_outline_rounded),

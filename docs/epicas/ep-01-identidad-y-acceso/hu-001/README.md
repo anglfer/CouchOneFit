@@ -90,3 +90,7 @@ Pruebas: `npm test` en API con PostgreSQL local exclusivo ya migrado; API build,
 ## Catálogo vigente — 25-oct-2026
 
 El registro consume `GET /api/plans` y acepta `planInterestId` UUID opcional, que apunta al catálogo persistido y permite planes personalizados/renombrados. Se valida disponibilidad y se almacena en `private.professionals.plan_interest_id` sin activar suscripción. `planInterest` histórico (basic/pro/elite) sigue admitido para clientes anteriores; no enviar ambos campos. Un plan retirado entre selección y envío devuelve 409 `PLAN_UNAVAILABLE`. Aplicar `202610260003_live_plan_catalog.sql`. [Contrato vigente SaaS](../../ep-02-saas-y-administracion/README.md).
+
+## Contraseña en blanco y errores juntos — 24-nov-2026
+
+Una prueba exploratoria registró una cuenta con una contraseña de 15 espacios y el formulario mostraba un error por envío. La API rechaza ahora con `400` «La contraseña no puede estar formada solo por espacios.» en registro, activación, restablecimiento y cambio de credenciales; las frases con espacios intermedios siguen siendo válidas. El formulario Web lista a la vez todos los problemas que detecta antes de enviar (nombre, usuario, correos, contraseña) y su `maxLength` coincide con la API (nombre 120, usuario 30). Evidencia **T**: prueba nueva en `registration.test.ts`, API completa 256/256 y recorrido en navegador local con los 5 errores juntos y ninguna petición enviada.

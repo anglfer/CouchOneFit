@@ -77,7 +77,10 @@ class _ProgressTabState extends State<ProgressTab> {
             title: 'Aún no hay entrenamientos registrados',
             message:
                 'Cuando registres tu primera sesión verás aquí tu progreso.'),
-        if (widget.overviewFooter != null) widget.overviewFooter!,
+        if (widget.overviewFooter != null) ...[
+          const SizedBox(height: 20),
+          widget.overviewFooter!,
+        ],
       ];
     }
     return [
@@ -189,8 +192,17 @@ class _ProgressTabState extends State<ProgressTab> {
                   const CardTitle(
                       icon: Icons.calendar_view_month_rounded,
                       title: 'Actividad · últimos 4 meses'),
+                  const SizedBox(height: 8),
+                  Align(
+                      alignment: Alignment.centerLeft,
+                      child: TonePill(
+                          trainingCount(
+                              trained, 'día entrenado', 'días entrenados'),
+                          tone: colors.primary,
+                          icon: Icons.event_available_outlined)),
                   const SizedBox(height: 12),
                   ChoiceBar<bool>(
+                      subtle: true,
                       options: const [(false, 'Series'), (true, 'Volumen')],
                       selected: _volume,
                       onChanged: (v) => setState(() => _volume = v)),
@@ -212,24 +224,34 @@ class _ProgressTabState extends State<ProgressTab> {
                                   child: OverflowBox(
                                       maxWidth: 40,
                                       alignment: Alignment.centerLeft,
-                                      child: Text(
-                                          w == 0 ||
-                                                  trainingDate(shiftDate(
-                                                              first, w * 7))
-                                                          .month !=
-                                                      trainingDate(shiftDate(
-                                                              first,
-                                                              (w - 1) * 7))
-                                                          .month
-                                              ? shortDate(
-                                                      shiftDate(first, w * 7))
-                                                  .split(' ')
-                                                  .last
-                                              : '',
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              color:
-                                                  colors.onSurfaceVariant)))),
+                                      child: Builder(builder: (context) {
+                                        final monthHere = trainingDate(
+                                                shiftDate(first, w * 7))
+                                            .month;
+                                        final showLabel = w == 0
+                                            ? trainingDate(shiftDate(first, 7))
+                                                        .month ==
+                                                    monthHere &&
+                                                trainingDate(shiftDate(
+                                                            first, 14))
+                                                        .month ==
+                                                    monthHere
+                                            : monthHere !=
+                                                trainingDate(shiftDate(
+                                                        first, (w - 1) * 7))
+                                                    .month;
+                                        return Text(
+                                            showLabel
+                                                ? shortDate(
+                                                        shiftDate(first, w * 7))
+                                                    .split(' ')
+                                                    .last
+                                                : '',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    colors.onSurfaceVariant));
+                                      }))),
                           ]),
                           const SizedBox(height: 4),
                           Row(children: [
@@ -299,6 +321,7 @@ class _ProgressTabState extends State<ProgressTab> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ChoiceBar<_Analysis>(
+                      subtle: true,
                       options: const [
                         (_Analysis.balance, 'Balance'),
                         (_Analysis.recovery, 'Recuperación'),
@@ -476,28 +499,44 @@ class _ProgressTabState extends State<ProgressTab> {
         Text('Registra ejercicios con carga para ver tu fuerza estimada.',
             style: TextStyle(color: colors.onSurfaceVariant))
       else
-        for (final e in loaded.take(6))
-          Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(children: [
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(e.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text(
-                          '${trainingDecimal(e.estimates.last.roundToDouble())} kg${e.estimates.length > 1 ? ' · ${_percent(e.estimates.first, e.estimates.last)}' : ''}',
-                          style: TextStyle(color: colors.onSurfaceVariant)),
-                    ])),
-                if (e.estimates.length > 1)
-                  SizedBox(
-                      width: 80,
-                      child: TrendChart(
-                          values: e.estimates,
-                          label:
-                              '${e.name}: 1RM estimado de ${e.estimates.first.round()} a ${e.estimates.last.round()} kg')),
-              ])),
+        for (final (idx, e) in loaded.take(6).indexed) ...[
+          if (idx > 0) Divider(height: 1, color: colors.outlineVariant),
+          InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                      builder: (_) => ExerciseProgressScreen(progress: e))),
+              child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                  child: Row(children: [
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(e.name,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(
+                              '${trainingDecimal(e.estimates.last.roundToDouble())} kg${e.estimates.length > 1 ? ' · ${_percent(e.estimates.first, e.estimates.last)}' : ''}',
+                              style: TextStyle(color: colors.onSurfaceVariant)),
+                        ])),
+                    if (e.estimates.length > 1) ...[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                          width: 72,
+                          child: TrendChart(
+                              values: e.estimates,
+                              label:
+                                  '${e.name}: 1RM estimado de ${e.estimates.first.round()} a ${e.estimates.last.round()} kg')),
+                    ],
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 20, color: colors.onSurfaceVariant),
+                  ]))),
+        ],
+      const SizedBox(height: 6),
       Text('Orientativo: estima tu máximo a partir de kg y reps registrados.',
           style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
     ];

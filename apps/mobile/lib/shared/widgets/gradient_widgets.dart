@@ -63,6 +63,11 @@ class GradientActionButton extends StatelessWidget {
               : inverse
                   ? Colors.white
                   : null,
+          border: !disabled && !inverse
+              ? Border.all(
+                  color: Colors.white.withValues(alpha: dark ? 0.16 : 0.18),
+                )
+              : null,
           boxShadow: disabled
               ? const []
               : [
@@ -106,9 +111,14 @@ class GradientActionButton extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
               ],
-              Expanded(child: Text(busy ? (busyLabel ?? label) : label)),
+              Flexible(
+                child: Text(
+                  busy ? (busyLabel ?? label) : label,
+                  textAlign: TextAlign.center,
+                ),
+              ),
               if (!busy) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Icon(icon, size: 20),
               ],
             ],

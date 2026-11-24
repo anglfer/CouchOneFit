@@ -65,6 +65,12 @@ class ClientProfileScreen extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             leading: IconBadge(icon, tint: tint),
             title: Text(title),
+            titleTextStyle: onTap == null
+                ? Theme.of(context)
+                    .listTileTheme
+                    .titleTextStyle
+                    ?.copyWith(fontWeight: FontWeight.w600)
+                : null,
             subtitle: Text(subtitle),
             trailing: trailing ??
                 (onTap == null

@@ -42,7 +42,7 @@ export async function writePlan(pool: Pool, identity: SessionIdentity, clientId:
   const vid=versionId??validate.uuid(input.versionId)
   const revision=versionId?validate.number(input.revision,1,2147483646):undefined
   const document=validate.prescription(input.prescription)
-  return repository.mutate(pool,identity,validate.uuid(key),`plan:${clientId}:${planId}:${versionId}`,body,now,async c=>{
+  return repository.mutate(pool,identity,validate.idempotencyKey(key),`plan:${clientId}:${planId}:${versionId}`,body,now,async c=>{
     await repository.scope(c,identity,clientId,true)
     if (!planId) await repository.createPlan(c,identity,id,clientId)
     await repository.ownedPlan(c,identity,id,clientId)
@@ -54,12 +54,14 @@ export async function activatePlan(pool: Pool, identity: SessionIdentity, client
   const input=validate.object(body,['revision','activeRevision'])
   const revision=validate.number(input.revision,1,2147483646)
   const expected=validate.number(input.activeRevision,0,2147483646)
-  return repository.mutate(pool,identity,validate.uuid(key),`activate:${clientId}:${planId}:${versionId}`,body,now,async c=>{
+  return repository.mutate(pool,identity,validate.idempotencyKey(key),`activate:${clientId}:${planId}:${versionId}`,body,now,async c=>{
     const scope=(await repository.scope(c,identity,clientId,true))!
     await repository.ownedPlan(c,identity,planId,clientId)
     const version=await repository.version(c,versionId)
     if(version.planId!==planId) return repository.missing()
     if(version.revision!==revision) return repository.conflict()
+    // HU-028: a rest-only routine stays a draft; the client never receives an empty active plan.
+    if(!version.days.some(d=>d.kind==='training')) return validate.invalid('Agrega al menos un día de entrenamiento antes de activar la rutina.')
     return repository.activate(c,identity,clientId,version,expected,now,localDate(now,scope.timeZone),scope.timeZone)
   })
 }
@@ -69,7 +71,7 @@ export async function saveSession(pool: Pool, identity: SessionIdentity, key: un
   const revision=validate.number(input.revision,0,2147483646),entries=validate.results(input.results)
   if(input.status!=='draft' && input.status!=='finalized') return validate.invalid()
   const status=input.status
-  return repository.mutate(pool,identity,validate.uuid(key),'session',body,now,async c=>{
+  return repository.mutate(pool,identity,validate.idempotencyKey(key),'session',body,now,async c=>{
     const scope=(await repository.scope(c,identity,null,true))!
     const context=await readContext(c,identity,scope.clientId,date,now,true)
     const plan=context.plan,previous=context.session
@@ -89,7 +91,7 @@ export async function saveSession(pool: Pool, identity: SessionIdentity, key: un
 }
 export async function changeZone(pool: Pool, identity: SessionIdentity, clientId: string, key: unknown, body: unknown, now: Date) {
   const input=validate.object(body,['timeZone','revision']),timeZone=validate.zone(input.timeZone),revision=validate.number(input.revision,1,2147483646)
-  return repository.mutate(pool,identity,validate.uuid(key),`zone:${clientId}`,body,now,async c=>repository.changeZone(c,identity,(await repository.scope(c,identity,clientId,true))!,timeZone,revision))
+  return repository.mutate(pool,identity,validate.idempotencyKey(key),`zone:${clientId}`,body,now,async c=>repository.changeZone(c,identity,(await repository.scope(c,identity,clientId,true))!,timeZone,revision))
 }
 export function getCatalog(pool: Pool, identity: SessionIdentity, query: unknown) {
   const q=validate.object(query,['search','muscle','equipment','offset'])

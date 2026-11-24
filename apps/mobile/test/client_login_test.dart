@@ -50,6 +50,8 @@ void main() {
 
     final apiClient = ApiClient(
       sessionStorage: storage,
+      // Fixed clock: the fixture session expires 2026-11-18.
+      now: () => DateTime.utc(2026, 10, 19, 12),
       httpHandler: (request) async {
         if (request.method == 'POST' &&
             request.path == '/api/auth/client/login') {
@@ -142,6 +144,7 @@ void main() {
 
     ApiClient buildClient() => ApiClient(
           sessionStorage: storage,
+          now: () => DateTime.utc(2026, 10, 19, 12),
           httpHandler: (request) async {
             if (request.path == '/api/auth/session') {
               if (sessionRevokedOnServer ||

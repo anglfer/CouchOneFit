@@ -10,7 +10,7 @@ import type { Express } from 'express';
 const source = process.env.TEST_DATABASE_URL;
 if (
   !source ||
-  new URL(source).hostname !== '127.0.0.1' ||
+  !['localhost', '127.0.0.1', '[::1]'].includes(new URL(source).hostname) ||
   !new URL(source).pathname.endsWith('_test')
 )
   throw new Error('Exclusive local test database required');

@@ -32,6 +32,13 @@ type ClientField =
 
 type ClientForm = Record<ClientField, string>;
 
+// DEC-017 age bounds (16–120) for the date picker; the API remains the authority.
+const yearsAgo = (years: number) => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - years);
+  return date.toLocaleDateString('en-CA');
+};
+
 const emptyClientForm = (): ClientForm => ({
   fullName: '',
   goal: '',
@@ -378,6 +385,8 @@ export default function ClientAccessPanel({
               <input
                 required
                 type="date"
+                min={yearsAgo(120)}
+                max={yearsAgo(16)}
                 value={form.birthDate}
                 onChange={(event) =>
                   updateField('birthDate', event.target.value)

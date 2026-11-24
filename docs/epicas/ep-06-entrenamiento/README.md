@@ -202,7 +202,7 @@ ausente (= `working`) y rechaza valores desconocidos con
 | `GET /api/training/clients` | profesional | Cartera con estado de entrenamiento: rutina activa, borrador, último registro y registros en 7 días |
 | `GET/POST /api/training/templates`, `POST …/:planId/versions`, `PATCH …/versions/:versionId` | profesional | Plantillas propias |
 | `GET/POST /api/clients/:clientId/training-plans` (+ mismas subrutas) | profesional dueño | Rutina del cliente: borrador, historial |
-| `POST /api/clients/:clientId/training-plans/:planId/versions/:versionId/activate` | profesional dueño | Publicar y activar (una sola activa) |
+| `POST /api/clients/:clientId/training-plans/:planId/versions/:versionId/activate` | profesional dueño | Publicar y activar (una sola activa). Una versión sin ningún día de entrenamiento (solo descansos) se conserva como borrador y la activación responde `400 INVALID_TRAINING` (HU-028: descanso ≠ rutina vacía) |
 | `GET /api/clients/:clientId/training-sessions?offset` | profesional dueño | Registros por serie del cliente |
 | `GET /api/clients/:clientId/record` | profesional dueño | La sección `trainingPlan` disponible añade `activity` `{lastSession, sessionsLast7, sessionsLast30, setsLast30}` (calendario local del cliente; `null` si falla, sin ocultar la rutina) |
 | `GET /api/me/training-plan` | cliente | Rutina activa; cada ejercicio con `muscles`, `equipment` y `bodyPart` del catálogo (vacíos/`null` si es propio) |

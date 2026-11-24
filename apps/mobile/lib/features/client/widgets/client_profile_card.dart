@@ -21,44 +21,60 @@ class ClientProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Row(
+    return Card(
       key: const ValueKey('client_profile_card'),
-      children: [
-        ExcludeSemantics(
-            child: Container(
-                width: 72,
-                height: 72,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle, color: actionFill(context)),
-                child: Text(_initials,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800)))),
-        const SizedBox(width: 16),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(profile.fullName,
-              style: const TextStyle(
-                  fontSize: 21,
-                  height: 1.2,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3)),
-          const SizedBox(height: 2),
-          Text('@${profile.username}',
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colors.secondary)),
-          Text(profile.email,
-              style: TextStyle(fontSize: 13.5, color: colors.onSurfaceVariant)),
-          const SizedBox(height: 8),
-          const TonePill('Cuenta activa',
-              tone: BrandColors.success, icon: Icons.verified_user_outlined),
-        ])),
-      ],
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+                child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: colors.primary.withValues(alpha: 0.24),
+                            width: 2)),
+                    child: Container(
+                        width: 68,
+                        height: 68,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                            shape: BoxShape.circle, color: actionFill(context)),
+                        child: Text(_initials,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 25,
+                                fontWeight: FontWeight.w800))))),
+            const SizedBox(width: 16),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(profile.fullName,
+                      style: const TextStyle(
+                          fontSize: 21,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3)),
+                  const SizedBox(height: 2),
+                  Text('@${profile.username}',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.secondary)),
+                  Text(profile.email,
+                      style: TextStyle(
+                          fontSize: 13.5, color: colors.onSurfaceVariant)),
+                  const SizedBox(height: 8),
+                  const TonePill('Cuenta activa',
+                      tone: BrandColors.success,
+                      icon: Icons.verified_user_outlined),
+                ])),
+          ],
+        ),
+      ),
     );
   }
 }

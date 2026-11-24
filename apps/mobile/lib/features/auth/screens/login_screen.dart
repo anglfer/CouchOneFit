@@ -56,11 +56,15 @@ class LoginScreen extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 14)),
           RevealIn(
               delay: const Duration(milliseconds: 90),
-              child: LoginForm(
-                  isSubmitting: isSubmitting,
-                  errorMessage: errorMessage,
-                  onSubmit: onSubmit,
-                  onRecover: onRecover)),
+              child: Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: LoginForm(
+                          isSubmitting: isSubmitting,
+                          errorMessage: errorMessage,
+                          onSubmit: onSubmit,
+                          onRecover: onRecover)))),
           const SizedBox(height: 28),
           Row(children: [
             const Expanded(child: Divider()),

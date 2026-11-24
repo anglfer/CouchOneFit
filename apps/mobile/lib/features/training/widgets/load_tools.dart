@@ -106,38 +106,44 @@ class _LoadPickerSheetState extends State<_LoadPickerSheet> {
                       SheetHeader('Peso de trabajo',
                           subtitle:
                               '${widget.exerciseName} · desliza o toca para ajustar.'),
-                      Row(children: [
-                        round(
-                            Icons.remove_rounded,
-                            'Restar ${trainingDecimal(widget.step)} kg',
-                            -widget.step),
-                        Expanded(
-                            child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text.rich(
-                                    key: const ValueKey('load-picker-value'),
-                                    TextSpan(children: [
-                                      TextSpan(
-                                          text: trainingDecimal(_kg),
-                                          style: const TextStyle(
-                                              fontSize: 52,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: -1,
-                                              fontFeatures: [
-                                                FontFeature.tabularFigures()
-                                              ])),
-                                      TextSpan(
-                                          text: ' kg',
-                                          style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w700,
-                                              color: colors.onSurfaceVariant)),
-                                    ])))),
-                        round(
-                            Icons.add_rounded,
-                            'Sumar ${trainingDecimal(widget.step)} kg',
-                            widget.step),
-                      ]),
+                      Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 10),
+                          decoration: innerPanelDecoration(context, radius: 18),
+                          child: Row(children: [
+                            round(
+                                Icons.remove_rounded,
+                                'Restar ${trainingDecimal(widget.step)} kg',
+                                -widget.step),
+                            Expanded(
+                                child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text.rich(
+                                        key:
+                                            const ValueKey('load-picker-value'),
+                                        TextSpan(children: [
+                                          TextSpan(
+                                              text: trainingDecimal(_kg),
+                                              style: const TextStyle(
+                                                  fontSize: 52,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: -1,
+                                                  fontFeatures: [
+                                                    FontFeature.tabularFigures()
+                                                  ])),
+                                          TextSpan(
+                                              text: ' kg',
+                                              style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w700,
+                                                  color:
+                                                      colors.onSurfaceVariant)),
+                                        ])))),
+                            round(
+                                Icons.add_rounded,
+                                'Sumar ${trainingDecimal(widget.step)} kg',
+                                widget.step),
+                          ])),
                       const SizedBox(height: 12),
                       Wrap(
                           alignment: WrapAlignment.center,
@@ -176,17 +182,33 @@ class _LoadPickerSheetState extends State<_LoadPickerSheet> {
                         ]),
                       if (share != null) ...[
                         const SizedBox(height: 10),
-                        Text(
-                            share >= 1
-                                ? 'Por encima de tu 1RM estimado (${trainingDecimal(roundToStep(orm!, .5))} kg).'
-                                : '≈ ${(share * 100).round()} % de tu 1RM estimado (${trainingDecimal(roundToStep(orm!, .5))} kg) · unas ${repsAtFraction(share)} reps al fallo.',
-                            style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.35,
-                                fontWeight: share >= 1 ? FontWeight.w700 : null,
+                        Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
                                 color: share >= 1
-                                    ? statusInk(context, colors.error)
-                                    : colors.onSurfaceVariant)),
+                                    ? (Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? BrandColors.statusDark['error']!
+                                        : BrandColors.statusLight['error']!)
+                                    : colors.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: share >= 1
+                                        ? colors.error.withValues(alpha: 0.4)
+                                        : colors.outlineVariant)),
+                            child: Text(
+                                share >= 1
+                                    ? 'Por encima de tu 1RM estimado (${trainingDecimal(roundToStep(orm!, .5))} kg).'
+                                    : '≈ ${(share * 100).round()} % de tu 1RM estimado (${trainingDecimal(roundToStep(orm!, .5))} kg) · unas ${repsAtFraction(share)} reps al fallo.',
+                                style: TextStyle(
+                                    fontSize: 12.5,
+                                    height: 1.35,
+                                    fontWeight:
+                                        share >= 1 ? FontWeight.w700 : null,
+                                    color: share >= 1
+                                        ? statusInk(context, colors.error)
+                                        : colors.onSurfaceVariant))),
                       ],
                       const SizedBox(height: 16),
                       FilledButton(
@@ -313,7 +335,7 @@ class _OneRepMaxSheetState extends State<_OneRepMaxSheet> {
                                                 color:
                                                     colors.onSurfaceVariant)),
                                       const SizedBox(height: 10),
-                                      for (final p in const [
+                                      for (final (idx, p) in const [
                                         100,
                                         95,
                                         90,
@@ -323,15 +345,29 @@ class _OneRepMaxSheetState extends State<_OneRepMaxSheet> {
                                         70,
                                         65,
                                         60
-                                      ])
-                                        Padding(
+                                      ].indexed) ...[
+                                        if (idx > 0)
+                                          Divider(
+                                              height: 1,
+                                              color: colors.outlineVariant),
+                                        Container(
+                                            color: idx.isEven
+                                                ? colors.surface
+                                                    .withValues(alpha: 0.35)
+                                                : Colors.transparent,
                                             padding: const EdgeInsets.symmetric(
-                                                vertical: 5),
+                                                horizontal: 8, vertical: 7),
                                             child: Row(children: [
                                               SizedBox(
                                                   width: 56,
                                                   child: Text('$p %',
                                                       style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontFeatures: const [
+                                                            FontFeature
+                                                                .tabularFigures()
+                                                          ],
                                                           color: colors
                                                               .onSurfaceVariant))),
                                               Expanded(
@@ -349,9 +385,14 @@ class _OneRepMaxSheetState extends State<_OneRepMaxSheet> {
                                                       ? '1 rep'
                                                       : '≈ ${repsAtFraction(p / 100)} reps',
                                                   style: TextStyle(
+                                                      fontFeatures: const [
+                                                        FontFeature
+                                                            .tabularFigures()
+                                                      ],
                                                       color: colors
                                                           .onSurfaceVariant)),
                                             ])),
+                                      ],
                                     ])),
                           const SizedBox(height: 12),
                           Text(

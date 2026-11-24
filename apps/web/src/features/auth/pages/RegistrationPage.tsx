@@ -23,7 +23,7 @@ export default function RegistrationPage(): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const submitLock = useRef(false);
   const messageRef = useRef<HTMLDivElement>(null);
 
@@ -35,20 +35,30 @@ export default function RegistrationPage(): ReactElement {
     const value = (name: string) => String(data.get(name) ?? '');
     const password = value('password');
     const email = value('email').trim().toLowerCase();
-    let validationError = '';
+    // Mirrors the API rules so every problem is listed at once, not one per submit.
+    const problems: string[] = [];
+    const nameLength = [...value('fullName').trim()].length;
+    if (nameLength < 3 || nameLength > 120)
+      problems.push('El nombre debe tener entre 3 y 120 caracteres.');
+    if (!/^[a-z0-9._]{3,30}$/.test(value('username').trim().toLowerCase()))
+      problems.push(
+        'Usa un usuario de 3 a 30 letras, números, puntos o guion bajo.'
+      );
     if (email !== value('emailConfirmation').trim().toLowerCase())
-      validationError = 'Los correos no coinciden.';
-    else if ([...password].length < 15 || [...password].length > 128)
-      validationError = 'La contraseña debe tener entre 15 y 128 caracteres.';
-    else if (password !== value('passwordConfirmation'))
-      validationError = 'Las contraseñas no coinciden.';
-    if (validationError) {
-      setError(validationError);
+      problems.push('Los correos no coinciden.');
+    if ([...password].length < 15 || [...password].length > 128)
+      problems.push('La contraseña debe tener entre 15 y 128 caracteres.');
+    else if (!password.trim())
+      problems.push('La contraseña no puede estar formada solo por espacios.');
+    if (password !== value('passwordConfirmation'))
+      problems.push('Las contraseñas no coinciden.');
+    if (problems.length) {
+      setErrors(problems);
       return;
     }
     submitLock.current = true;
     setIsSubmitting(true);
-    setError('');
+    setErrors([]);
     try {
       await registerProfessional({
         fullName: value('fullName'),
@@ -67,11 +77,11 @@ export default function RegistrationPage(): ReactElement {
       setIsComplete(true);
       requestAnimationFrame(() => messageRef.current?.focus());
     } catch (failure) {
-      setError(
+      setErrors([
         failure instanceof ApiError
           ? failure.message
-          : 'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.'
-      );
+          : 'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.',
+      ]);
     } finally {
       submitLock.current = false;
       setIsSubmitting(false);
@@ -186,7 +196,7 @@ export default function RegistrationPage(): ReactElement {
                       autoComplete="name"
                       required
                       minLength={3}
-                      maxLength={240}
+                      maxLength={120}
                       placeholder="Tu nombre completo"
                       className="ws-auth-input"
                     />
@@ -198,7 +208,7 @@ export default function RegistrationPage(): ReactElement {
                         name="username"
                         autoComplete="username"
                         required
-                        maxLength={60}
+                        maxLength={30}
                         aria-describedby="username-help"
                         className="ws-auth-input"
                       />
@@ -353,10 +363,20 @@ export default function RegistrationPage(): ReactElement {
                     />
                     <span>He leído la información sobre mi registro.</span>
                   </label>
-                  {error && (
+                  {errors.length === 1 && (
                     <p role="alert" className="ws-alert" data-tone="bad">
-                      {error}
+                      {errors[0]}
                     </p>
+                  )}
+                  {errors.length > 1 && (
+                    <div role="alert" className="ws-alert" data-tone="bad">
+                      <p className="font-semibold">Revisa estos datos:</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                        {errors.map((problem) => (
+                          <li key={problem}>{problem}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                   <button
                     className="mk-btn w-full"

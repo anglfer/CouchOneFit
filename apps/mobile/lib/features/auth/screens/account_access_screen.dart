@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/session_models.dart';
 import '../services/auth_service.dart';
 import '../widgets/privacy_notice_sheet.dart';
@@ -124,6 +125,18 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
     }
   }
 
+  Future<void> _pasteCode() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final raw = data?.text?.trim();
+    if (raw == null || raw.isEmpty || !mounted) return;
+    _controller('code').text = raw;
+    setState(() {
+      _error = null;
+      _status = null;
+      _fromCodeCheck = false;
+    });
+  }
+
   List<Widget> _messages() => [
         if (_error != null)
           NoticeBanner(
@@ -138,7 +151,12 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
       ];
 
   Widget _field(String name, String label,
-      {bool secret = false, String? autofill, TextInputType? keyboard}) {
+      {bool secret = false,
+      String? autofill,
+      TextInputType? keyboard,
+      TextInputAction textInputAction = TextInputAction.next,
+      bool submitOnDone = false,
+      EdgeInsetsGeometry padding = const EdgeInsets.only(bottom: 10)}) {
     final icon = switch (name) {
       'code' => Icons.confirmation_number_outlined,
       'username' => Icons.person_outline_rounded,
@@ -146,11 +164,13 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
       _ => Icons.lock_outline_rounded,
     };
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: padding,
       child: TextFormField(
         key: Key('access-$name'),
         controller: _controller(name),
         enabled: !_busy,
+        textInputAction: textInputAction,
+        onFieldSubmitted: submitOnDone ? (_) => _submit() : null,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),
@@ -165,7 +185,13 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined),
                 )
-              : null,
+              : name == 'code'
+                  ? IconButton(
+                      tooltip: 'Pegar código',
+                      onPressed: _busy ? null : _pasteCode,
+                      icon: const Icon(Icons.content_paste_rounded),
+                    )
+                  : null,
         ),
         obscureText: secret && !_passwordVisible,
         autocorrect: false,
@@ -228,7 +254,7 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
             ? 'Confirma tu contraseña actual. Al guardar, se cerrarán tus otras sesiones.'
             : 'Solicita a tu profesional un código de recuperación válido por 30 minutos. Saber tu correo o usuario no basta para obtenerlo.';
     Widget section(String text) => Padding(
-        padding: const EdgeInsets.only(top: 10, bottom: 12),
+        padding: const EdgeInsets.only(top: 12, bottom: 8),
         child: SectionTitle(text));
     return PopScope(
       canPop: !_busy,
@@ -248,109 +274,197 @@ class _AccountAccessScreenState extends State<AccountAccessScreen> {
                             .textTheme
                             .headlineMedium
                             ?.copyWith(fontSize: 28, height: 1.12))),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(explanation,
                     style: TextStyle(
                         fontSize: 15,
                         height: 1.45,
                         color: colors.onSurfaceVariant)),
-                const SizedBox(height: 20),
-                if (!_credentials) ...[
-                  _field(
-                    'code',
-                    _activation
-                        ? 'Código de invitación'
-                        : 'Código de recuperación',
-                  ),
-                  if (_activation)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: _busy ? null : _checkCode,
-                        icon: const Icon(Icons.verified_outlined),
-                        label: const Text('Comprobar código'),
+                const SizedBox(height: 14),
+                if (!_credentials)
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _field(
+                            'code',
+                            _activation
+                                ? 'Código de invitación'
+                                : 'Código de recuperación',
+                            padding: const EdgeInsets.only(bottom: 4),
+                          ),
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _controller('code'),
+                            builder: (context, value, _) {
+                              final len = value.text.length;
+                              final ok = RegExp(r'^[A-Za-z0-9_-]{43}$')
+                                  .hasMatch(value.text);
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '$len/43 caracteres',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: ok
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures()
+                                        ],
+                                        color: ok
+                                            ? statusInk(
+                                                context, BrandColors.success)
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_activation)
+                                    TextButton.icon(
+                                      onPressed: _busy ? null : _checkCode,
+                                      icon: const Icon(Icons.verified_outlined,
+                                          size: 18),
+                                      label: const Text('Comprobar código'),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                          if (_fromCodeCheck) ..._messages(),
+                        ],
                       ),
                     ),
-                  if (_fromCodeCheck) ...[
-                    ..._messages(),
-                    const SizedBox(height: 16),
-                  ],
-                ],
+                  ),
                 if (_activation || _credentials) ...[
                   section('Tu cuenta'),
-                  _field('username', 'Usuario',
-                      autofill: AutofillHints.username),
-                ],
-                if (_activation) ...[
-                  _field('email', 'Correo',
-                      autofill: AutofillHints.email,
-                      keyboard: TextInputType.emailAddress),
-                  _field('emailConfirmation', 'Confirmar correo',
-                      keyboard: TextInputType.emailAddress),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _field(
+                            'username',
+                            'Usuario',
+                            autofill: AutofillHints.username,
+                            padding: _activation
+                                ? const EdgeInsets.only(bottom: 10)
+                                : EdgeInsets.zero,
+                          ),
+                          if (_activation) ...[
+                            _field(
+                              'email',
+                              'Correo',
+                              autofill: AutofillHints.email,
+                              keyboard: TextInputType.emailAddress,
+                            ),
+                            _field(
+                              'emailConfirmation',
+                              'Confirmar correo',
+                              keyboard: TextInputType.emailAddress,
+                              padding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
                 section('Tu contraseña'),
-                if (_credentials)
-                  _field('currentPassword', 'Contraseña actual',
-                      secret: true, autofill: AutofillHints.password),
-                _field('password', 'Nueva contraseña',
-                    secret: true, autofill: AutofillHints.newPassword),
-                _field('passwordConfirmation', 'Confirmar contraseña',
-                    secret: true, autofill: AutofillHints.newPassword),
-                _PasswordLength(controller: _controller('password')),
-                if (_activation) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-                    decoration: innerPanelDecoration(context),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('Información de registro',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Versión $registrationNoticeVersion. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            height: 1.4,
-                            color: colors.onSurfaceVariant,
+                        if (_credentials)
+                          _field(
+                            'currentPassword',
+                            'Contraseña actual',
+                            secret: true,
+                            autofill: AutofillHints.password,
                           ),
+                        _field(
+                          'password',
+                          'Nueva contraseña',
+                          secret: true,
+                          autofill: AutofillHints.newPassword,
                         ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _busy
-                                ? null
-                                : () => showPrivacyNoticeSheet(context),
-                            icon: const Icon(Icons.privacy_tip_outlined,
-                                size: 18),
-                            label: const Text(
-                              'Consultar aviso de privacidad y condiciones',
-                            ),
-                          ),
+                        _field(
+                          'passwordConfirmation',
+                          'Confirmar contraseña',
+                          secret: true,
+                          autofill: AutofillHints.newPassword,
+                          textInputAction: TextInputAction.done,
+                          submitOnDone: true,
+                          padding: const EdgeInsets.only(bottom: 8),
                         ),
-                        Material(
-                          color: Colors.transparent,
-                          child: CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            value: _acceptsNotice,
-                            onChanged: _busy
-                                ? null
-                                : (value) => setState(
-                                    () => _acceptsNotice = value ?? false),
-                            title: const Text(
-                              'Leí y confirmo esta información',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ),
+                        _PasswordLength(controller: _controller('password')),
                       ],
+                    ),
+                  ),
+                ),
+                if (_activation) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Información de registro',
+                              style: TextStyle(fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Versión $registrationNoticeVersion. Guardamos tus datos de cuenta para identificarte y gestionar tu acceso. Tu cuenta se vincula al expediente preparado por tu profesional. Esta confirmación no es una renuncia de derechos.',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              height: 1.4,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _busy
+                                  ? null
+                                  : () => showPrivacyNoticeSheet(context),
+                              icon: const Icon(Icons.privacy_tip_outlined,
+                                  size: 18),
+                              label: const Text(
+                                'Consultar aviso de privacidad y condiciones',
+                              ),
+                            ),
+                          ),
+                          Material(
+                            color: Colors.transparent,
+                            child: CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              value: _acceptsNotice,
+                              onChanged: _busy
+                                  ? null
+                                  : (value) => setState(
+                                      () => _acceptsNotice = value ?? false),
+                              title: const Text(
+                                'Leí y confirmo esta información',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
                 if (!_fromCodeCheck) ..._messages(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
                 GradientActionButton(
                   label: _activation ? 'Activar mi cuenta' : 'Guardar cambios',
                   onPressed: _submit,
@@ -380,23 +494,24 @@ class _PasswordLength extends StatelessWidget {
           final length = value.text.runes.length;
           final valid = length >= 15 && length <= 128;
           final tone = valid ? BrandColors.success : colors.secondary;
+          final ink = statusInk(context, tone);
           return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ClipRRect(
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
-                        minHeight: 4,
+                        minHeight: 6,
                         value: (length / 15).clamp(0, 1).toDouble(),
                         color: tone)),
                 const SizedBox(height: 8),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Icon(
                       valid
                           ? Icons.check_circle_rounded
                           : Icons.shield_outlined,
                       size: 17,
-                      color: statusInk(context, tone)),
+                      color: ink),
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(
@@ -407,12 +522,20 @@ class _PasswordLength extends StatelessWidget {
                               color: colors.onSurfaceVariant))),
                   if (length > 0) ...[
                     const SizedBox(width: 8),
-                    Text('$length',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                            color: colors.onSurfaceVariant)),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: tone.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(99)),
+                        child: Text('$length',
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                                color: ink))),
                   ],
                 ]),
               ]);
