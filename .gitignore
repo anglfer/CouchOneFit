@@ -3,6 +3,10 @@ node_modules/
 .pnpm-store/
 .codebase-memory/
 
+# Agent instructions
+/AGENTS.md
+/CLAUDE.md
+
 # Build outputs
 dist/
 build/
