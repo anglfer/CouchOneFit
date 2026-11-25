@@ -13,10 +13,24 @@ import {
   refreshAccount,
 } from '../services/session.js'
 import { AuthError, invalidSession } from '../types/errors.js'
+import { logger } from '../../../shared/utils/logger.js'
 import {
   validateLogoutPayload,
   validateRefreshPayload,
 } from '../validators/login.js'
+
+function logAuth(
+  event: string,
+  res: { locals: { requestId?: unknown } },
+  audience: 'web' | 'client',
+  account?: { id: string; role: string },
+) {
+  logger.info(event, {
+    requestId: res.locals.requestId,
+    audience,
+    ...(account ? { accountId: account.id, role: account.role } : {}),
+  })
+}
 
 export function loginController(
   pool: Pool,
@@ -26,6 +40,7 @@ export function loginController(
     try {
       const session = await loginAccount(pool, req.body, 'web', now?.())
       setSessionCookies(res, session)
+      logAuth('auth.login_succeeded', res, 'web', session.account)
       res.json({ account: session.account })
     } catch (error) {
       next(error)
@@ -40,6 +55,7 @@ export function clientLoginController(
   return async (req, res, next) => {
     try {
       const session = await loginAccount(pool, req.body, 'client', now?.())
+      logAuth('auth.login_succeeded', res, 'client', session.account)
       res.json({
         account: session.account,
         session: {
@@ -71,6 +87,7 @@ export function refreshController(
         throw invalidSession()
       }
       setSessionCookies(res, session)
+      logAuth('auth.refresh_succeeded', res, 'web', session.account)
       res.json({ account: session.account })
     } catch (error) {
       if (error instanceof AuthError && error.status === 401) {
@@ -90,6 +107,7 @@ export function clientRefreshController(
       const refreshToken = validateRefreshPayload(req.body)
       const session = await refreshAccount(pool, refreshToken, 'client', now?.())
       if (!session) throw invalidSession()
+      logAuth('auth.refresh_succeeded', res, 'client', session.account)
       res.json({
         account: session.account,
         session: {
@@ -113,6 +131,7 @@ export function logoutController(
       const jar = cookies(req)
       await logoutAccount(pool, jar.cof_refresh, jar.cof_access, now?.())
       clearSessionCookies(res)
+      logAuth('auth.logout', res, 'web')
       res.status(204).end()
     } catch (error) {
       next(error)
@@ -128,6 +147,7 @@ export function clientLogoutController(
     try {
       const refreshToken = validateLogoutPayload(req.body)
       await logoutAccount(pool, refreshToken, bearerToken(req), now?.())
+      logAuth('auth.logout', res, 'client')
       res.status(204).end()
     } catch (error) {
       next(error)

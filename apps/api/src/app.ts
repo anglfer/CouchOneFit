@@ -18,6 +18,29 @@ import { trainingRoutes } from './features/training/routes/training.js';
 import { evaluationRoutes } from './features/evaluations/routes/evaluations.js';
 import { nutritionRoutes } from './features/nutrition/routes/nutrition.js';
 import { followUpRoutes } from './features/follow-up/routes/follow-up.js';
+import { errorFields, isDatabaseUnavailable } from './shared/errors/database.js';
+import { normalizePath, requestLogger } from './shared/middleware/request-logger.js';
+import { logger } from './shared/utils/logger.js';
+
+function requestFields(req: Request, res: Response) {
+  return {
+    requestId: res.locals.requestId,
+    method: req.method,
+    path: normalizePath(req.originalUrl || req.url),
+  };
+}
+
+function logDatabaseOrHttpError(
+  req: Request,
+  res: Response,
+  error: unknown,
+  status: number
+): void {
+  logger.error(
+    isDatabaseUnavailable(error) ? 'db.connection_error' : 'http.error',
+    { ...requestFields(req, res), status, ...errorFields(error) }
+  );
+}
 
 export interface AppOptions {
   now?: () => Date;
@@ -27,6 +50,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
   const app = express();
   const now = options?.now;
   app.disable('x-powered-by');
+  app.use(requestLogger());
   app.use('/api', trainingRoutes(database, now));
   app.use('/api', nutritionRoutes(database, now));
   app.use('/api', followUpRoutes(database, now));
@@ -38,6 +62,18 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       environment: config.nodeEnv,
       timestamp: (now?.() ?? new Date()).toISOString(),
     });
+  });
+  app.get('/api/health/ready', async (req, res) => {
+    const timestamp = (now?.() ?? new Date()).toISOString();
+    try {
+      await database.query('SELECT 1');
+      res.json({ status: 'ok', database: 'ok', timestamp });
+    } catch (error) {
+      logDatabaseOrHttpError(req, res, error, 503);
+      res
+        .status(503)
+        .json({ status: 'unavailable', database: 'unavailable', timestamp });
+    }
   });
   app.use('/api/plans', publicPlanRoutes(database));
   app.use('/api/auth', registrationRoutes(database));
@@ -58,6 +94,13 @@ export function createApp(database: Pool, options?: AppOptions): Express {
     (error: unknown, req: Request, res: Response, _next: NextFunction) => {
       res.set('Cache-Control', 'no-store');
       if (error instanceof AuthError) {
+        if (error.status === 401 || error.status === 403) {
+          logger.warn('auth.denied', {
+            ...requestFields(req, res),
+            status: error.status,
+            errorCode: error.code,
+          });
+        }
         res
           .status(error.status)
           .json({
@@ -74,16 +117,14 @@ export function createApp(database: Pool, options?: AppOptions): Express {
           ? error.status
           : 500;
       // Sin esto un fallo inesperado solo llega al cliente como 503 y no deja rastro.
-      if (status !== 400 && status !== 413) {
-        const { code, constraint, table } = (error ?? {}) as Record<
-          string,
-          unknown
-        >;
-        console.error(
-          `Solicitud fallida: ${req.method} ${req.path}`,
-          { code, constraint, table },
-          error instanceof Error ? error.stack : error
-        );
+      if (status === 400 || status === 413) {
+        logger.warn('http.body_error', {
+          ...requestFields(req, res),
+          status,
+          errorType: (error as { type?: unknown }).type,
+        });
+      } else {
+        logDatabaseOrHttpError(req, res, error, 503);
       }
       res.status(status === 400 || status === 413 ? status : 503).json({
         error: {

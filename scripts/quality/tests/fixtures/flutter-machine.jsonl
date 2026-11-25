@@ -1,0 +1,24 @@
+{"protocolVersion":"0.1.1","runnerVersion":null,"pid":31520,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"/repo/apps/mobile/test/api_config_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading /repo/apps/mobile/test/api_config_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":1}
+{"suite":{"id":2,"platform":"vm","path":"/repo/apps/mobile/test/broken_test.dart"},"type":"suite","time":2}
+{"test":{"id":3,"name":"loading /repo/apps/mobile/test/broken_test.dart","suiteID":2,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":3}
+{"count":2,"time":4,"type":"allSuites"}
+
+[{"event":"test.startedProcess","params":{"vmServiceUri":null}}]
+{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":3490}
+{"group":{"id":4,"suiteID":0,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":4,"line":null,"column":null,"url":null},"type":"group","time":3493}
+{"test":{"id":5,"name":"the environment file is bundled and readable at startup","suiteID":0,"groupIDs":[4],"metadata":{"skip":false,"skipReason":null},"line":22,"column":3,"url":"file:///repo/apps/mobile/test/api_config_test.dart"},"type":"testStart","time":3494}
+{"testID":5,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":3542}
+{"group":{"id":6,"suiteID":0,"parentID":4,"name":"Cuenta","metadata":{"skip":false,"skipReason":null},"testCount":1,"line":10,"column":3,"url":"file:///repo/apps/mobile/test/api_config_test.dart"},"type":"group","time":3543}
+{"test":{"id":7,"name":"Cuenta valida el correo","suiteID":0,"groupIDs":[4,6],"metadata":{"skip":false,"skipReason":null},"line":12,"column":5,"url":"file:///repo/apps/mobile/test/api_config_test.dart"},"type":"testStart","time":3544}
+{"testID":7,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":3560}
+{"test":{"id":8,"name":"rejects malformed URLs","suiteID":0,"groupIDs":[4],"metadata":{"skip":false,"skipReason":null},"line":37,"column":3,"url":"file:///repo/apps/mobile/test/api_config_test.dart"},"type":"testStart","time":3561}
+{"testID":8,"messageType":"print","message":"debug output","type":"print","time":3570}
+{"testID":8,"error":"Expected: <3>\n  Actual: <2>\n\nsome matcher text","stackTrace":"package:matcher expect\ntest/api_config_test.dart 40:5 main.<fn>","isFailure":true,"type":"error","time":3580}
+{"testID":8,"result":"failure","skipped":false,"hidden":false,"type":"testDone","time":3590}
+{"test":{"id":9,"name":"not ready yet","suiteID":0,"groupIDs":[4],"metadata":{"skip":true,"skipReason":"pendiente"},"line":50,"column":3,"url":"file:///repo/apps/mobile/test/api_config_test.dart"},"type":"testStart","time":3591}
+{"testID":9,"result":"success","skipped":true,"hidden":false,"type":"testDone","time":3591}
+{"testID":3,"error":"Failed to load \"/repo/apps/mobile/test/broken_test.dart\": Compilation failed","stackTrace":"","isFailure":false,"type":"error","time":3600}
+{"testID":3,"result":"error","skipped":false,"hidden":true,"type":"testDone","time":3601}
+{"success":false,"type":"done","time":3700}

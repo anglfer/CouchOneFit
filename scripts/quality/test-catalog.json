@@ -1,0 +1,381 @@
+{
+  "version": 1,
+  "description": "Catálogo de trazabilidad: archivo de prueba (relativo a la app) -> módulo, tipo y requisitos. Los archivos ausentes se reportan como 'Sin clasificar'.",
+  "defaults": {
+    "quality": {
+      "module": "Sin clasificar",
+      "type": "unitaria",
+      "requirements": []
+    },
+    "api": {
+      "module": "Sin clasificar",
+      "type": "integración",
+      "requirements": []
+    },
+    "web": {
+      "module": "Sin clasificar",
+      "type": "funcional",
+      "requirements": []
+    },
+    "mobile": {
+      "module": "Sin clasificar",
+      "type": "funcional",
+      "requirements": []
+    }
+  },
+  "rulesNote": "Las reglas se evalúan en orden (gana la primera coincidencia sobre el nombre completo) y no modifican pruebas e2e.",
+  "rules": [
+    {
+      "match": "\\b40[13]\\b|csrf|otra cartera|ajen|rol incorrecto|forbidden|idor|inyecci|sin sesi|no autoriz|privileg",
+      "type": "seguridad"
+    },
+    {
+      "match": "offline|sin conexi|reconex|reintent|recuper|conflict|caduc",
+      "type": "recuperación"
+    }
+  ],
+  "suites": {
+    "quality": {
+      "tests/sli-report.test.mjs": {
+        "module": "Herramientas de calidad (SLI/SLO)",
+        "type": "unitaria",
+        "requirements": ["RNF09", "RNF10"]
+      },
+      "tests/flutter-parser.test.mjs": {
+        "module": "Herramientas de calidad (automatización de pruebas)",
+        "type": "unitaria",
+        "requirements": []
+      },
+      "tests/node-reporter.test.mjs": {
+        "module": "Herramientas de calidad (automatización de pruebas)",
+        "type": "integración",
+        "requirements": []
+      },
+      "tests/synthetic-check.test.mjs": {
+        "module": "Herramientas de calidad (monitoreo sintético)",
+        "type": "integración",
+        "requirements": ["RNF10"]
+      },
+      "tests/load-test.test.mjs": {
+        "module": "Herramientas de calidad (carga)",
+        "type": "integración",
+        "requirements": ["RNF09", "TT-021-1"]
+      },
+      "tests/catalog.test.mjs": {
+        "module": "Herramientas de calidad (trazabilidad)",
+        "type": "regresión",
+        "requirements": ["TT-007"]
+      }
+    },
+    "api": {
+      "tests/account-lifecycle.test.ts": {
+        "module": "Ciclo de cuenta (credenciales, invitación y activación)",
+        "type": "e2e",
+        "requirements": ["HU-006", "HU-007", "HU-008"],
+        "notes": "E2E a nivel API (sin navegador)"
+      },
+      "tests/admin-support.test.ts": {
+        "module": "Recuperación asistida (soporte administrativo)",
+        "type": "integración",
+        "requirements": ["HU-009", "RS22"]
+      },
+      "tests/admin.test.ts": {
+        "module": "Acceso administrativo",
+        "type": "integración",
+        "requirements": ["HU-003"]
+      },
+      "tests/assessment.test.ts": {
+        "module": "Evaluaciones antropométricas (cálculos)",
+        "type": "unitaria",
+        "requirements": ["HU-021"]
+      },
+      "tests/body-fat-estimation.test.ts": {
+        "module": "Grasa estimada (cálculos)",
+        "type": "unitaria",
+        "requirements": ["HU-023"]
+      },
+      "tests/catalog-search.test.ts": {
+        "module": "Nutrición (búsqueda de catálogo de alimentos)",
+        "type": "unitaria",
+        "requirements": []
+      },
+      "tests/checkout.test.ts": {
+        "module": "Suscripción y checkout simulado",
+        "type": "e2e",
+        "requirements": ["HU-012"],
+        "notes": "E2E a nivel API (sin navegador)"
+      },
+      "tests/client-edit.test.ts": {
+        "module": "Edición de perfil de cliente (validación)",
+        "type": "unitaria",
+        "requirements": ["HU-017"]
+      },
+      "tests/client-initial-record.test.ts": {
+        "module": "Alta de expediente (validación)",
+        "type": "unitaria",
+        "requirements": ["HU-015"]
+      },
+      "tests/client-login.test.ts": {
+        "module": "Login de cliente",
+        "type": "integración",
+        "requirements": ["HU-004"]
+      },
+      "tests/client-read-isolation.test.ts": {
+        "module": "Expediente base y aislamiento de lectura",
+        "type": "integración",
+        "requirements": [
+          "HU-016",
+          "HU-017",
+          "HU-018",
+          "HU-019",
+          "HU-020",
+          "HU-021",
+          "HU-023"
+        ]
+      },
+      "tests/estimation.test.ts": {
+        "module": "Grasa estimada (validación de solicitudes)",
+        "type": "unitaria",
+        "requirements": ["HU-023"]
+      },
+      "tests/evaluations.test.ts": {
+        "module": "Evaluaciones antropométricas (validación)",
+        "type": "unitaria",
+        "requirements": ["HU-021"]
+      },
+      "tests/evolution-api.test.ts": {
+        "module": "Evolución antropométrica (API)",
+        "type": "integración",
+        "requirements": ["HU-021", "HU-022", "HU-037"]
+      },
+      "tests/evolution-postgres.test.ts": {
+        "module": "Evolución antropométrica (PostgreSQL)",
+        "type": "integración",
+        "requirements": ["HU-021", "HU-022"]
+      },
+      "tests/evolution.test.ts": {
+        "module": "Evolución antropométrica (validación)",
+        "type": "unitaria",
+        "requirements": ["HU-021", "HU-022"]
+      },
+      "tests/follow-up.test.ts": {
+        "module": "Seguimiento (check-in y adherencia)",
+        "type": "integración",
+        "requirements": ["DEC-006", "DEC-008"]
+      },
+      "tests/idempotency.test.ts": {
+        "module": "Idempotencia de escrituras",
+        "type": "integración",
+        "requirements": ["DEC-018"]
+      },
+      "tests/logger.test.ts": {
+        "module": "Observabilidad (logging operativo)",
+        "type": "unitaria",
+        "requirements": ["RS16", "RS17", "RS23"]
+      },
+      "tests/login.test.ts": {
+        "module": "Login profesional y sesión",
+        "type": "integración",
+        "requirements": ["HU-002"]
+      },
+      "tests/migrations.test.ts": {
+        "module": "Base de datos",
+        "type": "integración",
+        "requirements": ["HU-021"]
+      },
+      "tests/nutrition-foods.test.ts": {
+        "module": "Nutrición (biblioteca de alimentos)",
+        "type": "integración",
+        "requirements": ["HU-024"]
+      },
+      "tests/nutrition-integration.test.ts": {
+        "module": "Nutrición (planes, móvil e idempotencia)",
+        "type": "integración",
+        "requirements": ["HU-024", "HU-025", "HU-027", "HU-040"]
+      },
+      "tests/nutrition-suggestion.test.ts": {
+        "module": "Nutrición (sugerencia de plan, cálculos)",
+        "type": "unitaria",
+        "requirements": ["HU-025"]
+      },
+      "tests/observability.test.ts": {
+        "module": "Observabilidad (logging y recuperación)",
+        "type": "recuperación",
+        "requirements": ["RNF15", "RS16", "RS17"]
+      },
+      "tests/pending-estimation-api.test.ts": {
+        "module": "Grasa estimada (API de referencia pendiente)",
+        "type": "integración",
+        "requirements": ["HU-023"]
+      },
+      "tests/registration.test.ts": {
+        "module": "Registro profesional",
+        "type": "integración",
+        "requirements": ["HU-001"]
+      },
+      "tests/saas-validation.test.ts": {
+        "module": "Catálogo de planes (validación)",
+        "type": "unitaria",
+        "requirements": ["HU-010"]
+      },
+      "tests/saas.test.ts": {
+        "module": "SaaS (planes, capacidad y expediente inicial)",
+        "type": "integración",
+        "requirements": ["HU-010", "HU-011", "HU-014", "HU-015", "HU-018"]
+      },
+      "tests/session-lifecycle.test.ts": {
+        "module": "Ciclo de sesión (expiración, refresh y logout)",
+        "type": "e2e",
+        "requirements": ["HU-005"],
+        "notes": "E2E a nivel API (sin navegador)"
+      },
+      "tests/subscription-lifecycle.test.ts": {
+        "module": "Ciclo de suscripción (renovación, baja y downgrade)",
+        "type": "e2e",
+        "requirements": ["HU-011", "HU-012", "HU-013"],
+        "notes": "E2E a nivel API (sin navegador)"
+      },
+      "tests/training.test.ts": {
+        "module": "Entrenamiento (prescripción y sesiones)",
+        "type": "integración",
+        "requirements": ["HU-028", "HU-029", "HU-030", "HU-031"]
+      }
+    },
+    "web": {
+      "tests/client-status-offline.test.mjs": {
+        "module": "Estado del cliente sin conexión (PWA)",
+        "type": "funcional",
+        "requirements": ["HU-018", "HU-040", "RNF21", "RNF22"]
+      },
+      "tests/confirm-navigation.test.mjs": {
+        "module": "Navegación y confirmaciones (Web)",
+        "type": "funcional",
+        "requirements": []
+      },
+      "tests/estimation-web.test.mjs": {
+        "module": "Grasa estimada (validación Web)",
+        "type": "unitaria",
+        "requirements": ["HU-021", "HU-023"]
+      },
+      "tests/evolution-web.test.mjs": {
+        "module": "Evolución antropométrica (Web)",
+        "type": "funcional",
+        "requirements": ["HU-021", "HU-022"]
+      },
+      "tests/follow-up-page.test.mjs": {
+        "module": "Seguimiento (páginas Web)",
+        "type": "funcional",
+        "requirements": []
+      },
+      "tests/follow-up-web.test.mjs": {
+        "module": "Seguimiento (lógica Web)",
+        "type": "funcional",
+        "requirements": []
+      },
+      "tests/food-library.test.mjs": {
+        "module": "Nutrición (biblioteca de alimentos Web)",
+        "type": "funcional",
+        "requirements": ["HU-024"]
+      },
+      "tests/marketing-plans.test.mjs": {
+        "module": "Portal público (planes)",
+        "type": "funcional",
+        "requirements": ["HU-039"]
+      },
+      "tests/nutrition-web.test.mjs": {
+        "module": "Nutrición (editor Web)",
+        "type": "funcional",
+        "requirements": ["HU-024"]
+      },
+      "tests/offline-read.test.mjs": {
+        "module": "PWA profesional (lectura sin conexión)",
+        "type": "funcional",
+        "requirements": ["HU-021", "HU-040", "RNF21", "RNF22"]
+      },
+      "tests/offline-write.test.mjs": {
+        "module": "PWA profesional (escritura sin conexión)",
+        "type": "funcional",
+        "requirements": ["HU-021", "HU-040", "RNF23", "RNF24"]
+      },
+      "tests/session-recovery.test.mjs": {
+        "module": "Expediente y sesión (Web)",
+        "type": "funcional",
+        "requirements": [
+          "HU-015",
+          "HU-017",
+          "HU-018",
+          "HU-019",
+          "HU-021",
+          "HU-022"
+        ]
+      },
+      "tests/training-sets.test.mjs": {
+        "module": "Entrenamiento (series, Web)",
+        "type": "unitaria",
+        "requirements": []
+      }
+    },
+    "mobile": {
+      "test/account_access_test.dart": {
+        "module": "Acceso y activación móvil",
+        "type": "funcional",
+        "requirements": ["HU-008", "HU-041"]
+      },
+      "test/api_config_test.dart": {
+        "module": "Configuración de la app móvil",
+        "type": "unitaria",
+        "requirements": []
+      },
+      "test/api_transport_test.dart": {
+        "module": "Transporte de API móvil",
+        "type": "unitaria",
+        "requirements": ["RNF15"]
+      },
+      "test/check_in_test.dart": {
+        "module": "Check-in móvil",
+        "type": "funcional",
+        "requirements": ["HU-035", "RNF24"]
+      },
+      "test/client_login_test.dart": {
+        "module": "Login de cliente móvil",
+        "type": "funcional",
+        "requirements": ["HU-004"]
+      },
+      "test/client_record_test.dart": {
+        "module": "Perfil y expediente móvil",
+        "type": "funcional",
+        "requirements": ["HU-020", "HU-036"]
+      },
+      "test/mobile_experience_test.dart": {
+        "module": "Experiencia móvil (UI)",
+        "type": "funcional",
+        "requirements": []
+      },
+      "test/notifications_test.dart": {
+        "module": "Notificaciones móviles",
+        "type": "unitaria",
+        "requirements": []
+      },
+      "test/nutrition_test.dart": {
+        "module": "Nutrición móvil",
+        "type": "unitaria",
+        "requirements": ["HU-027"]
+      },
+      "test/shared_ui_test.dart": {
+        "module": "Componentes de UI compartidos (móvil)",
+        "type": "funcional",
+        "requirements": []
+      },
+      "test/training_test.dart": {
+        "module": "Entrenamiento móvil",
+        "type": "funcional",
+        "requirements": []
+      },
+      "test/widget_test.dart": {
+        "module": "Aplicación móvil (humo y tema)",
+        "type": "funcional",
+        "requirements": []
+      }
+    }
+  }
+}

@@ -1,0 +1,103 @@
+name: Synthetic availability
+
+# Sondeo cada 5 minutos por requisito de la asignatura (mínimo de GitHub; los
+# cron pueden retrasarse). Sustituye la frecuencia horaria y contradice TT-021
+# (sin monitor cada 5 min): mantiene despierto Render Free y consume horas de
+# instancia del plan. La decisión y su riesgo están en
+# docs/architecture/calidad-observabilidad.md. La disponibilidad se observa y
+# reporta; no es un SLA.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Sondeo sintético
+    # SYNTHETIC_TARGETS: variable del repositorio con URLs separadas por
+    # espacios o saltos de línea. No hay destinos en el código.
+    if: ${{ vars.SYNTHETIC_TARGETS != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SYNTHETIC_TARGETS: ${{ vars.SYNTHETIC_TARGETS }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/quality
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Restaurar historial
+        uses: actions/cache/restore@v4
+        with:
+          path: logs/synthetic
+          key: synthetic-history-${{ github.run_id }}
+          restore-keys: synthetic-history-
+
+      - name: Sondear destinos
+        id: probe
+        run: |
+          args=()
+          for target in $SYNTHETIC_TARGETS; do
+            args+=(--target "$target")
+          done
+          set +e
+          node scripts/quality/synthetic-check.mjs "${args[@]}" \
+            --timeout 65000 --out logs/synthetic
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Depurar historial de más de 35 días
+        # Por la fecha del nombre: la caché restaurada no conserva mtime.
+        run: |
+          mkdir -p logs/synthetic
+          cutoff="$(date -u -d '35 days ago' +%Y-%m-%d)"
+          for file in logs/synthetic/synthetic-*.jsonl; do
+            [ -e "$file" ] || continue
+            day="$(basename "$file" .jsonl)"
+            if [[ "${day#synthetic-}" < "$cutoff" ]]; then rm -f "$file"; fi
+          done
+
+      - name: Informe SLI
+        run: |
+          node scripts/quality/sli-report.mjs \
+            --synthetic logs/synthetic --logs logs/none \
+            --out test-results/sli/synthetic
+          cat test-results/sli/synthetic/sli-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar historial
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: logs/synthetic
+          key: synthetic-history-${{ github.run_id }}
+
+      - name: Publicar evidencia
+        if: always() && (github.event_name == 'workflow_dispatch' || steps.probe.outputs.exit_code != '0')
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-${{ github.run_id }}
+          path: |
+            logs/synthetic/
+            test-results/sli/synthetic/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Fallar si el sondeo falló
+        if: always() && steps.probe.outputs.exit_code != '0'
+        run: |
+          echo "Algún destino no respondió 2xx en el último sondeo."
+          exit 1

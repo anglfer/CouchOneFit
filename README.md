@@ -250,6 +250,7 @@ La documentación oficial del proyecto se organiza de manera modular dentro de l
 - **Arquitectura de aplicaciones:** [docs/architecture/README.md](docs/architecture/README.md)
 - **Base de datos:** [docs/database/README.md](docs/database/README.md)
 - **API y Contratos:** [docs/api/](docs/api/)
+- **Calidad, logs y SLI/SLO:** [docs/architecture/calidad-observabilidad.md](docs/architecture/calidad-observabilidad.md) — pruebas centralizadas con `node scripts/quality/test-all.mjs`
 
 ---
 

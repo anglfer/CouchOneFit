@@ -39,3 +39,7 @@ captures/
 coverage/
 *.log
 docs\superpowers
+
+# Operational and test logs are local/CI artifacts, never committed
+/test-results/
+/logs/

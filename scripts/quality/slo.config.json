@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "exclusions": {
+    "paths": ["^/api/health"],
+    "syntheticPhases": ["recovery-drill"]
+  },
+  "services": [
+    { "id": "auth", "name": "Autenticación y sesión", "match": "^/api/auth" },
+    { "id": "plans", "name": "Catálogo de planes", "match": "^/api/plans" },
+    { "id": "me", "name": "Expediente del cliente (/me)", "match": "^/api/me" },
+    {
+      "id": "clients",
+      "name": "Cartera de clientes",
+      "match": "^/api/clients"
+    },
+    {
+      "id": "professional",
+      "name": "Panel profesional",
+      "match": "^/api/professional"
+    },
+    { "id": "client", "name": "App cliente", "match": "^/api/client(/|$)" },
+    { "id": "admin", "name": "Administración", "match": "^/api/admin" },
+    { "id": "other", "name": "Otros endpoints /api", "match": "^/api/" }
+  ],
+  "load": {
+    "p95MaxMs": 1000,
+    "errorRateMaxPct": 1,
+    "throughputMinRps": 5,
+    "concurrency": 15,
+    "recoveryMaxS": 65
+  },
+  "slos": [
+    {
+      "id": "availability",
+      "sli": "synthetic_availability_pct",
+      "target": 99.0,
+      "comparison": ">=",
+      "unit": "%",
+      "minSamples": 1
+    },
+    {
+      "id": "synthetic-latency-p95",
+      "sli": "synthetic_latency_p95_ms",
+      "target": 1000,
+      "comparison": "<=",
+      "unit": "ms",
+      "minSamples": 20
+    },
+    {
+      "id": "error-rate",
+      "sli": "server_error_rate_pct",
+      "target": 0.5,
+      "comparison": "<=",
+      "unit": "%",
+      "minSamples": 1
+    },
+    {
+      "id": "operation-success",
+      "sli": "operation_success_rate_pct",
+      "target": 99.5,
+      "comparison": ">=",
+      "unit": "%",
+      "minSamples": 1
+    },
+    {
+      "id": "latency-p50",
+      "sli": "latency_p50_ms",
+      "target": 300,
+      "comparison": "<=",
+      "unit": "ms",
+      "minSamples": 20
+    },
+    {
+      "id": "latency-p95",
+      "sli": "latency_p95_ms",
+      "target": 1000,
+      "comparison": "<=",
+      "unit": "ms",
+      "minSamples": 20
+    },
+    {
+      "id": "latency-p99",
+      "sli": "latency_p99_ms",
+      "target": 2000,
+      "comparison": "<=",
+      "unit": "ms",
+      "minSamples": 100
+    },
+    {
+      "id": "load-throughput",
+      "sli": "load_throughput_rps",
+      "target": 5,
+      "comparison": ">=",
+      "unit": "rps",
+      "minSamples": 1
+    },
+    {
+      "id": "recovery-time",
+      "sli": "recovery_time_s",
+      "target": 65,
+      "comparison": "<=",
+      "unit": "s",
+      "minSamples": 1
+    }
+  ]
+}
