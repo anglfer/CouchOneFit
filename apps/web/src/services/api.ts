@@ -25,6 +25,13 @@ export async function apiClient<T>(
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json');
+  if (
+    !headers.has('X-Request-Id') &&
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    headers.set('X-Request-Id', crypto.randomUUID());
+  }
   const response = await fetch(url, {
     ...options,
     headers,

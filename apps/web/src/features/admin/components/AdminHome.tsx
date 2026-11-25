@@ -124,6 +124,27 @@ export default function AdminHome({
             <Icon name="arrow-right" size={16} />
           </Link>
         </Card>
+
+        <Card
+          title="Observabilidad y niveles de servicio"
+          subtitle="Métricas reales, logs, SLI, SLO, SLA e incidentes."
+          icon="activity"
+          labelId="admin-observability"
+        >
+          <p className="mb-4 text-sm leading-relaxed text-(--ws-text-2)">
+            Supervisa la disponibilidad de Web, API y base de datos, explora
+            registros operativos, evalúa objetivos SLI/SLO y ejecuta pruebas
+            autorizadas.
+          </p>
+          <Link
+            to="/admin/observabilidad"
+            className="ws-btn"
+            data-variant="primary"
+          >
+            Abrir observabilidad
+            <Icon name="arrow-right" size={16} />
+          </Link>
+        </Card>
       </div>
 
       <Card

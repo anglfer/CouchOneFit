@@ -19,16 +19,11 @@ import { evaluationRoutes } from './features/evaluations/routes/evaluations.js';
 import { nutritionRoutes } from './features/nutrition/routes/nutrition.js';
 import { followUpRoutes } from './features/follow-up/routes/follow-up.js';
 import { errorFields, isDatabaseUnavailable } from './shared/errors/database.js';
-import { normalizePath, requestLogger } from './shared/middleware/request-logger.js';
-import { logger } from './shared/utils/logger.js';
-
-function requestFields(req: Request, res: Response) {
-  return {
-    requestId: res.locals.requestId,
-    method: req.method,
-    path: normalizePath(req.originalUrl || req.url),
-  };
-}
+import { requestLogFields, requestLogger } from './shared/middleware/request-logger.js';
+import { logger, registerLogSink } from './shared/utils/logger.js';
+import { DatabaseLogSink } from './features/observability/services/log-sink.js';
+import { publicObservabilityRoutes } from './features/observability/routes/public-observability.js';
+import { hasObservabilityIngestToken } from './features/observability/middleware/ingest-auth.js';
 
 function logDatabaseOrHttpError(
   req: Request,
@@ -38,19 +33,46 @@ function logDatabaseOrHttpError(
 ): void {
   logger.error(
     isDatabaseUnavailable(error) ? 'db.connection_error' : 'http.error',
-    { ...requestFields(req, res), status, ...errorFields(error) }
+    { ...requestLogFields(req, res), status, ...errorFields(error) }
   );
 }
 
 export interface AppOptions {
   now?: () => Date;
+  enableDbLogging?: boolean;
+}
+
+let activeDbLogSink: DatabaseLogSink | null = null;
+
+export async function closeObservabilityLogSink(): Promise<void> {
+  if (activeDbLogSink) {
+    await activeDbLogSink.close();
+    registerLogSink(null);
+    activeDbLogSink = null;
+  }
 }
 
 export function createApp(database: Pool, options?: AppOptions): Express {
   const app = express();
   const now = options?.now;
+  const shouldAttachDbSink =
+    options?.enableDbLogging === true ||
+    (options?.enableDbLogging !== false &&
+      !process.env.NODE_TEST_CONTEXT &&
+      process.env.OBSERVABILITY_DB_LOGS !== 'false');
+  if (shouldAttachDbSink) {
+    if (activeDbLogSink) {
+      void activeDbLogSink.close();
+    }
+    activeDbLogSink = new DatabaseLogSink(database, {
+      defaultVersion: config.appVersion,
+    });
+    registerLogSink(activeDbLogSink.enqueue);
+  }
+  let dbWasUnavailable = false;
   app.disable('x-powered-by');
-  app.use(requestLogger());
+  app.use(requestLogger(hasObservabilityIngestToken));
+  app.use('/api/observability', publicObservabilityRoutes(database, now));
   app.use('/api', trainingRoutes(database, now));
   app.use('/api', nutritionRoutes(database, now));
   app.use('/api', followUpRoutes(database, now));
@@ -60,6 +82,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
     res.json({
       status: 'ok',
       environment: config.nodeEnv,
+      version: config.appVersion,
       timestamp: (now?.() ?? new Date()).toISOString(),
     });
   });
@@ -67,8 +90,23 @@ export function createApp(database: Pool, options?: AppOptions): Express {
     const timestamp = (now?.() ?? new Date()).toISOString();
     try {
       await database.query('SELECT 1');
-      res.json({ status: 'ok', database: 'ok', timestamp });
+      if (dbWasUnavailable) {
+        dbWasUnavailable = false;
+        logger.info('system.recovery', {
+          ...requestLogFields(req, res),
+          module: 'database',
+          operation: 'database_readiness_recovery',
+          outcome: 'recovered',
+        });
+      }
+      res.json({
+        status: 'ok',
+        database: 'ok',
+        version: config.appVersion,
+        timestamp,
+      });
     } catch (error) {
+      dbWasUnavailable = true;
       logDatabaseOrHttpError(req, res, error, 503);
       res
         .status(503)
@@ -96,7 +134,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       if (error instanceof AuthError) {
         if (error.status === 401 || error.status === 403) {
           logger.warn('auth.denied', {
-            ...requestFields(req, res),
+            ...requestLogFields(req, res),
             status: error.status,
             errorCode: error.code,
           });
@@ -119,7 +157,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       // Sin esto un fallo inesperado solo llega al cliente como 503 y no deja rastro.
       if (status === 400 || status === 413) {
         logger.warn('http.body_error', {
-          ...requestFields(req, res),
+          ...requestLogFields(req, res),
           status,
           errorType: (error as { type?: unknown }).type,
         });

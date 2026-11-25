@@ -1,4 +1,4 @@
-import { app } from './app.js';
+import { app, closeObservabilityLogSink } from './app.js';
 import { config } from './config/index.js';
 import { pool } from './config/database.js';
 import { jwtKey } from './features/auth/services/tokens.js';
@@ -17,6 +17,7 @@ const server = app.listen(config.port, () => {
 const shutdown = () => {
   logger.info('server.stopping');
   server.close(async () => {
+    await closeObservabilityLogSink();
     await pool.end();
     logger.info('server.stopped');
     process.exit(0);

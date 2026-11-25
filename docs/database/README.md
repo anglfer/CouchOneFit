@@ -179,3 +179,18 @@ Las dos suites autorizadas pasaron 39/39 en bases temporales de PostgreSQL 17.11
 ## HU-021 — aplicación local controlada completada
 
 Tras autorización expresa y recuperación verificada del respaldo en una sola base nueva temporal (eliminada al finalizar), el migrador oficial aplicó únicamente 202611090001 y 202611100001 a **CouchOneFit_dev, PostgreSQL 17.11, 127.0.0.1:5433**. La inicial ya estaba registrada. Historial final 29/checksums válidos, datos privados anteriores y roles/membresías intactos; RLS/permisos mínimos verificados. Smoke posterior sobre QA autorizado añadió 3 evaluaciones, sin alterar los 2 clientes ni las 3 evaluaciones anteriores. No se modificó CouchOneFit_test, PG16, Supabase ni otra base existente. Esta evidencia es local: no acredita migración ni respaldo/restauración en producción. [Guía y evidencia final](../epicas/ep-04-antropometria/hu-021/COUCHONEFIT_HU021_HANDOFF.md).
+
+## Módulo de observabilidad, pruebas y niveles de servicio — 25-nov-2026
+
+`202611250001_observability_sla.sql` añade 14 tablas privadas para logs, pruebas,
+versiones SLI y SLO, acuerdos SLA, evaluaciones, incidentes, configuración,
+auditoría y agregados horarios. Los permisos del administrador activo se
+evalúan con RLS. Las funciones `SECURITY DEFINER` del esquema `private`
+acotan las operaciones técnicas de escritura, ingesta y mantenimiento.
+
+`202611250002_observability_measurement_windows.sql` conserva las tablas,
+acota las consultas de medición en el tiempo y protege las transiciones de
+incidentes frente a reenvíos fuera de orden. Agrega el límite de cortes
+automáticos por hora y extiende la retención a corridas vacías y agregados.
+El esquema integrado contiene 37 migraciones y 52 tablas. La aplicación en
+Supabase compartido está pendiente. [Arquitectura y validación](../architecture/calidad-observabilidad.md#17-módulo-integral-de-observabilidad-slislosla-y-monitoreo-externo-proyectos-31-y-32).

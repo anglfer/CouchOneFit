@@ -1,0 +1,259 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CouchOne Fit Observability & SLA API",
+    "version": "1.0.0",
+    "description": "Las rutas /api/admin/observability requieren sesión con rol admin. Las mutaciones del panel requieren la comprobación de CSRF existente. La ingesta y la configuración del ejecutor externo usan una credencial de servidor."
+  },
+  "components": {
+    "securitySchemes": {
+      "adminSession": { "type": "apiKey", "in": "cookie", "name": "cof_access" },
+      "clientSession": { "type": "http", "scheme": "bearer" },
+      "csrf": { "type": "apiKey", "in": "header", "name": "X-CSRF-Token" },
+      "externalMonitor": { "type": "apiKey", "in": "header", "name": "X-Observability-Token" }
+    },
+    "schemas": {
+      "Environment": {
+        "type": "string",
+        "enum": ["production", "staging", "development", "local", "ci", "test"]
+      },
+      "Period": { "type": "string", "enum": ["1h", "24h", "7d", "30d"] },
+      "CheckStatus": {
+        "type": "string",
+        "enum": ["passed", "failed", "not_executed", "skipped", "blocked"]
+      },
+      "CheckResult": {
+        "type": "object",
+        "required": ["id", "runId", "correlationId", "checkName", "environment", "executedAt", "expectedResult", "actualResult", "status"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "runId": { "type": "string", "format": "uuid" },
+          "correlationId": { "type": "string" },
+          "checkName": { "type": "string" },
+          "environment": { "$ref": "#/components/schemas/Environment" },
+          "executedAt": { "type": "string", "format": "date-time" },
+          "expectedResult": { "type": "string" },
+          "actualResult": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/CheckStatus" },
+          "durationMs": { "type": ["number", "null"], "minimum": 0 },
+          "httpStatus": { "type": ["integer", "null"], "minimum": 100, "maximum": 599 },
+          "errorCode": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "parameters": {
+      "Environment": { "name": "environment", "in": "query", "schema": { "$ref": "#/components/schemas/Environment" } },
+      "Period": { "name": "period", "in": "query", "schema": { "$ref": "#/components/schemas/Period" } },
+      "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+    }
+  },
+  "security": [{ "adminSession": [] }],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Liveness del proceso API",
+        "security": [],
+        "responses": { "200": { "description": "Proceso activo" } }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "summary": "Readiness con conectividad PostgreSQL",
+        "security": [],
+        "responses": {
+          "200": { "description": "API y base de datos disponibles" },
+          "503": { "description": "Base de datos no disponible" }
+        }
+      }
+    },
+    "/api/observability/ingest": {
+      "post": {
+        "summary": "Ingesta idempotente de corridas externas y pruebas automatizadas",
+        "security": [{ "externalMonitor": [] }],
+        "description": "Un lote admite de 1 a 500 resultados del mismo ambiente que la corrida. run.externalRunId y checks[].externalEventId identifican reenvíos. Los resultados históricos se evalúan con el corte temporal de la corrida.",
+        "responses": {
+          "201": { "description": "Corrida registrada o deduplicada" },
+          "400": { "description": "Carga inválida o ambientes distintos" },
+          "401": { "description": "Token inválido" },
+          "503": { "description": "Ingesta deshabilitada" }
+        }
+      }
+    },
+    "/api/observability/monitor-config": {
+      "get": {
+        "summary": "Configuración operativa del monitor externo",
+        "security": [{ "externalMonitor": [] }],
+        "responses": { "200": { "description": "Frecuencia y estado del monitor" } }
+      }
+    },
+    "/api/observability/client-events": {
+      "post": {
+        "summary": "Telemetría técnica sanitizada desde clientes autenticados",
+        "security": [{ "adminSession": [], "csrf": [] }, { "clientSession": [] }],
+        "responses": { "202": { "description": "Evento registrado" } }
+      }
+    },
+    "/api/admin/observability/dashboard": {
+      "get": {
+        "summary": "Resumen general, estado de servicios, KPIs y serie histórica",
+        "responses": {
+          "200": { "description": "Resumen calculado" },
+          "401": { "description": "Sin sesión" },
+          "403": { "description": "Rol no administrador" }
+        }
+      }
+    },
+    "/api/admin/observability/logs": {
+      "get": {
+        "summary": "Explorador paginado de logs operativos, errores, auditoría y pruebas",
+        "responses": { "200": { "description": "Página de logs" } }
+      }
+    },
+    "/api/admin/observability/logs/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "get": {
+        "summary": "Detalle de registro y eventos correlacionados",
+        "responses": { "200": { "description": "Detalle y correlación" }, "404": { "description": "No encontrado" } }
+      }
+    },
+    "/api/admin/observability/logs/export": {
+      "get": {
+        "summary": "Exportación CSV o JSON de registros filtrados",
+        "responses": { "200": { "description": "Archivo CSV o JSON" } }
+      }
+    },
+    "/api/admin/observability/slis": {
+      "get": { "summary": "Listado de SLI con valores calculados en vivo", "responses": { "200": { "description": "SLIs" } } },
+      "post": { "summary": "Crear definición de SLI", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "201": { "description": "SLI creado" } } }
+    },
+    "/api/admin/observability/slis/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "put": { "summary": "Actualizar SLI creando nueva versión", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "SLI actualizado" } } }
+    },
+    "/api/admin/observability/slis/{id}/status": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": { "summary": "Activar o desactivar SLI", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Estado actualizado" } } }
+    },
+    "/api/admin/observability/slis/{id}/versions": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "get": { "summary": "Historial de versiones del SLI", "responses": { "200": { "description": "Versiones" } } }
+    },
+    "/api/admin/observability/slos": {
+      "get": { "summary": "Listado de SLO internos evaluados dinámicamente", "responses": { "200": { "description": "SLOs" } } },
+      "post": { "summary": "Crear objetivo SLO", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "201": { "description": "SLO creado" } } }
+    },
+    "/api/admin/observability/slos/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "put": { "summary": "Actualizar SLO conservando historial y vigencias", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "SLO actualizado" } } }
+    },
+    "/api/admin/observability/slos/{id}/status": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": { "summary": "Activar o desactivar SLO", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Estado actualizado" } } }
+    },
+    "/api/admin/observability/slos/evaluate": {
+      "post": { "summary": "Evaluar y persistir corte de SLO", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Evaluación guardada" } } }
+    },
+    "/api/admin/observability/slos/{id}/history": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "get": { "summary": "Historial de versiones y evaluaciones del SLO", "responses": { "200": { "description": "Historial" } } }
+    },
+    "/api/admin/observability/slas": {
+      "get": { "summary": "Listado de acuerdos SLA y cumplimiento observado", "responses": { "200": { "description": "SLAs" } } },
+      "post": { "summary": "Registrar acuerdo SLA", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "201": { "description": "SLA creado" } } }
+    },
+    "/api/admin/observability/slas/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "put": { "summary": "Actualizar acuerdo SLA", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "SLA actualizado" } } }
+    },
+    "/api/admin/observability/slas/{id}/status": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": { "summary": "Activar o desactivar acuerdo SLA", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Estado actualizado" } } }
+    },
+    "/api/admin/observability/checks": {
+      "get": {
+        "summary": "Catálogo autorizado, configuración y corridas paginadas",
+        "security": [{ "adminSession": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Environment" },
+          { "$ref": "#/components/parameters/Period" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 } },
+          { "name": "runId", "in": "query", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Corridas del periodo y resultados de la corrida seleccionada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["environment", "runtimeEnvironment", "period", "page", "pageSize", "totalRuns", "runs", "latestChecks"],
+                  "properties": {
+                    "environment": { "$ref": "#/components/schemas/Environment" },
+                    "runtimeEnvironment": { "$ref": "#/components/schemas/Environment" },
+                    "period": { "$ref": "#/components/schemas/Period" },
+                    "page": { "type": "integer" },
+                    "pageSize": { "type": "integer" },
+                    "totalRuns": { "type": "integer" },
+                    "runs": { "type": "array", "items": { "type": "object" } },
+                    "latestChecks": { "type": "array", "items": { "$ref": "#/components/schemas/CheckResult" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/observability/checks/run": {
+      "post": {
+        "summary": "Ejecutar comprobaciones registradas en el ambiente de la API",
+        "security": [{ "adminSession": [], "csrf": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": { "$ref": "#/components/schemas/Environment" },
+                  "checkKeys": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Estado, runId y resultados de la ejecución" },
+          "400": { "description": "Comprobación desconocida o ambiente distinto del runtime" }
+        }
+      }
+    },
+    "/api/admin/observability/settings": {
+      "put": { "summary": "Configurar frecuencia del monitor, retención y umbrales de incidentes", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Configuración actualizada" } } }
+    },
+    "/api/admin/observability/maintenance/prune": {
+      "post": { "summary": "Aplicar agregación horaria y retención configurada", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Resumen de depuración" } } }
+    },
+    "/api/admin/observability/incidents": {
+      "get": { "summary": "Listar incidentes abiertos, en atención y resueltos", "responses": { "200": { "description": "Incidentes" } } }
+    },
+    "/api/admin/observability/incidents/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "patch": { "summary": "Reconocer o marcar resuelto un incidente", "security": [{ "adminSession": [], "csrf": [] }], "responses": { "200": { "description": "Incidente actualizado" } } }
+    },
+    "/api/admin/observability/reports": {
+      "get": {
+        "summary": "Generar reporte técnico del periodo con Markdown incluido",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/Period" }],
+        "responses": {
+          "200": { "description": "Resumen con los límites del periodo, métricas, evaluaciones, incidentes, totales y muestras de errores y pruebas" }
+        }
+      }
+    },
+    "/api/admin/observability/audit": {
+      "get": { "summary": "Bitácora administrativa de cambios de observabilidad", "responses": { "200": { "description": "Bitácora" } } }
+    }
+  }
+}

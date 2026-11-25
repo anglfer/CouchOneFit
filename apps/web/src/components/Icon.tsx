@@ -43,7 +43,14 @@ export type IconName =
   | 'droplet'
   | 'clock'
   | 'swap'
-  | 'trash';
+  | 'trash'
+  | 'activity'
+  | 'alert'
+  | 'terminal'
+  | 'target'
+  | 'file-text'
+  | 'play'
+  | 'check-circle';
 
 const paths: Record<IconName, ReactElement> = {
   home: (
@@ -225,6 +232,39 @@ const paths: Record<IconName, ReactElement> = {
   trash: (
     <>
       <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+    </>
+  ),
+  activity: <path d="M3 12h4l3-7 4 14 3-7h4" />,
+  alert: (
+    <>
+      <path d="M12 3.5 21 19.5H3L12 3.5Z" />
+      <path d="M12 10v4M12 17h.01" />
+    </>
+  ),
+  terminal: (
+    <>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <path d="m7.5 10 3 2.5-3 2.5M12.5 15h4" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+    </>
+  ),
+  'file-text': (
+    <>
+      <path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5L14 3.5Z" />
+      <path d="M14 3.5v5h5M8.5 12.5h7M8.5 16h5" />
+    </>
+  ),
+  play: <path d="m7 5.5 11 6.5-11 6.5V5.5Z" />,
+  'check-circle': (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="m8.5 12.2 2.4 2.4 4.6-4.8" />
     </>
   ),
 };

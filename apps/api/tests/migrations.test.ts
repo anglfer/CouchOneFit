@@ -98,7 +98,7 @@ test('migrations and the integrated schema produce the same English database', a
   try {
     assert.equal((await owner.query('SELECT 1 FROM pg_roles WHERE rolname=$1', [runtimeRole])).rowCount, 0);
     const urls = [];
-    for (const suffix of ['migration', 'schema', 'legacy', 'evaluation_upgrade']) {
+    for (const suffix of ['migration', 'schema', 'legacy', 'evaluation_upgrade', 'observability_upgrade']) {
       const name = `CouchOneFit_${suffix}_test_${randomBytes(6).toString('hex')}`;
       assert.equal((await owner.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 0);
       await owner.query(`CREATE DATABASE "${name}"`);
@@ -141,6 +141,8 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202611190001_nutrition_runtime_access.sql/);
     assert.match(applied, /Applied: 202611210001_professional_foods.sql/);
     assert.match(applied, /Applied: 202611240001_client_maximum_age.sql/);
+    assert.match(applied, /Applied: 202611250001_observability_sla.sql/);
+    assert.match(applied, /Applied: 202611250002_observability_measurement_windows.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -162,7 +164,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '35'
+      '37'
     );
     await databases[1].query(
       readFileSync(
@@ -280,7 +282,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '35'
+      '37'
     );
     assert.equal(
       (
@@ -365,7 +367,7 @@ test('migrations and the integrated schema produce the same English database', a
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
         "SELECT CASE WHEN nspacl IS NULL THEN NULL ELSE ARRAY(SELECT acl::text FROM unnest(nspacl) AS acl ORDER BY acl::text) END AS nspacl FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
-        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,replace(p.prosrc,chr(13)||chr(10),chr(10)) AS prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record','nutrition_professional','nutrition_client_access','nutrition_can_write') ORDER BY p.proname",
+        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,replace(p.prosrc,chr(13)||chr(10),chr(10)) AS prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record','nutrition_professional','nutrition_client_access','nutrition_can_write','observability_ingest_snapshot','observability_access_event_logs','observability_needs_hourly_evaluation','record_observability_slo_evaluation','prune_observability_data') ORDER BY p.proname, arguments",
       ];
       return Promise.all(
         queries.map(async (sql) => (await db.query(sql)).rows)
@@ -376,6 +378,28 @@ test('migrations and the integrated schema produce the same English database', a
     await databases[3].query(previousSchema);
     await databases[3].query('CREATE SCHEMA migrations; CREATE TABLE migrations.history(filename text PRIMARY KEY,checksum text NOT NULL)');
     const migrationDirectory=new URL('../../../docs/database/migrations/',import.meta.url);
+    const observabilityFile = '202611250002_observability_measurement_windows.sql';
+    const priorObservabilitySchema = readFileSync(new URL('../../../docs/database/schemas/identity_access.sql',import.meta.url),'utf8')
+      .split('-- Bound sampling and read the configuration version in force at the observation.')[0];
+    await databases[4].query(priorObservabilitySchema);
+    await databases[4].query('CREATE SCHEMA migrations; CREATE TABLE migrations.history(filename text PRIMARY KEY,checksum text NOT NULL)');
+    for (const filename of readdirSync(migrationDirectory).filter((name)=>/^\d{12}_.*\.sql$/.test(name) && name < observabilityFile)) {
+      const checksum = createHash('sha256').update(readFileSync(new URL(filename,migrationDirectory),'utf8')).digest('hex');
+      await databases[4].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)', [filename, checksum]);
+    }
+    const { rows: [priorObservabilityEvaluation] } = await databases[4].query(
+      `INSERT INTO private.observability_slo_evaluations (
+        slo_id, slo_version, environment, period_start, period_end, target_value, observed_value, samples, compliance_status
+      )
+      SELECT id, 1, 'test', clock_timestamp() - interval '1 hour', clock_timestamp(), target_value, 100, 1, 'met'
+      FROM private.observability_slo_definitions WHERE code = 'slo_availability'
+      RETURNING *`
+    );
+    assert.match(migrate(urls[4]), new RegExp(`Applied: ${observabilityFile}`));
+    const { rows: [preservedObservabilityEvaluation] } = await databases[4].query(
+      'SELECT * FROM private.observability_slo_evaluations WHERE id=$1', [priorObservabilityEvaluation.id]
+    );
+    assert.deepEqual(preservedObservabilityEvaluation, { ...priorObservabilityEvaluation, automatic: false });
     for(const filename of readdirSync(migrationDirectory).filter(n=>/^\d{12}_.*\.sql$/.test(n)&&n<'202611090001_multimethod_evaluations.sql').sort()) {
       await databases[3].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)',[filename,createHash('sha256').update(readFileSync(new URL(filename,migrationDirectory),'utf8')).digest('hex')]);
     }
@@ -408,7 +432,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(assessment,null);
     assert.deepEqual(originalColumns,previousEvaluation);
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 38);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 52);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

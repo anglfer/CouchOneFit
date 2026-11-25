@@ -24,14 +24,21 @@ export function isDatabaseUnavailable(error: unknown): boolean {
 }
 
 export function errorFields(error: unknown): Record<string, unknown> {
-  const source = (error ?? {}) as Record<string, unknown>;
-  const code = source.code;
+  const { code, name, message } = (error ?? {}) as Record<string, unknown>;
+  const timedOut =
+    code === 'ETIMEDOUT' ||
+    code === '57014' ||
+    name === 'TimeoutError' ||
+    (typeof message === 'string' && /timeout exceeded|query read timeout|statement timeout/i.test(message));
+  const unavailable = isDatabaseUnavailable(error);
   return {
-    errorName: error instanceof Error ? error.name : typeof error,
-    errorCode: typeof code === 'string' ? code : undefined,
-    constraint: source.constraint,
-    table: source.table,
-    message: error instanceof Error ? error.message : undefined,
-    stack: error instanceof Error ? error.stack : undefined,
+    errorName: typeof name === 'string' && /^[A-Za-z]{0,32}Error$/.test(name) ? name : undefined,
+    errorCode: typeof code === 'string' && /^[A-Z0-9_]{3,40}$/.test(code) ? code : undefined,
+    message: timedOut
+      ? 'La operación superó su tiempo de espera.'
+      : unavailable
+        ? 'La conexión con la base de datos no está disponible.'
+        : 'Ocurrió un error interno al ejecutar la operación.',
+    ...(timedOut ? { outcome: 'timeout' } : {}),
   };
 }

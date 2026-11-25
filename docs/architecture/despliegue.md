@@ -98,8 +98,8 @@ La API corre como un proceso persistente de Node.js que expone endpoints REST a 
 - **Destino productivo vigente:** [https://api.ferkxo.tech](https://api.ferkxo.tech), servicio existente en Render; salud200 comprobada en el corte anterior.
 - **Liveness:** `/api/health`; readiness de PostgreSQL/permisos/migraciones separado, aún TT-016. Un200health no certifica negocio.
 - **Readiness básica:** `/api/health/ready` responde 200 solo si `SELECT 1` llega a PostgreSQL y 503 si no; no verifica permisos ni migraciones (resto de TT-016). Es el destino recomendado para las sondas sintéticas ([calidad-observabilidad.md](calidad-observabilidad.md)).
-- **Sondas sintéticas cada 5 min (cambio de decisión, pendiente de acordar con el equipo):** la asignatura las exige y `.github/workflows/synthetic.yml` las ejecuta en cuanto se define `SYNTHETIC_TARGETS`. Contradicen la regla de este documento y de TT-021 de no usar *keep-alive*: Render Free dejará de dormirse y consumirá horas de instancia todo el mes. Revise el cupo del *workspace* antes de activarlas.
-- **Logs operativos:** JSON por línea en la salida estándar (sin `LOG_DIR`, porque el disco de Render Free es efímero); niveles con `LOG_LEVEL`. Sin cuerpos, tokens ni datos personales.
+- **Monitor externo.** `.github/workflows/synthetic.yml` permite un sondeo manual y aplica la frecuencia del panel cuando se habilita `SYNTHETIC_MONITOR_ENABLED`. Cinco minutos mantienen activa la instancia Render Free. El intervalo se elige considerando la cuota compartida y DEC-013. [Configuración y recuperación](calidad-observabilidad.md#172-monitor-sintético-y-funcional-independiente-external-monitormjs).
+- **Logs operativos.** JSON sanitizado por línea en stdout y lotes en las tablas privadas de PostgreSQL. `LOG_LEVEL` ajusta la salida estándar y las políticas de retención se administran en el panel. [Almacenamiento](calidad-observabilidad.md#171-arquitectura-y-persistencia-en-producción-render--vercel--supabase).
 - **Root Directory:** `apps/api`
 - **Environment:** `Node`
 - **Build Command propuesto:** `npm ci && npm run build` (TT-008/016, no ejecutado aquí)

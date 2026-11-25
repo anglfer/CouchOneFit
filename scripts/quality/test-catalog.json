@@ -56,6 +56,16 @@
         "type": "integración",
         "requirements": ["RNF10"]
       },
+      "tests/external-monitor.test.mjs": {
+        "module": "Herramientas de calidad (monitor externo independiente)",
+        "type": "integración",
+        "requirements": ["RNF10", "RNF15"]
+      },
+      "tests/ingest-test-run.test.mjs": {
+        "module": "Herramientas de calidad (ingesta de CI)",
+        "type": "regresión",
+        "requirements": ["TT-007"]
+      },
       "tests/load-test.test.mjs": {
         "module": "Herramientas de calidad (carga)",
         "type": "integración",
@@ -203,6 +213,11 @@
         "type": "recuperación",
         "requirements": ["RNF15", "RS16", "RS17"]
       },
+      "tests/observability-module.test.ts": {
+        "module": "Observabilidad, SLI/SLO/SLA e incidentes",
+        "type": "integración",
+        "requirements": ["RNF09", "RNF10", "RNF15", "RS01", "RS16", "RS22"]
+      },
       "tests/pending-estimation-api.test.ts": {
         "module": "Grasa estimada (API de referencia pendiente)",
         "type": "integración",
@@ -286,6 +301,11 @@
         "module": "Nutrición (editor Web)",
         "type": "funcional",
         "requirements": ["HU-024"]
+      },
+      "tests/observability-web.test.mjs": {
+        "module": "Observabilidad y niveles de servicio (Admin Web)",
+        "type": "funcional",
+        "requirements": ["RNF05", "RNF09", "RNF10"]
       },
       "tests/offline-read.test.mjs": {
         "module": "PWA profesional (lectura sin conexión)",

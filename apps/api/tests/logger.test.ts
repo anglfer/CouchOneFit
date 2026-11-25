@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, beforeEach, describe, it } from 'node:test'
+import type { Pool } from 'pg'
+import { DatabaseLogSink } from '../src/features/observability/services/log-sink.js'
 import { configureLogger, logger } from '../src/shared/utils/logger.js'
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cof-logger-'))
@@ -48,6 +50,7 @@ describe('logger', () => {
     assert.equal(line.level, 'INFO')
     assert.equal(line.service, 'api')
     assert.equal(line.event, 'shape.check')
+    assert.match(String(line.id), /^[0-9a-f-]{36}$/)
     assert.equal(line.env, process.env.NODE_ENV || 'development')
     assert.equal(line.status, 200)
     assert.equal(new Date(line.ts as string).toISOString(), line.ts)
@@ -112,5 +115,33 @@ describe('logger', () => {
       logger.error('sink.fail')
       logger.error('sink.fail.again')
     })
+  })
+
+  it('persists only one recovery event after repeated database failures', async (context) => {
+    let now = 100_000
+    context.mock.method(Date, 'now', () => now)
+    const successfulWrites: Array<Record<string, unknown>> = []
+    let attempts = 0
+    const pool = {
+      query: async (_sql: string, [payload]: [string]) => {
+        if (++attempts < 3) throw new Error('Base de pruebas desconectada')
+        successfulWrites.push(...JSON.parse(payload))
+      },
+    } as unknown as Pool
+    const sink = new DatabaseLogSink(pool)
+    try {
+      sink.enqueue({ event: 'http.request', outcome: 'success' })
+      await sink.flush()
+      now += 5000
+      await sink.flush()
+      now += 10_000
+      await sink.flush()
+      assert.deepEqual(successfulWrites.map((entry) => entry.eventType), [
+        'http.request',
+        'system.recovery',
+      ])
+    } finally {
+      await sink.close()
+    }
   })
 })

@@ -7,6 +7,7 @@ import { requireCsrf } from '../../auth/middleware/session-http.js'
 import { plansController } from '../controllers/plans.js'
 import { supportControllers } from '../controllers/support.js'
 import { adminProfessionalsController } from '../controllers/professionals.js'
+import { adminObservabilityRoutes } from '../../observability/routes/admin-observability.js'
 export function adminRoutes(pool: Pool, now?: () => Date): Router {
   const router = Router()
   router.use(
@@ -26,6 +27,7 @@ export function adminRoutes(pool: Pool, now?: () => Date): Router {
   router.get('/support/clients', support.clients)
   router.post('/support/clients/:clientId/view', requireCsrf, support.view)
   router.get('/support/log', support.log)
+  router.use('/observability', adminObservabilityRoutes(pool, now))
   router.all('/professionals/:id/subscription', (_req, _res, next) =>
     next(
       new AuthError(

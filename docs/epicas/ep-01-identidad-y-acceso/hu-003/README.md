@@ -21,6 +21,11 @@ Web comparte `/acceso` y elige el destino a partir del rol devuelto por API. `re
 
 La portada administrativa informa el acceso activo. HU-010/012/014 implementarán la gestión real de profesionales, planes y suscripciones; no se simulan listados ni operaciones en esta HU.
 
+El panel incorpora `/admin/observabilidad` y la API expone sus operaciones
+bajo `/api/admin/observability`. Ambos usan la sesión y el rol administrativo
+de esta HU. El reporte técnico documenta las pruebas de autorización, CSRF
+y el recorrido local. [Observabilidad y niveles de servicio](../../../architecture/calidad-observabilidad.md#17-módulo-integral-de-observabilidad-slislosla-y-monitoreo-externo-proyectos-31-y-32).
+
 ## Provisión controlada y seed
 
 Migración incremental: [`202610160001_provision_administrador.sql`](../../../database/migrations/202610160001_provision_administrador.sql). No modifica la inicial aplicada ni añade tablas. Crea `couchone_provision` NOLOGIN, sin DDL, BYPASSRLS, membresías heredadas, UPDATE o DELETE. Solo puede leer identificadores/rol/estado e insertar las columnas necesarias de usuarios. RLS limita lectura e inserción a administradores activos. No puede consultar hashes, crear perfiles profesionales ni conceder suscripciones. Nunca conceder este rol a la API, a registro, a roles públicos ni al navegador.

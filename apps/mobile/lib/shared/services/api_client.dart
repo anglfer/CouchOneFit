@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../features/auth/models/session_models.dart';
@@ -231,6 +232,16 @@ class ApiClient {
     );
   }
 
+  static final Random _random = Random.secure();
+
+  String _nextRequestId() {
+    final buffer = StringBuffer('mob-');
+    for (var i = 0; i < 16; i++) {
+      buffer.write(_random.nextInt(16).toRadixString(16));
+    }
+    return buffer.toString();
+  }
+
   Future<ApiHttpResponse> _send({
     required String method,
     required String path,
@@ -240,6 +251,7 @@ class ApiClient {
   }) async {
     final headers = <String, String>{
       'Accept': 'application/json',
+      'X-Request-Id': _nextRequestId(),
       if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       if (body != null) 'Content-Type': 'application/json',
       if (accessToken != null && accessToken.isNotEmpty)

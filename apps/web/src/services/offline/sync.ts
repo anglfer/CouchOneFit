@@ -1,6 +1,7 @@
 import { awaitConfirmation } from './writes';
 import { ApiError } from '../api';
 import { confirmDialog } from '../confirm';
+import { reportClientTelemetry } from '../telemetry';
 import {
   freshRequest,
   sessionMutation,
@@ -171,6 +172,13 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
         error: error.message,
         server: await serverCopy(operation),
       });
+      reportClientTelemetry({
+        eventType: 'client.sync_conflict',
+        module: 'offline_sync',
+        operation: operation.kind,
+        errorCode: error.code,
+        statusCode: error.status,
+      });
       return 'blocked';
     }
     if (
@@ -183,11 +191,27 @@ async function settle(operation: Operation, error: unknown): Promise<Outcome> {
         state: 'pending',
         error: retryLater(error),
       });
+      if (error.status >= 500) {
+        reportClientTelemetry({
+          eventType: 'client.sync_failed',
+          module: 'offline_sync',
+          operation: operation.kind,
+          errorCode: error.code,
+          statusCode: error.status,
+        });
+      }
       return 'stop';
     }
     await updateOperation(operation.id, {
       state: 'failed',
       error: error.message,
+    });
+    reportClientTelemetry({
+      eventType: 'client.sync_failed',
+      module: 'offline_sync',
+      operation: operation.kind,
+      errorCode: error.code,
+      statusCode: error.status,
     });
     return 'blocked';
   }
@@ -291,6 +315,14 @@ async function attempt(operation: Operation): Promise<Outcome> {
           body: nextBody,
         });
       }
+    }
+    if (operation.attempts > 0) {
+      reportClientTelemetry({
+        eventType: 'client.sync_recovered',
+        module: 'offline_sync',
+        operation: operation.kind,
+        statusCode: 200,
+      });
     }
     await removeOperation(operation.id);
     return 'applied';

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:couchonefit_mobile/main.dart';
 import 'package:couchonefit_mobile/features/auth/services/session_storage.dart';
+import 'package:couchonefit_mobile/shared/widgets/gradient_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -61,9 +62,18 @@ void main() {
   }
 
   Future<void> tap(WidgetTester tester, Finder finder) async {
-    await tester.ensureVisible(finder);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
     await tester.tap(finder);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> openRecord(WidgetTester tester) async {
+    final account = find.text('Cuenta');
+    await waitFor(tester, account);
+    await tap(tester, account);
+    await waitFor(tester, find.text('Mi expediente'));
   }
 
   testWidgets(
@@ -97,8 +107,9 @@ void main() {
     await fill(tester, 'password', initialPassword);
     await fill(tester, 'passwordConfirmation', initialPassword);
     await tap(tester, find.byType(CheckboxListTile));
-    await tap(tester, find.text('Activar cuenta'));
-    await waitFor(tester, find.text('Mi expediente'));
+    await tap(
+        tester, find.widgetWithText(GradientActionButton, 'Activar mi cuenta'));
+    await openRecord(tester);
     expect(find.text(record['fullName'] as String), findsOneWidget);
     final firstSession = await storage.readSession();
     expect(firstSession, isNotNull);
@@ -107,20 +118,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const CouchOneFitApp());
     await tester.pumpAndSettle();
-    await waitFor(tester, find.text('Mi expediente'));
+    await openRecord(tester);
     await tap(tester, find.text('Cambiar mis credenciales'));
     await fill(tester, 'username', username);
     await fill(tester, 'currentPassword', initialPassword);
     await fill(tester, 'password', newPassword);
     await fill(tester, 'passwordConfirmation', newPassword);
-    await tap(tester, find.text('Guardar credenciales'));
+    await tap(tester, find.text('Guardar cambios'));
     await waitFor(tester, find.byKey(const Key('login_identifier_field')));
     await tester.enterText(
         find.byKey(const Key('login_identifier_field')), username);
     await tester.enterText(
         find.byKey(const Key('login_password_field')), newPassword);
     await tap(tester, find.byKey(const Key('login_submit_button')));
-    await waitFor(tester, find.text('Mi expediente'));
+    await openRecord(tester);
     await tap(tester, find.text('Cerrar sesión'));
     await waitFor(tester, find.byKey(const Key('login_identifier_field')));
     final targets =
@@ -140,14 +151,14 @@ void main() {
     await fill(tester, 'code', reset['code'] as String);
     await fill(tester, 'password', recoveredPassword);
     await fill(tester, 'passwordConfirmation', recoveredPassword);
-    await tap(tester, find.text('Guardar credenciales'));
+    await tap(tester, find.text('Guardar cambios'));
     await waitFor(tester, find.byKey(const Key('login_identifier_field')));
     await tester.enterText(
         find.byKey(const Key('login_identifier_field')), username);
     await tester.enterText(
         find.byKey(const Key('login_password_field')), recoveredPassword);
     await tap(tester, find.byKey(const Key('login_submit_button')));
-    await waitFor(tester, find.text('Mi expediente'));
+    await openRecord(tester);
     expect(find.text(record['fullName'] as String), findsOneWidget);
     final updated = await api('GET', '/api/clients', web: true);
     final same = (updated['clients'] as List)

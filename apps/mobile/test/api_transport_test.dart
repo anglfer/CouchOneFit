@@ -8,6 +8,23 @@ import 'package:couchonefit_mobile/shared/services/api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('HTTP calls carry distinct API-compatible request ids', () async {
+    final ids = <String?>[];
+    final api = ApiClient(
+      sessionStorage: InMemorySessionStorage(),
+      httpHandler: (request) async {
+        ids.add(request.headers['X-Request-Id']);
+        return const ApiHttpResponse(statusCode: 200);
+      },
+    );
+
+    await api.getJson('/api/health');
+    await api.getJson('/api/health/ready');
+
+    expect(ids, everyElement(matches(RegExp(r'^mob-[a-f0-9]{16}$'))));
+    expect(ids.toSet(), hasLength(2));
+  });
+
   test(
       'activation distinguishes refused transport from an actual API rejection',
       () async {

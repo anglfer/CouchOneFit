@@ -20,7 +20,7 @@ y D0 (plan §5.2).
 | Logs operativos estructurados de la API | `apps/api/src/shared/` | Implementado, cubierto por pruebas (T) |
 | Readiness con PostgreSQL | `GET /api/health/ready` | Implementado (T) |
 | Pruebas de carga y simulacro de recuperación | suite `load` | Implementadas y ejecutadas en local (T) |
-| Sondas sintéticas de disponibilidad y latencia | `scripts/quality/synthetic-check.mjs` + `synthetic.yml` | Implementadas; cada 5 min en Actions, **sin activar** hasta definir `SYNTHETIC_TARGETS` |
+| Sondas sintéticas de disponibilidad y latencia | `scripts/quality/synthetic-check.mjs` + `synthetic.yml` | Corte histórico de cuatro destinos en §12.4. El monitor integral y su configuración están en §17 |
 | Cálculo de SLI y evaluación automática de SLO | `scripts/quality/sli-report.mjs` + `slo.config.json` | Implementado y ejecutado (T) |
 | Integración continua | `.github/workflows/ci.yml` | Escrita y validada en sintaxis; **aún no ejecutada en GitHub** |
 
@@ -213,22 +213,20 @@ cada corrida tiene su propia carpeta.
 | `auth.denied` | WARN | 401/403 de `AuthError` (credenciales, sesión, CSRF, rol): `errorCode` |
 | `auth.login_succeeded`, `auth.refresh_succeeded`, `auth.logout` | INFO | `audience` (`web`/`client`), `accountId` y `role` cuando el controlador ya los tiene |
 | `db.connection_error` | ERROR | Conexión rechazada, *timeout* de conexión o de consulta, SQLSTATE 08xxx/57P0x/53300 |
-| `http.error` | ERROR | Cualquier otro fallo que el cliente recibe como 503: `errorName, errorCode, constraint, table, message, stack` |
+| `http.error` | ERROR | Fallo que el cliente recibe como 503. Incluye `errorName`, `errorCode` y un mensaje operativo sanitizado |
 | `db.pool_error` | ERROR | Error de un cliente inactivo del pool de `pg` |
 | `server.started` / `server.stopping` / `server.stopped` | INFO | `port, nodeEnv` |
 | `process.unhandled_rejection` / `process.uncaught_exception` | ERROR | Se registra y el proceso termina con 1, como antes |
 
-- **Correlación.** `requestLogger()` es el primer middleware: toma
-  `X-Request-Id` si cumple `^[A-Za-z0-9._-]{8,128}$`, si no genera un UUID, lo
-  devuelve en la respuesta y lo incluye en todos los eventos de esa petición.
-  Así un `db.connection_error` se une a su `http.request`.
-- **Sin datos sensibles.** No se registran cuerpos, *query strings*, cabeceras
-  ni cookies. La ruta se normaliza (UUID y números → `:id`). Además, cualquier
-  campo cuya clave parezca sensible (`contrasena`, `password`, `token`,
-  `cookie`, `csrf`, `email`, `correo`, `teléfono`, `nombre`, códigos de acceso,
-  etc.) se sustituye por `[REDACTED]`, y las cadenas se truncan a 2000
-  caracteres. La prueba `observability.test.ts` envía un login con contraseña y
-  correo y comprueba que no aparecen en el archivo.
+- **Correlación.** Cada entrada de stdout recibe un UUID. El middleware
+  propaga el `X-Request-Id` de la petición cuando es un UUID v4 o el ID hexadecimal
+  generado por la app móvil. En los demás casos devuelve un UUID nuevo. El mismo
+  identificador une `db.connection_error` con `http.request`.
+- **Campos sanitizados.** El registro usa la plantilla de ruta de Express con
+  `:id` para parámetros y una ruta genérica para peticiones sin coincidencia.
+  Los errores inesperados incluyen categoría y código técnico con un mensaje
+  controlado. Se omiten cuerpos, parámetros de consulta y valores de cabeceras.
+  `observability.test.ts` comprueba la redacción de credenciales, rutas y errores.
 - **Sin efecto en el comportamiento.** Las respuestas de error son idénticas a
   las anteriores; el logger nunca lanza excepciones (si falla el destino avisa
   una vez por `stderr` y descarta la línea).
@@ -427,6 +425,27 @@ incumplimientos reales, y por eso los SLI **no** se calculan con tráfico de
 pruebas. El 100 % de pruebas aprobadas coexiste con un 1,27 % de respuestas
 5xx provocadas.
 
+### 12.4 Primera medición de producción (T)
+
+Primera ejecución de `synthetic.yml` en GitHub Actions (run `45672924883`,
+lanzada a mano el 25-nov-2026 a las 18:13 UTC, artefacto
+`synthetic-45672924883`). Desde ese momento corre sola cada 5 minutos.
+
+| Destino | Estado | Latencia desde GitHub |
+| --- | --- | --- |
+| `https://api.ferkxo.tech/api/health/ready` | 200 | 966,9 ms |
+| `https://api.ferkxo.tech/api/plans` | 200 | 849,8 ms |
+| `https://couchonefit-web.vercel.app/api/health/ready` | 200 | 1173,4 ms |
+| `https://couchonefit-web.vercel.app/` | 200 | 641,2 ms |
+
+Disponibilidad 100 % (4 de 4). La latencia externa P95 (1173,4 ms) supera el
+objetivo de 1000 ms, pero con 4 muestras el SLO queda «sin datos
+suficientes»: se requieren 20. Cada sondeo abre una conexión nueva (DNS + TLS)
+desde los servidores de GitHub, por lo que mide el peor caso de un cliente
+que llega por primera vez. Si con más muestras se mantiene por encima de 1 s,
+el informe marcará «no cumple»; es un resultado válido, que habrá que revisar
+antes de mover el objetivo.
+
 ## 13. Evidencias de ejecuciones exitosas y fallidas
 
 `test-results/history.jsonl` de la máquina local (T). Las cuatro primeras
@@ -500,23 +519,19 @@ que tocan `apps/**`, `docs/database/**`, `scripts/quality/**` o los
 3. Ejecuta `node scripts/quality/test-all.mjs`, que incluye las cinco suites.
 4. **Siempre**, incluso si algo falló, publica `summary.md` y `sli-report.md`
    en el resumen del job y sube `test-results/` como artefacto durante 30 días.
-5. El job falla si `test-all.mjs` sale con ≠ 0: una corrida con pruebas
-   fallidas o bloqueadas nunca queda en verde. No hay `continue-on-error`.
+5. El job falla cuando `test-all.mjs` registra pruebas fallidas o bloqueadas.
 
-`synthetic.yml` sondea **cada 5 minutos** (`*/5 * * * *`, el mínimo de GitHub;
-los cron programados pueden retrasarse) las URLs de la variable de repositorio
-`SYNTHETIC_TARGETS`. Si la variable está vacía, el *job* no se ejecuta. En cada
-ejecución:
+El paso opcional de ingesta de CI se ejecuta en la rama predeterminada, en
+`push` y ejecuciones manuales. Envía todos los casos en lotes de hasta 500 y
+conserva su correlación por corrida. Los resultados se etiquetan como `ci`.
+Los detalles de aserciones y las salidas originales quedan en el artefacto de
+CI. Un fallo de sincronización se indica en el paso opcional y el artefacto
+permite reintentar con el mismo identificador de corrida.
 
-- el historial se recupera y se guarda con la caché de Actions, y se depura a
-  35 días por la fecha del nombre de archivo;
-- `sli-report.md` (disponibilidad, latencia externa, recuperación y veredicto
-  de SLO) aparece en el resumen del *job*;
-- el *job* falla si el último sondeo falló, y GitHub lo marca en rojo.
-
-El historial completo se sube como artefacto solo al lanzarlo a mano (**Run
-workflow**) o cuando falla un sondeo. Con 288 ejecuciones al día, subirlo
-siempre crearía cientos de copias.
+`synthetic.yml` usa el monitor integral descrito en §17.2. El flujo heredado
+con `SYNTHETIC_TARGETS` sigue disponible para sondeos HTTP básicos cuando se
+omiten las URLs individuales del nuevo monitor. En ese modo, los resultados
+alimentan el informe CLI de SLI y SLO.
 
 Destinos recomendados, uno por módulo que se quiera vigilar:
 
@@ -530,22 +545,10 @@ Destinos recomendados, uno por módulo que se quiera vigilar:
 `/api/health/ready` solo existe una vez desplegado este cambio. Antes de eso,
 `/api/health` mide únicamente que el proceso responde.
 
-**Cambio de decisión (pendiente de acordar con el equipo).** El plan TT-021 y
-`despliegue.md` prohibían un monitor cada 5 minutos porque funciona como
-*keep-alive* de Render Free. La asignatura pide sondas cada 5 minutos o menos,
-así que se adopta esa frecuencia. Consecuencias:
-
-- Render Free deja de dormirse: desaparece el arranque en frío de ~60 s y el
-  servicio consume horas de instancia todo el mes. Render da un cupo mensual
-  de horas gratuitas por *workspace*; verifíquelo en su panel. Si hay otros
-  servicios gratuitos en el mismo *workspace*, puede agotarse y Render los
-  suspendería hasta el mes siguiente.
-- La disponibilidad medida corresponde a un servicio que se mantiene
-  despierto, no al uso normal de Render Free.
-
-El repositorio es público, así que los minutos de Actions no tienen coste.
-Como el sondeo corre fuera de la API, detecta caídas aunque el backend no
-pueda escribir logs.
+**Alcance histórico.** El sondeo de §12.4 usó el flujo original y el intervalo de
+cinco minutos. Ese intervalo mantiene activa la instancia de Render Free y afecta
+la interpretación de latencias y arranques en frío. Consulta la configuración
+actual, la activación y las cuotas en §17.2.
 
 Para una demostración sin GitHub, el mismo sondeo puede correr desde cualquier
 equipo durante un periodo acotado:
@@ -563,15 +566,20 @@ acceso a nada más. No hay secretos en los *workflows*.
 
 ## 15. Limitaciones y pendientes
 
-- **CI no ejecutado en GitHub.** Los *workflows* se validaron como YAML y con
-  Prettier, pero no se han ejecutado en Actions: falta el primer *push*. Las
-  versiones de las acciones (`checkout@v4`, `setup-node@v4`,
-  `upload-artifact@v4`, `cache@v4`, `subosito/flutter-action@v2`) no se
-  verificaron en una ejecución real.
-- **Sondas de producción sin activar.** Hay que definir `SYNTHETIC_TARGETS`
-  (p. ej. `https://api.ferkxo.tech/api/health/ready`, una vez desplegado este
-  cambio). Sin eso no existe medición de disponibilidad de producción, y este
-  documento no reporta ninguna.
+- **Primera ejecución del CI en GitHub** (run `45672276163`, commit
+  `aa4d40f`, T): falló en «Análisis estático móvil». `flutter analyze` sale
+  con 1 por 56 avisos `info` preexistentes: Flutter 3.50 declara obsoleto
+  `package:flutter/material.dart`. Pasaron la instalación, la migración de
+  PostgreSQL 17, la compilación de API y Web, el lint, Flutter 3.50.1 y
+  `pub get`. El CI quedó en rojo y no ejecutó las pruebas, tal como se
+  diseñó. Corrección: `flutter analyze --no-fatal-infos`, que sigue fallando
+  ante *warnings* y errores; migrar a `material_ui` queda como tarea aparte.
+  Las acciones `@v4` funcionan, aunque GitHub avisa que fuerzan Node 24.
+- **Corrida completa en GitHub pendiente** de un nuevo *push* con esa
+  corrección.
+- **Historial de producción corto.** §12.4 conserva el primer resultado del
+  sondeo anterior, con cuatro destinos en `SYNTHETIC_TARGETS`. Los objetivos
+  del módulo integral necesitan evidencia acumulada tras la activación.
 - **Visibilidad pública.** El repositorio es público: los resúmenes de los
   *jobs* son visibles para cualquiera y los artefactos los puede descargar
   cualquier persona con cuenta de GitHub. Contienen datos sintéticos (URLs
@@ -598,9 +606,9 @@ acceso a nada más. No hay secretos en los *workflows*.
   (`account_lifecycle_test`, `client_login_profile_test`) necesitan un
   dispositivo o emulador y API con *fixtures*: no se integraron en el runner ni
   en CI. Los flujos E2E automáticos de este documento son a nivel de API.
-- **Clientes sin logging centralizado.** Web y móvil manejan reintentos y la
-  cola sin conexión (cubiertos por pruebas), pero sus fallos de sincronización
-  solo llegan a la consola del dispositivo; no se envían al servidor.
+- **Telemetría de clientes.** La PWA comunica a la API eventos técnicos de
+  sincronización cuando recupera conectividad y dispone de sesión. Flutter
+  aporta correlación a sus peticiones HTTP.
 - **Clasificación aproximada.** El tipo de prueba sale del archivo y de reglas
   por nombre; una prueba cuenta en un solo tipo. Hay 13 archivos sin
   requisito declarado: 11 de las apps y 2 de herramientas (§5).
@@ -622,9 +630,203 @@ acceso a nada más. No hay secretos en los *workflows*.
 | `scripts/quality/sli-report.mjs` | SLI, SLO e informe JSON/Markdown |
 | `scripts/quality/slo.config.json` | Servicios, exclusiones, umbrales de carga y SLO |
 | `scripts/quality/test-catalog.json` | Módulo, tipo y requisitos por archivo de prueba |
-| `scripts/quality/tests/` | Pruebas de las herramientas (29) |
+| `scripts/quality/tests/` | Pruebas de las herramientas (31) |
 | `apps/api/src/shared/utils/logger.ts` | Logger JSONL con niveles, redacción, rotación y retención |
 | `apps/api/src/shared/middleware/request-logger.ts` | Correlación, latencia y estado por petición |
 | `apps/api/src/shared/errors/database.ts` | Clasificación de errores de conectividad de BD |
-| `apps/api/tests/logger.test.ts`, `observability.test.ts` | Pruebas del logging y de la recuperación ante BD caída |
-| `.github/workflows/ci.yml`, `synthetic.yml` | CI y sondas programadas |
+| `apps/api/tests/logger.test.ts`, `observability.test.ts`, `observability-module.test.ts` | Pruebas de logging, recuperación ante BD caída, SLI/SLO/SLA e ingesta |
+| `.github/workflows/ci.yml`, `synthetic.yml` | CI y sondas programadas + ingesta en observabilidad |
+| `docs/database/migrations/202611250001_observability_sla.sql` | 14 tablas `private.observability_*`, RLS admin, funciones y semillas SLI/SLO |
+| `apps/api/src/features/observability/` | Sink PostgreSQL sin recursividad, motor SLI/SLO, incidentes, ingesta y API admin |
+| `apps/web/src/features/observability/` | Módulo admin «Observabilidad y niveles de servicio» |
+| `scripts/quality/external-monitor.mjs`, `ingest-test-run.mjs` | Monitor sintético/funcional externo, buffer local y sincronización CI |
+| `docs/api/observability.openapi.json` | Especificación OpenAPI de observabilidad, ingesta y telemetría |
+
+---
+
+## 17. Módulo integral de observabilidad, SLI/SLO/SLA y monitoreo externo (Proyectos 3.1 y 3.2)
+
+### 17.1 Arquitectura y persistencia en producción (Render + Vercel + Supabase)
+
+```text
+PWA administrativa ── sesión/CORS/CSRF ──► API Express ──► PostgreSQL privado
+PWA y Flutter ──────── HTTP correlacionado ─► logger ┬──► stdout JSONL
+                                                     └──► lotes PostgreSQL
+GitHub Actions ──► monitor Node ──► Web, API y readiness de PostgreSQL
+                        └──► cola en Actions ──► ingesta idempotente ──► PostgreSQL
+```
+
+- **Registros operativos.** `DatabaseLogSink` envía lotes de 25 registros cada
+  dos segundos o cuando se llena el lote. La cola en memoria tiene 500 lugares
+  y el reintento ante una BD caída aumenta hasta 60 segundos. Un aviso fijo en
+  stderr identifica el fallo del destino y el lote exitoso registra la
+  recuperación. stdout conserva evidencia complementaria. Un reinicio o una
+  interrupción prolongada puede perder registros operativos que seguían en
+  memoria.
+- **Permisos.** La PWA usa la sesión administrativa existente y las escrituras
+  con cookies requieren CSRF. El backend consulta con su rol ordinario y RLS
+  en `private`. Las funciones de ingesta y mantenimiento tienen permisos
+  acotados. El tráfico autenticado del monitor lleva la marca `synthetic` y
+  queda fuera de los SLI HTTP operativos. [Contrato de observabilidad](../api/observability.openapi.json).
+- **Crecimiento.** Observabilidad tiene políticas configurables de retención
+  para logs, comprobaciones y evaluaciones. El custodio las aplica con
+  «Ejecutar retención» en la sección de pruebas. Los registros recientes
+  sostienen los filtros detallados y los históricos evaluados quedan en sus
+  cortes. Un percentil de todo un periodo requiere sus muestras; promediar
+  percentiles horarios produciría otro valor. [Operación de PostgreSQL](../database/README.md).
+
+### 17.2 Monitor sintético y funcional independiente (`external-monitor.mjs`)
+
+El ejecutor usa `fetch` de Node 24. Comprueba HTML en la Web, JSON en el
+liveness de la API y `SELECT 1` mediante el endpoint de readiness. Valida
+autenticación, cartera, versiones de entrenamiento y nutrición, seguimiento y
+perfil con cuentas sintéticas dedicadas. Comprueba códigos y estructura de
+respuesta. Cada resultado guarda tiempos, estado y causa controlada. Si falla
+un prerrequisito, sus comprobaciones dependientes quedan como `not_executed`.
+
+| Alternativa | Evaluación |
+| --- | --- |
+| GitHub Actions + Node, elegida | El repositorio es público según `gh repo view`. Los runners Linux estándar están incluidos. El mínimo programable es cinco minutos y los eventos programados pueden retrasarse o perderse. [Programación](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [facturación](https://docs.github.com/en/billing/concepts/product-billing/github-actions) |
+| Render Cron Jobs | Añade un mínimo de USD 1 por trabajo al mes, comparte proveedor con la API y carece de disco persistente. [Render Cron Jobs](https://render.com/docs/cronjobs) |
+| Vercel Cron Jobs | En Hobby el intervalo mínimo es de un día. Además, presta el servicio Web que se está midiendo. [Límites de Cron Jobs](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing) |
+| Postman/Newman | Ejecuta colecciones exportadas y puede añadirse a CI. Este proyecto ya expresa las verificaciones de respuesta con Node y compartirlas con un ejecutor local evita mantener otra colección. [Newman](https://learning.postman.com/docs/reference/newman-cli/command-line-integration-with-newman/) |
+
+El intervalo predeterminado del panel es cinco minutos y admite 10, 15, 30
+y 60. La activación periódica también requiere `SYNTHETIC_MONITOR_ENABLED=true`
+en el repositorio. Con cinco minutos un solo servicio Render Free puede
+consumir hasta 744 de las 750 horas compartidas en un mes de 31 días y altera
+la medición de arranque en frío. Mientras siga vigente DEC-013, usa una ventana
+de revisión autorizada o selecciona 30 o 60 minutos para permitir el reposo
+de la instancia. El cupo libre real del workspace se comprueba en Render
+antes de habilitar ese intervalo. Si Supabase usa Free, el límite publicado
+de base de datos es de 500 MB. Ambos cupos se revisan en las cuentas del
+proyecto antes de activar. [Render Free](https://render.com/docs/free), [Supabase](https://supabase.com/pricing).
+
+**Configuración de activación**
+
+| Ubicación | Valor esperado |
+| --- | --- |
+| Render | `OBSERVABILITY_INGEST_SECRET` aleatorio de al menos 32 bytes, `OBSERVABILITY_ENV=production`, `OBSERVABILITY_WEB_URL` con el origen público de la Web. El runtime usa `DATABASE_URL` de rol ordinario por TLS |
+| GitHub Actions, variables | `SYNTHETIC_API_URL` y `SYNTHETIC_WEB_URL` con los orígenes públicos y `SYNTHETIC_ORIGIN` permitido por la API. `OBSERVABILITY_INGEST_URL` puede fijarse a la URL absoluta de `/api/observability/ingest` |
+| GitHub Actions, secretos | `OBSERVABILITY_INGEST_TOKEN` igual al secreto de Render. `SYNTHETIC_PRO_IDENTIFIER`, `SYNTHETIC_PRO_PASSWORD`, `SYNTHETIC_CLIENT_IDENTIFIER`, `SYNTHETIC_CLIENT_PASSWORD` y `SYNTHETIC_CLIENT_ID` corresponden a cuentas y expediente QA dedicados |
+| Panel de administración | Ajustar frecuencia, retención y umbrales. Usar `Run workflow` desde la rama predeterminada para verificar una muestra antes de habilitar la programación |
+
+El monitor conserva `pending-ingest.jsonl` fuera del backend y reintenta hasta
+20 lotes por ejecución. El estado UTC detecta hasta siete días de slots
+perdidos y los registra como `SCHEDULE_SLOT_MISSED`. La caché de Actions
+recupera el estado al programar la siguiente corrida. Si quedan pendientes,
+el workflow conserva un artefacto sanitizado durante 30 días. Si expira o
+falla la caché, descarga el artefacto `synthetic-<run_id>-<run_attempt>` y
+reenvía su cola con `OBSERVABILITY_INGEST_URL` y `OBSERVABILITY_INGEST_TOKEN`
+definidos en el entorno del operador. Un lote rechazado definitivamente queda
+en `rejected-ingest.jsonl` para revisar el contrato sin detener los demás.
+
+```powershell
+node scripts/quality/external-monitor.mjs --replay-only --out <directorio-con-pending-ingest.jsonl> --env production
+node scripts/quality/ingest-test-run.mjs <directorio-de-corrida-CI>
+```
+
+El replay conserva `externalRunId` y `externalEventId`. El control de agenda
+distingue los slots perdidos de las sondas ejecutadas que encontraron caídas.
+Si se pierden tanto la caché como los artefactos, la cobertura desde el
+último estado recuperado queda incompleta. [Artefactos y caché de GitHub](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts).
+
+### 17.3 Gestión dinámica de SLI, SLO (versionados), SLA, incidentes y pruebas
+
+- **SLI.** El catálogo admite `operational_http`, `synthetic_availability`,
+  `synthetic_functional`, `automated_tests` y `client_telemetry`. Los filtros
+  de método, ruta, módulo y códigos HTTP acotan las operaciones elegibles. La
+  disponibilidad y el éxito son `100 × aprobadas / elegibles`, la tasa de
+  error es `100 × fallidas / elegibles` según el método configurado y la
+  latencia media divide la suma de duraciones entre su número de muestras.
+  P50, P95 y P99 eligen el rango `ceil(p × n / 100)` de la serie ordenada.
+  Para un objetivo de consultas de entrenamiento se puede medir el porcentaje
+  de `GET` elegibles bajo un umbral de milisegundos y asociarle un SLO.
+- **SLO.** La comparación usa el operador y umbral configurados. El corte
+  conserva el ambiente, límites de la ventana y versión del SLO. La fecha
+  del corte identifica la versión aplicable del SLI vinculado. La evaluación
+  se acota al periodo solicitado y a la vigencia de la configuración.
+  La diferencia es `observado − objetivo`, la tendencia compara ventanas
+  con muestras suficientes y el presupuesto para porcentajes de éxito usa
+  `100 − objetivo`. El historial automático limita cada ambiente a un lote
+  de evaluaciones por hora UTC. Los cortes previos mantienen su interpretación.
+- **Cobertura.** Un denominador vacío, menos de `minSamples`, una ventana
+  truncada o una sonda periódica obsoleta pueden dejar el SLO en
+  `insufficient_data`. Para porcentajes con comprobaciones omitidas se
+  comparan los extremos plausibles. El veredicto requiere que ambos coincidan.
+  La disponibilidad observada se publica junto a la cobertura de sondeos.
+- **SLA.** Cada registro conserva vigencia, responsabilidades, exclusiones,
+  compromisos y sus SLO vinculados. `draft`, `internal_reference`,
+  `formally_approved` y `expired` distinguen su aprobación. Los objetivos
+  sembrados son internos. Los compromisos y consecuencias formales se
+  registran únicamente si el proyecto los aprobó.
+- **Incidentes.** Los fallos de disponibilidad, las comprobaciones
+  consecutivas, la latencia, la tasa de errores y el incumplimiento de SLO
+  generan señales. La clave por ambiente y condición evita incidentes abiertos
+  duplicados. La recuperación observada permite calcular el tiempo entre la
+  primera detección y la recuperación. La interfaz muestra incidentes activos
+  e históricos y el workflow señala fallos de sondeo.
+- **Pruebas manuales.** El catálogo fijo del servidor permite comprobar API,
+  PostgreSQL, planes, persistencia de observabilidad y el HTML de la Web.
+  Se ejecuta sólo contra el ambiente conectado. El panel pagina los resultados
+  y carga el detalle de cada corrida desde PostgreSQL.
+
+### 17.4 Resultados reproducibles del 25 de noviembre de 2026
+
+**T, PostgreSQL local exclusivo `CouchOneFit_test`.** El runner generó los
+JSONL, resúmenes y logs de cada suite en `test-results/runs/<runId>/`. La
+corrida `20261125T193517Z-24042d` ejecutó las cinco suites y registró 622 casos
+aprobados. Un fixture retroactivo asoció dos fallos de Web que tuvieron una
+recuperación real de prueba entre ellos. La regresión corregida emite las
+sondas en orden y verifica el conteo por paso, el reenvío y la recuperación.
+
+| Comprobación | Resultado local |
+| --- | --- |
+| API | 275/275, cero fallidas ni bloqueadas en la repetición `20261125T194253Z-1c2c4e`. La suite física opcional de HU-022 requiere su propio clúster de pruebas |
+| Calidad, Web, móvil y carga controlada | 38/38, 182/182, 124/124 y 4/4 en `20261125T193517Z-24042d` |
+| Regresión de observabilidad | 3/3, dos veces consecutivas tras corregir el fixture de incidentes |
+| Migraciones | Instalación limpia y actualización con filas de la primera migración de observabilidad. Coincidencia con el esquema integrado |
+| Comprobaciones estáticas | `tsc` en API y Web, build Vite con Workbox, Oxlint, Prettier de archivos modificados, formato Dart, análisis Flutter y sintaxis YAML/Bash. Flutter conserva 56 avisos informativos de deprecación |
+| Navegador integrado | Sesión admin, tablero, detalle correlacionado, cinco comprobaciones autorizadas, historial tras reiniciar la API y reportes con totales. El ambiente distinto del runtime bloqueó la ejecución |
+| Android `emulator-5556` | Ciclo de activación, sesión nativa, cambio de credenciales, recuperación asistida y reingreso |
+
+**T, monitor externo local.** Con cuentas QA y un expediente dedicado,
+14 verificaciones aprobadas. Cuando se dejó sin servidor la dirección local
+de Web y API, el monitor registró dos fallos y 12 comprobaciones no
+ejecutadas. Conservó un lote fuera de la API, lo importó en PostgreSQL al
+restablecer el destino y un reenvío insertó cero resultados adicionales.
+El historial y la cola se verificaron en `test-results/monitor-local-7be45694/`.
+
+**T, carga.** 15 solicitudes concurrentes durante 20 segundos por ruta en
+loopback. P95 de 50,94 ms en liveness, 36,91 ms en readiness y 42,34 ms en
+planes. Se verificó el reinicio controlado de la API con el mismo runner.
+Estos datos describen la máquina de pruebas. El ensayo de cinco minutos de
+TT-021 y las mediciones del entorno desplegado quedan pendientes.
+
+**Repetición local.** Aplica las migraciones con `DATABASE_URL` apuntando a
+la base exclusiva de pruebas. Ejecuta `node scripts/quality/test-all.mjs`
+con `TEST_DATABASE_URL` local. Configura API y Web de desarrollo con el mismo
+origen para CSRF y la Web con el proxy local. Exporta el token de ingesta en
+el entorno del ejecutor y usa los identificadores de una cartera QA
+dedicada según la tabla de §17.2.
+
+```powershell
+node scripts/quality/external-monitor.mjs --api-url http://127.0.0.1:3000 --web-url http://127.0.0.1:5000 --env development --out logs/qa-monitor --force
+node scripts/quality/external-monitor.mjs --api-url http://127.0.0.1:3000 --env development --out logs/qa-monitor --replay-only
+```
+
+### 17.5 Límites y activación
+
+- El cálculo en vivo lee hasta 50 000 logs y 25 000 comprobaciones por
+  ventana de adquisición. El panel indica cuando se alcanza ese límite. El
+  explorador exporta hasta 100 registros recientes por filtro.
+- La comprobación de PostgreSQL pasa por readiness de la API. Si la API
+  queda inaccesible, la comprobación de PostgreSQL queda como no ejecutada.
+- El build Web advierte por el bundle principal de 912 kB. En Windows a 320 px
+  el ancho mínimo global de la aplicación deja 15 px de desplazamiento
+  horizontal con la barra vertical. Se comprobó el dashboard a 390, 768 y
+  1280 px sin desplazamiento horizontal de la página.
+- La validación queda en el entorno local. La activación requiere el flujo
+  autorizado de migraciones de Supabase y despliegue de API/Web, configuración
+  del monitor en la rama predeterminada y validación de los primeros
+  resultados programados. El equipo conserva la revisión independiente y D0.

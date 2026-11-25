@@ -1,14 +1,11 @@
 name: Synthetic availability
 
-# Sondeo cada 5 minutos por requisito de la asignatura (mínimo de GitHub; los
-# cron pueden retrasarse). Sustituye la frecuencia horaria y contradice TT-021
-# (sin monitor cada 5 min): mantiene despierto Render Free y consume horas de
-# instancia del plan. La decisión y su riesgo están en
-# docs/architecture/calidad-observabilidad.md. La disponibilidad se observa y
-# reporta; no es un SLA.
+# El disparador permite intervalos de 5 minutos. El monitor aplica la
+# configuración administrativa entre turnos y registra los turnos perdidos.
+# SYNTHETIC_MONITOR_ENABLED se activa tras revisar el cupo de Render Free.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-57/5 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -20,14 +17,25 @@ concurrency:
 
 jobs:
   probe:
-    name: Sondeo sintético
-    # SYNTHETIC_TARGETS: variable del repositorio con URLs separadas por
-    # espacios o saltos de línea. No hay destinos en el código.
-    if: ${{ vars.SYNTHETIC_TARGETS != '' }}
+    name: Sondeo sintético y monitoreo funcional
+    if: >-
+      ${{ github.ref_name == github.event.repository.default_branch &&
+          (github.event_name == 'workflow_dispatch' || vars.SYNTHETIC_MONITOR_ENABLED == 'true') &&
+          (vars.SYNTHETIC_API_URL != '' || vars.SYNTHETIC_WEB_URL != '' || vars.SYNTHETIC_TARGETS != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       SYNTHETIC_TARGETS: ${{ vars.SYNTHETIC_TARGETS }}
+      SYNTHETIC_API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      SYNTHETIC_WEB_URL: ${{ vars.SYNTHETIC_WEB_URL }}
+      SYNTHETIC_ORIGIN: ${{ vars.SYNTHETIC_ORIGIN }}
+      SYNTHETIC_CLIENT_ID: ${{ secrets.SYNTHETIC_CLIENT_ID || vars.SYNTHETIC_CLIENT_ID }}
+      OBSERVABILITY_INGEST_URL: ${{ vars.OBSERVABILITY_INGEST_URL }}
+      OBSERVABILITY_INGEST_TOKEN: ${{ secrets.OBSERVABILITY_INGEST_TOKEN }}
+      SYNTHETIC_PRO_IDENTIFIER: ${{ secrets.SYNTHETIC_PRO_IDENTIFIER }}
+      SYNTHETIC_PRO_PASSWORD: ${{ secrets.SYNTHETIC_PRO_PASSWORD }}
+      SYNTHETIC_CLIENT_IDENTIFIER: ${{ secrets.SYNTHETIC_CLIENT_IDENTIFIER }}
+      SYNTHETIC_CLIENT_PASSWORD: ${{ secrets.SYNTHETIC_CLIENT_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,21 +51,25 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: logs/synthetic
-          key: synthetic-history-${{ github.run_id }}
-          restore-keys: synthetic-history-
+          key: synthetic-monitor-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: synthetic-monitor-v2-
 
       - name: Sondear destinos
         id: probe
         run: |
-          args=()
-          for target in $SYNTHETIC_TARGETS; do
-            args+=(--target "$target")
-          done
-          set +e
-          node scripts/quality/synthetic-check.mjs "${args[@]}" \
-            --timeout 65000 --out logs/synthetic
-          code=$?
-          set -e
+          code=0
+          if [ -n "$SYNTHETIC_API_URL" ] || [ -n "$SYNTHETIC_WEB_URL" ]; then
+            args=(--env production --out logs/synthetic --timeout 65000 --trigger-source github_actions)
+            if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then args+=(--respect-schedule); else args+=(--force); fi
+            node scripts/quality/external-monitor.mjs "${args[@]}" || code=$?
+          elif [ -n "$SYNTHETIC_TARGETS" ]; then
+            targs=()
+            for target in $SYNTHETIC_TARGETS; do
+              targs+=(--target "$target")
+            done
+            node scripts/quality/synthetic-check.mjs "${targs[@]}" \
+              --timeout 65000 --out logs/synthetic || code=$?
+          fi
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
 
       - name: Depurar historial de más de 35 días
@@ -65,10 +77,10 @@ jobs:
         run: |
           mkdir -p logs/synthetic
           cutoff="$(date -u -d '35 days ago' +%Y-%m-%d)"
-          for file in logs/synthetic/synthetic-*.jsonl; do
+          for file in logs/synthetic/{synthetic,monitor}-*.jsonl; do
             [ -e "$file" ] || continue
             day="$(basename "$file" .jsonl)"
-            if [[ "${day#synthetic-}" < "$cutoff" ]]; then rm -f "$file"; fi
+            if [[ "${day#*-}" < "$cutoff" ]]; then rm -f -- "$file"; fi
           done
 
       - name: Informe SLI
@@ -83,15 +95,17 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: logs/synthetic
-          key: synthetic-history-${{ github.run_id }}
+          key: synthetic-monitor-v2-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Publicar evidencia
         if: always() && (github.event_name == 'workflow_dispatch' || steps.probe.outputs.exit_code != '0')
         uses: actions/upload-artifact@v4
         with:
-          name: synthetic-${{ github.run_id }}
+          name: synthetic-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            logs/synthetic/
+            logs/synthetic/pending-ingest.jsonl
+            logs/synthetic/rejected-ingest.jsonl
+            logs/synthetic/latest-run.json
             test-results/sli/synthetic/
           retention-days: 30
           if-no-files-found: warn
@@ -99,5 +113,5 @@ jobs:
       - name: Fallar si el sondeo falló
         if: always() && steps.probe.outputs.exit_code != '0'
         run: |
-          echo "Algún destino no respondió 2xx en el último sondeo."
+          echo "El sondeo detectó comprobaciones fallidas o resultados pendientes de ingesta."
           exit 1

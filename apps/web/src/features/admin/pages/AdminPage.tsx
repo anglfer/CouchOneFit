@@ -20,11 +20,17 @@ import PlanCatalog from '../components/PlanCatalog';
 import ProfessionalDirectory from '../components/ProfessionalDirectory';
 import SupportPanel from '../components/SupportPanel';
 import AdminHome from '../components/AdminHome';
+import ObservabilityPage from '../../observability/pages/ObservabilityPage';
 
 const navigation: WorkspaceNavItem[] = [
   { href: '/admin/', label: 'Inicio', icon: 'home' },
   { href: '/admin/profesionales', label: 'Profesionales', icon: 'users' },
   { href: '/admin/planes', label: 'Planes', icon: 'layers' },
+  {
+    href: '/admin/observabilidad',
+    label: 'Observabilidad',
+    icon: 'activity',
+  },
 ];
 
 const accountMenu: WorkspaceNavItem[] = [
@@ -47,13 +53,17 @@ export default function AdminPage(): ReactElement {
   const isRecoveryPage = pathname === '/admin/recuperacion';
   const isPlanesPage = pathname === '/admin/planes';
   const isProfesionalesPage = pathname === '/admin/profesionales';
+  const isObservabilityPage =
+    pathname === '/admin/observabilidad' ||
+    pathname.startsWith('/admin/observabilidad/');
 
   const knownRoute =
     isHome ||
     isProfilePage ||
     isRecoveryPage ||
     isPlanesPage ||
-    isProfesionalesPage;
+    isProfesionalesPage ||
+    isObservabilityPage;
 
   useEffect(() => {
     let active = true;
@@ -143,7 +153,9 @@ export default function AdminPage(): ReactElement {
         ? 'Catálogo de Planes'
         : isProfesionalesPage
           ? 'Directorio de Profesionales'
-          : 'Inicio';
+          : isObservabilityPage
+            ? 'Observabilidad y niveles de servicio'
+            : 'Inicio';
 
   const user = account
     ? { name: account.username, detail: 'Administrador' }
@@ -219,6 +231,8 @@ export default function AdminPage(): ReactElement {
               <SupportPanel />
             )}
           </div>
+        ) : isObservabilityPage ? (
+          <ObservabilityPage />
         ) : !knownRoute ? (
           <section className="ws-card ws-empty">
             <h2 className="ws-card-title text-lg!">
