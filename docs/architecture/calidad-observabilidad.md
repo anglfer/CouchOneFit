@@ -929,12 +929,81 @@ corrida `GET /api/health` tardó 17,4 s: un arranque en frío real.
 Cambios: intervalo de 30 minutos (SLA P-3; también respeta el reposo de Render
 Free), hasta 100 lotes por corrida, D-01 en `/api/ready`, D-03 en `/api/health`
 vía Vercel y marca `phase=cold_start` cuando el `uptimeS` de la respuesta es
-menor o igual a su duración más 1 s. Como el programador de GitHub no
-garantiza la frecuencia, `synthetic.yml` acepta `repository_dispatch`
-(`event_type: synthetic-probe`) para que un servicio de cron externo lo
-dispare cada 30 minutos con un token de grano fino (Contents: read & write).
-El disparador de 5 minutos se conserva: `--respect-schedule` omite los turnos
-que no corresponden.
+menor o igual a su duración más 1 s. `/api/ready` es la **primera** petición a
+la API de cada corrida: D-01 absorbe el arranque en frío, como exige §8.5 (antes
+lo absorbía `/api/health` y D-01 llegaba siempre con la API despierta).
+
+**Medición de producción tras el despliegue `b046100c` (26-nov-2026, T,
+consultas de solo lectura en Supabase).** Desde el 25-nov 22:04 UTC, cada
+comprobación tenía 4 sondeos ejecutados y 20 turnos sin ejecutar: cobertura de
+~10 % frente a los ~38 esperados a 30 minutos. D-01, D-02 y D-03 dieron 100 %
+con esa muestra. D-04 no tenía muestras. El `/api/health` que despertó a la API
+tardó 17,5 s, mientras que D-01 tardó 549 ms. G-01 de noviembre da 5,51 %
+(93 de 1 688): las 93 respuestas 503 son de `monitor-config` del 25-nov
+de 19:54 a 21:10 UTC, antes de configurar `OBSERVABILITY_INGEST_SECRET` en
+Render. Solo F-07, F-09 y F-11 superan las 50 peticiones del mes. La misma
+revisión encontró un defecto ya corregido: el reporte buscaba D-01 como
+`database:/api/ready` (el monitor etiqueta así el servicio) y lo habría
+mostrado siempre «Sin datos». Hay una prueba de regresión con un sondeo
+ingerido igual que el monitor.
+
+**Cómo garantizar la cadencia sin saturar.**
+
+| Recurso | Consumo a 30 min | Por qué no satura |
+| --- | --- | --- |
+| Peticiones a producción | 48 corridas/día × 26 peticiones (§18.4.1) ≈ 1 250/día | ~0,015 rps frente a la carga de referencia de 5 rps |
+| Render Free (750 h/mes) | Cada sondeo despierta la instancia, que reposa a los 15 min: ≤ ~360 h/mes | A 5 min la instancia nunca reposaría (~744 h/mes) |
+| Supabase Free (500 MB) | ~3 000 filas/día de logs y comprobaciones, con retención de 62 y 90 días | La base mide 19 MB |
+| GitHub Actions | ~40 s por corrida; los disparos fuera de turno terminan sin llamar a la API | Repositorio público: minutos sin costo |
+
+Solo se sondean lecturas, más el inicio de sesión, la renovación de token y el
+cierre de sesión de las cuentas QA. Las funciones de escritura (registro, pago,
+alta de expediente, códigos, planes, sesiones) **no** se prueban en producción
+porque crearían datos permanentes (baja lógica). Se miden con tráfico real, y
+con menos de 50 peticiones en el mes el SLA las reporta como «muestra
+insuficiente» sin incumplimiento (§7.1). La carga C-02 se mide solo en el
+entorno de pruebas.
+
+**Disparador externo (una sola vez).** El programador de GitHub no es fiable
+para este repositorio. Configura un cron externo:
+
+1. GitHub → Settings → Developer settings → Fine-grained tokens: acceso solo a
+   este repositorio, permiso **Actions: Read and write** (no da acceso al
+   código) y caducidad de un año como máximo.
+2. En cron-job.org (gratis) crea un trabajo `POST
+   https://api.github.com/repos/<owner>/<repo>/actions/workflows/synthetic.yml/dispatches`
+   en los minutos **2 y 32** de cada hora, con las cabeceras
+   `Authorization: Bearer <token>`, `Accept: application/vnd.github+json` y
+   `Content-Type: application/json`, y el cuerpo
+   `{"ref":"main","inputs":{"respect_schedule":"true"}}`. GitHub responde 204.
+   Se usa el minuto 2 porque un disparo anterior a la media hora se omite como
+   «intervalo no transcurrido».
+3. Comprueba en Actions que aparecen corridas `workflow_dispatch` cada 30 min y
+   en la pestaña SLA v3.0 que la cobertura de D-01 se acerca al 100 %.
+
+La cobertura (ejecutados frente a esperados) aparece en el detalle de D-01,
+D-02 y D-03. Es informativa: el SLA calcula la disponibilidad sobre los sondeos
+ejecutados, pero una cobertura baja significa que falta evidencia.
+
+#### 18.4.1 Qué sondea cada corrida
+
+24 peticiones a la API y 2 a la Web, en este orden (cada fila espera a la
+anterior; dentro de una fila van en paralelo):
+
+| Paso | Peticiones | SLI |
+| --- | --- | --- |
+| 1 | `GET /api/ready` (despierta a la API) · Web `GET /` | D-01, D-04 · D-02 |
+| 2 | `GET /api/health` | Clasifica proceso caído frente a BD no lista |
+| 3 | `GET /api/observability-probe-not-found`, `GET /api/admin/session` | Manejo de errores y protección anónima |
+| 4 | `GET /api/plans` · Web `GET /api/health` | F-07 · D-03 |
+| 5a | Profesional QA: `GET /api/auth/csrf`, `POST /api/auth/login`; `GET /api/clients?pageSize=5`, `GET /api/me/subscription`, `GET /api/training/exercises`, `GET /api/training/templates`; planes de entrenamiento, nutrición y seguimiento del expediente QA; `POST /api/auth/refresh`; `POST /api/auth/logout` | F-02, F-11, F-09, F-17, F-18, F-04 |
+| 5b | Cliente QA: `POST /api/auth/client/login`; `GET /api/client/profile`, `GET /api/me/record`, `GET /api/me/training-plan`, `GET /api/me/training-sessions/context`, `GET /api/me/training-history`; `POST /api/auth/client/refresh`; `POST /api/auth/client/logout` | F-03, F-21, F-22, F-24, F-04 |
+
+Con 48 corridas al día, cada una de estas funciones suma ~1 440 muestras al
+mes, por encima de las 50 que exige §7.1. `GET /api/me/subscription` aplica la
+renovación simulada perezosa (DEC-017) de la cuenta QA, igual que la Web en
+cada carga. Si una cuenta QA falla al iniciar sesión, sus comprobaciones quedan
+«no ejecutadas», no como caída.
 
 ### 18.5 Respaldos, restauración y depuración
 
@@ -1002,6 +1071,18 @@ producción. Evidencia en [`evidencia-calidad/`](evidencia-calidad/).
 No se hizo el recorrido visual de la pestaña en el navegador: requiere una
 sesión de administrador local y su alta es operación del custodio
 (`db:seed:admin`). La pestaña queda cubierta por las pruebas jsdom.
+
+### 18.7.1 Cómo verificar el cumplimiento
+
+1. **Cada semana:** pestaña SLA v3.0 → ambiente Producción → mes en curso.
+   Revisa la cobertura de D-01…D-03; si baja de ~95 %, el cron externo dejó de
+   disparar (§18.4).
+2. **Cada mes (SLA §12):** imprime el reporte a PDF y descarga los cuatro CSV.
+   El cliente recalcula cualquier SLI con el procedimiento del SLA §8.3; si su
+   cifra no coincide con la del reporte, es un incidente de severidad media.
+3. **Lectura de un SLI incumplido:** primero los valores atribuibles y la
+   bitácora (ventanas, incidentes de proveedor); después el explorador de logs
+   filtrado por la ruta de la función.
 
 ### 18.8 Limitaciones
 

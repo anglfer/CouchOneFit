@@ -137,7 +137,8 @@ export async function loadSlaMonth(
       }),
       probes: probeRows.map((p) => ({
         ts: p.ts.toISOString(),
-        target: `${p.service}:${p.target ?? ''}`,
+        // The monitor tags readiness as service 'database', but it probes the API origin (SLA D-01).
+        target: `${p.service === 'web' ? 'web' : 'api'}:${p.target ?? ''}`,
         status: p.status,
         durationMs: p.duration,
         contentOk: p.check_status === 'passed',

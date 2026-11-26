@@ -172,6 +172,7 @@ export const SLA_V3_FUNCTIONS: ReadonlyArray<CatalogFunction> = [
 
 const MIN_SAMPLES = 50
 const MIN_COLD_STARTS = 5
+const PROBE_INTERVAL_MS = 30 * 60_000 // SLA P-3: one probe per target every 30 min.
 const MIN_LOAD_SAMPLES = 500
 const DEFAULT_STORAGE_LIMIT_BYTES = 524_288_000
 const HOUR_MS = 3_600_000
@@ -573,7 +574,7 @@ export function computeSlaV3(input: {
     const providerFailures = probes.filter(
       (p) => !isGood(p) && inside(p.time, providerWindows),
     ).length
-    return percentageSli(
+    const sli = percentageSli(
       {
         id,
         group: 'platform',
@@ -586,6 +587,12 @@ export function computeSlaV3(input: {
       },
       { good, total: probes.length, totalAttr: probes.length - providerFailures },
     )
+    // Coverage is informational (the SLA counts executed probes): it shows missed 30-min slots.
+    const expected = Math.floor((Math.min(nowMs, periodEnd) - periodStart) / PROBE_INTERVAL_MS)
+    if (expected > 0) {
+      sli.details = `Cobertura: ${probes.length} de ${expected} sondeos esperados cada 30 min (${pct(Math.min(probes.length, expected), expected)} %).`
+    }
+    return sli
   }
   slis.push(
     availability('D-01', 'Disponibilidad de la API y la base de datos', ['api:/api/ready', 'api:/api/health/ready'], 65_000, false),

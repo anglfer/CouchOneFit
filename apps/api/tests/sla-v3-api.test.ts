@@ -242,6 +242,72 @@ test('requests.csv exports logged requests with uptime and SLA route notation', 
   }
 })
 
+test('a real monitor readiness probe (service database) counts in D-01/D-04 and exports as api:/api/ready', async () => {
+  const app = createApp(restrictedPool, { enableDbLogging: false })
+  const admin = await login(app, `sla.admin.${run}`)
+  const at = new Date().toISOString()
+  const externalRunId = `ext-slot-sla-${run}`
+  // Same shape the external monitor sends (see logs/synthetic/latest-run.json).
+  const ingest = await request(app)
+    .post('/api/observability/ingest')
+    .set('X-Observability-Token', token)
+    .send({
+      run: {
+        externalRunId,
+        category: 'synthetic_periodic',
+        environment: 'production',
+        triggerSource: 'github_actions',
+        status: 'passed',
+        startedAt: at,
+        finishedAt: at,
+        durationMs: 18000,
+        totalChecks: 1,
+        passedChecks: 1,
+        failedChecks: 0,
+        notExecutedChecks: 0,
+        skippedChecks: 0,
+        commitSha: 'b046100c0000',
+        notes: 'Monitor sintético externo.',
+      },
+      checks: [
+        {
+          externalEventId: `evt-sla-ready-${run}`,
+          correlationId: `${externalRunId}-api_db_readiness`,
+          checkKey: 'api_db_readiness',
+          checkName: 'Conectividad de API con PostgreSQL',
+          checkKind: 'synthetic_availability',
+          service: 'database',
+          module: 'database',
+          environment: 'production',
+          target: '/api/ready',
+          phase: 'cold_start',
+          executedAt: at,
+          expectedResult: 'HTTP 200 con status=ok y database=ok desde la API.',
+          actualResult: 'HTTP 200. Contrato válido.',
+          status: 'passed',
+          durationMs: 18000,
+          httpStatus: 200,
+          errorCode: null,
+          errorMessage: null,
+          assertions: [{ name: 'http_status', ok: true }],
+        },
+      ],
+    })
+  assert.ok([200, 201].includes(ingest.status), JSON.stringify(ingest.body))
+
+  const { report } = (await request(app).get(`${base}/report`).set('Cookie', admin).expect(200)).body
+  const d01 = report.slis.find((s: { id: string }) => s.id === 'D-01')
+  assert.ok(d01.samples >= 1, 'readiness probe counted in D-01')
+  assert.match(d01.details, /^Cobertura: \d+ de \d+ sondeos esperados cada 30 min/)
+  assert.ok(report.slis.find((s: { id: string }) => s.id === 'D-04').samples >= 1, 'cold start sample')
+
+  const csv = await request(app).get(`${base}/export/probes.csv`).set('Cookie', admin).expect(200)
+  assert.ok(
+    csv.text.split('\n').some((l) => /,api:\/api\/ready,200,[\d.]+,si,si$/.test(l)),
+    'probe exported with the API target and cold start flag',
+  )
+})
+
 test('operations endpoint needs the ingest token and is idempotent by externalId', async () => {
   const app = createApp(restrictedPool, { enableDbLogging: false })
   const externalId = `backup-${run}`

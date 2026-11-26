@@ -13,6 +13,10 @@ let ingestOnline = true;
 let apiDown = false;
 let invalidContracts = false;
 let configAvailable = true;
+let readyFails = false;
+let loginFails = false;
+// 'rotate' emite credenciales nuevas; 'same' repite las anteriores; 'denied' responde 401.
+let refreshMode = 'rotate';
 let interval = 5;
 let uptimeS;
 const ingestedRuns = [];
@@ -32,9 +36,15 @@ before(async () => {
     for await (const chunk of req) chunks.push(chunk);
     const bodyText = Buffer.concat(chunks).toString('utf8');
     calls.push({
+      method: req.method,
       url: req.url,
       monitor: Boolean(req.headers['x-observability-token']),
       requestId: req.headers['x-request-id'],
+      cookie: req.headers.cookie ?? '',
+      authorization: req.headers.authorization ?? '',
+      origin: req.headers.origin ?? '',
+      csrf: req.headers['x-csrf-token'] ?? '',
+      body: bodyText,
     });
 
     if (req.url === '/api/observability/monitor-config') {
@@ -72,7 +82,7 @@ before(async () => {
 
     if (req.url === '/api/ready' && req.method === 'GET') {
       res.setHeader('Content-Type', 'application/json');
-      if (failMode) {
+      if (failMode || apiDown || readyFails) {
         res.statusCode = 503;
         res.end(
           JSON.stringify({ status: 'unavailable', database: 'unavailable' }),
@@ -121,6 +131,127 @@ before(async () => {
       const csrfToken = 'a'.repeat(43);
       res.setHeader('Set-Cookie', `cof_csrf=${csrfToken}; HttpOnly`);
       return json(res, 200, { csrfToken });
+    }
+    if (
+      loginFails &&
+      (req.url === '/api/auth/login' || req.url === '/api/auth/client/login')
+    ) {
+      return json(res, 401, { error: { code: 'INVALID_CREDENTIALS' } });
+    }
+    if (req.url === '/api/auth/refresh' && req.method === 'POST') {
+      if (
+        refreshMode === 'denied' ||
+        !req.headers.cookie?.includes('cof_refresh=synthetic-refresh')
+      ) {
+        res.setHeader('Set-Cookie', [
+          'cof_access=; Max-Age=0',
+          'cof_refresh=; Max-Age=0',
+        ]);
+        return json(res, 401, { error: { code: 'SESSION_REQUIRED' } });
+      }
+      const same = refreshMode === 'same';
+      res.setHeader('Set-Cookie', [
+        `cof_access=${same ? 'synthetic-cookie' : 'rotated-access'}; HttpOnly`,
+        `cof_refresh=${same ? 'synthetic-refresh' : 'rotated-refresh'}; HttpOnly`,
+      ]);
+      return json(res, 200, {
+        account: { id: accountId, role: 'professional' },
+      });
+    }
+    if (req.url === '/api/auth/client/refresh' && req.method === 'POST') {
+      if (
+        refreshMode === 'denied' ||
+        JSON.parse(bodyText || '{}').refreshToken !== 'synthetic-refresh'
+      ) {
+        return json(res, 401, { error: { code: 'SESSION_REQUIRED' } });
+      }
+      const same = refreshMode === 'same';
+      return json(res, 200, {
+        account: { id: accountId, role: 'client' },
+        session: {
+          accessToken: same ? 'synthetic-client-token' : 'rotated-client-token',
+          refreshToken: same ? 'synthetic-refresh' : 'rotated-client-refresh',
+          expiresAt: '2099-06-01T00:00:00Z',
+        },
+      });
+    }
+    if (req.url === '/api/me/subscription') {
+      return json(res, 200, {
+        subscription: invalidContracts
+          ? { status: 'bogus' }
+          : {
+              planId: 'basic',
+              status: 'active',
+              used: 1,
+              cancelAtPeriodEnd: false,
+            },
+      });
+    }
+    if (req.url === '/api/training/exercises') {
+      return json(
+        res,
+        200,
+        invalidContracts
+          ? { exercises: [{ id: 7 }] }
+          : {
+              exercises: [{ id: 'ex-1', name: 'Sentadilla' }],
+              nextOffset: 40,
+              filters: { muscles: [], equipment: [] },
+              attribution: 'synthetic',
+            },
+      );
+    }
+    if (req.url === '/api/training/templates') {
+      return json(
+        res,
+        200,
+        invalidContracts
+          ? { versions: [{ id: 'not-a-uuid', clientId: null }] }
+          : {
+              versions: [],
+              activeVersionId: null,
+              activeRevision: 0,
+              timeZone: null,
+              clientRevision: null,
+              clientName: null,
+            },
+      );
+    }
+    if (req.url === '/api/me/record') {
+      return json(
+        res,
+        200,
+        invalidContracts
+          ? { record: {} }
+          : {
+              record: { id: clientId, fullName: 'Synthetic Name', status: 'active' },
+            },
+      );
+    }
+    if (
+      req.url === '/api/me/training-plan' ||
+      req.url === '/api/me/training-sessions/context'
+    ) {
+      return json(res, 200, {
+        clientId,
+        localDate: '2026-11-26',
+        today: '2026-11-26',
+        timeZone: 'America/Mexico_City',
+        canWrite: invalidContracts ? 'yes' : true,
+        activeRevision: 0,
+        plan: null,
+        dayId: null,
+        session: null,
+      });
+    }
+    if (req.url === '/api/me/training-history') {
+      return json(
+        res,
+        200,
+        invalidContracts
+          ? { sessions: 'none' }
+          : { sessions: [], nextOffset: null },
+      );
     }
     if (req.url === '/api/auth/login') {
       res.setHeader('Set-Cookie', [
@@ -296,6 +427,11 @@ test('external-monitor validates content, marks missing credentials as not_execu
   }
 });
 
+// Peticiones a la API de las comprobaciones (excluye ingesta y configuración).
+function isApiProbe(url) {
+  return url.startsWith('/api/') && !url.startsWith('/api/observability/');
+}
+
 function fixture(t) {
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cof-ext-mon-'));
   t.after(() => {
@@ -305,6 +441,9 @@ function fixture(t) {
     apiDown = false;
     invalidContracts = false;
     configAvailable = true;
+    readyFails = false;
+    loginFails = false;
+    refreshMode = 'rotate';
     interval = 5;
     uptimeS = undefined;
     ingestOnline = true;
@@ -358,6 +497,15 @@ test('functional probes verify response contracts and never persist identities o
   assert.equal(profile.httpStatus, 502);
   assert.ok(profile.durationMs >= 0);
   assert.equal(checksByKey.func_client_login.status, 'passed');
+  for (const key of NEW_READ_CHECKS) {
+    assert.equal(checksByKey[key].status, 'failed', key);
+    assert.equal(checksByKey[key].httpStatus, 200, key);
+    assert.equal(checksByKey[key].assertions[0].ok, true, key);
+    assert.equal(checksByKey[key].assertions[1].ok, false, key);
+  }
+  for (const key of ['func_auth_professional_refresh', 'func_client_refresh']) {
+    assert.equal(checksByKey[key].status, 'passed', key);
+  }
   assert.equal(calls.find((call) => call.url === '/').monitor, false);
   assert.equal(
     calls.find((call) => call.url === '/api/auth/login').monitor,
@@ -369,6 +517,8 @@ test('functional probes verify response contracts and never persist identities o
     accountId,
     options.proIdentifier,
     options.proPassword,
+    options.clientIdentifier,
+    options.clientPassword,
     'synthetic-client-token',
     'Unexpected proxy response',
   ]) {
@@ -376,26 +526,337 @@ test('functional probes verify response contracts and never persist identities o
   }
 });
 
+const NEW_READ_CHECKS = [
+  'func_subscription_query',
+  'func_training_catalog_query',
+  'func_training_templates_query',
+  'func_client_record_query',
+  'func_client_training_plan_query',
+  'func_client_training_context_query',
+  'func_client_training_history_query',
+];
+
+function credentialsOptions(t) {
+  return {
+    ...fixture(t),
+    proIdentifier: 'synthetic-pro@example.invalid',
+    proPassword: 'synthetic-password',
+    clientIdentifier: 'synthetic-client@example.invalid',
+    clientPassword: 'synthetic-client-password',
+    clientId,
+  };
+}
+
+test('every run starts with GET /api/ready, including the scheduled prefetch path', async (t) => {
+  const options = credentialsOptions(t);
+  const regular = await runExternalMonitor(options);
+  assert.equal(regular.failedChecks, 0);
+  assert.equal(regular.notExecutedChecks, 0);
+  const regularCalls = calls.filter((call) => isApiProbe(call.url));
+  assert.equal(`${regularCalls[0].method} ${regularCalls[0].url}`, 'GET /api/ready');
+  assert.equal(regularCalls[1].url, '/api/health');
+
+  // Con el calendario activo la sonda se anticipa a la consulta de configuración.
+  calls.length = 0;
+  const scheduled = await runExternalMonitor({
+    ...options,
+    respectSchedule: true,
+    now: () => new Date('2026-11-25T12:02:55Z'),
+  });
+  assert.equal(scheduled.skipped, false);
+  const scheduledCalls = calls.filter((call) => isApiProbe(call.url));
+  assert.equal(scheduledCalls[0].url, '/api/ready');
+  assert.equal(scheduledCalls[1].url, '/api/health');
+  assert.equal(
+    scheduledCalls.filter((call) => call.url === '/api/ready').length,
+    1,
+  );
+  assert.ok(calls.some((call) => call.url === '/api/observability/monitor-config'));
+});
+
+test('read probes run once per run and refresh is the last request before logout', async (t) => {
+  await runExternalMonitor(credentialsOptions(t));
+  const requests = calls
+    .filter((call) => isApiProbe(call.url))
+    .map((call) => `${call.method} ${call.url}`);
+  // 24 peticiones a la API + GET /api/health de la Web (el mock comparte servidor).
+  assert.equal(requests.length, 25, requests.join('\n'));
+  const index = (request) => requests.indexOf(request);
+  for (const request of [
+    'GET /api/me/subscription',
+    'GET /api/training/exercises',
+    'GET /api/training/templates',
+    'GET /api/me/record',
+    'GET /api/me/training-plan',
+    'GET /api/me/training-sessions/context',
+    'GET /api/me/training-history',
+  ]) {
+    assert.equal(requests.filter((item) => item === request).length, 1, request);
+  }
+  const proReads = [
+    'GET /api/clients?pageSize=5',
+    'GET /api/me/subscription',
+    'GET /api/training/exercises',
+    'GET /api/training/templates',
+    `GET /api/clients/${clientId}/follow-up`,
+  ];
+  for (const request of proReads) {
+    assert.ok(index(request) < index('POST /api/auth/refresh'), request);
+  }
+  assert.ok(index('POST /api/auth/refresh') < index('POST /api/auth/logout'));
+  for (const request of [
+    'GET /api/client/profile',
+    'GET /api/me/record',
+    'GET /api/me/training-plan',
+    'GET /api/me/training-sessions/context',
+    'GET /api/me/training-history',
+  ]) {
+    assert.ok(index(request) < index('POST /api/auth/client/refresh'), request);
+  }
+  assert.ok(
+    index('POST /api/auth/client/refresh') <
+      index('POST /api/auth/client/logout'),
+  );
+});
+
+test('refresh rotates the credentials and logout uses the new ones', async (t) => {
+  const result = await runExternalMonitor(credentialsOptions(t));
+  const byKey = Object.fromEntries(
+    result.checks.map((check) => [check.checkKey, check]),
+  );
+  assert.equal(byKey.func_auth_professional_refresh.status, 'passed');
+  assert.equal(byKey.func_client_refresh.status, 'passed');
+
+  const proRefresh = calls.find((call) => call.url === '/api/auth/refresh');
+  assert.equal(proRefresh.method, 'POST');
+  assert.ok(proRefresh.cookie.includes('cof_refresh=synthetic-refresh'));
+  assert.equal(proRefresh.csrf, 'a'.repeat(43));
+  assert.equal(proRefresh.origin, baseUrl);
+  const proLogout = calls.find((call) => call.url === '/api/auth/logout');
+  assert.ok(proLogout.cookie.includes('cof_access=rotated-access'));
+  assert.ok(proLogout.cookie.includes('cof_refresh=rotated-refresh'));
+  assert.ok(!proLogout.cookie.includes('synthetic-refresh'));
+  assert.ok(!proLogout.cookie.includes('synthetic-cookie'));
+  assert.ok(proLogout.cookie.includes(`cof_csrf=${'a'.repeat(43)}`));
+
+  const clientRefresh = calls.find(
+    (call) => call.url === '/api/auth/client/refresh',
+  );
+  assert.deepEqual(JSON.parse(clientRefresh.body), {
+    refreshToken: 'synthetic-refresh',
+  });
+  const clientLogout = calls.find(
+    (call) => call.url === '/api/auth/client/logout',
+  );
+  assert.equal(clientLogout.authorization, 'Bearer rotated-client-token');
+  assert.deepEqual(JSON.parse(clientLogout.body), {
+    refreshToken: 'rotated-client-refresh',
+  });
+});
+
+test('a refresh that does not rotate fails and a denied refresh keeps the previous credentials for logout', async (t) => {
+  const options = credentialsOptions(t);
+  refreshMode = 'same';
+  const same = await runExternalMonitor(options);
+  for (const key of ['func_auth_professional_refresh', 'func_client_refresh']) {
+    const check = same.checks.find((item) => item.checkKey === key);
+    assert.equal(check.status, 'failed', key);
+    assert.equal(check.httpStatus, 200, key);
+  }
+
+  calls.length = 0;
+  refreshMode = 'denied';
+  const denied = await runExternalMonitor(options);
+  for (const key of ['func_auth_professional_refresh', 'func_client_refresh']) {
+    const check = denied.checks.find((item) => item.checkKey === key);
+    assert.equal(check.status, 'failed', key);
+    assert.equal(check.httpStatus, 401, key);
+  }
+  const proLogout = calls.find((call) => call.url === '/api/auth/logout');
+  assert.ok(proLogout.cookie.includes('cof_refresh=synthetic-refresh'));
+  assert.ok(proLogout.cookie.includes('cof_access=synthetic-cookie'));
+  const clientLogout = calls.find(
+    (call) => call.url === '/api/auth/client/logout',
+  );
+  assert.equal(clientLogout.authorization, 'Bearer synthetic-client-token');
+  assert.equal(JSON.parse(clientLogout.body).refreshToken, 'synthetic-refresh');
+});
+
+test('missing credentials or a failed login leave the dependent read probes not executed', async (t) => {
+  const options = fixture(t);
+  const keysOf = (result, keys) =>
+    keys.map((key) => result.checks.find((check) => check.checkKey === key));
+  const proKeys = [
+    'func_subscription_query',
+    'func_training_catalog_query',
+    'func_training_templates_query',
+    'func_auth_professional_refresh',
+  ];
+  const clientKeys = [
+    'func_client_record_query',
+    'func_client_training_plan_query',
+    'func_client_training_context_query',
+    'func_client_training_history_query',
+    'func_client_refresh',
+  ];
+
+  const anonymous = await runExternalMonitor(options);
+  for (const check of keysOf(anonymous, [...proKeys, ...clientKeys])) {
+    assert.equal(check.status, 'not_executed', check.checkKey);
+    assert.equal(check.errorCode, 'CREDENTIALS_NOT_CONFIGURED', check.checkKey);
+    assert.equal(check.httpStatus, null);
+  }
+  assert.ok(!calls.some((call) => call.url.includes('/auth/')));
+  assert.ok(!calls.some((call) => call.url.startsWith('/api/me/')));
+  assert.ok(!calls.some((call) => call.url.startsWith('/api/training/')));
+
+  calls.length = 0;
+  const proOnly = await runExternalMonitor({
+    ...options,
+    proIdentifier: 'synthetic-pro@example.invalid',
+    proPassword: 'synthetic-password',
+  });
+  for (const check of keysOf(proOnly, proKeys)) {
+    assert.equal(check.status, 'passed', check.checkKey);
+  }
+  for (const check of keysOf(proOnly, clientKeys)) {
+    assert.equal(check.status, 'not_executed', check.checkKey);
+  }
+
+  calls.length = 0;
+  loginFails = true;
+  const rejected = await runExternalMonitor(credentialsOptions(t));
+  for (const check of keysOf(rejected, [...proKeys, ...clientKeys])) {
+    assert.equal(check.status, 'not_executed', check.checkKey);
+    assert.equal(check.errorCode, 'SESSION_CHECK_FAILED', check.checkKey);
+  }
+  assert.ok(!calls.some((call) => call.url.includes('refresh')));
+  assert.ok(!calls.some((call) => call.url.startsWith('/api/training/')));
+});
+
+test('stored payloads and files never contain credentials, tokens or identities', async (t) => {
+  const options = credentialsOptions(t);
+  await runExternalMonitor(options);
+  await runExternalMonitor({ ...options, replayOnly: true });
+  const stored = [
+    JSON.stringify(ingestedRuns),
+    ...fs
+      .readdirSync(options.outDir)
+      .map((name) =>
+        fs.readFileSync(path.join(options.outDir, name), 'utf8'),
+      ),
+  ].join('\n');
+  assert.ok(stored.includes('func_client_refresh'));
+  for (const sensitive of [
+    options.proIdentifier,
+    options.proPassword,
+    options.clientIdentifier,
+    options.clientPassword,
+    clientId,
+    accountId,
+    'a'.repeat(43),
+    'synthetic-cookie',
+    'synthetic-refresh',
+    'rotated-access',
+    'rotated-refresh',
+    'synthetic-client-token',
+    'rotated-client-token',
+    'rotated-client-refresh',
+    'Bearer ',
+    'secret-token',
+  ]) {
+    assert.ok(!stored.includes(sensitive), sensitive);
+  }
+});
+
 test('a failed API probe records dependent checks as not executed without repeat requests', async (t) => {
   const options = fixture(t);
   apiDown = true;
   const result = await runExternalMonitor(options);
-  assert.equal(result.failedChecks, 1);
+  // /api/ready se sondea primero: su fallo cuenta como sondeo malo para D-01.
+  assert.deepEqual(
+    result.checks
+      .filter((check) => check.status === 'failed')
+      .map((check) => check.checkKey),
+    ['api_db_readiness', 'api_liveness'],
+  );
   for (const key of [
-    'api_db_readiness',
     'web_proxy_readiness',
+    'func_error_handling_404',
+    'func_auth_unauthorized_guard',
     'func_clients_query',
     'func_plans_catalog',
     'func_client_auth_and_modules',
+    'func_subscription_query',
+    'func_client_refresh',
   ]) {
-    assert.equal(
-      result.checks.find((check) => check.checkKey === key)?.status,
-      'not_executed',
-      key,
-    );
+    const check = result.checks.find((item) => item.checkKey === key);
+    assert.equal(check?.status, 'not_executed', key);
+    assert.equal(check.errorCode, 'API_UNAVAILABLE', key);
   }
-  assert.ok(!calls.some((call) => call.url === '/api/ready'));
-  assert.ok(!calls.some((call) => call.url === '/api/plans'));
+  assert.deepEqual(
+    calls
+      .filter((call) => isApiProbe(call.url))
+      .map((call) => call.url),
+    ['/api/ready', '/api/health'],
+  );
+});
+
+test('ready failing while health passes skips only database-dependent checks', async (t) => {
+  const options = {
+    ...fixture(t),
+    proIdentifier: 'synthetic-pro@example.invalid',
+    proPassword: 'synthetic-password',
+    clientIdentifier: 'synthetic-client@example.invalid',
+    clientPassword: 'synthetic-client-password',
+    clientId,
+  };
+  readyFails = true;
+  const result = await runExternalMonitor(options);
+  const byKey = Object.fromEntries(
+    result.checks.map((check) => [check.checkKey, check]),
+  );
+  assert.deepEqual(
+    result.checks
+      .filter((check) => check.status === 'failed')
+      .map((check) => check.checkKey),
+    ['api_db_readiness'],
+  );
+  for (const key of ['api_liveness', 'web_availability']) {
+    assert.equal(byKey[key].status, 'passed', key);
+  }
+  assert.equal(byKey.func_error_handling_404.status, 'passed');
+  assert.equal(byKey.func_auth_unauthorized_guard.status, 'passed');
+  const dependents = [
+    'web_proxy_readiness',
+    'func_plans_catalog',
+    ...Object.keys(byKey).filter(
+      (key) =>
+        key.startsWith('func_') &&
+        !['func_error_handling_404', 'func_auth_unauthorized_guard'].includes(
+          key,
+        ),
+    ),
+  ];
+  for (const key of dependents) {
+    assert.equal(byKey[key].status, 'not_executed', key);
+    assert.equal(byKey[key].errorCode, 'DATABASE_NOT_READY', key);
+  }
+  const apiCalls = calls
+    .filter((call) => isApiProbe(call.url))
+    .map((call) => call.url);
+  assert.deepEqual(apiCalls.slice(0, 2), ['/api/ready', '/api/health']);
+  assert.ok(!apiCalls.some((url) => url.includes('/auth/')));
+  assert.ok(!apiCalls.includes('/api/plans'));
+});
+
+test('without a configured Web target an API outage leaves the proxy check unconfigured', async (t) => {
+  apiDown = true;
+  const result = await runExternalMonitor({ ...fixture(t), webUrl: '' });
+  const proxy = result.checks.find(
+    (check) => check.checkKey === 'web_proxy_readiness',
+  );
+  assert.equal(proxy.errorCode, 'WEB_TARGET_NOT_CONFIGURED');
 });
 
 test('an omitted client ID never redirects professional probes to the first client', async (t) => {

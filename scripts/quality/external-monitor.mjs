@@ -128,6 +128,77 @@ const CHECKS = {
     name: 'Consulta de perfil móvil',
     expected: 'HTTP 200 con perfil asociado a la identidad autenticada.',
   },
+  func_subscription_query: {
+    service: 'api',
+    module: 'subscription',
+    path: '/api/me/subscription',
+    name: 'Consulta de suscripción profesional (F-09)',
+    expected:
+      'HTTP 200 con el estado de la suscripción, el uso de cupo y la bandera de cancelación.',
+  },
+  func_training_catalog_query: {
+    service: 'api',
+    module: 'training',
+    path: '/api/training/exercises',
+    name: 'Catálogo de ejercicios (F-17)',
+    expected:
+      'HTTP 200 con una página de ejercicios, filtros y desplazamiento siguiente válidos.',
+  },
+  func_training_templates_query: {
+    service: 'api',
+    module: 'training',
+    path: '/api/training/templates',
+    name: 'Plantillas de entrenamiento (F-17)',
+    expected:
+      'HTTP 200 con el arreglo de versiones de plantillas propias (puede estar vacío).',
+  },
+  func_auth_professional_refresh: {
+    service: 'api',
+    module: 'auth',
+    path: '/api/auth/refresh',
+    name: 'Renovación de sesión profesional (F-04)',
+    expected:
+      'HTTP 200 con rol profesional y cookies de sesión rotadas (access y refresh nuevas).',
+  },
+  func_client_record_query: {
+    service: 'api',
+    module: 'client',
+    path: '/api/me/record',
+    name: 'Perfil base del cliente (F-21)',
+    expected: 'HTTP 200 con el expediente base propio y estado válido.',
+  },
+  func_client_training_plan_query: {
+    service: 'api',
+    module: 'training',
+    path: '/api/me/training-plan',
+    name: 'Rutina vigente del cliente (F-22)',
+    expected:
+      'HTTP 200 con el contexto de entrenamiento; plan=null es el estado vacío válido sin rutina activa.',
+  },
+  func_client_training_context_query: {
+    service: 'api',
+    module: 'training',
+    path: '/api/me/training-sessions/context',
+    name: 'Contexto de registro de sesión del cliente (F-22)',
+    expected:
+      'HTTP 200 con el contexto de la fecha actual; el parámetro date es opcional y plan/session=null son válidos.',
+  },
+  func_client_training_history_query: {
+    service: 'api',
+    module: 'training',
+    path: '/api/me/training-history',
+    name: 'Historial de entrenamiento del cliente (F-24)',
+    expected:
+      'HTTP 200 con el arreglo de sesiones (puede estar vacío) y desplazamiento siguiente válido.',
+  },
+  func_client_refresh: {
+    service: 'api',
+    module: 'auth',
+    path: '/api/auth/client/refresh',
+    name: 'Renovación de sesión móvil (F-04)',
+    expected:
+      'HTTP 200 con rol cliente y un par de tokens rotado y distinto del anterior.',
+  },
 };
 const PORTFOLIO_CHECKS = [
   'func_training_query',
@@ -138,8 +209,20 @@ const PROFESSIONAL_CHECKS = [
   'func_auth_professional_login',
   'func_clients_query',
   ...PORTFOLIO_CHECKS,
+  'func_subscription_query',
+  'func_training_catalog_query',
+  'func_training_templates_query',
+  'func_auth_professional_refresh',
 ];
-const CLIENT_CHECKS = ['func_client_login', 'func_client_auth_and_modules'];
+const CLIENT_CHECKS = [
+  'func_client_login',
+  'func_client_auth_and_modules',
+  'func_client_record_query',
+  'func_client_training_plan_query',
+  'func_client_training_context_query',
+  'func_client_training_history_query',
+  'func_client_refresh',
+];
 const API_CHECKS = Object.keys(CHECKS).filter(
   (key) => CHECKS[key].service !== 'web',
 );
@@ -298,6 +381,28 @@ function validVersions(body, clientId) {
   );
 }
 
+function nextOffsetOk(value) {
+  return value === null || (Number.isInteger(value) && value >= 0);
+}
+
+function validTrainingContext(body) {
+  return (
+    isUuid(body?.clientId) &&
+    isDate(body.localDate) &&
+    isDate(body.today) &&
+    typeof body.timeZone === 'string' &&
+    typeof body.canWrite === 'boolean' &&
+    Number.isInteger(body.activeRevision) &&
+    (body.plan === null || isObject(body.plan)) &&
+    (body.dayId === null || typeof body.dayId === 'string') &&
+    (body.session === null || isObject(body.session))
+  );
+}
+
+function nonEmptyString(value) {
+  return typeof value === 'string' && value !== '';
+}
+
 function resultMetadata(checkKey, runId, environment, executedAt) {
   const check = CHECKS[checkKey];
   return {
@@ -377,7 +482,7 @@ async function runChecks({
   web,
   apiCall,
   webCall,
-  initialHealth,
+  initialReady,
   origin,
   credentials,
   runId,
@@ -405,9 +510,11 @@ async function runChecks({
     return result.status === 'passed';
   };
 
-  const [home, health] = await Promise.all([
+  // /api/ready es la primera petición a la API de cada corrida: si Render está
+  // dormido, esta petición lo despierta y su duración cuenta para D-01 (§8.5).
+  const [home, ready] = await Promise.all([
     web ? webCall('/') : null,
-    initialHealth ?? (api ? apiCall('/api/health') : null),
+    initialReady ?? (api ? apiCall('/api/ready') : null),
   ]);
   const webAvailable =
     home &&
@@ -423,30 +530,15 @@ async function runChecks({
     );
   if (!home) skip(['web_availability'], 'WEB_TARGET_NOT_CONFIGURED');
 
-  const apiAvailable =
-    health &&
-    record(
-      'api_liveness',
-      health,
-      200,
-      ({ json }) => json?.status === 'ok' && isDate(json.timestamp),
-      'API_HEALTH_FAILED',
-    );
-  if (!apiAvailable) {
-    const reason = api ? 'API_UNAVAILABLE' : 'API_TARGET_NOT_CONFIGURED';
+  if (!ready) {
+    skip(API_CHECKS, 'API_TARGET_NOT_CONFIGURED');
     skip(
-      health ? API_CHECKS.filter((key) => key !== 'api_liveness') : API_CHECKS,
-      reason,
+      ['web_proxy_readiness'],
+      web ? 'API_TARGET_NOT_CONFIGURED' : 'WEB_TARGET_NOT_CONFIGURED',
     );
-    skip(['web_proxy_readiness'], web ? reason : 'WEB_TARGET_NOT_CONFIGURED');
     return [...checks.values()];
   }
 
-  const [ready, notFound, guard] = await Promise.all([
-    apiCall('/api/ready'),
-    apiCall('/api/observability-probe-not-found'),
-    apiCall('/api/admin/session'),
-  ]);
   const databaseReady = record(
     'api_db_readiness',
     ready,
@@ -454,6 +546,33 @@ async function runChecks({
     readyContract,
     'DB_READINESS_FAILED',
   );
+  // Si /api/ready falla, /api/health distingue proceso caído de BD no lista.
+  const health = await apiCall('/api/health');
+  const apiAvailable = record(
+    'api_liveness',
+    health,
+    200,
+    ({ json }) => json?.status === 'ok' && isDate(json.timestamp),
+    'API_HEALTH_FAILED',
+  );
+  if (!apiAvailable) {
+    skip(
+      API_CHECKS.filter(
+        (key) => key !== 'api_liveness' && key !== 'api_db_readiness',
+      ),
+      'API_UNAVAILABLE',
+    );
+    skip(
+      ['web_proxy_readiness'],
+      web ? 'API_UNAVAILABLE' : 'WEB_TARGET_NOT_CONFIGURED',
+    );
+    return [...checks.values()];
+  }
+
+  const [notFound, guard] = await Promise.all([
+    apiCall('/api/observability-probe-not-found'),
+    apiCall('/api/admin/session'),
+  ]);
   record(
     'func_error_handling_404',
     notFound,
@@ -580,19 +699,13 @@ async function runChecks({
           Boolean(jar.get('cof_refresh')),
         'PRO_LOGIN_FAILED',
       );
-      const authHeaders = {
+      // El jar cambia al renovar la sesión: las cabeceras se leen en cada uso.
+      const authHeaders = () => ({
         ...proHeaders,
         Cookie: cookieHeader(jar),
         'X-CSRF-Token': csrfToken,
-      };
-      try {
-        if (!loggedIn) {
-          skip(PROFESSIONAL_CHECKS.slice(1), 'SESSION_CHECK_FAILED');
-          return;
-        }
-        const portfolio = await apiCall('/api/clients?pageSize=5', {
-          headers: authHeaders,
-        });
+      });
+      async function checkPortfolio(portfolio) {
         const validClientId = isUuid(clientId);
         const clientsOk = record(
           'func_clients_query',
@@ -619,7 +732,7 @@ async function runChecks({
         const [training, nutrition, followUp] = await Promise.all(
           PORTFOLIO_CHECKS.map((key) =>
             apiCall(CHECKS[key].path.replace(':clientId', clientId), {
-              headers: authHeaders,
+              headers: authHeaders(),
             }),
           ),
         );
@@ -653,11 +766,88 @@ async function runChecks({
             isObject(json.visibility),
           'FOLLOWUP_QUERY_FAILED',
         );
+      }
+      try {
+        if (!loggedIn) {
+          skip(PROFESSIONAL_CHECKS.slice(1), 'SESSION_CHECK_FAILED');
+          return;
+        }
+        const [portfolio, subscription, catalog, templates] = await Promise.all(
+          [
+            apiCall('/api/clients?pageSize=5', { headers: authHeaders() }),
+            apiCall('/api/me/subscription', { headers: authHeaders() }),
+            apiCall('/api/training/exercises', { headers: authHeaders() }),
+            apiCall('/api/training/templates', { headers: authHeaders() }),
+          ],
+        );
+        record(
+          'func_subscription_query',
+          subscription,
+          200,
+          ({ json }) =>
+            isObject(json?.subscription) &&
+            ['active', 'grace', 'suspended', 'expired', 'none'].includes(
+              json.subscription.status,
+            ) &&
+            Number.isInteger(json.subscription.used) &&
+            typeof json.subscription.cancelAtPeriodEnd === 'boolean',
+          'SUBSCRIPTION_QUERY_FAILED',
+        );
+        record(
+          'func_training_catalog_query',
+          catalog,
+          200,
+          ({ json }) =>
+            Array.isArray(json?.exercises) &&
+            json.exercises.every(
+              (item) =>
+                nonEmptyString(item?.id) && nonEmptyString(item.name),
+            ) &&
+            nextOffsetOk(json.nextOffset) &&
+            isObject(json.filters),
+          'TRAINING_CATALOG_FAILED',
+        );
+        record(
+          'func_training_templates_query',
+          templates,
+          200,
+          ({ json }) =>
+            Array.isArray(json?.versions) &&
+            json.versions.every(
+              (row) => isUuid(row?.id) && row.clientId === null,
+            ) &&
+            json.activeVersionId === null,
+          'TRAINING_TEMPLATES_FAILED',
+        );
+        await checkPortfolio(portfolio);
+
+        // La renovación rota las cookies; es la última petición antes de salir.
+        const previousRefresh = jar.get('cof_refresh');
+        const refreshed = await apiCall('/api/auth/refresh', {
+          method: 'POST',
+          headers: authHeaders(),
+        });
+        // Una respuesta de error borra las cookies con valor vacío: se ignoran.
+        for (const [name, value] of sessionCookies(refreshed)) {
+          if (value) jar.set(name, value);
+        }
+        record(
+          'func_auth_professional_refresh',
+          refreshed,
+          200,
+          ({ json }) =>
+            json?.account?.role === 'professional' &&
+            isUuid(json.account.id) &&
+            Boolean(jar.get('cof_access')) &&
+            Boolean(jar.get('cof_refresh')) &&
+            jar.get('cof_refresh') !== previousRefresh,
+          'PRO_REFRESH_FAILED',
+        );
       } finally {
         if (jar.get('cof_access'))
           await apiCall('/api/auth/logout', {
             method: 'POST',
-            headers: authHeaders,
+            headers: authHeaders(),
           });
       }
     })(),
@@ -688,14 +878,23 @@ async function runChecks({
           isDate(session.expiresAt),
         'CLIENT_LOGIN_FAILED',
       );
+      // El par vigente cambia al renovar: el cierre de sesión usa el último.
+      const tokens = tokenPair
+        ? { access: session.accessToken, refresh: session.refreshToken }
+        : null;
+      const bearer = () => ({ Authorization: `Bearer ${tokens.access}` });
       try {
         if (!loggedIn) {
-          skip(['func_client_auth_and_modules'], 'SESSION_CHECK_FAILED');
+          skip(CLIENT_CHECKS.slice(1), 'SESSION_CHECK_FAILED');
           return;
         }
-        const profile = await apiCall('/api/client/profile', {
-          headers: { Authorization: `Bearer ${session.accessToken}` },
-        });
+        const [profile, baseRecord, plan, context, history] = await Promise.all([
+          apiCall('/api/client/profile', { headers: bearer() }),
+          apiCall('/api/me/record', { headers: bearer() }),
+          apiCall('/api/me/training-plan', { headers: bearer() }),
+          apiCall('/api/me/training-sessions/context', { headers: bearer() }),
+          apiCall('/api/me/training-history', { headers: bearer() }),
+        ]);
         record(
           'func_client_auth_and_modules',
           profile,
@@ -706,12 +905,81 @@ async function runChecks({
             ['active', 'inactive'].includes(json.profile.status),
           'CLIENT_PROFILE_FAILED',
         );
+        record(
+          'func_client_record_query',
+          baseRecord,
+          200,
+          ({ json }) =>
+            isObject(json?.record) &&
+            isUuid(json.record.id) &&
+            typeof json.record.fullName === 'string' &&
+            ['active', 'inactive'].includes(json.record.status),
+          'CLIENT_RECORD_FAILED',
+        );
+        record(
+          'func_client_training_plan_query',
+          plan,
+          200,
+          ({ json }) => validTrainingContext(json),
+          'CLIENT_TRAINING_PLAN_FAILED',
+        );
+        record(
+          'func_client_training_context_query',
+          context,
+          200,
+          ({ json }) => validTrainingContext(json),
+          'CLIENT_TRAINING_CONTEXT_FAILED',
+        );
+        record(
+          'func_client_training_history_query',
+          history,
+          200,
+          ({ json }) =>
+            Array.isArray(json?.sessions) &&
+            json.sessions.every(
+              (item) =>
+                isDate(item?.localDate) && Array.isArray(item.exercises),
+            ) &&
+            nextOffsetOk(json.nextOffset),
+          'CLIENT_TRAINING_HISTORY_FAILED',
+        );
+
+        // La renovación rota ambos tokens; es la última petición antes de salir.
+        const refreshed = await apiCall('/api/auth/client/refresh', {
+          method: 'POST',
+          body: { refreshToken: tokens.refresh },
+        });
+        const next = refreshed.json?.session;
+        const rotated =
+          nonEmptyString(next?.accessToken) &&
+          nonEmptyString(next?.refreshToken) &&
+          next.accessToken !== tokens.access &&
+          next.refreshToken !== tokens.refresh;
+        record(
+          'func_client_refresh',
+          refreshed,
+          200,
+          ({ json }) =>
+            json?.account?.role === 'client' &&
+            json.account.id === account.id &&
+            rotated &&
+            isDate(next.expiresAt),
+          'CLIENT_REFRESH_FAILED',
+        );
+        if (
+          refreshed.status === 200 &&
+          nonEmptyString(next?.accessToken) &&
+          nonEmptyString(next?.refreshToken)
+        ) {
+          tokens.access = next.accessToken;
+          tokens.refresh = next.refreshToken;
+        }
       } finally {
-        if (tokenPair) {
+        if (tokens) {
           await apiCall('/api/auth/client/logout', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${session.accessToken}` },
-            body: { refreshToken: session.refreshToken },
+            headers: bearer(),
+            body: { refreshToken: tokens.refresh },
           });
         }
       }
@@ -1022,7 +1290,7 @@ export async function runExternalMonitor({
   const scheduleFile = path.join(outDir, `schedule-${environment}.json`);
   const started = now();
   let schedule;
-  let initialHealth;
+  let initialReady;
   if (respectSchedule && !force) {
     schedule = await scheduledSlot({
       file: scheduleFile,
@@ -1033,8 +1301,9 @@ export async function runExternalMonitor({
         // La sonda y la consulta de configuración comparten el arranque de la API.
         // Con el monitor pausado, solamente se consulta la configuración.
         const prior = readState(scheduleFile);
+        // /api/ready debe ser la primera petición a la API de la corrida.
         if (api && prior?.enabled !== false)
-          initialHealth = apiCall('/api/health');
+          initialReady = apiCall('/api/ready');
         const reply = await timedFetch(
           new URL(CONFIG_PATH, ingestUrl),
           {
@@ -1053,7 +1322,7 @@ export async function runExternalMonitor({
       },
     });
     if (schedule.reason) {
-      await initialHealth;
+      await initialReady;
       return {
         skipped: true,
         reason: schedule.reason,
@@ -1098,7 +1367,7 @@ export async function runExternalMonitor({
     web,
     apiCall,
     webCall,
-    initialHealth,
+    initialReady,
     origin: allowedOrigin,
     credentials: {
       proIdentifier,

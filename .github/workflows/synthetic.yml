@@ -3,12 +3,15 @@ name: Synthetic availability
 # SLA v3.0: sondeo externo cada 30 minutos. El monitor aplica la configuración
 # administrativa (30 min por defecto) con --respect-schedule y omite el turno
 # hasta que pasen 30 minutos desde el último.
-# GitHub descarta ejecuciones programadas, por eso el disparador de 5 minutos
-# se mantiene como respaldo y se añade repository_dispatch para que un cron
-# externo (p. ej. cron-job.org) llame cada 30 minutos:
-#   POST https://api.github.com/repos/<owner>/<repo>/dispatches
-#   Authorization: Bearer <token>  (fine-grained, Contents: read and write)
-#   {"event_type":"synthetic-probe"}
+# GitHub descarta casi todas las ejecuciones programadas de este repositorio
+# (2 de ~160 el 25/26-nov), por eso el disparador de 5 minutos queda solo de
+# respaldo y el disparo real lo hace un cron externo (p. ej. cron-job.org) en
+# los minutos 2 y 32 de cada hora (calidad-observabilidad.md §18.4):
+#   POST https://api.github.com/repos/<owner>/<repo>/actions/workflows/synthetic.yml/dispatches
+#   Authorization: Bearer <token>  (fine-grained, solo este repo, Actions: read and write)
+#   {"ref":"main","inputs":{"respect_schedule":"true"}}
+# repository_dispatch (event_type synthetic-probe) sigue disponible, pero exige
+# Contents: write, un permiso que también permite modificar el código.
 # SYNTHETIC_MONITOR_ENABLED se activa tras revisar el cupo de Render Free.
 on:
   schedule:
@@ -16,6 +19,11 @@ on:
   repository_dispatch:
     types: [synthetic-probe]
   workflow_dispatch:
+    inputs:
+      respect_schedule:
+        description: 'Respetar el intervalo de 30 min (disparo del cron externo)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -65,11 +73,13 @@ jobs:
 
       - name: Sondear destinos
         id: probe
+        env:
+          RESPECT_SCHEDULE: ${{ inputs.respect_schedule }}
         run: |
           code=0
           if [ -n "$SYNTHETIC_API_URL" ] || [ -n "$SYNTHETIC_WEB_URL" ]; then
             args=(--env production --out logs/synthetic --timeout 65000 --trigger-source github_actions)
-            if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "repository_dispatch" ]; then args+=(--respect-schedule); else args+=(--force); fi
+            if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "repository_dispatch" ] || [ "$RESPECT_SCHEDULE" = "true" ]; then args+=(--respect-schedule); else args+=(--force); fi
             node scripts/quality/external-monitor.mjs "${args[@]}" || code=$?
           elif [ -n "$SYNTHETIC_TARGETS" ]; then
             targs=()
