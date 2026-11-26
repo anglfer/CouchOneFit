@@ -1,0 +1,10 @@
+{
+  "version": "948c02c",
+  "readP95Ms": 38.12,
+  "writeP95Ms": 25.09,
+  "readSamples": 750,
+  "writeSamples": 750,
+  "concurrency": 15,
+  "rps": 5,
+  "durationS": 300
+}

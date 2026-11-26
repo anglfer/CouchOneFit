@@ -1,0 +1,261 @@
+name: Operations
+
+# SLA v3.0: respaldo diario (§14), depuración de códigos y verificación de
+# despliegues. Todos los jobs son opt-in: no se ejecutan hasta que el
+# propietario configure las variables y secretos indicados en cada job.
+# Cada job registra su resultado en la bitácora SLA con
+# scripts/quality/report-operation.mjs (OBSERVABILITY_INGEST_TOKEN y
+# SYNTHETIC_API_URL u OBSERVABILITY_API_URL).
+on:
+  schedule:
+    # 09:00 UTC = 03:00 America/Mexico_City (UTC-6 fijo).
+    - cron: '0 9 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Respaldo cifrado de la base de datos
+    # Variable: BACKUP_ENABLED=true. Secretos: BACKUP_DATABASE_URL, BACKUP_PASSPHRASE.
+    if: >-
+      ${{ github.event_name != 'push' &&
+          github.ref_name == github.event.repository.default_branch &&
+          vars.BACKUP_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: operations-backup
+      cancel-in-progress: false
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      SYNTHETIC_API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      OBSERVABILITY_API_URL: ${{ vars.OBSERVABILITY_API_URL }}
+      OBSERVABILITY_INGEST_TOKEN: ${{ secrets.OBSERVABILITY_INGEST_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/quality
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar cliente PostgreSQL 17
+        run: |
+          sudo install -d /usr/share/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Respaldar y cifrar
+        id: dump
+        run: |
+          set -euo pipefail
+          set +x
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "Faltan los secretos BACKUP_DATABASE_URL o BACKUP_PASSPHRASE."
+            exit 1
+          fi
+          # Solo los esquemas de la app: Supabase añade auth/storage, que la restauración no recrea.
+          pg_dump --format=custom --no-owner --schema=private --schema=migrations \
+            --dbname="$BACKUP_DATABASE_URL" \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE \
+              -out backup.dump.enc
+          echo "size_bytes=$(stat -c %s backup.dump.enc)" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar respaldo cifrado
+        if: steps.dump.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: backup.dump.enc
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Registrar en la bitácora SLA
+        if: always()
+        env:
+          DUMP_OUTCOME: ${{ steps.dump.outcome }}
+          SIZE_BYTES: ${{ steps.dump.outputs.size_bytes }}
+        run: |
+          ok=false
+          details='{}'
+          if [ "$DUMP_OUTCOME" = "success" ]; then
+            ok=true
+            details="{\"sizeBytes\":${SIZE_BYTES:-0}}"
+          fi
+          node scripts/quality/report-operation.mjs --kind backup --ok "$ok" \
+            --external-id "backup-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --details "$details"
+
+  access-cleanup:
+    name: Depuración de códigos caducados
+    # Variable: ACCESS_CLEANUP_ENABLED=true. Secreto: ACCESS_CLEANUP_DATABASE_URL.
+    if: >-
+      ${{ github.event_name != 'push' &&
+          github.ref_name == github.event.repository.default_branch &&
+          vars.ACCESS_CLEANUP_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: operations-access-cleanup
+      cancel-in-progress: false
+    env:
+      SYNTHETIC_API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      OBSERVABILITY_API_URL: ${{ vars.OBSERVABILITY_API_URL }}
+      OBSERVABILITY_INGEST_TOKEN: ${{ secrets.OBSERVABILITY_INGEST_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            apps/api
+            scripts/quality
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Instalar dependencias de la API
+        run: npm --prefix apps/api ci
+
+      - name: Depurar códigos caducados
+        id: cleanup
+        env:
+          DATABASE_URL: ${{ secrets.ACCESS_CLEANUP_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          # --silent: sin el encabezado de npm, cuyos números (versión) se sumarían.
+          npm --prefix apps/api run --silent db:cleanup:access | tee cleanup.log
+          # El script imprime { removedInvitations: n, removedResets: m }.
+          deleted=$(grep -oE '[0-9]+' cleanup.log | awk '{s+=$1} END{print s+0}')
+          echo "deleted=${deleted:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Registrar en la bitácora SLA
+        if: always()
+        env:
+          CLEANUP_OUTCOME: ${{ steps.cleanup.outcome }}
+          DELETED: ${{ steps.cleanup.outputs.deleted }}
+        run: |
+          ok=false
+          details='{}'
+          if [ "$CLEANUP_OUTCOME" = "success" ]; then
+            ok=true
+            details="{\"deleted\":${DELETED:-0}}"
+          fi
+          node scripts/quality/report-operation.mjs --kind access_cleanup --ok "$ok" \
+            --external-id "access-cleanup-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --details "$details"
+
+  deploy-verify:
+    name: Verificación posterior al despliegue
+    # Variable: SYNTHETIC_API_URL (y SYNTHETIC_WEB_URL para la Web).
+    # Secretos: los mismos que synthetic.yml (OBSERVABILITY_INGEST_TOKEN y
+    # SYNTHETIC_*). La versión de /api/health es APP_VERSION o los primeros
+    # 8 caracteres de RENDER_GIT_COMMIT (apps/api/src/config/index.ts).
+    if: >-
+      ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          vars.SYNTHETIC_API_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: operations-deploy-verify
+      cancel-in-progress: false
+    env:
+      SYNTHETIC_API_URL: ${{ vars.SYNTHETIC_API_URL }}
+      SYNTHETIC_WEB_URL: ${{ vars.SYNTHETIC_WEB_URL }}
+      SYNTHETIC_ORIGIN: ${{ vars.SYNTHETIC_ORIGIN }}
+      SYNTHETIC_CLIENT_ID: ${{ secrets.SYNTHETIC_CLIENT_ID || vars.SYNTHETIC_CLIENT_ID }}
+      OBSERVABILITY_API_URL: ${{ vars.OBSERVABILITY_API_URL }}
+      OBSERVABILITY_INGEST_URL: ${{ vars.OBSERVABILITY_INGEST_URL }}
+      OBSERVABILITY_INGEST_TOKEN: ${{ secrets.OBSERVABILITY_INGEST_TOKEN }}
+      SYNTHETIC_PRO_IDENTIFIER: ${{ secrets.SYNTHETIC_PRO_IDENTIFIER }}
+      SYNTHETIC_PRO_PASSWORD: ${{ secrets.SYNTHETIC_PRO_PASSWORD }}
+      SYNTHETIC_CLIENT_IDENTIFIER: ${{ secrets.SYNTHETIC_CLIENT_IDENTIFIER }}
+      SYNTHETIC_CLIENT_PASSWORD: ${{ secrets.SYNTHETIC_CLIENT_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/quality
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Esperar la versión desplegada
+        id: wait
+        run: |
+          expected="${GITHUB_SHA:0:8}"
+          matched=false
+          for attempt in $(seq 1 60); do
+            version="$(curl -fsS --max-time 65 "${SYNTHETIC_API_URL%/}/api/health" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)"
+            if [ "$version" = "$expected" ]; then matched=true; break; fi
+            sleep 20
+          done
+          echo "matched=$matched" >> "$GITHUB_OUTPUT"
+          echo "version=$expected" >> "$GITHUB_OUTPUT"
+          [ "$matched" = "true" ] || echo "La versión $expected no apareció en 20 minutos."
+
+      - name: Ejecutar monitor sintético
+        if: steps.wait.outputs.matched == 'true'
+        run: |
+          node scripts/quality/external-monitor.mjs --env production \
+            --out logs/synthetic --timeout 65000 --trigger-source github_actions \
+            --force || true
+
+      - name: Derivar resultado
+        id: verdict
+        run: |
+          health=false; ready=false; functional=false
+          file=logs/synthetic/latest-run.json
+          if [ "${{ steps.wait.outputs.matched }}" = "true" ] && [ -f "$file" ]; then
+            passed() { jq -r --arg k "$1" '[.checks[] | select(.checkKey == $k)] | (length > 0 and all(.status == "passed"))' "$file"; }
+            health="$(passed api_liveness)"
+            ready="$(passed api_db_readiness)"
+            functional="$(jq -r '[.checks[] | select(.checkKind == "synthetic_functional")] | (length > 0 and all(.status == "passed"))' "$file")"
+          fi
+          {
+            echo "health=$health"
+            echo "ready=$ready"
+            echo "functional=$functional"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Registrar en la bitácora SLA
+        env:
+          VERSION: ${{ steps.wait.outputs.version }}
+          HEALTH: ${{ steps.verdict.outputs.health }}
+          READY: ${{ steps.verdict.outputs.ready }}
+          FUNCTIONAL: ${{ steps.verdict.outputs.functional }}
+        run: |
+          details="{\"version\":\"$VERSION\",\"healthOk\":$HEALTH,\"readinessOk\":$READY,\"functionalOk\":$FUNCTIONAL}"
+          node scripts/quality/report-operation.mjs --kind deployment \
+            --external-id "deploy-${{ github.sha }}" --details "$details"
+
+      - name: Fallar si el despliegue no quedó verificado
+        env:
+          HEALTH: ${{ steps.verdict.outputs.health }}
+          READY: ${{ steps.verdict.outputs.ready }}
+          FUNCTIONAL: ${{ steps.verdict.outputs.functional }}
+        run: |
+          if [ "$HEALTH" != "true" ] || [ "$READY" != "true" ] || [ "$FUNCTIONAL" != "true" ]; then
+            echo "El despliegue no superó la verificación (salud=$HEALTH, preparación=$READY, funcional=$FUNCTIONAL)."
+            exit 1
+          fi

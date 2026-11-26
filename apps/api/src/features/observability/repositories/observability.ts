@@ -21,7 +21,7 @@ import type {
 } from '../types/observability.js'
 import type { IncidentSignal } from '../services/incident-detector.js'
 
-async function adminTx<T>(
+export async function adminTx<T>(
   pool: Pool,
   identity: SessionIdentity,
   work: (client: PoolClient) => Promise<T>,
@@ -32,7 +32,7 @@ async function adminTx<T>(
   })
 }
 
-async function ingestTx<T>(
+export async function ingestTx<T>(
   pool: Pool,
   work: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
@@ -48,9 +48,9 @@ export async function recordAuditEntry(
   client: PoolClient,
   adminId: string,
   entry: {
-    entityType: 'sli' | 'slo' | 'sla' | 'settings' | 'incident' | 'check_run' | 'maintenance'
+    entityType: 'sli' | 'slo' | 'sla' | 'settings' | 'incident' | 'check_run' | 'maintenance' | 'sla_record'
     entityId: string
-    action: 'created' | 'updated' | 'status_changed' | 'evaluated' | 'acknowledged' | 'resolved' | 'manual_run' | 'pruned'
+    action: 'created' | 'updated' | 'status_changed' | 'evaluated' | 'acknowledged' | 'resolved' | 'manual_run' | 'pruned' | 'deleted'
     summary: string
     changes?: Record<string, unknown>
   },

@@ -4,6 +4,7 @@ import type { Pool } from 'pg'
 import { requireSession } from '../../auth/middleware/session.js'
 import { bearerToken, requireCsrf } from '../../auth/middleware/session-http.js'
 import { observabilityPublicControllers } from '../controllers/observability.js'
+import { slaV3PublicControllers } from '../controllers/sla-v3.js'
 import { requireIngestToken } from '../middleware/ingest-auth.js'
 
 export function publicObservabilityRoutes(
@@ -12,6 +13,7 @@ export function publicObservabilityRoutes(
 ): Router {
   const router = Router()
   const c = observabilityPublicControllers(pool)
+  const sla = slaV3PublicControllers(pool)
 
   const clientLimiter = rateLimit({
     windowMs: 15 * 60_000,
@@ -31,6 +33,12 @@ export function publicObservabilityRoutes(
     requireIngestToken,
     json({ limit: '512kb' }),
     c.ingest,
+  )
+  router.post(
+    '/operations',
+    requireIngestToken,
+    json({ limit: '16kb' }),
+    sla.operations,
   )
   router.get('/monitor-config', requireIngestToken, c.monitorConfig)
   router.post(

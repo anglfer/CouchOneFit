@@ -9,7 +9,9 @@ const MINUTE = 60_000;
 const TICK = 5 * MINUTE;
 const CONFIG_REFRESH_WHEN_PAUSED = 60 * MINUTE;
 const MAX_MISSED_LOOKBACK = 7 * 24 * 60 * MINUTE;
-const MAX_BATCHES_PER_RUN = 20;
+const MAX_BATCHES_PER_RUN = 100;
+const DEFAULT_INTERVAL_MINUTES = 30;
+const COLD_START_PATHS = ['/api/health', '/api/ready'];
 const INGEST_PATH = '/api/observability/ingest';
 const CONFIG_PATH = '/api/observability/monitor-config';
 const SUPPORTED_INTERVALS = [5, 10, 15, 30, 60];
@@ -35,9 +37,9 @@ const CHECKS = {
   web_proxy_readiness: {
     service: 'web',
     module: 'web',
-    path: '/api/health/ready',
-    name: 'Cadena Vercel → API → PostgreSQL',
-    expected: 'HTTP 200 con status=ok y database=ok vía proxy Web.',
+    path: '/api/health',
+    name: 'Conexión Web hacia API (proxy de Vercel)',
+    expected: 'HTTP 200 con JSON status=ok vía proxy Web.',
   },
   api_liveness: {
     service: 'api',
@@ -49,7 +51,7 @@ const CHECKS = {
   api_db_readiness: {
     service: 'database',
     module: 'database',
-    path: '/api/health/ready',
+    path: '/api/ready',
     name: 'Conectividad de API con PostgreSQL',
     expected: 'HTTP 200 con status=ok y database=ok desde la API.',
   },
@@ -329,6 +331,18 @@ function skippedResult(metadata, reason) {
   };
 }
 
+// Un proceso que arrancó dentro de la duración de la respuesta (más 1 s de
+// margen) estaba en arranque en frío. Sin uptimeS (API antigua) es regular.
+function probePhase(metadata, reply) {
+  const uptimeS = reply.json?.uptimeS;
+  return COLD_START_PATHS.includes(metadata.target) &&
+    typeof uptimeS === 'number' &&
+    Number.isFinite(uptimeS) &&
+    uptimeS * 1000 <= reply.durationMs + 1000
+    ? 'cold_start'
+    : metadata.phase;
+}
+
 function observedResult(metadata, reply, expectedStatus, verify, errorCode) {
   const correctStatus = reply.status === expectedStatus;
   const correctContract = !reply.error && Boolean(verify(reply));
@@ -339,6 +353,7 @@ function observedResult(metadata, reply, expectedStatus, verify, errorCode) {
     `HTTP ${reply.status}. Contrato ${correctContract ? 'válido' : 'inesperado'}.`;
   return {
     ...metadata,
+    phase: probePhase(metadata, reply),
     correlationId: reply.correlationId ?? metadata.correlationId,
     actualResult: description,
     status,
@@ -428,7 +443,7 @@ async function runChecks({
   }
 
   const [ready, notFound, guard] = await Promise.all([
-    apiCall('/api/health/ready'),
+    apiCall('/api/ready'),
     apiCall('/api/observability-probe-not-found'),
     apiCall('/api/admin/session'),
   ]);
@@ -476,14 +491,14 @@ async function runChecks({
 
   const [plans, proxy] = await Promise.all([
     apiCall('/api/plans'),
-    webAvailable ? webCall('/api/health/ready') : null,
+    webAvailable ? webCall('/api/health') : null,
   ]);
   if (proxy)
     record(
       'web_proxy_readiness',
       proxy,
       200,
-      readyContract,
+      ({ json }) => json?.status === 'ok',
       'PROXY_READINESS_FAILED',
     );
   record(
@@ -814,7 +829,7 @@ async function scheduledSlot({ file, tick, fetchConfig, monitorKey }) {
     SUPPORTED_INTERVALS.includes(previous.interval)
       ? previous
       : null;
-  const interval = cached?.interval ?? 5;
+  const interval = cached?.interval ?? DEFAULT_INTERVAL_MINUTES;
   const enabled = cached?.enabled ?? true;
   const lastSlot = Number.isInteger(cached?.lastSlot) ? cached.lastSlot : null;
   if (!enabled && tick - cached.lastConfigCheck < CONFIG_REFRESH_WHEN_PAUSED) {
@@ -924,6 +939,7 @@ function storePayload({ payload, queueFile, outDir, api, web }) {
         ok: item.status === 'passed',
         status: item.httpStatus,
         durationMs: item.durationMs,
+        phase: item.phase,
         error: item.errorMessage,
       },
     );

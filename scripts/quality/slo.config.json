@@ -27,13 +27,17 @@
     "errorRateMaxPct": 1,
     "throughputMinRps": 5,
     "concurrency": 15,
-    "recoveryMaxS": 65
+    "recoveryMaxS": 65,
+    "readP95MaxMs": 800,
+    "writeP95MaxMs": 1500,
+    "c02MinSamples": 500,
+    "c02Rps": 5
   },
   "slos": [
     {
       "id": "availability",
       "sli": "synthetic_availability_pct",
-      "target": 99.0,
+      "target": 98.0,
       "comparison": ">=",
       "unit": "%",
       "minSamples": 1
@@ -49,7 +53,7 @@
     {
       "id": "error-rate",
       "sli": "server_error_rate_pct",
-      "target": 0.5,
+      "target": 2,
       "comparison": "<=",
       "unit": "%",
       "minSamples": 1

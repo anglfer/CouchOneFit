@@ -97,6 +97,7 @@ export function requestLogger(isSynthetic: (req: Request) => boolean): RequestHa
         ...requestLogFields(req, res),
         status,
         durationMs,
+        uptimeS: Math.floor(process.uptime()),
         outcome:
           status >= 500
             ? 'server_error'

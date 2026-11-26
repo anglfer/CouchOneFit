@@ -7,6 +7,8 @@ import type {
   ObservabilityPeriod,
   ServiceHealthState,
   SlaApprovalStatus,
+  SlaSliStatus,
+  SlaUnit,
 } from '../types/observability';
 
 export const ENVIRONMENT_OPTIONS: Array<{
@@ -111,4 +113,71 @@ export function formatMetric(
     return 'Sin datos';
   }
   return unit ? `${value} ${unit}` : String(value);
+}
+
+// SLA v3.0: el periodo es el mes calendario en America/Mexico_City (UTC-6 fijo).
+const MEXICO_OFFSET_HOURS = 6;
+const MEXICO_TIME_ZONE = 'America/Mexico_City';
+
+/** Mes en curso (YYYY-MM) en UTC-6. */
+export function currentMexicoMonth(now: Date = new Date()): string {
+  return new Date(now.getTime() - MEXICO_OFFSET_HOURS * 3_600_000)
+    .toISOString()
+    .slice(0, 7);
+}
+
+export function isSlaMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+/** Interpreta `YYYY-MM-DDTHH:mm` como hora de México (UTC-6) y da ISO UTC. */
+export function mexicoLocalToIso(local: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const date = new Date(
+    Date.UTC(year, month - 1, day, hour + MEXICO_OFFSET_HOURS, minute)
+  );
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export function formatMexicoDateTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value;
+  return new Date(parsed).toLocaleString('es-MX', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: MEXICO_TIME_ZONE,
+  });
+}
+
+export function slaStatusMeta(status: SlaSliStatus): {
+  label: string;
+  tone: Tone;
+} {
+  switch (status) {
+    case 'met':
+      return { label: 'Cumple', tone: 'ok' };
+    case 'unmet':
+      return { label: 'No cumple', tone: 'bad' };
+    case 'insufficient_sample':
+      return { label: 'Muestra insuficiente', tone: 'warn' };
+    case 'no_data':
+      return { label: 'Sin datos', tone: 'neutral' };
+    case 'unverified':
+      return { label: 'Sin comprobar', tone: 'warn' };
+  }
+}
+
+/** Número con formato es-MX y su unidad; nulo se muestra como «Sin datos». */
+export function formatSlaValue(
+  value: number | null | undefined,
+  unit: SlaUnit
+): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return 'Sin datos';
+  }
+  const number = value.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+  return unit === '%' ? `${number} %` : `${number} ${unit}`;
 }

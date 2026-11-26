@@ -6,6 +6,7 @@ import { IncidentsPanel } from '../components/IncidentsPanel';
 import { LogExplorer } from '../components/LogExplorer';
 import { ObservabilityDashboard } from '../components/ObservabilityDashboard';
 import { ReportsPanel } from '../components/ReportsPanel';
+import { SlaCompliancePanel } from '../components/SlaCompliancePanel';
 import { SlaManager } from '../components/SlaManager';
 import { SliManager } from '../components/SliManager';
 import { SloManager } from '../components/SloManager';
@@ -21,6 +22,7 @@ type TabKey =
   | 'slis'
   | 'slos'
   | 'slas'
+  | 'sla'
   | 'tests'
   | 'incidents'
   | 'reports';
@@ -31,6 +33,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'slis', label: 'SLI' },
   { key: 'slos', label: 'SLO' },
   { key: 'slas', label: 'SLA' },
+  { key: 'sla', label: 'SLA v3.0' },
   { key: 'tests', label: 'Pruebas automatizadas' },
   { key: 'incidents', label: 'Incidentes' },
   { key: 'reports', label: 'Reportes' },
@@ -69,7 +72,7 @@ export default function ObservabilityPage(): ReactElement {
                 ))}
               </select>
             </label>
-            {tab !== 'logs' && tab !== 'incidents' && (
+            {tab !== 'logs' && tab !== 'incidents' && tab !== 'sla' && (
               <label className="flex items-center gap-1.5 text-xs font-medium text-(--ws-text-2)">
                 Periodo
                 <select
@@ -142,6 +145,9 @@ export default function ObservabilityPage(): ReactElement {
           environment={environment}
           period={period}
         />
+      )}
+      {tab === 'sla' && (
+        <SlaCompliancePanel key={environment} environment={environment} />
       )}
       {tab === 'tests' && (
         <AutomatedTestsPanel

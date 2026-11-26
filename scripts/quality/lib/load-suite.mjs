@@ -3,10 +3,15 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { round } from './common.mjs';
 import { findFreePort, killTree } from './process.mjs';
-import { runLoad } from '../load-test.mjs';
+import {
+  buildC02Steps,
+  createWebSession,
+  runLoad,
+  runPaced,
+} from '../load-test.mjs';
 import { runProbes } from '../synthetic-check.mjs';
 
 const SOURCE_FILE = 'scripts/quality/load-test.mjs';
@@ -46,12 +51,150 @@ async function waitReady(base, timeoutMs, child) {
   return null;
 }
 
+const C02_ORIGIN = 'http://localhost:5000';
+const C02_CLIENTS = 16;
+
+// Crea (solo inserciones) un profesional Élite y expedientes sintéticos en la
+// BD local de pruebas. La contraseña viaja por entorno y nunca se imprime.
+function prepareC02Fixture({ apiDir, tsxCli, databaseUrl }) {
+  const suffix = crypto.randomBytes(5).toString('hex');
+  const username = `qa.load.${suffix}`;
+  const password = crypto.randomBytes(24).toString('base64url');
+  const result = spawnSync(
+    process.execPath,
+    [tsxCli, 'scripts/prepare-load-fixture.ts'],
+    {
+      cwd: apiDir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      env: {
+        ...process.env,
+        TEST_DATABASE_URL: databaseUrl,
+        DATABASE_URL: databaseUrl,
+        LOAD_FIXTURE_USERNAME: username,
+        LOAD_FIXTURE_PASSWORD: password,
+        LOAD_FIXTURE_CLIENTS: String(C02_CLIENTS),
+      },
+    }
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `No se pudo preparar la cuenta sintética de carga: ${(result.stderr || '').trim().split(/\r?\n/)[0] || `código ${result.status}`}`
+    );
+  }
+  const { clientIds } = JSON.parse(result.stdout.trim().split(/\r?\n/).pop());
+  return { username, password, clientIds };
+}
+
+function shortCommit(repoRoot) {
+  const result = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  return result.status === 0 && result.stdout.trim()
+    ? result.stdout.trim()
+    : 'local';
+}
+
+// Indicador C-02 del SLA v3.0: p95 con 15 concurrentes y 5 rps sostenidos,
+// ≥ 500 muestras por tipo. Con menos muestras se omite (nunca se aprueba).
+async function runC02({
+  base,
+  runDir,
+  repoRoot,
+  apiDir,
+  tsxCli,
+  databaseUrl,
+  thresholds,
+  c02DurationS,
+  record,
+}) {
+  const fixture = prepareC02Fixture({ apiDir, tsxCli, databaseUrl });
+  const session = await createWebSession({
+    base,
+    origin: C02_ORIGIN,
+    username: fixture.username,
+    password: fixture.password,
+  });
+  const result = await runPaced({
+    steps: buildC02Steps({ session, clientIds: fixture.clientIds }),
+    rps: thresholds.c02Rps,
+    concurrency: thresholds.concurrency,
+    durationS: c02DurationS,
+  });
+  const summary = {
+    version: shortCommit(repoRoot),
+    readP95Ms: result.read.p95,
+    writeP95Ms: result.write.p95,
+    readSamples: result.read.samples,
+    writeSamples: result.write.samples,
+    concurrency: result.concurrency,
+    rps: result.rps,
+    durationS: c02DurationS,
+  };
+  fs.writeFileSync(
+    path.join(runDir, 'c02-summary.json'),
+    `${JSON.stringify(summary, null, 2)}\n`
+  );
+  fs.appendFileSync(
+    path.join(runDir, 'load.jsonl'),
+    `${JSON.stringify(result)}\n`
+  );
+  const minSamples = thresholds.c02MinSamples;
+  const kinds = [
+    ['lectura', 'read', thresholds.readP95MaxMs],
+    ['escritura', 'write', thresholds.writeP95MaxMs],
+  ];
+  for (const [label, key, maxMs] of kinds) {
+    const stats = result[key];
+    const name = `C-02 ${label} (p95 ≤ ${maxMs} ms)`;
+    const meta = {
+      module: 'Latencia bajo carga de referencia (SLA C-02)',
+      type: 'rendimiento',
+      requirements: ['RNF09'],
+    };
+    const expected = `p95 ≤ ${maxMs} ms, errores ≤ ${thresholds.errorRateMaxPct} % con ${thresholds.concurrency} concurrentes y ${thresholds.c02Rps} rps, ≥ ${minSamples} muestras`;
+    const actual = `p95 ${stats.p95} ms, errores ${stats.errorRate} %, n=${stats.samples}, ${result.achievedRps} rps, ${result.delayed} peticiones retrasadas por el tope de concurrencia`;
+    if (stats.samples < minSamples) {
+      record({
+        name,
+        status: 'omitida',
+        durationMs: result.durationS * 1000,
+        expected,
+        actual,
+        errorMessage: `muestra insuficiente para C-02: n=${stats.samples} < ${minSamples}; usa QUALITY_LOAD_C02_DURATION_S=300`,
+        meta,
+      });
+      continue;
+    }
+    const problems = [];
+    if (stats.p95 > maxMs) problems.push(`p95 ${stats.p95} ms > ${maxMs} ms`);
+    if (stats.errorRate > thresholds.errorRateMaxPct) {
+      problems.push(
+        `errores ${stats.errorRate} % > ${thresholds.errorRateMaxPct} %`
+      );
+    }
+    record({
+      name,
+      status: problems.length ? 'fallida' : 'aprobada',
+      durationMs: result.durationS * 1000,
+      expected,
+      actual,
+      errorMessage: problems.join('; '),
+      meta,
+    });
+  }
+  return { summary, result };
+}
+
 export async function runLoadSuite({
   runDir,
   repoRoot,
   databaseUrl,
   sloConfig,
   durationS,
+  c02DurationS = Number(process.env.QUALITY_LOAD_C02_DURATION_S) || 20,
   record,
   logFile,
 }) {
@@ -71,6 +214,8 @@ export async function runLoadSuite({
     NODE_ENV: 'test',
     LOG_DIR: path.join(runDir, 'api-logs', 'load'),
     LOG_LEVEL: 'info',
+    // Origen permitido para CSRF: el mismo que usa la sesión de C-02.
+    CORS_ORIGIN: C02_ORIGIN,
   };
   const serverOptions = { apiDir, tsxCli, env, logFile };
   let server = null;
@@ -142,6 +287,29 @@ export async function runLoadSuite({
           requirements: ['RNF09', 'TT-021-1'],
         },
       });
+    }
+
+    try {
+      const { summary } = await runC02({
+        base,
+        runDir,
+        repoRoot,
+        apiDir,
+        tsxCli,
+        databaseUrl,
+        thresholds,
+        c02DurationS,
+        record,
+      });
+      console.log(
+        `C-02: lectura p95 ${summary.readP95Ms} ms (n=${summary.readSamples}), escritura p95 ${summary.writeP95Ms} ms (n=${summary.writeSamples})`
+      );
+    } catch (error) {
+      failed(
+        'C-02: preparación o ejecución de la carga mixta',
+        error instanceof Error ? error.message : String(error),
+        'La carga mixta C-02 se ejecuta sin errores de preparación'
+      );
     }
 
     // Simulacro de recuperación: caída del proceso y nuevo arranque. Sus

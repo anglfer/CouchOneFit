@@ -44,6 +44,7 @@
     "parameters": {
       "Environment": { "name": "environment", "in": "query", "schema": { "$ref": "#/components/schemas/Environment" } },
       "Period": { "name": "period", "in": "query", "schema": { "$ref": "#/components/schemas/Period" } },
+      "SlaMonth": { "name": "month", "in": "query", "description": "Mes AAAA-MM en America/Mexico_City (UTC-6)", "schema": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" } },
       "Id": { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
     }
   },
@@ -53,7 +54,7 @@
       "get": {
         "summary": "Liveness del proceso API",
         "security": [],
-        "responses": { "200": { "description": "Proceso activo" } }
+        "responses": { "200": { "description": "Proceso activo. El cuerpo incluye uptimeS (entero): segundos que lleva activo el proceso." } }
       }
     },
     "/api/health/ready": {
@@ -61,8 +62,32 @@
         "summary": "Readiness con conectividad PostgreSQL",
         "security": [],
         "responses": {
-          "200": { "description": "API y base de datos disponibles" },
+          "200": { "description": "API y base de datos disponibles. El cuerpo incluye uptimeS (entero)." },
           "503": { "description": "Base de datos no disponible" }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "summary": "Readiness con conectividad PostgreSQL (SLA v3.0, punto P-2); mismo manejador que /api/health/ready",
+        "security": [],
+        "responses": {
+          "200": { "description": "API y base de datos disponibles. El cuerpo incluye uptimeS (entero)." },
+          "503": { "description": "Base de datos no disponible" }
+        }
+      }
+    },
+    "/api/observability/operations": {
+      "post": {
+        "summary": "Registro idempotente de operaciones de la bitácora SLA desde automatización",
+        "security": [{ "externalMonitor": [] }],
+        "description": "Cuerpo: { environment, kind: backup | access_cleanup | deployment | load_test | storage_measurement, occurredAt, details, externalId }. details se valida según kind (ver SlaRecord). Un externalId repetido devuelve el registro original con duplicate: true.",
+        "responses": {
+          "201": { "description": "{ record, duplicate: false }" },
+          "200": { "description": "{ record, duplicate: true }" },
+          "400": { "description": "VALIDATION_ERROR" },
+          "401": { "description": "Token inválido" },
+          "503": { "description": "Ingesta deshabilitada" }
         }
       }
     },
@@ -249,6 +274,88 @@
         "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/Period" }],
         "responses": {
           "200": { "description": "Resumen con los límites del periodo, métricas, evaluaciones, incidentes, totales y muestras de errores y pruebas" }
+        }
+      }
+    },
+    "/api/admin/observability/sla-v3/report": {
+      "get": {
+        "summary": "Reporte mensual SLA v3.0: 67 SLI (52 de funciones, 15 de plataforma), incidentes, ventanas y compensación",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": {
+          "200": { "description": "{ report: SlaV3Report }. El mes es AAAA-MM en America/Mexico_City (UTC-6 fijo); por defecto el mes en curso." },
+          "400": { "description": "VALIDATION_ERROR" }
+        }
+      }
+    },
+    "/api/admin/observability/sla-v3/export/requests.csv": {
+      "get": {
+        "summary": "Registro de peticiones del mes (SLA 8.2)",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": { "200": { "description": "text/csv UTF-8, attachment requests-AAAA-MM.csv. Columnas: ts,method,route,status,duration_ms,uptime_s,in_maintenance (si/no)." } }
+      }
+    },
+    "/api/admin/observability/sla-v3/export/probes.csv": {
+      "get": {
+        "summary": "Registro de sondeos del mes",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": { "200": { "description": "text/csv UTF-8, attachment probes-AAAA-MM.csv. Columnas: ts,target,status,duration_ms,content_ok,cold_start." } }
+      }
+    },
+    "/api/admin/observability/sla-v3/export/incidents.csv": {
+      "get": {
+        "summary": "Bitácora de incidentes del mes",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": { "200": { "description": "text/csv UTF-8, attachment incidents-AAAA-MM.csv. Columnas: id,severidad,recibido,acuse,resuelto,causa,atribuible." } }
+      }
+    },
+    "/api/admin/observability/sla-v3/export/operations.csv": {
+      "get": {
+        "summary": "Bitácora de operación del mes",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": { "200": { "description": "text/csv UTF-8, attachment operations-AAAA-MM.csv. Columnas: fecha,tipo,resultado,responsable,detalle." } }
+      }
+    },
+    "/api/admin/observability/sla-v3/records": {
+      "get": {
+        "summary": "Registros de la bitácora SLA cuyo inicio o fin cae en el mes",
+        "security": [{ "adminSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Environment" }, { "$ref": "#/components/parameters/SlaMonth" }],
+        "responses": { "200": { "description": "{ records: SlaRecord[] }" } }
+      },
+      "post": {
+        "summary": "Crear un registro de la bitácora SLA",
+        "security": [{ "adminSession": [], "csrf": [] }],
+        "description": "Cuerpo: { environment?, kind, occurredAt, endedAt?, details }. kind: maintenance_window | provider_incident | support_incident | backup | restore_drill | access_cleanup | storage_measurement | load_test | monthly_report | deployment. details por tipo: maintenance_window {notifiedAt}; provider_incident {provider: render|vercel|supabase, url?}; support_incident {severity: alta|media|baja, acknowledgedAt: fecha|null, cause, attributable, requiresRestore?}; backup {ok, responsible?, sizeBytes?, note?}; restore_drill {ok, responsible?, note?}; access_cleanup {ok, responsible?, deleted?, note?}; storage_measurement {bytes, limitBytes}; load_test {version, readP95Ms, writeP95Ms, readSamples, writeSamples, concurrency, rps, durationS}; monthly_report {period: AAAA-MM, recipient?}; deployment {version, healthOk, readinessOk, functionalOk}.",
+        "responses": {
+          "201": { "description": "{ record: SlaRecord }" },
+          "400": { "description": "VALIDATION_ERROR" }
+        }
+      }
+    },
+    "/api/admin/observability/sla-v3/records/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "delete": {
+        "summary": "Eliminar un registro de la bitácora SLA (queda en la auditoría)",
+        "security": [{ "adminSession": [], "csrf": [] }],
+        "responses": {
+          "204": { "description": "Eliminado" },
+          "404": { "description": "NOT_FOUND" }
+        }
+      }
+    },
+    "/api/admin/observability/sla-v3/storage": {
+      "post": {
+        "summary": "Medir el almacenamiento con pg_database_size(current_database())",
+        "security": [{ "adminSession": [], "csrf": [] }],
+        "description": "Cuerpo: { environment?, limitBytes? } con limitBytes entero positivo (por defecto 524288000).",
+        "responses": {
+          "201": { "description": "{ record } de tipo storage_measurement con details {bytes, limitBytes}" },
+          "400": { "description": "VALIDATION_ERROR" }
         }
       }
     },

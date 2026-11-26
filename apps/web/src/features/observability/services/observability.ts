@@ -11,11 +11,19 @@ import type {
   ObservabilitySettings,
   PeriodReportPayload,
   SlaAgreement,
+  SlaRecord,
+  SlaRecordKind,
+  SlaV3Report,
   SliVersionRecord,
   SliWithValue,
   SloEvaluated,
   SloEvaluationRecord,
   SloVersionRecord,
+} from '../types/observability';
+import {
+  parseSlaRecord,
+  parseSlaRecords,
+  parseSlaV3Report,
 } from '../types/observability';
 
 const BASE = '/api/admin/observability';
@@ -265,4 +273,70 @@ export function readPeriodReport(
   return sessionRequest<PeriodReportPayload>(
     `${BASE}/reports${qs({ environment, period })}`
   );
+}
+
+export type SlaExportKind = 'requests' | 'probes' | 'incidents' | 'operations';
+
+export async function readSlaV3Report(
+  environment: ObservabilityEnvironment,
+  month: string
+): Promise<SlaV3Report> {
+  const body = await sessionRequest<unknown>(
+    `${BASE}/sla-v3/report${qs({ environment, month })}`
+  );
+  return parseSlaV3Report(body);
+}
+
+export function slaV3ExportUrl(
+  kind: SlaExportKind,
+  environment: ObservabilityEnvironment,
+  month: string
+): string {
+  return `${BASE}/sla-v3/export/${kind}.csv${qs({ environment, month })}`;
+}
+
+export async function readSlaRecords(
+  environment: ObservabilityEnvironment,
+  month: string
+): Promise<SlaRecord[]> {
+  const body = await sessionRequest<unknown>(
+    `${BASE}/sla-v3/records${qs({ environment, month })}`
+  );
+  return parseSlaRecords(body);
+}
+
+export async function createSlaRecord(body: {
+  environment: ObservabilityEnvironment;
+  kind: SlaRecordKind;
+  occurredAt: string;
+  endedAt?: string;
+  details: Record<string, unknown>;
+}): Promise<SlaRecord> {
+  const res = await sessionMutation<unknown>(
+    `${BASE}/sla-v3/records`,
+    body,
+    'POST'
+  );
+  const wrapper = res as { record?: unknown } | null;
+  return parseSlaRecord(wrapper?.record);
+}
+
+export function deleteSlaRecord(id: string) {
+  return sessionMutation<void>(
+    `${BASE}/sla-v3/records/${encodeURIComponent(id)}`,
+    {},
+    'DELETE'
+  );
+}
+
+export async function measureSlaStorage(
+  environment: ObservabilityEnvironment
+): Promise<SlaRecord> {
+  const res = await sessionMutation<unknown>(
+    `${BASE}/sla-v3/storage`,
+    { environment },
+    'POST'
+  );
+  const wrapper = res as { record?: unknown } | null;
+  return parseSlaRecord(wrapper?.record);
 }

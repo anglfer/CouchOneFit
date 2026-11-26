@@ -98,7 +98,7 @@ test('migrations and the integrated schema produce the same English database', a
   try {
     assert.equal((await owner.query('SELECT 1 FROM pg_roles WHERE rolname=$1', [runtimeRole])).rowCount, 0);
     const urls = [];
-    for (const suffix of ['migration', 'schema', 'legacy', 'evaluation_upgrade', 'observability_upgrade']) {
+    for (const suffix of ['migration', 'schema', 'legacy', 'evaluation_upgrade', 'observability_upgrade', 'sla_upgrade']) {
       const name = `CouchOneFit_${suffix}_test_${randomBytes(6).toString('hex')}`;
       assert.equal((await owner.query('SELECT 1 FROM pg_database WHERE datname=$1', [name])).rowCount, 0);
       await owner.query(`CREATE DATABASE "${name}"`);
@@ -143,6 +143,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.match(applied, /Applied: 202611240001_client_maximum_age.sql/);
     assert.match(applied, /Applied: 202611250001_observability_sla.sql/);
     assert.match(applied, /Applied: 202611250002_observability_measurement_windows.sql/);
+    assert.match(applied, /Applied: 202611260001_sla_v3_compliance.sql/);
     assert.doesNotMatch(migrate(), /Applied:/);
     // Git can check out the same immutable SQL with Windows or Unix newlines.
     for (const { filename } of (
@@ -164,7 +165,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[0].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '37'
+      '38'
     );
     await databases[1].query(
       readFileSync(
@@ -282,7 +283,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(
       (await databases[2].query('SELECT count(*) FROM migrations.history'))
         .rows[0].count,
-      '37'
+      '38'
     );
     assert.equal(
       (
@@ -367,7 +368,7 @@ test('migrations and the integrated schema produce the same English database', a
         "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='private' ORDER BY tablename,policyname",
         "SELECT CASE WHEN nspacl IS NULL THEN NULL ELSE ARRAY(SELECT acl::text FROM unnest(nspacl) AS acl ORDER BY acl::text) END AS nspacl FROM pg_namespace WHERE nspname='private'",
         "SELECT grantor,grantee,table_name,column_name,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema='private' ORDER BY grantor,grantee,table_name,column_name,privilege_type",
-        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,replace(p.prosrc,chr(13)||chr(10),chr(10)) AS prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record','nutrition_professional','nutrition_client_access','nutrition_can_write','observability_ingest_snapshot','observability_access_event_logs','observability_needs_hourly_evaluation','record_observability_slo_evaluation','prune_observability_data') ORDER BY p.proname, arguments",
+        "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,p.prosecdef,p.proconfig,p.proacl::text,replace(p.prosrc,chr(13)||chr(10),chr(10)) AS prosrc FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname IN ('invited_client_record','link_invited_client','admin_client_counts','lock_expired_invitation_client','version_client_record','nutrition_professional','nutrition_client_access','nutrition_can_write','observability_ingest_snapshot','observability_access_event_logs','observability_needs_hourly_evaluation','record_observability_sla_operation','record_observability_slo_evaluation','prune_observability_data') ORDER BY p.proname, arguments",
       ];
       return Promise.all(
         queries.map(async (sql) => (await db.query(sql)).rows)
@@ -400,6 +401,47 @@ test('migrations and the integrated schema produce the same English database', a
       'SELECT * FROM private.observability_slo_evaluations WHERE id=$1', [priorObservabilityEvaluation.id]
     );
     assert.deepEqual(preservedObservabilityEvaluation, { ...priorObservabilityEvaluation, automatic: false });
+    // Upgrade with existing settings rows and audit history before the SLA v3.0 migration.
+    const slaFile = '202611260001_sla_v3_compliance.sql';
+    const priorSlaSchema = readFileSync(new URL('../../../docs/database/schemas/identity_access.sql',import.meta.url),'utf8')
+      .split('-- SLA v3.0 compliance: operations log')[0];
+    await databases[5].query(priorSlaSchema);
+    await databases[5].query('CREATE SCHEMA migrations; CREATE TABLE migrations.history(filename text PRIMARY KEY,checksum text NOT NULL)');
+    for (const filename of readdirSync(migrationDirectory).filter((name)=>/^\d{12}_.*\.sql$/.test(name) && name < slaFile)) {
+      const checksum = createHash('sha256').update(readFileSync(new URL(filename,migrationDirectory),'utf8')).digest('hex');
+      await databases[5].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)', [filename, checksum]);
+    }
+    const slaAdmin = (await databases[5].query("INSERT INTO private.users(username,email,password_hash,role) VALUES('sla.upgrade','sla.upgrade@example.com','$argon2id$fixture','admin') RETURNING id")).rows[0].id;
+    await databases[5].query("INSERT INTO private.observability_audit_log(admin_id,entity_type,entity_id,action,summary) VALUES($1,'settings','default','updated','previous')", [slaAdmin]);
+    assert.deepEqual((await databases[5].query('SELECT check_interval_minutes,log_retention_days FROM private.observability_settings')).rows, [{ check_interval_minutes: 5, log_retention_days: 30 }]);
+    assert.match(migrate(urls[5]), new RegExp(`Applied: ${slaFile}`));
+    assert.deepEqual((await databases[5].query('SELECT check_interval_minutes,log_retention_days FROM private.observability_settings')).rows, [{ check_interval_minutes: 30, log_retention_days: 62 }]);
+    assert.equal((await databases[5].query('SELECT 1 FROM private.observability_audit_log')).rowCount, 1);
+    assert.deepEqual(await catalog(databases[5]), await catalog(databases[1]));
+    // Automation insert path: only inside the ingest scope, idempotent by external id.
+    const ingestClient = await databases[5].connect();
+    try {
+      await ingestClient.query('BEGIN');
+      await ingestClient.query("SET LOCAL ROLE couchone_authentication");
+      await assert.rejects(
+        ingestClient.query("SELECT private.record_observability_sla_operation('test','backup',now(),'{}'::jsonb,'x-1')"),
+        /OBSERVABILITY_FORBIDDEN/,
+      );
+      await ingestClient.query('ROLLBACK');
+      await ingestClient.query('BEGIN');
+      await ingestClient.query("SET LOCAL ROLE couchone_authentication");
+      await ingestClient.query("SELECT set_config('app.observability_scope','ingest',true)");
+      const call = "SELECT private.record_observability_sla_operation('test','backup',now(),'{\"ok\":true}'::jsonb,'x-1') AS r";
+      assert.equal((await ingestClient.query(call)).rows[0].r.duplicate, false);
+      assert.equal((await ingestClient.query(call)).rows[0].r.duplicate, true);
+      await assert.rejects(
+        ingestClient.query("SELECT private.record_observability_sla_operation('test','support_incident',now(),'{}'::jsonb,'x-2')"),
+        /OBSERVABILITY_INVALID_KIND/,
+      );
+      await ingestClient.query('ROLLBACK');
+    } finally {
+      ingestClient.release();
+    }
     for(const filename of readdirSync(migrationDirectory).filter(n=>/^\d{12}_.*\.sql$/.test(n)&&n<'202611090001_multimethod_evaluations.sql').sort()) {
       await databases[3].query('INSERT INTO migrations.history(filename,checksum) VALUES($1,$2)',[filename,createHash('sha256').update(readFileSync(new URL(filename,migrationDirectory),'utf8')).digest('hex')]);
     }
@@ -432,7 +474,7 @@ test('migrations and the integrated schema produce the same English database', a
     assert.equal(assessment,null);
     assert.deepEqual(originalColumns,previousEvaluation);
     const actual = await catalog(databases[0]);
-    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 52);
+    assert.equal(new Set(actual[0].map((r) => r.table_name)).size, 53);
     assert.deepEqual(await catalog(databases[1]), actual);
     await databases[0].query(
       "UPDATE migrations.history SET checksum=repeat('0',64) WHERE filename='202610150001_inicial_identidad_acceso.sql'"

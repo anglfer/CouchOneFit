@@ -194,3 +194,18 @@ incidentes frente a reenvíos fuera de orden. Agrega el límite de cortes
 automáticos por hora y extiende la retención a corridas vacías y agregados.
 El esquema integrado contiene 37 migraciones y 52 tablas. La aplicación en
 Supabase compartido está pendiente. [Arquitectura y validación](../architecture/calidad-observabilidad.md#17-módulo-integral-de-observabilidad-slislosla-y-monitoreo-externo-proyectos-31-y-32).
+
+## Cumplimiento del SLA v3.0 — 26-nov-2026
+
+`202611260001_sla_v3_compliance.sql` añade `private.observability_sla_records`
+(bitácora de ventanas de mantenimiento, incidentes, respaldos, simulacros,
+depuraciones, mediciones de almacenamiento, pruebas de carga, reportes y
+despliegues) con RLS solo para el administrador activo. La función
+`private.record_observability_sla_operation` permite a la automatización
+registrar de forma idempotente (por `external_id`) solo los tipos `backup`,
+`access_cleanup`, `deployment`, `load_test` y `storage_measurement`, y exige el
+ámbito de ingesta. Amplía el vocabulario de la auditoría (`sla_record`,
+`deleted`) y fija los valores por defecto del SLA: sondeo cada 30 minutos y
+retención de logs de 62 días (las filas existentes con 5 minutos o menos de 62
+días se actualizan). El esquema integrado contiene 38 migraciones y 53 tablas.
+La aplicación en Supabase compartido está pendiente.

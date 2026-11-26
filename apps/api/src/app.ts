@@ -1,4 +1,4 @@
-import type { Express, NextFunction, Request, Response } from 'express';
+import type { Express, NextFunction, Request, RequestHandler, Response } from 'express';
 import express from 'express';
 import type { Pool } from 'pg';
 import { pool } from './config/database.js';
@@ -83,10 +83,11 @@ export function createApp(database: Pool, options?: AppOptions): Express {
       status: 'ok',
       environment: config.nodeEnv,
       version: config.appVersion,
+      uptimeS: Math.floor(process.uptime()),
       timestamp: (now?.() ?? new Date()).toISOString(),
     });
   });
-  app.get('/api/health/ready', async (req, res) => {
+  const readiness: RequestHandler = async (req, res) => {
     const timestamp = (now?.() ?? new Date()).toISOString();
     try {
       await database.query('SELECT 1');
@@ -103,6 +104,7 @@ export function createApp(database: Pool, options?: AppOptions): Express {
         status: 'ok',
         database: 'ok',
         version: config.appVersion,
+        uptimeS: Math.floor(process.uptime()),
         timestamp,
       });
     } catch (error) {
@@ -112,7 +114,10 @@ export function createApp(database: Pool, options?: AppOptions): Express {
         .status(503)
         .json({ status: 'unavailable', database: 'unavailable', timestamp });
     }
-  });
+  };
+  // Separate registrations: the request logger needs a string route template.
+  app.get('/api/health/ready', readiness);
+  app.get('/api/ready', readiness);
   app.use('/api/plans', publicPlanRoutes(database));
   app.use('/api/auth', registrationRoutes(database));
   app.use('/api/auth', sessionRoutes(database, now));

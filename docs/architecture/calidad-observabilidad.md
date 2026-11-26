@@ -23,6 +23,7 @@ y D0 (plan §5.2).
 | Sondas sintéticas de disponibilidad y latencia | `scripts/quality/synthetic-check.mjs` + `synthetic.yml` | Corte histórico de cuatro destinos en §12.4. El monitor integral y su configuración están en §17 |
 | Cálculo de SLI y evaluación automática de SLO | `scripts/quality/sli-report.mjs` + `slo.config.json` | Implementado y ejecutado (T) |
 | Integración continua | `.github/workflows/ci.yml` | Escrita y validada en sintaxis; **aún no ejecutada en GitHub** |
+| Cumplimiento del SLA v3.0 (67 SLI, bitácora, CSV mensuales) | `sla-v3.ts`, pestaña «SLA v3.0», `operations.yml` | Implementado y probado en local (T); ver §18 |
 
 ## 2. Arquitectura de la solución
 
@@ -334,9 +335,9 @@ se cumple.
 
 | SLO | Objetivo | Mín. muestras | Justificación |
 | --- | --- | --- | --- |
-| Disponibilidad sintética | ≥ 99,0 % | 1 | RNF10 pide disponibilidad «según el nivel definido» y DEC-013 la deja observada. 99 % (~7 h/mes) es alcanzable en Render Free si el arranque en frío responde dentro de 65 s |
+| Disponibilidad sintética | ≥ 98,0 % | 1 | SLA v3.0 D-01…D-03 (antes 99 % interno). 98 % admite ~14,4 h/mes de indisponibilidad (SLA §8.4) |
 | Latencia externa P95 (sondas) | ≤ 1000 ms | 20 | DEC-013: lectura ≤ 1 s, ahora medida desde fuera. 20 muestras son ~1 h 40 min de sondeo cada 5 min. Se revisará tras la primera semana de datos reales |
-| Tasa de errores 5xx | ≤ 0,5 % | 1 | No hay umbral documentado; se propone el valor y se ajustará con tráfico real. Medido en local bajo carga: 0 % |
+| Tasa de errores 5xx | ≤ 2 % | 1 | SLA v3.0 G-01 (antes 0,5 % interno). Medido en local bajo carga: 0 % |
 | Éxito de operaciones de escritura | ≥ 99,5 % | 1 | Complemento para escrituras (registro, altas, check-in). Aún **sin datos**: la carga solo hace lecturas |
 | Latencia P50 | ≤ 300 ms | 20 | Margen para red y Supabase en producción |
 | Latencia P95 | ≤ 1000 ms | 20 | DEC-013: objetivo de lectura ≤ 1 s |
@@ -691,8 +692,8 @@ un prerrequisito, sus comprobaciones dependientes quedan como `not_executed`.
 | Vercel Cron Jobs | En Hobby el intervalo mínimo es de un día. Además, presta el servicio Web que se está midiendo. [Límites de Cron Jobs](https://vercel.com/docs/schedules/cron-jobs/usage-and-pricing) |
 | Postman/Newman | Ejecuta colecciones exportadas y puede añadirse a CI. Este proyecto ya expresa las verificaciones de respuesta con Node y compartirlas con un ejecutor local evita mantener otra colección. [Newman](https://learning.postman.com/docs/reference/newman-cli/command-line-integration-with-newman/) |
 
-El intervalo predeterminado del panel es cinco minutos y admite 10, 15, 30
-y 60. La activación periódica también requiere `SYNTHETIC_MONITOR_ENABLED=true`
+El intervalo predeterminado del panel es 30 minutos (SLA v3.0, §18) y admite
+5, 10, 15 y 60. La activación periódica también requiere `SYNTHETIC_MONITOR_ENABLED=true`
 en el repositorio. Con cinco minutos un solo servicio Render Free puede
 consumir hasta 744 de las 750 horas compartidas en un mes de 31 días y altera
 la medición de arranque en frío. Mientras siga vigente DEC-013, usa una ventana
@@ -830,3 +831,188 @@ node scripts/quality/external-monitor.mjs --api-url http://127.0.0.1:3000 --env 
   autorizado de migraciones de Supabase y despliegue de API/Web, configuración
   del monitor en la rama predeterminada y validación de los primeros
   resultados programados. El equipo conserva la revisión independiente y D0.
+
+---
+
+## 18. Cumplimiento del SLA v3.0 (Proyecto 2.1)
+
+El documento «Acuerdo de Nivel de Servicio (SLA) v3.0» (8-nov-2026) define 67
+SLI: 52 por función de negocio (F-01…F-26, éxito y latencia) y 15 de
+plataforma, capacidad, continuidad y operación. El catálogo dinámico de §17.3
+no podía expresarlos: sus ventanas son rodantes (1h–30d), cuenta los 4xx fuera
+del denominador, no excluye 429, no filtra por `uptime_s`, no tiene ventanas de
+mantenimiento ni valor atribuible y solo admite un prefijo de ruta por SLI. Por
+eso el SLA se calcula con un catálogo **fijo y versionado** en código
+(`sla-v3.ts`): sus SLI solo cambian con un anexo firmado (SLA §15), no desde
+el panel. El catálogo dinámico sigue disponible para objetivos internos.
+
+### 18.1 Matriz documento ↔ implementación
+
+| SLA | Requisito | Antes (25-nov) | Ahora |
+| --- | --- | --- | --- |
+| P-1, §8.2 | Registro por petición con `ts, method, route, status, duration_ms, uptime_s` y exportación | Log sin `uptime_s`; CSV de 100 filas | `uptimeS` en cada `http.request`; `requests-AAAA-MM.csv` completo con `in_maintenance` |
+| P-2 | `GET /api/ready` con consulta a la BD | Solo `/api/health/ready` | `/api/ready` (mismo handler) |
+| P-3, D-01…D-03 | Sondeo externo cada 30 min | Monitor cada 5 min; D-01 en `/api/health/ready`; D-03 en readiness vía Web | Intervalo 30 min; D-01 `/api/ready`; D-03 `/api/health` vía Web; D-02 ≤ 20 s en el cálculo; disparo externo opcional |
+| D-04 | Arranque en frío ≤ 60 s, 5 muestras | No se medía | El monitor marca `phase=cold_start` cuando `uptimeS` muestra que su petición despertó el proceso |
+| §7.1, F-01…F-26 | 52 SLI con reglas comunes | No existían | Calculadora `sla-v3.ts` |
+| G-01 | 5xx / total ≤ 2 % | Objetivo interno 0,5 % sin 429 excluido | En la calculadora |
+| C-01 | Almacenamiento ≤ 80 % | No existía | Botón «Medir almacenamiento» (`pg_database_size`) |
+| C-02 | 15 concurrentes, 5 rps, 5 min, ≥ 500 por tipo | Solo GET en lazo cerrado | Escenario `c02` lectura/escritura a ritmo fijo |
+| P-4, R-01, R-02 | Respaldo diario cifrado y simulacro | Sin evidencia | `operations.yml` (opcional) + bitácora + procedimiento §18.5 |
+| R-03 | `db:cleanup:access` en días hábiles | Manual sin registro | Bitácora + trabajo opcional en `operations.yml` |
+| P-5, O-01, O-02 | Bitácora de incidentes con acuse/resolución en horario hábil | Solo incidentes automáticos | Bitácora con severidad alta/media/baja y plazos hábiles |
+| §10, O-03 | Ventanas de mantenimiento avisadas ≥ 48 h | No existía | Bitácora; solo se descuentan ventanas en sábado 01:00–04:00 avisadas a tiempo |
+| O-04 | Reporte en ≤ 5 días hábiles | No existía | Registro del envío |
+| O-05 | Despliegues verificados | No existía | Trabajo `deploy-verify` (opcional) o registro manual |
+| §8.5 | Valor observado y atribuible | No existía | Ambos; los SLO se evalúan con el atribuible |
+| §13 | Compensación | No existía | Señal automática (D-01 atribuible < 95 % o incidente alta > 8 h hábiles) |
+| §12 | Reporte mensual PDF + anexos | Reporte de periodo rodante | Pestaña «SLA v3.0»: mes calendario, 4 CSV y «Imprimir / PDF» |
+
+### 18.2 Cálculo
+
+`apps/api/src/features/observability/services/sla-v3.ts` es una función pura
+(`computeSlaV3`) que recibe las peticiones, los sondeos y la bitácora de un mes
+y devuelve los 67 SLI en el orden del SLA, con valor observado, atribuible,
+muestras y estado (`met`, `unmet`, `insufficient_sample`, `no_data` o
+`unverified`). Aplica las reglas de §7.1 tal como están escritas:
+
+- Mes calendario en `America/Mexico_City`, UTC-6 fijo (SLA §5).
+- Válida = petición a una transacción de la tabla 7.2, sin 429 y fuera de una
+  ventana contable. Buena = status < 500. Se incluye todo el tráfico, también
+  el del monitor: el SLA no excluye ninguna fuente.
+- Latencia: p95 por rango más cercano sobre status < 500 y `uptime_s ≥ 60`.
+  Las filas sin `uptime_s` (anteriores a este cambio) no entran en latencia.
+- Menos de 50 válidas ⇒ «muestra insuficiente».
+- Ventana contable: avisada con ≥ 48 h y dentro del sábado 01:00–04:00 (§10).
+- Atribuible: sin las fallas dentro de un incidente de proveedor registrado.
+- Plazos de O-01/O-02 en horario hábil (lunes a viernes 09:00–18:00, sin los
+  días de descanso del art. 74 de la LFT).
+
+El log guarda los parámetros de ruta como `:id`; el CSV los devuelve en la
+notación del SLA (`/api/clients/:clientId`) para que la fórmula de §8.3 funcione
+sin cambios. Las pruebas `sla-v3.test.ts` reproducen los tres ejemplos de §8.4
+(F-02-E 98,47 %, F-22-L 640 ms, D-01 98,59 %).
+
+### 18.3 Reporte mensual y archivos de evidencia
+
+En Administración → Observabilidad → **SLA v3.0** se elige ambiente y mes. La
+pestaña muestra los 67 SLI agrupados, la señal de compensación, los incidentes
+caso por caso y las ventanas de mantenimiento. «Imprimir / PDF» genera el
+entregable del §12. Los anexos del §8.1 se descargan desde la misma pestaña:
+
+| Archivo | Columnas |
+| --- | --- |
+| `requests-AAAA-MM.csv` | `ts, method, route, status, duration_ms, uptime_s, in_maintenance` |
+| `probes-AAAA-MM.csv` | `ts, target, status, duration_ms, content_ok, cold_start` (`cold_start` es una columna adicional para D-04) |
+| `incidents-AAAA-MM.csv` | `id, severidad, recibido, acuse, resuelto, causa, atribuible` |
+| `operations-AAAA-MM.csv` | `fecha, tipo, resultado, responsable, detalle` |
+
+La bitácora («Bitácora SLA») registra ventanas de mantenimiento, incidentes de
+proveedor y de soporte, respaldos, simulacros, depuraciones, mediciones de
+almacenamiento (botón «Medir almacenamiento», `pg_database_size`), pruebas de
+carga, envíos del reporte y despliegues. La retención de logs en PostgreSQL
+sube a 62 días para que el mes anterior esté completo al generar el reporte.
+**Los CSV se descargan al menos cada 7 días y se archivan 12 meses fuera de
+Render y Supabase** (SLA §8.1): ese archivo es una tarea del operador.
+
+### 18.4 Sondeo externo
+
+Diagnóstico del 26-nov-2026 (T, `gh run list` y artefacto
+`synthetic-45810978156-1`): el monitor está activo y las 14 comprobaciones
+pasan en producción, pero GitHub solo disparó 2 de las ~160 ejecuciones
+programadas entre el 25-nov 22:08 UTC y el 26-nov 11:29 UTC. Cada turno de 5
+minutos perdido se registra como `SCHEDULE_SLOT_MISSED` y la cola de ingesta
+crecía más rápido de lo que se vaciaba (86 lotes pendientes, 20 por corrida),
+así que el workflow terminaba en rojo aunque los sondeos pasaran. En esa
+corrida `GET /api/health` tardó 17,4 s: un arranque en frío real.
+
+Cambios: intervalo de 30 minutos (SLA P-3; también respeta el reposo de Render
+Free), hasta 100 lotes por corrida, D-01 en `/api/ready`, D-03 en `/api/health`
+vía Vercel y marca `phase=cold_start` cuando el `uptimeS` de la respuesta es
+menor o igual a su duración más 1 s. Como el programador de GitHub no
+garantiza la frecuencia, `synthetic.yml` acepta `repository_dispatch`
+(`event_type: synthetic-probe`) para que un servicio de cron externo lo
+dispare cada 30 minutos con un token de grano fino (Contents: read & write).
+El disparador de 5 minutos se conserva: `--respect-schedule` omite los turnos
+que no corresponden.
+
+### 18.5 Respaldos, restauración y depuración
+
+`.github/workflows/operations.yml` contiene tres trabajos **desactivados hasta
+que el propietario los configure**:
+
+| Trabajo | Activación | Qué hace |
+| --- | --- | --- |
+| `backup` | `BACKUP_ENABLED=true`; secretos `BACKUP_DATABASE_URL`, `BACKUP_PASSPHRASE` | 03:00 h de Ciudad de México: `pg_dump` 17 en formato *custom*, cifrado AES-256 (PBKDF2, 200 000 iteraciones) y artefacto con 7 días de retención; registra R-01 |
+| `access-cleanup` | `ACCESS_CLEANUP_ENABLED=true`; secreto `ACCESS_CLEANUP_DATABASE_URL` | `db:cleanup:access` diario; registra R-03 |
+| `deploy-verify` | `SYNTHETIC_API_URL` (y los secretos de `synthetic.yml`) | Tras un *push* a `main` espera a que `/api/health` reporte el commit, ejecuta el monitor y registra O-05 |
+
+Los tres registran su resultado con `scripts/quality/report-operation.mjs` en
+`POST /api/observability/operations` (token de ingesta, idempotente por
+`externalId`). El repositorio es público: cualquiera con cuenta de GitHub puede
+descargar artefactos, por eso el respaldo **solo** se publica cifrado; la
+frase de cifrado nunca sale de los secretos. `BACKUP_DATABASE_URL` necesita un
+rol que pueda leer todo el esquema sin RLS (propietario); el rol de runtime no
+sirve.
+
+**Simulacro de restauración (R-02, trimestral, ≤ 4 h).** Contra una base local
+o de pruebas, nunca contra producción:
+
+1. Descargar el artefacto `backup-<run_id>-<attempt>` y descifrarlo:
+   `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in backup.dump.enc -out backup.dump`.
+2. Crear una base vacía, aplicar `npm --prefix apps/api run db:migrate` (las
+   migraciones recrean esquema, roles y permisos) y restaurar los datos con
+   `pg_restore --data-only --disable-triggers --schema=private -d <base> backup.dump`
+   (el respaldo solo contiene los esquemas `private` y `migrations`; el
+   historial de migraciones se compara, no se restaura).
+3. Comprobar roles y permisos, conteos por tabla frente al origen,
+   restricciones (`pg_constraint` validadas), versiones de migración en
+   `migrations.history` y relaciones (claves foráneas sin huérfanos), más un
+   inicio de sesión y una consulta de cartera.
+4. Registrar el simulacro en la bitácora (tipo «Simulacro de restauración»,
+   inicio, fin y resultado). Mientras no exista uno aprobado, R-02 se muestra
+   «Sin comprobar» y el RTO es un objetivo sin comprobar (SLA §14).
+
+### 18.6 Condiciones de entrada en vigor (SLA §15)
+
+| ID | Condición | Estado al 26-nov-2026 |
+| --- | --- | --- |
+| P-1 | Registro por petición y exportación | Implementado en el repositorio (T); falta desplegar y aplicar la migración en Supabase |
+| P-2 | `GET /api/ready` con BD | Implementado (T); producción responde 404 hasta el despliegue |
+| P-3 | Sondeo externo cada 30 min | Monitor activo; intervalo 30 min y `repository_dispatch` listos; falta configurar el disparador externo |
+| P-4 | Respaldo diario y primer simulacro | Trabajo `backup` y procedimiento listos; faltan secretos y el simulacro |
+| P-5 | Bitácoras activas | Bitácora en la pestaña SLA v3.0; falta empezar a registrar |
+| P-6 | Confirmar planes de Render, Supabase y Vercel | Pendiente (paneles de los proveedores) |
+| P-7 | Web vigente en `https://ferkxo.tech/` con `/api` reenviado | Pendiente: los sondeos actuales apuntan a `couchonefit-web.vercel.app` |
+
+### 18.7 Resultados de validación (T)
+
+Máquina local, PostgreSQL local exclusivo; nada se ejecutó contra Supabase ni
+producción. Evidencia en [`evidencia-calidad/`](evidencia-calidad/).
+
+| Corrida / comprobación | Resultado |
+| --- | --- |
+| `20261126T162326Z-1cb5ca`, cinco suites | **Aprobada**: 673 casos, 671 aprobados, 0 fallidos, 2 omitidos (C-02 con 20 s: muestra insuficiente, n = 50 < 500, por diseño). quality 51/51, api 298/298, web 189/189, mobile 129/129, load 4 + 2 omitidas |
+| Pruebas nuevas dentro de esa corrida | `sla-v3` 18/18, `sla-v3-api` 5/5, `sla-compliance-web` 7/7, `report-operation` 5/5, `external-monitor` 9/9, `load-test` 9/9 |
+| `20261126T161241Z-64a828`, suite `load` con `QUALITY_LOAD_C02_DURATION_S=300` | **C-02 cumple**: 15 concurrentes, 5,00 rps durante 300 s, 750 muestras por tipo, 0 errores; p95 lectura 38,12 ms (≤ 800) y escritura 25,09 ms (≤ 1500). Mide la máquina local, no Render + Supabase |
+| Migración `202611260001` | Instalación limpia y actualización con filas existentes (`migrations.test.ts`); aplicada además a la base local de desarrollo |
+| Compilación y estáticas | `tsc` de API, build Web, Oxlint, Prettier de los archivos Web tocados, sintaxis YAML de los dos *workflows*, `git diff --check` |
+| API local en ejecución | `GET /api/ready` y `/api/health` responden 200 con `uptimeS`; el reporte SLA sin sesión responde 401; `/api/observability/operations` sin secreto configurado responde 503 igual que `/ingest` |
+
+No se hizo el recorrido visual de la pestaña en el navegador: requiere una
+sesión de administrador local y su alta es operación del custodio
+(`db:seed:admin`). La pestaña queda cubierta por las pruebas jsdom.
+
+### 18.8 Limitaciones
+
+- El reporte carga el mes completo en memoria (marcado como atajo en el
+  código); con más de ~1 millón de peticiones al mes conviene agregar en SQL.
+- Los SLI de operación (R, O, C-01, C-02) dependen de que la bitácora se llene;
+  sin registros se muestran «Sin datos», nunca como cumplidos. R-01 sin
+  respaldos registrados se muestra 0 % (incumplido).
+- D-04 solo cuenta los sondeos que despertaron el proceso; con tráfico real
+  constante puede quedar en «muestra insuficiente».
+- El valor atribuible depende de registrar a mano los incidentes de proveedor
+  con su enlace a la página de estado.
+- El catálogo dinámico de §17.3 conserva sus objetivos internos (p. ej. 99 %);
+  el SLA se evalúa solo en la pestaña SLA v3.0.

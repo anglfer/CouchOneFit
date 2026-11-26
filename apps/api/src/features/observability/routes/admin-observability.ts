@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit'
 import type { Pool } from 'pg'
 import { requireCsrf } from '../../auth/middleware/session-http.js'
 import { observabilityAdminControllers } from '../controllers/observability.js'
+import { slaV3AdminControllers } from '../controllers/sla-v3.js'
 
 export function adminObservabilityRoutes(
   pool: Pool,
@@ -10,6 +11,7 @@ export function adminObservabilityRoutes(
 ): Router {
   const router = Router()
   const c = observabilityAdminControllers(pool, now)
+  const sla = slaV3AdminControllers(pool, now)
   const payload = json({ limit: '64kb' })
   const runChecksLimiter = rateLimit({
     windowMs: 15 * 60_000,
@@ -61,6 +63,16 @@ export function adminObservabilityRoutes(
 
   router.get('/incidents', c.listIncidents)
   router.patch('/incidents/:id', requireCsrf, payload, c.updateIncident)
+
+  router.get('/sla-v3/report', sla.report)
+  router.get('/sla-v3/export/requests.csv', sla.requestsCsv)
+  router.get('/sla-v3/export/probes.csv', sla.probesCsv)
+  router.get('/sla-v3/export/incidents.csv', sla.incidentsCsv)
+  router.get('/sla-v3/export/operations.csv', sla.operationsCsv)
+  router.get('/sla-v3/records', sla.listRecords)
+  router.post('/sla-v3/records', requireCsrf, payload, sla.createRecord)
+  router.delete('/sla-v3/records/:id', requireCsrf, payload, sla.deleteRecord)
+  router.post('/sla-v3/storage', requireCsrf, payload, sla.measureStorage)
 
   router.get('/reports', c.report)
   router.get('/audit', c.audit)

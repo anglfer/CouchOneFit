@@ -220,7 +220,7 @@ test('synthetic latency uses only counted successful probes', () => {
 
 test('SLO evaluation: cumple, no cumple and sin datos suficientes', () => {
   const slis = {
-    server_error_rate_pct: { value: 2, samples: 10 },
+    server_error_rate_pct: { value: 3, samples: 10 },
     operation_success_rate_pct: { value: 100, samples: 10 },
     latency_p50_ms: { value: 10, samples: 5 },
     latency_p95_ms: { value: 900, samples: 50 },

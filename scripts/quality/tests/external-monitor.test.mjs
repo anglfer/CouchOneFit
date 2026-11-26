@@ -14,6 +14,7 @@ let apiDown = false;
 let invalidContracts = false;
 let configAvailable = true;
 let interval = 5;
+let uptimeS;
 const ingestedRuns = [];
 const calls = [];
 const clientId = '189ca77a-d37f-459c-a02c-a51738f6ec71';
@@ -60,12 +61,16 @@ before(async () => {
       if (apiDown) return json(res, 503, { status: 'unavailable' });
       res.setHeader('Content-Type', 'application/json');
       res.end(
-        JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }),
+        JSON.stringify({
+          status: 'ok',
+          timestamp: new Date().toISOString(),
+          ...(uptimeS === undefined ? {} : { uptimeS }),
+        }),
       );
       return;
     }
 
-    if (req.url === '/api/health/ready' && req.method === 'GET') {
+    if (req.url === '/api/ready' && req.method === 'GET') {
       res.setHeader('Content-Type', 'application/json');
       if (failMode) {
         res.statusCode = 503;
@@ -74,7 +79,13 @@ before(async () => {
         );
         return;
       }
-      res.end(JSON.stringify({ status: 'ok', database: 'ok' }));
+      res.end(
+        JSON.stringify({
+          status: 'ok',
+          database: 'ok',
+          ...(uptimeS === undefined ? {} : { uptimeS }),
+        }),
+      );
       return;
     }
 
@@ -295,6 +306,7 @@ function fixture(t) {
     invalidContracts = false;
     configAvailable = true;
     interval = 5;
+    uptimeS = undefined;
     ingestOnline = true;
   });
   return {
@@ -382,7 +394,7 @@ test('a failed API probe records dependent checks as not executed without repeat
       key,
     );
   }
-  assert.ok(!calls.some((call) => call.url === '/api/health/ready'));
+  assert.ok(!calls.some((call) => call.url === '/api/ready'));
   assert.ok(!calls.some((call) => call.url === '/api/plans'));
 });
 
@@ -461,4 +473,79 @@ test('replay sends saved batches without probing the application or creating a n
     ['/api/observability/ingest'],
   );
   assert.equal(ingestedRuns[0].run.externalRunId, result.externalRunId);
+});
+
+test('probes of /api/health and /api/ready detect cold starts from uptimeS', async (t) => {
+  const options = fixture(t);
+  const phases = (result) =>
+    Object.fromEntries(
+      result.checks.map((check) => [check.checkKey, check.phase]),
+    );
+
+  // API antigua sin uptimeS: nunca falla y todo es regular.
+  const legacy = await runExternalMonitor(options);
+  assert.equal(legacy.failedChecks, 0);
+  assert.ok(legacy.checks.every((check) => check.phase === 'regular'));
+
+  // Proceso recién arrancado: uptime menor que la duración de la respuesta + 1 s.
+  uptimeS = 0;
+  const cold = phases(await runExternalMonitor(options));
+  assert.equal(cold.api_liveness, 'cold_start');
+  assert.equal(cold.api_db_readiness, 'cold_start');
+  assert.equal(cold.web_proxy_readiness, 'cold_start');
+  assert.equal(cold.web_availability, 'regular');
+  assert.equal(cold.func_plans_catalog, 'regular');
+  const probes = fs
+    .readFileSync(
+      path.join(
+        options.outDir,
+        fs.readdirSync(options.outDir).find((f) => f.startsWith('synthetic-')),
+      ),
+      'utf8',
+    )
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  assert.ok(
+    probes.some(
+      (probe) => probe.target.endsWith('/api/ready') && probe.phase === 'cold_start',
+    ),
+  );
+  assert.ok(
+    probes.some((probe) => probe.target.endsWith('/') && probe.phase === 'regular'),
+  );
+
+  // Proceso con horas de uptime: regular.
+  uptimeS = 3600;
+  const warm = phases(await runExternalMonitor(options));
+  assert.equal(warm.api_liveness, 'regular');
+  assert.equal(warm.api_db_readiness, 'regular');
+  assert.equal(warm.web_proxy_readiness, 'regular');
+});
+
+test('without cached settings the schedule defaults to 30 minutes', async (t) => {
+  const options = { ...fixture(t), ingestToken: '', ingestUrl: '' };
+  let clock = new Date('2026-11-25T12:02:55Z');
+  const scheduled = () =>
+    runExternalMonitor({ ...options, respectSchedule: true, now: () => clock });
+  assert.equal((await scheduled()).skipped, false);
+  clock = new Date('2026-11-25T12:27:00Z');
+  assert.equal((await scheduled()).reason, 'interval_not_elapsed');
+  clock = new Date('2026-11-25T12:33:00Z');
+  assert.equal((await scheduled()).skipped, false);
+});
+
+test('one replay drains several pending batches (cap is 100 per run)', async (t) => {
+  const options = fixture(t);
+  ingestOnline = false;
+  for (let index = 0; index < 3; index += 1) {
+    await runExternalMonitor({
+      ...options,
+      now: () => new Date(Date.UTC(2026, 10, 25, 12, index)),
+    });
+  }
+  ingestOnline = true;
+  const replay = await runExternalMonitor({ ...options, replayOnly: true });
+  assert.equal(replay.synced, 3);
+  assert.equal(replay.pendingSync, 0);
 });

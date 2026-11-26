@@ -25,6 +25,10 @@ El panel incorpora `/admin/observabilidad` y la API expone sus operaciones
 bajo `/api/admin/observability`. Ambos usan la sesión y el rol administrativo
 de esta HU. El reporte técnico documenta las pruebas de autorización, CSRF
 y el recorrido local. [Observabilidad y niveles de servicio](../../../architecture/calidad-observabilidad.md#17-módulo-integral-de-observabilidad-slislosla-y-monitoreo-externo-proyectos-31-y-32).
+La pestaña «SLA v3.0» del mismo panel calcula los 67 SLI del acuerdo por mes,
+exporta los CSV de evidencia y lleva la bitácora SLA bajo
+`/api/admin/observability/sla-v3` con la misma sesión, rol y CSRF.
+[Cumplimiento del SLA v3.0](../../../architecture/calidad-observabilidad.md#18-cumplimiento-del-sla-v30-proyecto-21).
 
 ## Provisión controlada y seed
 
