@@ -173,3 +173,19 @@ Pendiente: teléfono físico (OEM con ahorro de batería agresivo), comportamien
 - **E** No se limpian rutinas vacías ya activas en bases existentes; la regla solo impide activaciones nuevas.
 - **E** Las escrituras de entrenamiento sin `Idempotency-Key` válida responden ahora «Falta la clave de idempotencia (Idempotency-Key) o no es válida.» en lugar de «Identificador inválido.».
 - **T** Las 2 pruebas de `client_login_test.dart` citadas arriba (dependientes de la fecha) usan ahora el reloj fijo inyectado, igual que el resto del archivo; `flutter test` 120/120.
+
+## Cierre y finalización de sesión de entrenamiento móvil — 26-nov-2026
+
+- **R** La persona usuaria reportó que al pulsar finalizar en la app móvil, aunque el entrenamiento se registraba, la pantalla de sesión no se cerraba y seguía contando como si continuara entrenando.
+- **E** Causas identificadas en el flujo embebido de `ClientShell` y `TrainingSessionScreen`:
+  1. Al finalizar por primera vez, el `MaterialPageRoute` de `SessionSummaryScreen` construía el resumen de forma perezosa dentro de `builder` después de llamar `close()` (que desmonta `TrainingSessionScreen` y libera `_captures`), evaluando `widget.clock().difference(_started)`, `_volume`, `_summary(results)` y `_groups()` sobre un `State` desmontado y recalculando la duración en vivo.
+  2. Al reabrir una sesión ya finalizada («Ver o corregir registro»), `_ticker` seguía contando `Duración` cada segundo, guardar una corrección no cerraba la vista embebida y usar la flecha superior o el botón Atrás la minimizaba a «Entrenamiento en curso».
+  3. Errores de validación o de red al pulsar «Finalizar entrenamiento» solo actualizaban `_error` arriba sin desplazar el `ListView` ni mostrar `SnackBar`, y completar la última serie no cancelaba un descanso activo.
+  4. `ClientShell._closeSession()` no limpiaba `_sessionName`, `_minimized` ni estado de sesión finalizada, y `NotificationService` no descartaba `syncWorkout` obsoletos tras `clearWorkout()`.
+- **Cambio**:
+  - `apps/mobile/lib/features/training/screens/training_session_screen.dart`: snapshot inmutable de `SessionSummaryScreen` antes de `close()`, cierre de foco, cancelación de `_ticker` / suscripción de notificaciones / descanso al finalizar o completar la última serie, estado «Finalizado» sin cronómetro ni minimización en correcciones, cierre limpio al guardar correcciones o salir, `Finalizando…` mientras envía y `_showError` con scroll al inicio + `SnackBar`.
+  - `apps/mobile/lib/features/training/screens/client_shell.dart`: `_closeSession()` limpia `_session`, `_sessionName`, `_minimized` y `_sessionFinalized`; las sesiones ya finalizadas abren sin `onMinimize` y delegan Atrás al cierre limpio en lugar de minimizar.
+  - `apps/mobile/lib/features/notifications/services/notification_service.dart`: guardia `_workoutToken` en `syncWorkout`, `clearWorkout` y `cancelAll`.
+- **T** `dart format` sobre los 5 archivos tocados, `flutter analyze` (sin errores; solo los avisos `info` previos de deprecación de `package:flutter/material.dart` en Flutter 3.47+) y `flutter test` **129/129** en verde (5 pruebas nuevas de regresión en `test/training_test.dart` y `test/notifications_test.dart`).
+
+Pendiente: validación manual en dispositivo físico/emulador por la persona usuaria.

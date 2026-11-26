@@ -11,6 +11,7 @@ import 'package:couchonefit_mobile/features/settings/models/app_settings.dart';
 import 'package:couchonefit_mobile/features/settings/services/settings_controller.dart';
 import 'package:couchonefit_mobile/features/training/models/training.dart';
 import 'package:couchonefit_mobile/features/training/screens/client_shell.dart';
+import 'package:couchonefit_mobile/features/training/screens/session_summary_screen.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_session_screen.dart';
 import 'package:couchonefit_mobile/features/training/services/training_service.dart';
 import 'package:couchonefit_mobile/routes/client_session_gate.dart';
@@ -677,5 +678,93 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(calls.any((c) => c.method == 'cancelAll'), isTrue);
+  });
+
+  testWidgets(
+      'ClientShell clears workout notification on finalize and closes session',
+      (tester) async {
+    final notif = NotificationService(channel: channel);
+    addTearDown(notif.dispose);
+
+    final client = _api((request) async {
+      if (request.method == 'POST' &&
+          request.path == '/api/me/training-sessions') {
+        return ApiHttpResponse(statusCode: 200, body: {
+          'session': {
+            'id': request.body!['id'],
+            'status': 'finalized',
+            'revision': 1,
+            'results': request.body!['results'],
+          },
+        });
+      }
+      if (request.path.startsWith('/api/me/nutrition-plan')) {
+        return const ApiHttpResponse(statusCode: 200, body: {'plan': null});
+      }
+      if (request.path.startsWith('/api/me/training-history')) {
+        return const ApiHttpResponse(
+            statusCode: 200, body: {'sessions': [], 'nextOffset': null});
+      }
+      if (request.path.startsWith('/api/me/check-ins/context')) {
+        return const ApiHttpResponse(statusCode: 200, body: {
+          'clientId': 'client-a',
+          'today': '2026-11-23',
+          'timeZone': 'America/Mexico_City',
+          'canWrite': true,
+          'dates': [
+            {'localDate': '2026-11-23', 'recorded': false}
+          ],
+          'checkIn': null,
+          'nutrition': {'applicable': false, 'planName': null},
+          'training': null,
+        });
+      }
+      return ApiHttpResponse(statusCode: 200, body: _trainingFixture());
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: mobileTheme(Brightness.dark),
+        home: ClientShell(
+          profile: _profile,
+          service: TrainingService(apiClient: client),
+          notificationService: notif,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Empezar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrainingSessionScreen), findsOneWidget);
+    expect(
+      calls.any((c) => c.method == 'showWorkoutNotification'),
+      isTrue,
+    );
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set-1')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set-2')));
+    await tester.pumpAndSettle();
+
+    calls.clear();
+    await tester.tap(find.text('Finalizar entrenamiento'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.byType(SessionSummaryScreen), findsOneWidget);
+    expect(
+      calls.any((c) => c.method == 'cancelWorkoutNotification'),
+      isTrue,
+    );
+    expect(
+      calls.where((c) => c.method == 'showWorkoutNotification'),
+      isEmpty,
+    );
   });
 }

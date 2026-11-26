@@ -22,6 +22,7 @@ class NotificationService {
 
   String? _lastWorkoutSignature;
   String? _lastMealSignature;
+  int _workoutToken = 0;
   bool _permissionPrompted = false;
   bool _disposed = false;
 
@@ -110,10 +111,12 @@ class NotificationService {
     bool force = false,
   }) async {
     if (_disposed) return;
+    final token = _workoutToken;
     final sig = state.signature;
     if (!force && _lastWorkoutSignature == sig) return;
     _lastWorkoutSignature = sig;
     try {
+      if (_disposed || token != _workoutToken) return;
       await _channel.invokeMethod<void>(
         'showWorkoutNotification',
         state.toChannelMap(),
@@ -126,6 +129,7 @@ class NotificationService {
   }
 
   Future<void> clearWorkout() async {
+    _workoutToken++;
     _lastWorkoutSignature = null;
     try {
       await _channel.invokeMethod<void>('cancelWorkoutNotification');
@@ -189,6 +193,7 @@ class NotificationService {
   }
 
   Future<void> cancelAll() async {
+    _workoutToken++;
     _lastWorkoutSignature = null;
     _lastMealSignature = null;
     _scheduledMeals.value = const [];

@@ -102,7 +102,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
   int _restTotal = 0;
   DateTime? _restEnd;
   Duration? _restPaused;
-  bool _dirty = false, _busy = false, _conflict = false;
+  bool _dirty = false, _busy = false, _finalizing = false, _conflict = false;
   String? _error, _notice, _retryPayload, _retryKey;
 
   AppSettings get _settings =>
@@ -115,13 +115,15 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initialize(widget.contextData);
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    if (!_finalized) _ensureTicker();
     widget.settingsListenable?.addListener(_onSettingsChanged);
     _notifSub = widget.notificationService?.workoutActions
         .listen(_handleWorkoutNotificationAction);
     if (!_finalized && _settings.workoutNotification) {
       widget.notificationService?.requestPermission().then((granted) {
-        if (granted && mounted) _syncWorkoutNotification(force: true);
+        if (granted && mounted && !_finalized) {
+          _syncWorkoutNotification(force: true);
+        }
       });
     }
     _syncWorkoutNotification();
@@ -175,6 +177,19 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
   }
 
   // ---- Timers & Live Notification -----------------------------------------
+
+  void _ensureTicker() {
+    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
+
+  void _stopTimers({bool clearRest = true}) {
+    _ticker?.cancel();
+    _ticker = null;
+    if (clearRest) {
+      _restEnd = null;
+      _restPaused = null;
+    }
+  }
 
   Duration? get _restLeft =>
       _restPaused ?? _restEnd?.difference(widget.clock());
@@ -283,6 +298,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
           _restPaused = null;
           _restEnd = widget.clock().add(Duration(seconds: secs));
         });
+        _ensureTicker();
         _syncWorkoutNotification();
         break;
       case WorkoutNotificationAction.restFinished:
@@ -317,6 +333,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
     if (_restTotal == 0) return;
     _restPaused = null;
     _restEnd = widget.clock().add(Duration(seconds: _restTotal));
+    _ensureTicker();
   }
 
   void _shiftRest(int seconds) {
@@ -590,7 +607,12 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
       c.error = _invalid(e, c);
       if (c.error != null) return;
       c.state = 'performed';
-      if (_captures.values.any((c) => c.state == null)) _startRest(e);
+      if (_captures.values.any((item) => item.state == null)) {
+        _startRest(e);
+      } else {
+        _restEnd = null;
+        _restPaused = null;
+      }
     });
   }
 
@@ -711,6 +733,18 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
       ..sort((a, b) => b.value - a.value);
   }
 
+  void _showError(String message, {int? focusExercise, bool conflict = false}) {
+    setState(() {
+      _conflict = conflict;
+      _error = message;
+    });
+    if (focusExercise != null) _go(focusExercise);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _save(bool finalize) async {
     for (final entry in _exercises.asMap().entries) {
       for (final s in entry.value.sets) {
@@ -718,8 +752,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
         if (c.state != 'performed') continue;
         c.error = _invalid(entry.value, c);
         if (c.error != null) {
-          setState(() => _error = 'Revisa la serie marcada en rojo.');
-          _go(entry.key);
+          _showError('Revisa la serie marcada en rojo.',
+              focusExercise: entry.key);
           return;
         }
       }
@@ -728,9 +762,9 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
       final pending = _exercises
           .indexWhere((e) => e.sets.any((s) => _captures[s.id]!.state == null));
       if (pending >= 0) {
-        setState(() => _error =
-            'Marca cada serie como hecha o «No la hice» antes de finalizar.');
-        _go(pending);
+        _showError(
+            'Marca cada serie como hecha o «No la hice» antes de finalizar.',
+            focusExercise: pending);
         return;
       }
     }
@@ -770,15 +804,53 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
     }
     setState(() {
       _busy = true;
+      _finalizing = finalize;
       _error = null;
       _notice = null;
     });
     try {
       final session = await widget.service.save(body, _retryKey!);
       if (!mounted) return;
+      final nowFinalized = session.status == 'finalized';
+      if (nowFinalized && !wasFinalized) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        _stopTimers();
+        _notifSub?.cancel();
+        _notifSub = null;
+        widget.notificationService?.clearWorkout();
+        final summaryScreen = SessionSummaryScreen(
+            dayName: _context.day!.name,
+            date: _context.localDate,
+            duration: widget.clock().difference(_started),
+            sets: results.where((r) => r['state'] == 'performed').length,
+            volume: _volume,
+            exercises: _summary(results),
+            groups: _groups(),
+            onShowProgress: widget.onShowProgress,
+            onOpenCheckIn: widget.onOpenCheckIn);
+        final summaryRoute =
+            MaterialPageRoute<void>(builder: (_) => summaryScreen);
+        setState(() {
+          _revision = session.revision;
+          _finalized = true;
+          _dirty = false;
+          _retryKey = null;
+          _retryPayload = null;
+        });
+        final close = widget.onClose;
+        if (close == null) {
+          await Navigator.pushReplacement(context, summaryRoute);
+          return;
+        }
+        // Embedded in the shell: snapshot summary first, then close and push.
+        final navigator = Navigator.of(context);
+        close();
+        navigator.push(summaryRoute);
+        return;
+      }
       setState(() {
         _revision = session.revision;
-        _finalized = session.status == 'finalized';
+        _finalized = nowFinalized;
         _dirty = false;
         _retryKey = null;
         _retryPayload = null;
@@ -786,44 +858,33 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
             ? 'Corrección guardada.'
             : 'Avance guardado. Puedes continuar después.';
       });
-      if (_finalized && !wasFinalized) {
-        widget.notificationService?.clearWorkout();
-        final summary = MaterialPageRoute<void>(
-            builder: (_) => SessionSummaryScreen(
-                dayName: _context.day!.name,
-                date: _context.localDate,
-                duration: widget.clock().difference(_started),
-                sets: results.where((r) => r['state'] == 'performed').length,
-                volume: _volume,
-                exercises: _summary(results),
-                groups: _groups(),
-                onShowProgress: widget.onShowProgress,
-                onOpenCheckIn: widget.onOpenCheckIn));
-        final close = widget.onClose;
-        if (close == null) {
-          await Navigator.pushReplacement(context, summary);
-          return;
-        }
-        // Embedded in the shell: replacing would drop the shell route.
-        final navigator = Navigator.of(context);
-        close();
-        await navigator.push(summary);
+      if (nowFinalized && wasFinalized && widget.onClose != null) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        final messenger = ScaffoldMessenger.of(context);
+        widget.onClose!();
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Corrección guardada.')));
         return;
       }
       if (_scroll.hasClients) _scroll.jumpTo(0);
     } catch (error) {
       if (TrainingService.denied(error)) await widget.service.cache.clear();
       if (!mounted) return;
-      setState(() {
-        _conflict = error is AuthApiException && error.statusCode == 409;
-        _error = _conflict
-            ? 'Este registro cambió en otro dispositivo. Tu captura sigue aquí; revisa lo guardado antes de continuar.'
-            : error is AuthApiException
-                ? error.message
-                : 'No pudimos confirmar el guardado. Conservamos tu captura; reintenta con conexión.';
-      });
+      final isConflict = error is AuthApiException && error.statusCode == 409;
+      final message = isConflict
+          ? 'Este registro cambió en otro dispositivo. Tu captura sigue aquí; revisa lo guardado antes de continuar.'
+          : error is AuthApiException
+              ? error.message
+              : 'No pudimos confirmar el guardado. Conservamos tu captura; reintenta con conexión.';
+      _showError(message, conflict: isConflict);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _finalizing = false;
+        });
+      }
     }
   }
 
@@ -860,6 +921,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
           _conflict = false;
           _error = null;
           _retryPayload = null;
+          if (_finalized) _stopTimers();
         });
         _syncWorkoutNotification();
       }
@@ -883,14 +945,21 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
     final isToday = _context.localDate == _context.today;
     final activeIdx = _activeExercise.clamp(0, _exercises.length - 1);
     final singleFocus = _focusMode && _exercises.length > 1;
+    final canMinimize = widget.onMinimize != null && !_finalized;
+    final embeddedClose = widget.onMinimize == null && widget.onClose != null;
     return PopScope(
-        // The shell owns back while embedded: it minimizes instead.
-        canPop: widget.onMinimize != null || (!_dirty && !_busy),
+        // The shell owns back while an active workout is minimizable.
+        canPop: canMinimize || (!embeddedClose && !_dirty && !_busy),
         onPopInvokedWithResult: (didPop, result) async {
-          if (widget.onMinimize != null) return;
-          if (!didPop && await _leave() && context.mounted) {
+          if (canMinimize || didPop) return;
+          if (await _leave() && context.mounted) {
             setState(() => _dirty = false);
-            if (context.mounted) Navigator.pop(context);
+            if (!context.mounted) return;
+            if (embeddedClose) {
+              widget.onClose!();
+            } else {
+              Navigator.pop(context);
+            }
           }
         },
         child: Scaffold(
@@ -898,16 +967,27 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                 leadingWidth: 60,
                 leading: Center(
                     child: IconButton(
-                        tooltip: widget.onMinimize == null
-                            ? 'Salir del registro'
-                            : 'Minimizar entrenamiento',
+                        tooltip: canMinimize
+                            ? 'Minimizar entrenamiento'
+                            : _finalized
+                                ? 'Cerrar registro'
+                                : 'Salir del registro',
                         style: IconButton.styleFrom(
                             backgroundColor: colors.surfaceContainerHighest,
                             fixedSize: const Size(44, 44),
                             minimumSize: const Size(44, 44)),
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                        onPressed: widget.onMinimize ??
-                            () => Navigator.maybePop(context))),
+                        icon: Icon(_finalized
+                            ? Icons.close_rounded
+                            : Icons.keyboard_arrow_down_rounded),
+                        onPressed: canMinimize
+                            ? widget.onMinimize
+                            : embeddedClose
+                                ? () async {
+                                    if (await _leave() && mounted) {
+                                      widget.onClose!();
+                                    }
+                                  }
+                                : () => Navigator.maybePop(context))),
                 titleSpacing: 4,
                 title: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -943,7 +1023,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
                               shape: const StadiumBorder()),
                           onPressed:
                               _busy || _conflict ? null : () => _save(true),
-                          child: Text(_finalized ? 'Corregir' : 'Finalizar',
+                          child: Text(
+                              _busy && _finalizing
+                                  ? (_finalized ? 'Guardando…' : 'Finalizando…')
+                                  : (_finalized ? 'Corregir' : 'Finalizar'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800)))),
                 ]),
@@ -1075,8 +1158,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
           const SizedBox(height: 10),
           IntrinsicHeight(
               child: Row(children: [
-            if (isToday)
+            if (isToday && !_finalized)
               stat('Duración', clockLabel(widget.clock().difference(_started)))
+            else if (_finalized)
+              stat('Estado', 'Finalizado')
             else
               stat('Fecha', shortDate(_context.localDate)),
             VerticalDivider(width: 16, color: colors.outlineVariant),
@@ -1804,6 +1889,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
     _touch(() {
       c.state = skipped ? null : 'not_performed';
       c.error = null;
+      if (!_captures.values.any((item) => item.state == null)) {
+        _restEnd = null;
+        _restPaused = null;
+      }
     });
   }
 
@@ -1941,7 +2030,10 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen>
           child: FilledButton(
               onPressed:
                   _busy || _conflict || _finalized ? null : () => _save(true),
-              child: const Text('Finalizar entrenamiento',
+              child: Text(
+                  _busy && _finalizing
+                      ? 'Finalizando…'
+                      : 'Finalizar entrenamiento',
                   textAlign: TextAlign.center))),
     ]));
   }

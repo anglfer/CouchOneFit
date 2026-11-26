@@ -85,6 +85,7 @@ class _ClientShellState extends State<ClientShell> {
   Widget? _session;
   String? _sessionName;
   bool _minimized = false;
+  bool _sessionFinalized = false;
   StreamSubscription<String>? _navSub;
 
   @override
@@ -338,9 +339,11 @@ class _ClientShellState extends State<ClientShell> {
             : 'Esa fecha corresponde a un descanso.');
         return;
       }
+      final isAlreadyFinalized = data.session?.status == 'finalized';
       setState(() {
         _sessionName = data.day!.name;
         _minimized = false;
+        _sessionFinalized = isAlreadyFinalized;
         _session = TrainingSessionScreen(
             contextData: data,
             service: widget.service,
@@ -352,7 +355,9 @@ class _ClientShellState extends State<ClientShell> {
             onOpenCheckIn: _checkIn?.checkIn == null && data.canWrite
                 ? () => _openCheckIn(data.today)
                 : null,
-            onMinimize: () => setState(() => _minimized = true),
+            onMinimize: isAlreadyFinalized
+                ? null
+                : () => setState(() => _minimized = true),
             onClose: _closeSession);
       });
     } catch (error) {
@@ -370,7 +375,12 @@ class _ClientShellState extends State<ClientShell> {
   void _closeSession() {
     widget.notificationService?.clearWorkout();
     if (!mounted) return;
-    setState(() => _session = null);
+    setState(() {
+      _session = null;
+      _sessionName = null;
+      _minimized = false;
+      _sessionFinalized = false;
+    });
     _load();
   }
 
@@ -586,11 +596,12 @@ class _ClientShellState extends State<ClientShell> {
                   if (bar) _activeBar(),
                 ]))),
         bottomNavigationBar: _bottomBar(items));
-    // Back minimizes the open workout instead of closing it.
+    // Back minimizes the open active workout instead of closing it.
+    final minimizable = open && !_sessionFinalized;
     return PopScope(
-        canPop: !open,
+        canPop: !minimizable,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && open) setState(() => _minimized = true);
+          if (!didPop && minimizable) setState(() => _minimized = true);
         },
         child: Stack(fit: StackFit.expand, children: [
           ExcludeSemantics(excluding: open, child: shell),

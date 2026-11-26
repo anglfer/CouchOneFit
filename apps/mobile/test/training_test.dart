@@ -10,6 +10,7 @@ import 'package:couchonefit_mobile/features/training/models/training_progress.da
 import 'package:couchonefit_mobile/features/training/services/training_service.dart';
 import 'package:couchonefit_mobile/features/training/screens/client_shell.dart';
 import 'package:couchonefit_mobile/features/training/screens/progress_tab.dart';
+import 'package:couchonefit_mobile/features/training/screens/session_summary_screen.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_session_screen.dart';
 import 'package:couchonefit_mobile/features/training/screens/training_views.dart';
 import 'package:couchonefit_mobile/features/training/widgets/muscle_map.dart';
@@ -1035,5 +1036,268 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Bloque corporal de seguimiento'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'finishing inside ClientShell closes the session, freezes summary duration and refreshes home',
+      (tester) async {
+    Map<String, Object?>? savedSession;
+    final handler = routed(() => {...fixture(), 'session': savedSession});
+    final service = TrainingService(
+      apiClient: api((request) async {
+        if (request.method == 'POST' &&
+            request.path == '/api/me/training-sessions') {
+          savedSession = {
+            'id': request.body!['id'],
+            'revision': 1,
+            'status': 'finalized',
+            'results': request.body!['results'],
+          };
+          return ApiHttpResponse(
+              statusCode: 200, body: {'session': savedSession});
+        }
+        if (request.path.startsWith('/api/me/training-history')) {
+          final base = historyFixture();
+          final sessions = List<Object?>.from(base['sessions'] as List);
+          if (savedSession != null) {
+            sessions.insert(0, session('2026-11-04', 0, 12));
+          }
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: {'sessions': sessions, 'nextOffset': null},
+          );
+        }
+        return handler(request);
+      }),
+    );
+
+    await tester.pumpWidget(host(
+        ClientShell(
+            profile: profile, service: service, account: const Text('Cuenta')),
+        Brightness.light));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Empezar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrainingSessionScreen), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Finalizar entrenamiento'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionSummaryScreen), findsOneWidget);
+    expect(find.text('¡Entrenamiento completado!'), findsOneWidget);
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+    expect(tester.takeException(), isNull);
+    expect(find.text('0:00'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Listo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Listo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SessionSummaryScreen), findsNothing);
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+    expect(find.text('Registrado'), findsOneWidget);
+    expect(find.text('Ver o corregir registro'), findsOneWidget);
+  });
+
+  testWidgets(
+      'reopening a finalized session in ClientShell does not tick duration and closes cleanly on correction or back',
+      (tester) async {
+    var savedSession = <String, Object?>{
+      'id': 'session-today',
+      'revision': 1,
+      'status': 'finalized',
+      'results': [
+        {
+          'setId': 'set',
+          'state': 'performed',
+          'reps': 12,
+          'loadKg': 0.0,
+          'rpe': null,
+          'rir': null,
+        }
+      ],
+    };
+    final handler = routed(() => {...fixture(), 'session': savedSession});
+    final service = TrainingService(
+      apiClient: api((request) async {
+        if (request.method == 'POST' &&
+            request.path == '/api/me/training-sessions') {
+          savedSession = {
+            'id': request.body!['id'],
+            'revision': (savedSession['revision'] as int) + 1,
+            'status': 'finalized',
+            'results': request.body!['results'],
+          };
+          return ApiHttpResponse(
+              statusCode: 200, body: {'session': savedSession});
+        }
+        if (request.path.startsWith('/api/me/training-history')) {
+          final base = historyFixture();
+          final sessions = List<Object?>.from(base['sessions'] as List)
+            ..insert(0, session('2026-11-04', 0, 12));
+          return ApiHttpResponse(
+            statusCode: 200,
+            body: {'sessions': sessions, 'nextOffset': null},
+          );
+        }
+        return handler(request);
+      }),
+    );
+
+    await tester.pumpWidget(host(
+        ClientShell(
+            profile: profile, service: service, account: const Text('Cuenta')),
+        Brightness.dark));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ver o corregir registro'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrainingSessionScreen), findsOneWidget);
+    expect(find.text('Duración'), findsNothing);
+    expect(find.text('Estado'), findsOneWidget);
+    expect(find.text('Finalizado'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+
+    await tester.tap(find.text('Ver o corregir registro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Cerrar registro'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+
+    await tester.tap(find.text('Ver o corregir registro'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('reps-set')), '14');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Corregir'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrainingSessionScreen), findsNothing);
+    expect(find.text('Entrenamiento en curso'), findsNothing);
+    expect(find.text('Corrección guardada.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'finalizing with pending sets or server error scrolls to top and shows SnackBar feedback',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var attempts = 0;
+    final service = TrainingService(
+      apiClient: api((request) async {
+        attempts++;
+        if (attempts == 1) {
+          return const ApiHttpResponse(statusCode: 503, body: {
+            'error': {'code': 'SERVICE_UNAVAILABLE', 'message': 'Sin conexión'}
+          });
+        }
+        return ApiHttpResponse(statusCode: 200, body: {
+          'session': {
+            'id': request.body!['id'],
+            'revision': 1,
+            'status': 'finalized',
+            'results': request.body!['results'],
+          }
+        });
+      }),
+    );
+
+    await tester.pumpWidget(host(
+        TrainingSessionScreen(
+          contextData: TrainingContext(fixture()),
+          service: service,
+        ),
+        Brightness.light));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Finalizar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text(
+          'Marca cada serie como hecha o «No la hice» antes de finalizar.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(TrainingSessionScreen), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Finalizar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text('Sin conexión'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(TrainingSessionScreen), findsOneWidget);
+
+    await tester.tap(find.text('Finalizar entrenamiento'));
+    await tester.pumpAndSettle();
+    expect(find.text('¡Entrenamiento completado!'), findsOneWidget);
+  });
+
+  testWidgets('completing the last set cancels any active rest timer',
+      (tester) async {
+    final raw = fixture();
+    final exercise = ((((raw['plan'] as Map)['days'] as List).first
+            as Map)['exercises'] as List)
+        .first as Map;
+    exercise['loadMode'] = 'external';
+    final sets = exercise['sets'] as List;
+    (sets.first as Map)['targetLoadKg'] = 40;
+    sets.add(<String, Object?>{...(sets.first as Map), 'id': 'set-2'});
+
+    await tester.pumpWidget(host(
+        TrainingSessionScreen(
+          contextData: TrainingContext(raw),
+          settings: const AppSettings(),
+          service: TrainingService(
+            apiClient: api((_) async => const ApiHttpResponse(statusCode: 200)),
+          ),
+        ),
+        Brightness.dark));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('rest-left')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('check-set-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('check-set-2')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('rest-left')), findsNothing);
+    expect(find.text('Finalizar entrenamiento'), findsOneWidget);
   });
 }
