@@ -26,6 +26,8 @@ function startServer({ apiDir, tsxCli, env, logFile }) {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
+    // Own process group on Linux/macOS so killTree also stops tsx's grandchild.
+    detached: process.platform !== 'win32',
   });
   child.stdout.pipe(log, { end: false });
   child.stderr.pipe(log, { end: false });
@@ -325,7 +327,11 @@ export async function runLoadSuite({
     const killedAt = performance.now();
     killTree(server);
     if (server.exitCode === null) {
-      await new Promise((resolve) => server.once('close', resolve));
+      // Bounded: a surviving grandchild must fail the drill, not hang CI 40 min.
+      await Promise.race([
+        new Promise((resolve) => server.once('close', resolve)),
+        sleep(15_000),
+      ]);
     }
     await sleep(3000);
     let stillUp = false;

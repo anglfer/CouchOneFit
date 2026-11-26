@@ -12,7 +12,13 @@ export function killTree(child) {
       stdio: 'ignore',
     });
   } else {
-    child.kill('SIGKILL');
+    // tsx runs the server in a grandchild that keeps the pipes open; a child
+    // spawned with `detached` leads its own group, so kill the whole group.
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      child.kill('SIGKILL');
+    }
   }
 }
 

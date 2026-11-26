@@ -576,8 +576,17 @@ acceso a nada más. No hay secretos en los *workflows*.
   diseñó. Corrección: `flutter analyze --no-fatal-infos`, que sigue fallando
   ante *warnings* y errores; migrar a `material_ui` queda como tarea aparte.
   Las acciones `@v4` funcionan, aunque GitHub avisa que fuerzan Node 24.
-- **Corrida completa en GitHub pendiente** de un nuevo *push* con esa
-  corrección.
+- **CI colgado en la suite `load` (corregido el 26-nov-2026).** Desde
+  `7d36f79`, cada corrida de `ci.yml` pasaba quality, api, web y mobile
+  (38/38, 275/275, 182/182 y 129 en `45853430412`, T) y se quedaba sin salida
+  en `load` hasta que GitHub la cancelaba a los 40 min. Causa: `tsx` ejecuta la
+  API en un proceso nieto que hereda stdout/stderr. En Linux, `killTree` solo
+  mataba al hijo, el nieto mantenía abiertas las tuberías y el simulacro de
+  reinicio esperaba un `close` que nunca llegaba. En Windows `taskkill /T` mata
+  el árbol, por eso en local no fallaba. Corrección: la API de la suite corre en
+  su propio grupo de procesos (`detached`), `killTree` mata el grupo y la espera
+  tiene un límite de 15 s. `tests/process.test.mjs` reproduce el caso del nieto
+  y se ejecuta en Linux dentro del CI.
 - **Historial de producción corto.** §12.4 conserva el primer resultado del
   sondeo anterior, con cuatro destinos en `SYNTHETIC_TARGETS`. Los objetivos
   del módulo integral necesitan evidencia acumulada tras la activación.
@@ -1083,6 +1092,24 @@ sesión de administrador local y su alta es operación del custodio
 3. **Lectura de un SLI incumplido:** primero los valores atribuibles y la
    bitácora (ventanas, incidentes de proveedor); después el explorador de logs
    filtrado por la ruta de la función.
+
+### 18.7.2 Herramientas externas evaluadas (26-nov-2026)
+
+El SLA exige sondeos cada 30 min desde fuera de Render y Vercel, que no impidan
+el reposo, con evidencia conservada 12 meses y recalculable (§8.1). Ninguna
+herramienta gratuita cubre todo eso, así que la evidencia sigue en la base de
+datos propia y las herramientas externas solo complementan:
+
+| Herramienta (plan gratuito) | Qué aporta | Por qué no sustituye al monitor propio |
+| --- | --- | --- |
+| cron-job.org | Disparo fiable cada 30 min del workflow (§18.4) | Solo dispara; es el complemento necesario |
+| UptimeRobot | Hasta 50 monitores HTTP y de palabra clave | Intervalo fijo de 5 min (mantendría despierta la instancia de Render), retención de meses y uso comercial restringido según varias fuentes |
+| Checkly Hobby | ~10 000 ejecuciones de API y ~1 000 de navegador (Playwright) al mes, alertas | Retención de 7 a 30 días; sus resultados no llegan a la bitácora del SLA |
+| Grafana Cloud Synthetic Monitoring | 100 000 ejecuciones de API y 10 000 de navegador (k6) al mes | Retención corta en el plan gratuito; otra cuenta y otro panel |
+| Playwright (o Selenium) | Recorridos E2E de navegador | Dependencia nueva; conviene en CI contra el entorno local, no como fuente del SLA |
+
+Las cifras de los planes salen de sitios de terceros y cambian; hay que
+confirmarlas en la página de cada proveedor antes de contratar.
 
 ### 18.8 Limitaciones
 

@@ -61,6 +61,11 @@
         "type": "integración",
         "requirements": ["RNF10", "RNF15"]
       },
+      "tests/process.test.mjs": {
+        "module": "Herramientas de calidad (procesos de las suites)",
+        "type": "regresión",
+        "requirements": ["TT-007"]
+      },
       "tests/report-operation.test.mjs": {
         "module": "Herramientas de calidad (bitácora SLA automatizada)",
         "type": "unitaria",
